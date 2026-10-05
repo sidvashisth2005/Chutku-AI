@@ -296,16 +296,23 @@ class Hud(threading.Thread):
         except queue.Empty:
             pass
         if self.visible:
-            try:
-                state = self.status()
-            except Exception as error:
-                state = {"phase": "error", "message": str(error)}
+            now = time.monotonic()
+            # The animation redraws every frame; the status behind it (a file check, the session) 5 times a second.
+            if getattr(self, "_status_at", 0.0) + 0.2 <= now or getattr(self, "_status", None) is None:
+                try:
+                    self._status = self.status()
+                except Exception as error:
+                    self._status = {"phase": "error", "message": str(error)}
+                self._status_at = now
+            state = self._status
             self._draw(state)
             self._fade()
             self._auto_hide(state)
             self._watch_outside_click()
+        else:
+            self._status = None   # fresh status the moment it shows again
         self.frame += 1
-        self.root.after(40, self._tick)
+        self.root.after(40 if self.visible else 100, self._tick)   # hidden: only waits for "show"
 
     def _fade(self):
         alpha = min(1.0, (time.monotonic() - self.shown_at) / 0.18)

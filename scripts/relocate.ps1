@@ -40,7 +40,9 @@ Step "move '$Source' -> '$Target'"
 if (-not $DryRun) {
     try { Move-Item -LiteralPath $Source -Destination $Target -ErrorAction Stop }
     catch {
-        Get-ScheduledTask -TaskPath '\Chutku\' -ErrorAction SilentlyContinue | Select-Object -First 1 | Start-ScheduledTask   # leave Chutku running as it was
+        # leave Chutku running as it was (the logon task only: starting a Reminder-* task would fire that reminder)
+        Get-ScheduledTask -TaskPath '\Chutku\' -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -notlike 'Reminder-*' } |
+            Select-Object -First 1 | Start-ScheduledTask
         throw "Move failed, nothing changed (close VS Code / terminals using the folder, then re-run): $($_.Exception.Message)"
     }
     $python = Join-Path $Target '.venv\Scripts\python.exe'
@@ -66,13 +68,20 @@ with c:
     if ($script:PyExit) { throw "Grant rewrite failed." }
 }
 
-# 4. Logon task \Chutku\.
-$task = Get-ScheduledTask -TaskPath '\Chutku\' -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($task) {
+# 4. Every task in \Chutku\: the logon task AND each reminder (their arguments hold the project path too).
+foreach ($task in @(Get-ScheduledTask -TaskPath '\Chutku\' -ErrorAction SilentlyContinue)) {
     Step "re-point scheduled task \Chutku\$($task.TaskName)"
     if (-not $DryRun) {
         $actions = foreach ($a in $task.Actions) {
-            New-ScheduledTaskAction -Execute ($a.Execute.Replace($Source, $Target)) -Argument $a.Arguments -WorkingDirectory ($a.WorkingDirectory.Replace($Source, $Target))
+            $arguments = if ($a.Arguments) { $a.Arguments.Replace($Source, $Target) } else { $null }
+            $directory = if ($a.WorkingDirectory) { $a.WorkingDirectory.Replace($Source, $Target) } else { $null }
+            if ($arguments -and $directory) {
+                New-ScheduledTaskAction -Execute ($a.Execute.Replace($Source, $Target)) -Argument $arguments -WorkingDirectory $directory
+            } elseif ($arguments) {
+                New-ScheduledTaskAction -Execute ($a.Execute.Replace($Source, $Target)) -Argument $arguments
+            } else {
+                New-ScheduledTaskAction -Execute ($a.Execute.Replace($Source, $Target))
+            }
         }
         Set-ScheduledTask -TaskPath '\Chutku\' -TaskName $task.TaskName -Action $actions | Out-Null
     }

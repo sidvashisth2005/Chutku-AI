@@ -103,15 +103,29 @@ $xml.LoadXml('<toast><visual><binding template="ToastGeneric"><text/><text/></bi
 $texts = $xml.GetElementsByTagName('text')
 $texts.Item(0).AppendChild($xml.CreateTextNode([string]$m.title)) | Out-Null
 $texts.Item(1).AppendChild($xml.CreateTextNode([string]$m.message)) | Out-Null
-$app = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($app).Show([Windows.UI.Notifications.ToastNotification]::new($xml))
+''' + r'''
+# Toasts carry Chutku's own name: a per-user app identity (HKCU, the standard way for desktop apps), made once.
+$aumid = 'Chutku.Assistant'
+$key = 'HKCU:\Software\Classes\AppUserModelId\' + $aumid
+if (-not (Test-Path $key)) {
+  New-Item -Path $key -Force | Out-Null
+  New-ItemProperty -Path $key -Name DisplayName -Value 'Chutku' -PropertyType String -Force | Out-Null
+}
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($aumid).Show([Windows.UI.Notifications.ToastNotification]::new($xml))
 '''
+TOAST_SHOW = _TOAST[_TOAST.index("# Toasts carry"):]   # reused by the reminder toast (chutku/remind.py)
+
+
+def powershell_exe():
+    """The real Windows PowerShell, never whatever "powershell" is first on PATH."""
+    import os
+    return str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe")
 
 
 def notify(title, message):
     """Show a Windows toast. The text travels on stdin as JSON, never inside the script."""
     encoded = base64.b64encode(_TOAST.encode("utf-16-le")).decode("ascii")
-    done = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
+    done = subprocess.run([powershell_exe(), "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
                           input=json.dumps({"title": "Chutku · " + title, "message": message}), text=True,
                           encoding="utf-8", errors="replace", capture_output=True, timeout=30,
                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False)

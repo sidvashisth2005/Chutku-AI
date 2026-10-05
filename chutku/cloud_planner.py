@@ -1,11 +1,18 @@
 """Gemini as a secondary agent planner (owner decision 2026-09-30).
 
-Used only when the local planner fails or cannot decide, the `cloud.gemini`
-capability is granted, and an API key is available (environment variable or
-Windows Credential Manager). Only the goal, the tool catalog and redacted step
-summaries leave the machine: never observed data, file contents, screenshots,
-clipboard or memories. Its proposal passes the same validation and policy as a
-local one, so it cannot authorize anything by itself.
+Used when the `cloud.gemini` capability is granted and an API key is available (environment variable or Windows
+Credential Manager): as the backup when the local planner fails or cannot decide, and as the leader of long tasks.
+
+What leaves the machine (`cloud_view`), per the owner's decisions of 2026-10-01 and 2026-10-04:
+- the goal, the tool catalog and step summaries with sensitive arguments redacted;
+- results of the allowlisted tools in SHAREABLE_PREFIXES: public web data, system status, file *names*,
+  build results, and what was on screen (the owner allowed screenshots to Gemini);
+- the small memory slice related to the goal (`about_you`, at most 800 characters).
+Never sent: file contents, clipboard, chat messages, typed text. "Private" in agent_loop.PRIVATE_TOOLS is a
+different rule: after such a read, a *network request built by the agent* needs a click, because a URL could leak
+it; Gemini is an approved recipient, an arbitrary URL is not.
+
+Its proposal passes the same validation and policy as a local one, so it cannot authorize anything by itself.
 """
 from __future__ import annotations
 
@@ -231,7 +238,11 @@ def fallback_planner(base=PROJECT_ROOT):
             runtime.current_capability("cloud.gemini")
         key = api_key()
         gemini = GeminiAgentPlanner(key) if key else None
+    except ValueError:
+        gemini = None   # cloud.gemini is not granted: the normal case without Gemini
     except Exception:
+        from chutku.core.log import get_logger
+        get_logger("cloud").exception("Gemini planner could not be prepared; using the local backup")
         gemini = None
     strong = strong_service(base)
     if gemini is None and strong is None:

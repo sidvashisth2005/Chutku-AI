@@ -74,13 +74,39 @@ def inspect_foundation(base):
     chain = ActionLog(base / "data" / "actions.log.jsonl").verify()
     add("Action log", chain["ok"], f"Hash chain intact ({chain['entries']} entries)" if chain["ok"] else
         f"Hash chain broken at entry {chain['broken_at']}: the log was edited, truncated or damaged; preserve it")
-    for package in ("numpy", "sounddevice"):
+    optional = {"numpy": "audio", "sounddevice": "audio", "faster-whisper": "offline speech recognition",
+                "websockets": "the live voice conversation", "playwright": "browser automation",
+                "pypdf": "reading PDF files"}
+    for package, purpose in optional.items():
         try:
             add(package, True, metadata.version(package), required=False)
         except metadata.PackageNotFoundError:
-            add(package, False, "Optional audio dependency is missing; deterministic text commands remain available", required=False)
+            add(package, False, f"Missing: {purpose} will not work; everything else still does", required=False)
+    try:
+        import tkinter  # noqa: F401  (the HUD)
+        add("tkinter", True, "HUD available", required=False)
+    except ImportError:
+        add("tkinter", False, "Missing: the HUD will not show; the dashboard still works", required=False)
     model_ready = (base / "models/Qwen3-4B-Q4_K_M.gguf").is_file() and (base / "vendor/llama-b11181/llama-server.exe").is_file()
     add("Local model artifacts", model_ready, "Presence only; integrity/inference require separate verification", required=False)
+    try:
+        manifest = json.loads((base / "models/manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        manifest = {}
+    extras = {"stt": ("Offline speech (Whisper)", "directory"), "strong": ("Offline backup planner (8B)", "path"),
+              "vision": ("Local vision model", None), "gpu_runtime": ("GPU model runtime", "directory")}
+    for key, (label, field) in extras.items():
+        entry = manifest.get(key)
+        if not isinstance(entry, dict):
+            add(label, False, "Not set up (optional); scripts/setup_all.py reports how to add it", required=False)
+            continue
+        if field is None:
+            present = all((base / str((entry.get(part) or {}).get("path", "")).replace("\\", "/")).is_file()
+                          for part in ("model", "mmproj"))
+        else:
+            present = (base / str(entry.get(field, "")).replace("\\", "/")).exists()
+        add(label, present, "Present (presence only; scripts/setup_all.py checks the hashes)" if present else
+            "Missing files; run scripts/setup_all.py", required=False)
     return {"project": str(base), "python": sys.executable,
             "ready": all(c["ready"] for c in checks if c["required"]), "checks": checks,
             "actions_paused": (base / "data/actions.paused").exists(),

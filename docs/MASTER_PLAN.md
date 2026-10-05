@@ -343,35 +343,35 @@ Each fix gets one test, in `tests/test_quick_intents.py` or `tests/test_real_ses
 - **Negative:** "Sí, un poco" fed to `handle()` in a test → no task.
 
 ## S9: Efficiency, packaging, logging
-- [ ] **New `chutku/core/log.py`:**
+- [x] **New `chutku/core/log.py`:**
   - `get_logger(name)` → `RotatingFileHandler(data/logs/chutku.log, 2 MB × 5, utf-8)`.
   - A redaction filter masks the values of text/content/message/arguments/phone/token/key fields, plus long token-like strings.
   - Replace the silent `except Exception: pass` blocks at `brain_service.py:80`, `cloud_planner.py:234`, `dashboard.py:65/119/168/196/273`, `suggest.py:185`, `tray.py:122/151` with `log.exception`, keeping the same fallback.
   - A 500 reply carries an `error_id`, and the same id appears in the log line.
-- [ ] **Dashboard GETs:** reuse one Runtime per server thread (`threading.local`, created on first GET) instead of `with create_runtime(...)` on every request.
+- [x] **Dashboard GETs:** reuse one Runtime per server thread (`threading.local`, created on first GET) instead of `with create_runtime(...)` on every request.
   - Mutations keep fresh runtimes.
   - Close the per-thread runtimes on shutdown and in `stop_everything`.
-- [ ] **Evidence cache.** `evidence.read_evidence` caches `source_digest` under the key (max mtime_ns, file count), gathered with `os.scandir`. It recomputes only when the key changes.
-- [ ] **HUD** (`hud.py _tick`):
+- [x] **Evidence cache.** `evidence.read_evidence` caches `source_digest` under the key (max mtime_ns, file count), gathered with `os.scandir`. It recomputes only when the key changes.
+- [x] **HUD** (`hud.py _tick`):
   - redraw only when the phase, text, level or an animation changed;
   - tick every 250 ms when hidden and idle;
   - cache the `actions.paused` check for 1 s.
-- [ ] **OCR worker** (`tools/documents.py` ~111): one persistent reader thread plus a queue, instead of a thread per line.
-- [ ] **Screen click waits** (`screen_vision.py` ~120/146): poll every 0.15 s until the clicked region changes, capped at today's fixed waits.
-- [ ] **Packaging:**
+- [x] **OCR worker** (`tools/documents.py` ~111): one persistent reader thread plus a queue, instead of a thread per line.
+- [x] **Screen click waits** (`screen_vision.py` ~120/146): poll every 0.15 s until the clicked region changes, capped at today's fixed waits.
+- [x] **Packaging:**
   - add `websockets==15.0.1` to `pyproject.toml` and `requirements.lock`;
   - dedupe `numpy`;
   - add a `[build-system]` with setuptools;
   - keep `hypothesis` and add `tests/test_paths_property.py`: random path strings under protected zones are always refused.
-- [ ] **Setup scripts:**
+- [x] **Setup scripts:**
   - `scripts/setup_local_brain.py` merges into the existing manifest instead of overwriting it.
   - New `scripts/setup_all.py` downloads every manifest entry whose file is missing, using its source and sha256, with hash checks.
-- [ ] **`doctor.py`** also checks the Whisper folder hash, VL + mmproj, 8B, websockets, playwright and tkinter. Missing optional items are WARN.
-- [ ] **PowerShell path.** `autostart.py:22`, `health.py:114` and `remind.py:42` use the absolute System32 PowerShell path (the pattern in `processes._snapshot`).
-- [ ] **Toast identity.** Register the AppUserModelID "Chutku" (`HKCU\Software\Classes\AppUserModelId\Chutku` with `DisplayName`), and use it in `health.notify` and `remind`.
-- [ ] **`scripts/relocate.ps1`:** update every task under `\Chutku\`.
-- [ ] **Unused models** (Qwen3-0.6B 639 MB, Qwen3-4B-Instruct-2507 2.5 GB): list them in the ledger as "delete on owner approval". Do not delete.
-- [ ] **Stale docstrings:**
+- [x] **`doctor.py`** also checks the Whisper folder hash, VL + mmproj, 8B, websockets, playwright and tkinter. Missing optional items are WARN.
+- [x] **PowerShell path.** `autostart.py:22`, `health.py:114` and `remind.py:42` use the absolute System32 PowerShell path (the pattern in `processes._snapshot`).
+- [x] **Toast identity.** Register the AppUserModelID "Chutku" (`HKCU\Software\Classes\AppUserModelId\Chutku` with `DisplayName`), and use it in `health.notify` and `remind`.
+- [x] **`scripts/relocate.ps1`:** update every task under `\Chutku\`.
+- [x] **Unused models** (Qwen3-0.6B 639 MB, Qwen3-4B-Instruct-2507 2.5 GB): list them in the ledger as "delete on owner approval". Do not delete.
+- [x] **Stale docstrings:**
   - `vision.py`: the temp OCR image is deleted after reading.
   - `screen_vision.py`: local vision first.
   - `cloud_planner.py:4-8`: the exact list of what Gemini receives.

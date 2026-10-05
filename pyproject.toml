@@ -1,9 +1,14 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "chutku"
 version = "0.1.0"
 description = "Local-first, policy-gated Windows agent runtime"
 requires-python = ">=3.11"
-dependencies = ["numpy==2.5.3", "sounddevice==0.5.6", "playwright==1.63.0", "faster-whisper==1.2.1", "pypdf==6.19.0"]
+dependencies = ["numpy==2.5.3", "sounddevice==0.5.6", "playwright==1.63.0", "faster-whisper==1.2.1", "pypdf==6.19.0",
+                "websockets==15.0.1"]
 
 [project.optional-dependencies]
 test = ["hypothesis==6.168.3"]
@@ -13,3 +18,9 @@ chutku = "chutku.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["chutku*"]   # scripts/, tests/ and benchmarks/ are not part of the package
+
+[tool.setuptools.package-data]
+chutku = ["web/*"]

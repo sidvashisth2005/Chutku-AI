@@ -183,4 +183,5 @@ def watch(base, stop_event, interval=600):
                 last_habits = time.time()
             maybe_toast(base)
         except Exception:
-            pass
+            from chutku.core.log import get_logger
+            get_logger("suggest").exception("suggestion check failed")

@@ -120,6 +120,8 @@ class Tray(threading.Thread):
         try:
             return bool(function())
         except Exception:
+            from chutku.core.log import get_logger
+            get_logger("tray").exception("tray action failed")
             return False
 
     def _run_action(self, command):
@@ -149,4 +151,5 @@ def _quietly(action):
     try:
         action()
     except Exception:
-        pass
+        from chutku.core.log import get_logger
+        get_logger("tray").exception("tray action failed")

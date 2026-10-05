@@ -63,7 +63,7 @@ def speak_result(session, router):
     try:
         router.default.run("voice.speak", {"text": text[:200]}, provenance="tool_observed")
     except Exception:
-        pass  # the answer is still shown on screen
+        _log().exception("spoken answer failed")  # the answer is still shown on screen
 
 
 class DashboardServer(ThreadingHTTPServer):
@@ -117,7 +117,7 @@ class DashboardServer(ThreadingHTTPServer):
                 with create_runtime(self.base) as runtime:
                     prime(runtime, self.planners()[0])
             except Exception:
-                pass  # the first real request starts (or reports) the model
+                _log().warning("warming the local model failed", exc_info=True)  # the first request retries
         threading.Thread(target=work, name="chutku-brain-prime", daemon=True).start()
 
     def start_agent_work(self, session, action, *, queue=True):
@@ -275,7 +275,7 @@ class DashboardServer(ThreadingHTTPServer):
             with create_runtime(self.base) as runtime:
                 runtime.run("voice.speak", {"text": text[:200]}, provenance="tool_observed")
         except Exception:
-            pass
+            _log().exception("speaking failed")
 
     def _wait_for(self, session, seconds=240):
         """Follow a voice task; each step that needs approval is asked out loud and answered by voice."""
@@ -327,6 +327,7 @@ class DashboardServer(ThreadingHTTPServer):
             with create_runtime(self.base) as runtime:
                 heard = runtime.run("voice.listen_command", {})
         except Exception:
+            _log().exception("listening for an answer failed")
             return ""
         finally:
             if wake is not None and not getattr(wake, "handling", False):
@@ -598,7 +599,7 @@ class DashboardServer(ThreadingHTTPServer):
                 from chutku.voice import whisper_stt
                 whisper_stt._load(self.base)
             except Exception:
-                pass   # the first real transcription loads it (or reports why it can't)
+                _log().warning("preloading Whisper failed", exc_info=True)   # the first transcription retries
         threading.Thread(target=work, name="chutku-whisper-preload", daemon=True).start()
 
     def apply_wake(self, enabled):
@@ -765,6 +766,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._reply(403, {"error": "Open the complete dashboard link printed by Chutku, including its session token."})
             return
         try:
+            # The polled endpoints only read in-memory sessions: no runtime (5 databases, 148 tools) per poll.
+            if parts.path == "/api/agent/latest":
+                self._reply(200, {"id": self.server.latest_session_id, "handsfree": self.server.handsfree_status()})
+                return
+            if parts.path == "/api/agent/session":
+                session = self.server.agent_sessions.get(parse_qs(parts.query).get("id", [""])[0])
+                self._reply(200, {"session": session.snapshot()})
+                return
             with create_runtime(self.server.base) as runtime:
                 if parts.path == "/api/state":
                     from chutku.evidence import read_evidence
@@ -813,7 +822,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except ValueError as error:
             response = (404, {"error": str(error)})
         except Exception:
-            response = (500, {"error": "Could not read local state. Check that the data directory is writable."})
+            ref = _error_ref("GET " + parts.path)
+            response = (500, {"error": "Could not read local state. Check that the data directory is writable.",
+                              "error_id": ref})
         self._reply(*response)
 
     def do_POST(self):
@@ -987,7 +998,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except (ValueError, KeyError) as error:
             response = (400, {"error": str(error)})
         except Exception:
-            response = (500, {"error": "The action could not finish. Inspect history before retrying; completed steps may remain."})
+            ref = _error_ref("POST " + path)
+            response = (500, {"error": "The action could not finish. Inspect history before retrying; completed steps "
+                                       "may remain.", "error_id": ref})
         finally:
             self.server.action_started = None
             self.server.action_lock.release()
@@ -1011,6 +1024,19 @@ def _mode(data):
     if mode not in {m.value for m in AutonomyMode}:
         raise ValueError("Choose review, auto_safe, auto_edits or owner.")
     return mode
+
+
+def _log():
+    from chutku.core.log import get_logger
+    return get_logger("dashboard")
+
+
+def _error_ref(where):
+    """Log the current exception with a short id that the owner sees next to the error."""
+    from chutku.core.log import error_id
+    ref = error_id()
+    _log().exception("error %s in %s", ref, where)
+    return ref
 
 
 def message_for_person(tool, message):
@@ -1079,7 +1105,8 @@ def _agent_post(self, path, data):
     except (ValueError, KeyError) as error:
         return 400, {"error": str(error)}
     except Exception:
-        return 500, {"error": "The request could not be started. Inspect Activity before retrying."}
+        return 500, {"error": "The request could not be started. Inspect Activity before retrying.",
+                     "error_id": _error_ref("agent " + path)}
 
 
 DashboardHandler._agent_post = _agent_post

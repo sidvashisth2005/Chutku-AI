@@ -19,7 +19,8 @@ _LEGACY = Path(os.environ.get("APPDATA", "")) / "Microsoft/Windows/Start Menu/Pr
 
 
 def _ps(script):
-    return subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script], capture_output=True,
+    from chutku.health import powershell_exe
+    return subprocess.run([powershell_exe(), "-NoProfile", "-NonInteractive", "-Command", script], capture_output=True,
                           text=True, timeout=60, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
 
 

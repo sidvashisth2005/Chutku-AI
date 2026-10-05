@@ -14,7 +14,6 @@ tokenizers==0.23.2
 huggingface_hub==1.32.0
 av==18.1.0
 onnxruntime==1.30.0
-numpy==2.5.3
 PyYAML==6.0.3
 tqdm==4.70.1
 filelock==4.0.1
@@ -37,3 +36,5 @@ pypdf==6.19.0
 # Test-only (added 2026-10-01 for property-based path-guard tests; not needed at runtime).
 hypothesis==6.168.3
 sortedcontainers==2.4.0
+# Live voice conversation (Gemini Live websocket; was imported but not pinned until 2026-10-06).
+websockets==15.0.1

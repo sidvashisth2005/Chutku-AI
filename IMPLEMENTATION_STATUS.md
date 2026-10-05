@@ -16,6 +16,52 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S9 — efficiency, packaging, logging; live redeploy of S1–S9
+
+**Logging**
+- New `core/log.py`: `data/logs/chutku.log`, rotated 5 × 2 MB, with a redaction filter (message/typed text, phone numbers, tokens and keys never reach the file). Tests write nowhere.
+- The silent `except Exception: pass` blocks on hot paths now log, with unchanged fallbacks:
+  - spoken answers and speaking;
+  - listening for an answer;
+  - brain warm-up and Whisper preload;
+  - Gemini planner preparation (an ungranted Gemini is still silent, as normal);
+  - suggestions; tray actions.
+- Dashboard 500 replies carry an `error_id`; the details are written next to the same id in the log, not on the page.
+
+**Efficiency**
+- The polled `/api/agent/latest` and `/api/agent/session` no longer build a runtime (5 databases, 148 tools). Live: **3.2 ms median** over 20 polls.
+- The `read_evidence` digest is cached on file sizes and mtimes: 33 ms → 13–14 ms warm, with an identical digest.
+- HUD: status fetched 5×/s instead of 25×/s while visible; ticks every 100 ms while hidden.
+- Screen clicks finish as soon as the screen changes, capped at the old 0.9 s.
+- `/api/state` measured at 189 ms live. It is loaded with the page and after tasks, not polled, so it was left as is.
+- The audit's "OCR worker leaks a thread on timeout" is not real: `stop()` kills the worker, which ends the reader thread.
+
+**Packaging and setup**
+- `websockets==15.0.1` added to `pyproject.toml` and `requirements.lock` (it was imported by Live voice but unpinned); the duplicate numpy pin removed.
+- `[build-system]` plus package discovery limited to `chutku*` (with `web/*` data).
+- `hypothesis` now has its property test: `tests/test_paths_property.py`, 250 generated paths inside the protected zones and case variants, all refused.
+- `scripts/setup_local_brain.py` **merges** into `models/manifest.json`; it used to erase the stt/vision/strong/gpu_runtime entries.
+- New `scripts/setup_all.py`: checks every pinned artifact by hash and, with `--download`, restores missing single-file models (resumable, hash-checked). On this PC: **6/6 artifacts present and matching**, about 10 GB hashed in 12 s.
+- `doctor`: adds faster-whisper, websockets, playwright, pypdf, tkinter, and the Whisper/8B/vision/GPU-runtime presence (all OK here).
+- PowerShell runs from the absolute System32 path (`health.powershell_exe()`) in autostart, health and remind.
+- **Toasts now show as "Chutku":** a per-user AppUserModelID (`HKCU\Software\Classes\AppUserModelId\Chutku.Assistant`, DisplayName "Chutku"), created once. **Verified:** one real toast was sent, and Windows' notification history for `Chutku.Assistant` holds it (count 1).
+- `scripts/relocate.ps1`:
+  - re-points **every** task in `\Chutku\`, including reminder arguments;
+  - after a failed move it restarts only the logon task (it could pick and fire a reminder before).
+  - Both changes parse-checked.
+- Docstrings now state what Gemini really receives (`cloud_planner.py`), local-first vision (`screen_vision.py`, `vision.py`), and the temporary OCR image.
+  - "Private" (a later URL must not leak it) and "shareable with Gemini" (an owner-approved recipient) are different rules, so they were documented rather than forced apart.
+
+**Unused models** — owner decision needed, nothing deleted: `models/Qwen3-0.6B-Q8_0.gguf` (639 MB) and `models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf` (2.5 GB) are not referenced by the manifest or the code.
+
+**Tests:** `tests/test_efficiency_s9.py` (8) and `tests/test_paths_property.py` (2). **Full suite: 835 tests OK (159 s).**
+
+**Live redeploy and real path (on AC):**
+- Chutku was stopped (`control stop`), restarted through its own logon task `\Chutku\Chutku`, and resumed; the dashboard answered within 1 s.
+- `scripts/live_check.py`: **12/12 correct**, median 1.1 s.
+- One SLOW case: "2^10 vs 10 cubed" took 39.5 s. It was the first local-model call after the restart (cold 4B; S0's cold call was 46.4 s). Re-run warm: **5.0 s**, correct.
+  - Since S6 this question stays local instead of going cloud-first, because its comma no longer makes it "multi-part".
+
 ### 2026-10-06: S8 — voice fixes from the owner's real Live sessions
 
 | Real failure | Cause found | Fix |

@@ -1,10 +1,10 @@
-"""Screen vision: capture the monitor the user is working on, ask Gemini what is on it and
-where the interactive elements are, and map those back to exact screen pixels.
+"""Screen vision: capture the monitor the user is working on, ask the local vision model (Qwen3-VL; Gemini as the
+backup) what is on it and where the interactive elements are, and map those back to exact screen pixels.
 
-Owner decision (2026-10-01): screenshots may be sent to Gemini (free models) so Chutku can
-understand and act on what is on screen. Screenshots stay in memory (never written to disk
-except a tiny cropped PNG for local OCR, deleted immediately). Everything Gemini reports is
-untrusted screen content: data, never instructions.
+Owner decision (2026-10-01): screenshots may be sent to Gemini (free models) so Chutku can understand and act on
+what is on screen; since 2026-10-04 the local model answers first. Screenshots stay in memory. Local Windows OCR
+needs an image file: the region it reads (up to the whole monitor) is written to a temporary PNG and deleted right
+after. Everything a model reports is untrusted screen content: data, never instructions.
 """
 from __future__ import annotations
 

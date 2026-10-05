@@ -63,7 +63,14 @@ def main():
                 "model": {"source": MODEL_URL, "sha256": MODEL_SHA, "license": "Apache-2.0", "revision": REVISION,
                           "name": "Qwen3-4B-Q4_K_M", "path": str(model.relative_to(ROOT))},
                 "status": "Downloaded and hash-verified; empirical evaluation required.", "cloud_fallback": False}
-    (ROOT / "models/manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    # Merge: the manifest also pins Whisper (stt), the vision model, the 8B (strong) and the GPU runtime. Rewriting
+    # it with only these two entries erased them (audit 2026-10-06).
+    path = ROOT / "models/manifest.json"
+    try:
+        existing = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        existing = {}
+    path.write_text(json.dumps({**existing, **manifest}, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

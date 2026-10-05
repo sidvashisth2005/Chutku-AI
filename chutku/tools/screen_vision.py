@@ -3,7 +3,8 @@ screen.click_risky,
 screen.scroll.
 
 - screen.understand uses the screenshot taken the instant the hotkey/wake phrase fired ("what I was
-  looking at") when asked about that moment, otherwise a live capture. Needs cloud.gemini.
+  looking at") when asked about that moment, otherwise a live capture. The local vision model answers first;
+  Gemini (only with cloud.gemini) is the backup.
 - Clicks only target element ids from the latest screen.understand (no invented coordinates).
 - Before an automatic click, the element's pixels are read with local Windows OCR. If either that text
   or Gemini's label looks consequential (send, delete, pay, buy, submit, install, sign out ...), the
@@ -142,9 +143,13 @@ def _click(arguments, context, *, risky_allowed):
     with _hide_hud():
         before = vision.capture()
         vision.click_at(x, y, "right" if button == "right" else "left", double=button == "double")
-        time.sleep(0.9)
-        after = vision.capture()
-    moved = vision.changed(before, after, rect)
+        deadline = time.monotonic() + 0.9   # was a fixed 0.9 s: now done as soon as the screen visibly changes
+        while True:
+            time.sleep(0.15)
+            after = vision.capture()
+            moved = vision.changed(before, after, rect)
+            if moved or time.monotonic() >= deadline:
+                break
     output = {"clicked": element["label"], "element": element["id"], "at": [x, y], "button": button,
               "ocr_text": (local_text or "")[:120], "screen_changed": moved,
               "window_after": after.window}

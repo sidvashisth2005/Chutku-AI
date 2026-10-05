@@ -11,6 +11,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from chutku.health import TOAST_SHOW, powershell_exe  # noqa: E402  (after the path is set)
 
 _TOAST = r'''
 $ErrorActionPreference = 'Stop'
@@ -22,8 +23,7 @@ $xml.LoadXml('<toast scenario="reminder"><visual><binding template="ToastGeneric
 $texts = $xml.GetElementsByTagName('text')
 $texts.Item(0).AppendChild($xml.CreateTextNode('Chutku reminder')) | Out-Null
 $texts.Item(1).AppendChild($xml.CreateTextNode([string]$m.message)) | Out-Null
-$app = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($app).Show([Windows.UI.Notifications.ToastNotification]::new($xml))
+''' + TOAST_SHOW + r'''
 Add-Type -AssemblyName System.Speech
 $voice = New-Object System.Speech.Synthesis.SpeechSynthesizer
 $voice.Speak('Reminder. ' + [string]$m.message)
@@ -39,7 +39,7 @@ def main():
     if not entry or entry.get("fired"):
         return 0
     encoded = base64.b64encode(_TOAST.encode("utf-16-le")).decode("ascii")
-    subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
+    subprocess.run([powershell_exe(), "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
                    input=json.dumps({"message": entry["message"]}), text=True, encoding="utf-8", timeout=90,
                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False)
     with _lock:
