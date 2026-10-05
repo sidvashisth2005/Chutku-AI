@@ -149,7 +149,8 @@ def open_in_vscode(folder, entry):
     executable = vscode_executable()
     if executable is None:
         return {"opened": False, "reason": "VS Code was not found."}
-    subprocess.Popen([str(executable), "--new-window", str(folder), str(folder / entry)],
+    from chutku.core.launch import popen_user_app
+    popen_user_app([str(executable), "--new-window", str(folder), str(folder / entry)],
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                      env=vscode_env(), creationflags=_NO_WINDOW)
     try:
@@ -213,7 +214,8 @@ def check_python(folder, spec, launch):
         return [], checks, None
     beat("starting the app")
     log = tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace")
-    process = subprocess.Popen([pythonw, "-E", "-s", "-B", spec["run"]], cwd=str(folder), env=_child_env(),
+    from chutku.core.launch import popen_user_app
+    process = popen_user_app([pythonw, "-E", "-s", "-B", spec["run"]], cwd=str(folder), env=_child_env(),
                                stdin=subprocess.DEVNULL, stdout=log, stderr=log)
     try:
         window = _window_for(process.pid, 15)

@@ -24,6 +24,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FLOOR_MIN, OPEN_RATIO, SPEAKING_FLOOR, SPEAKING_RATIO = 0.008, 3.0, 0.03, 2.5
 HANGOVER_SECONDS, PREROLL_SECONDS = 0.5, 0.2
 KEEP_DAYS = 7
+_pruned_day = None
 
 
 def rms(chunk):
@@ -138,7 +139,10 @@ def log_heard(path_name, text, decision, *, level=None, confidence=None, base=No
             file.parent.mkdir(parents=True, exist_ok=True)
             with file.open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps(row, ensure_ascii=False) + "\n")
-            if file.stat().st_size > 1_000_000:
+            global _pruned_day
+            today = time.strftime("%Y-%m-%d")
+            if file.stat().st_size > 1_000_000 or _pruned_day != today:   # by age at least once a day, not only by size
+                _pruned_day = today
                 cutoff = time.time() - KEEP_DAYS * 86400
                 kept = [line for line in file.read_text(encoding="utf-8").splitlines()
                         if _at(line) >= cutoff][-5000:]
@@ -148,9 +152,13 @@ def log_heard(path_name, text, decision, *, level=None, confidence=None, base=No
 
 
 def _under_test():
+    """True inside a test run, however it was started (python -m unittest, scripts/verify_release.py ...)."""
     import os
     import sys
-    return os.environ.get("CHUTKU_HEARD_LOG") == "0" or "unittest" in str(sys.argv[0])   # "python -m unittest"
+    if os.environ.get("CHUTKU_HEARD_LOG") == "0" or "unittest" in str(sys.argv[0]):
+        return True
+    return "unittest" in sys.modules and any(name.startswith("test_") or name.startswith("tests.")
+                                             for name in list(sys.modules))
 
 
 def _at(line):

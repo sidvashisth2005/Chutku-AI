@@ -38,7 +38,8 @@ def _who(arguments, _context):
     person = mind.default().find_person(arguments["name"])
     if person is None:
         return ToolResult({"name": arguments["name"], "known": False}, Verification.PASS)
-    return ToolResult({"name": arguments["name"], "known": True, "person": person}, Verification.PASS)
+    return ToolResult({"name": arguments["name"], "known": True, "person": person}, Verification.PASS,
+                      {"known": True, "person": "[REDACTED]"})   # phone numbers stay out of the audit trail
 
 
 def _show(arguments, _context):
@@ -51,7 +52,7 @@ def _show(arguments, _context):
     elif part != "all":
         name = mind.LIST_WORDS.get(mind.norm(part), part)
         data = {"lists": {name: mind.default().load()["lists"].get(name, [])}}
-    return ToolResult({"part": part, **data}, Verification.PASS)
+    return ToolResult({"part": part, **data}, Verification.PASS, {"part": part, "content": "[REDACTED]"})
 
 
 def _forget(arguments, _context):

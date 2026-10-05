@@ -49,10 +49,8 @@ class Preferences:
         for flag in ("wake_word", "conversation", "heard_log", "offline_mode"):
             if flag in changes and type(changes[flag]) is not bool:
                 raise ValueError(f"{flag} must be true or false.")
-        values = self.load() | changes
-        with self._lock:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            temporary = self.path.with_suffix(".tmp")
-            temporary.write_text(json.dumps(values, indent=2), encoding="utf-8")
-            os.replace(temporary, self.path)
+        from chutku.core.jsonstore import lock_for, write_json
+        with lock_for(self.path):   # one lock for every Preferences object: no lost updates between threads
+            values = self.load() | changes
+            write_json(self.path, values)
         return values

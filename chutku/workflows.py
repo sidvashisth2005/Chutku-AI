@@ -52,8 +52,8 @@ def run_project(plan: dict, runtime: Runtime) -> dict:
         with runtime.execution_lock:
             return _run_project(plan, runtime)
     except ExecutionBusy as error:
-        result = runtime.run("workflow.project_setup", {})
-        return result | {"message": str(error), "steps": [], "verification": "FAIL", "target": plan.get("target")}
+        return {"state": "FAILED", "error": str(error), "message": str(error), "steps": [], "verification": "FAIL",
+                "target": plan.get("target")}
 
 
 def _run_project(plan: dict, runtime: Runtime) -> dict:

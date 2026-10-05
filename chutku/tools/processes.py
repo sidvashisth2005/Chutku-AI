@@ -128,7 +128,8 @@ def _same_path(first, second):
 
 def _launch_process(arguments, context):
     executable = _validated_executable(arguments["executable"])
-    process = subprocess.Popen([str(executable), *arguments.get("arguments", [])], shell=False,
+    from chutku.core.launch import popen_user_app
+    process = popen_user_app([str(executable), *arguments.get("arguments", [])], shell=False,
         cwd=str(executable.parent), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
     time.sleep(0.25)

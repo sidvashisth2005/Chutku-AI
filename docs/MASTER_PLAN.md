@@ -165,32 +165,32 @@
 - **Negative:** `browser.inspect` of `http://192.168.1.1` gives DENIED/FAIL.
 
 ## S4: Guard, stores and docs hygiene
-- [ ] Guard job (`guard.py` ~50): add `JOB_OBJECT_LIMIT_BREAKAWAY_OK (0x800)` to the job flags.
+- [x] Guard job (`guard.py` ~50): add `JOB_OBJECT_LIMIT_BREAKAWAY_OK (0x800)` to the job flags.
   - New helper `chutku/core/launch.py` `launch_user_app(argv, cwd)`: `subprocess.Popen` with `creationflags=CREATE_BREAKAWAY_FROM_JOB (0x01000000) | CREATE_NEW_PROCESS_GROUP`. Retry without the breakaway flag on `OSError`.
   - Use it wherever Chutku starts an app for the owner: `everyday` browser start (~723), `builder` VS Code (~152) and the finished app, `processes._launch_process`.
   - `os.startfile` paths are already brokered by the shell and don't change.
   - Chutku's own helpers (llama-server, OCR worker) keep plain Popen and stay in the job.
-- [ ] `core/event_log.py`:
+- [x] `core/event_log.py`:
   - in `__init__`, `CREATE INDEX IF NOT EXISTS events_task ON events(task_id)` and `CREATE INDEX IF NOT EXISTS events_type ON events(event_type, id)`;
   - `mark_interrupted` uses one query: the latest `task_state` per task via `MAX(id)` grouped by task_id;
   - retention: a new `archive_older_than(days=90)` copies old rows into `data/chutku-archive.db`, then deletes them from the live DB. Called from Night Shift (S20) and once at startup if the file is over 50 MB.
-- [ ] `core/action_log.py`:
+- [x] `core/action_log.py`:
   - `recent()` and `get()` read from the tail: iterate lines in reverse with a 1 MB backward window, and stop when `limit` is reached;
   - rotation at 5 MB: rename to `actions.log.<n>.jsonl`; the new file's first entry keeps `prev` = last hash and `seq` continues;
   - `verify()` walks the rotated files in order.
-- [ ] `voice/heard.py`:
+- [x] `voice/heard.py`:
   - prune by age (`KEEP_DAYS`) once per day, not only past 1 MB;
   - rows with decision `ignored` keep only `{"at", "decision", "level"}`, with no text.
-- [ ] `_under_test()` checks `os.environ.get("CHUTKU_TEST") == "1"`.
+- [x] `_under_test()` checks `os.environ.get("CHUTKU_TEST") == "1"`.
   - Add `tests/__init__.py` setting `os.environ["CHUTKU_TEST"] = "1"` and `CHUTKU_HEARD_LOG="0"`.
   - Have `scripts/verify_release.py` set both before discovery.
-- [ ] Redaction: give `mind.show`, `mind.who` and `net.check`, the window-title fields of `keyboard.keys`, and `screen.click` OCR text an `audit_output` copy with those fields as `[REDACTED]`.
-- [ ] Small fixes:
+- [x] Redaction: give `mind.show`, `mind.who` and `net.check`, the window-title fields of `keyboard.keys`, and `screen.click` OCR text an `audit_output` copy with those fields as `[REDACTED]`.
+- [x] Small fixes:
   - `network.adapter_set`: mark `user_only=True` and add "needs administrator; Chutku runs without admin, so this usually fails" to its description;
   - remove the unused `workflow.project_setup` call in `workflows.py:55` (or register it if a tool exists);
   - `core/preferences.py`, `tools/reminders.py`, `routines.py`: read-modify-write under a module lock; if the file exists but is unreadable, raise instead of treating it as empty;
   - `runtime._run`: move the first `event_log.append` inside the `try`.
-- [ ] Docs the planner reads:
+- [x] Docs the planner reads:
   - regenerate `tools/assistant.py LIMITS` text from the live registry (tool counts per risk, no stale claims);
   - rewrite `docs/SECURITY.md` from the code: the risk table, OWNER rules, cloud sharing table, protected zones, code-execution confirmation, honest limits.
   - Test `tests/test_docs_truth.py`: the LIMITS text contains the live tool count, and SECURITY.md lists every R3+/R4 tool name.

@@ -51,11 +51,8 @@ def load(base=PROJECT_ROOT):
 
 
 def save(data, base=PROJECT_ROOT):
-    path = store_path(base)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    os.replace(temporary, path)
+    from chutku.core.jsonstore import write_json
+    write_json(store_path(base), data)   # an unreadable file is copied aside, never silently replaced
 
 
 def scheduler(request):

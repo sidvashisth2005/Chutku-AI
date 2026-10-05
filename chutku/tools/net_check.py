@@ -82,7 +82,10 @@ def ping(host, count=4):
 
 
 def _check(arguments, context):
-    return ToolResult(diagnose(), Verification.PASS)
+    result = diagnose()
+    audit = {key: ("[REDACTED]" if "ip" in key.casefold() or "address" in key.casefold() else value)
+             for key, value in result.items()} if isinstance(result, dict) else None
+    return ToolResult(result, Verification.PASS, audit)   # the public IP stays out of the audit trail
 
 
 def _ping(arguments, context):

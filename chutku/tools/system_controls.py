@@ -252,10 +252,11 @@ def register_system_control_tools(registry):
         Risk.OBSERVATION, _network_status, _validate_none, required_capability="network.observe",
         argument_schema=EMPTY_ARGUMENT_SCHEMA, prerequisites=("Windows NetAdapter",), reversibility="not_applicable",
         success_predicate="bounded_physical_adapter_inventory_observed"))
-    registry.register(Tool("network.adapter_set", "Enable or disable one exact physical adapter and verify its exact state.",
+    registry.register(Tool("network.adapter_set", "Enable or disable one exact physical adapter and verify its exact state. Needs administrator rights, so it usually fails (Chutku never runs elevated).",
         Risk.DESTRUCTIVE_OR_PRIVILEGED, _network_set, _validate_adapter, required_capability="network.modify",
         argument_schema=_ADAPTER_SCHEMA, prerequisites=("administrator-approved Windows NetAdapter change",),
-        reversibility="compensatable", success_predicate="exact_adapter_identity_and_enabled_state_read_back"))
+        reversibility="compensatable", success_predicate="exact_adapter_identity_and_enabled_state_read_back",
+        user_only=True))   # needs administrator rights, which Chutku never has: only the owner can ask for it
     registry.register(Tool("network.adapter_restore", "Restore the last Chutku adapter change if no newer change occurred.",
         Risk.DESTRUCTIVE_OR_PRIVILEGED, _network_restore, _validate_none, required_capability="network.modify",
         argument_schema=EMPTY_ARGUMENT_SCHEMA, prerequisites=("matching completed Chutku network operation",),

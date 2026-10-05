@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +10,7 @@ from typing import Any
 class EventLog:
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
+        self._path = path
         self._connection = sqlite3.connect(path)
         self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute(
@@ -21,6 +22,9 @@ class EventLog:
                 payload_json TEXT NOT NULL
             )"""
         )
+        # Every trace and status lookup filters by task or by event type: without these, each one scans the table.
+        self._connection.execute("CREATE INDEX IF NOT EXISTS events_task ON events(task_id, id)")
+        self._connection.execute("CREATE INDEX IF NOT EXISTS events_type ON events(event_type, id)")
         self._connection.commit()
 
     def append(self, task_id: str, event_type: str, payload: dict[str, Any]) -> None:
@@ -73,12 +77,14 @@ class EventLog:
 
     def mark_interrupted(self) -> int:
         """Called with the execution lock held, only after the owned core stopped."""
-        rows = self._connection.execute("""SELECT task_id FROM events
-            WHERE event_type = 'task_received' GROUP BY task_id""").fetchall()
+        rows = self._connection.execute("""
+            SELECT received.task_id,
+                   (SELECT payload_json FROM events state WHERE state.task_id = received.task_id
+                        AND state.event_type = 'task_state' ORDER BY state.id DESC LIMIT 1)
+            FROM (SELECT DISTINCT task_id FROM events WHERE event_type = 'task_received') AS received""").fetchall()
         count = 0
-        for (task_id,) in rows:
-            states = [payload["to"] for event, payload in self.events_for(task_id) if event == "task_state"]
-            previous = states[-1] if states else "RECEIVED"
+        for task_id, latest in rows:
+            previous = json.loads(latest)["to"] if latest else "RECEIVED"
             if previous in {"COMPLETED", "FAILED", "DENIED", "WAITING_CONFIRMATION", "CLARIFYING"}:
                 continue
             self.append(task_id, "runtime_error", {"type": "GuardInterrupted",
@@ -86,3 +92,19 @@ class EventLog:
             self.append(task_id, "task_state", {"from": previous, "to": "FAILED"})
             count += 1
         return count
+
+    def archive_older_than(self, days: int = 90, archive: Path | None = None) -> int:
+        """Move events older than `days` into a separate archive database (kept, never deleted)."""
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        target = archive or Path(self._path).with_name("chutku-archive.db")
+        self._connection.execute("ATTACH DATABASE ? AS archive", (str(target),))
+        try:
+            self._connection.execute("""CREATE TABLE IF NOT EXISTS archive.events (id INTEGER PRIMARY KEY,
+                task_id TEXT NOT NULL, timestamp TEXT NOT NULL, event_type TEXT NOT NULL, payload_json TEXT NOT NULL)""")
+            moved = self._connection.execute("INSERT OR IGNORE INTO archive.events SELECT * FROM events "
+                                             "WHERE timestamp < ?", (cutoff,)).rowcount
+            self._connection.execute("DELETE FROM events WHERE timestamp < ?", (cutoff,))
+            self._connection.commit()
+        finally:
+            self._connection.execute("DETACH DATABASE archive")
+        return moved

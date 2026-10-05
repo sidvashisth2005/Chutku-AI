@@ -16,6 +16,45 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S4 — owner's apps survive a stop; bounded logs; redaction; truthful safety docs
+
+- **Guard job.**
+  - Cause: the kill-on-close job had no breakaway, so the browser, VS Code or a built app that Chutku started died whenever Chutku stopped or crashed.
+  - Fix: `JOB_OBJECT_LIMIT_BREAKAWAY_OK`, plus the new `core/launch.popen_user_app` (`CREATE_BREAKAWAY_FROM_JOB`, with a plain-start fallback). It is used for the browser start, VS Code, the built app and `process.launch`. Chutku's own helpers stay in the job.
+- **Event log.**
+  - Indexes on `(task_id, id)` and `(event_type, id)`.
+  - `mark_interrupted` is one query (it was tasks × events).
+  - New `archive_older_than(days)` moves old rows into `chutku-archive.db` (kept, not deleted); Night Shift (S20) will call it.
+- **Action log.**
+  - `recent`/`get` read backwards from the end of the file.
+  - Rotation at 5 MB into `actions.log.NNNN.jsonl`, with seq/prev continuing across files; `verify` walks all files.
+  - The real log (231 entries) still verifies.
+- **Heard log:** pruned by age at least daily (it was only past 1 MB). Test detection also works under `verify_release.py` (loaded test modules), so test runs can no longer write the owner's real `heard.jsonl`.
+- **Audit redaction:**
+  - `mind.who`/`mind.show` (phones);
+  - `net.check` (IP/address fields);
+  - `keyboard.keys` window title;
+  - `screen.click` OCR text and window.
+- **Settings files.**
+  - New `core/jsonstore.write_json` is atomic, with one lock per file. An unreadable file is copied aside (`*.unreadable-<time>`), never silently replaced.
+  - Used by preferences (now one shared lock across all `Preferences` objects), reminders and routines.
+- **Small fixes:**
+  - `network.adapter_set` is `user_only` (it needs admin, which Chutku never has);
+  - the dead `workflow.project_setup` call was removed;
+  - the first `event_log.append` moved inside `_run`'s try, and the failure path can no longer raise.
+- **Truthful docs:**
+  - `tools/assistant.LIMITS` (shown to the planner and dashboard) is rewritten; it claimed only Notepad/Calculator could be launched.
+  - `docs/SECURITY.md` is rewritten from the code: the risk table with live counts, the modes, the always-ask list, the hard boundaries, injection defences, data/secrets, stop/recovery, honest limits.
+  - `tests/test_docs_truth.py` fails if the tool counts, the R3/R4 tool list or the `runs_code` set drift.
+- **Tests:**
+  - `tests/test_stores_s4.py` (10): breakaway flag; fallback; guard flags; 1,000-task interrupt check; archive; tail reads on 20,000 lines; rotation chain; unreadable file kept; test detection.
+  - `tests/test_docs_truth.py` (3).
+  - `test_owner_mode`: an agent `network.adapter_set` is now DENIED (stricter than asking).
+  - Full suite: **769 tests**, all green after that update.
+- **Real path** (`s4_job_real.py`): the real `chutku.guard.WindowsJob` held a child Python, which started one sleeper through `popen_user_app` and one plain.
+  - After `job.close()` (what a guard stop does): **breakaway app alive = True, Chutku's own child alive = False** → PASS (2.0 s).
+- **Negative:** the plain child was killed with the job, so Chutku's own processes still cannot outlive a stop.
+
 ### 2026-10-06: S3 — network, paths and the action log fail closed
 
 **Causes (audit):**

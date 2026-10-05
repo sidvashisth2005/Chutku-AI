@@ -52,8 +52,11 @@ class OwnerModeTests(unittest.TestCase):
             self.assertEqual(self.decide(name), Decision.CONFIRM, name)
 
     def test_power_kill_and_network_off_still_ask(self):
-        for name in ("power.schedule", "process.terminate", "network.adapter_set"):
+        for name in ("power.schedule", "process.terminate"):
             self.assertEqual(self.decide(name), Decision.CONFIRM, name)
+
+    def test_network_off_needs_admin_so_only_the_owner_can_ask(self):
+        self.assertEqual(self.decide("network.adapter_set"), Decision.DENY)   # user_only since 2026-10-06
 
     def test_permanent_delete_is_never_chosen_by_the_agent(self):
         self.assertEqual(self.decide("filesystem.delete_permanent"), Decision.DENY)

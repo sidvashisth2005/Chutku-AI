@@ -31,11 +31,8 @@ def load() -> dict[str, list[str]]:
 
 
 def _write(data: dict) -> None:
-    path = store_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    os.replace(temporary, path)
+    from chutku.core.jsonstore import write_json
+    write_json(store_path(), data)   # an unreadable file is copied aside, never silently replaced
 
 
 def clean_name(name: str) -> str:

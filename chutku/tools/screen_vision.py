@@ -150,7 +150,8 @@ def _click(arguments, context, *, risky_allowed):
               "window_after": after.window}
     if not moved:
         output["error"] = "Clicked, but nothing visibly changed; look at the screen again before retrying."
-    return ToolResult(output, Verification.PASS if moved else Verification.UNKNOWN)
+    return ToolResult(output, Verification.PASS if moved else Verification.UNKNOWN,
+                      output | {"ocr_text": "[REDACTED]", "window_after": "[REDACTED]"})
 
 
 def _scroll(arguments, context):

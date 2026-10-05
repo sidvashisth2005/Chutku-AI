@@ -302,9 +302,9 @@ class Runtime:
     def _run(self, tool_name: str, arguments: dict[str, Any], *, provenance="user_stated", approved_task=None,
              autonomy=None, tainted=False, exposed=None) -> dict[str, Any]:
         task = approved_task or Task(command=tool_name)
-        if approved_task is None:
-            self.event_log.append(task.task_id, "task_received", {"tool": tool_name, "arguments": {}})
         try:
+            if approved_task is None:
+                self.event_log.append(task.task_id, "task_received", {"tool": tool_name, "arguments": {}})
             self.action_control.check()
             if approved_task is None:
                 self._transition(task, TaskState.UNDERSTANDING)
@@ -366,7 +366,11 @@ class Runtime:
             self._transition(task, TaskState.COMPLETED)
             return {"task_id": task.task_id, "state": task.state, "output": result.output, "verification": result.verification}
         except Exception as error:
-            if task.state not in {TaskState.COMPLETED, TaskState.FAILED, TaskState.DENIED}:
-                self._transition(task, TaskState.FAILED)
-            self.event_log.append(task.task_id, "runtime_error", {"type": type(error).__name__, "message": str(error)})
+            try:   # recording the failure must never raise in its turn (e.g. a locked database)
+                if task.state not in {TaskState.COMPLETED, TaskState.FAILED, TaskState.DENIED}:
+                    self._transition(task, TaskState.FAILED)
+                self.event_log.append(task.task_id, "runtime_error", {"type": type(error).__name__,
+                                                                      "message": str(error)})
+            except Exception:
+                task.state = TaskState.FAILED
             return {"task_id": task.task_id, "state": TaskState.FAILED, "error": str(error)}

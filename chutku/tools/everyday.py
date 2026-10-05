@@ -720,7 +720,8 @@ def _open_url(url, browser=None, tab="auto"):
     before, foreground = set(desktop.windows()), desktop.foreground()
     titles = _titles(desktop) if exe else None
     if exe and choice != "default" and note is None:
-        subprocess.Popen([exe, url], shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        from chutku.core.launch import popen_user_app
+        popen_user_app([exe, url], shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
         os.startfile(url)  # default handler; no command line is composed
     info, how = _await_new_window(desktop, before, foreground, expect_executable=exe, before_titles=titles)

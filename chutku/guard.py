@@ -47,7 +47,9 @@ class WindowsJob:
         if not self.handle:
             raise ctypes.WinError(ctypes.get_last_error())
         info = Extended()
-        info.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        # KILL_ON_JOB_CLOSE ends Chutku's own processes on a stop; BREAKAWAY_OK lets the owner's apps (browser,
+        # VS Code, a built app) be started outside the job (chutku/core/launch.py) so they survive it.
+        info.basic.flags = 0x2000 | 0x0800  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK
         if not self.kernel.SetInformationJobObject(self.handle, 9, ctypes.byref(info), ctypes.sizeof(info)):
             self.close()
             raise ctypes.WinError(ctypes.get_last_error())

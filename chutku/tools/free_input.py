@@ -160,8 +160,9 @@ def _keys(arguments, context):
                 time.sleep(0.08)
     except OSError as error:
         return ToolResult({"error": str(error)}, Verification.FAIL)
-    return ToolResult({"keys": arguments["keys"], "repeat": arguments.get("repeat", 1), "app": exe,
-                       "window": (info.get("title") or "")[:120]}, Verification.PASS)
+    output = {"keys": arguments["keys"], "repeat": arguments.get("repeat", 1), "app": exe,
+              "window": (info.get("title") or "")[:120]}
+    return ToolResult(output, Verification.PASS, output | {"window": "[REDACTED]"})
 
 
 # -- mouse ---------------------------------------------------------------------------------
