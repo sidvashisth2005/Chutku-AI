@@ -10,6 +10,7 @@ from __future__ import annotations
 import ctypes
 from ctypes import wintypes as w
 import math
+import queue
 import re
 import sys
 import threading
@@ -182,44 +183,84 @@ class WakeListener(threading.Thread):
         self.segments_heard = 0
         self.frames_read = 0
         self.wakes = 0
+        self.overflows = 0        # audio the sound card dropped because the loop was late (shown in /api/state)
+        self.dropped = 0          # segments skipped because transcription was still busy
+        self.restarts = 0
+        self._segments = queue.Queue(maxsize=2)
+
+    RESTARTS = 5
 
     def run(self):
-        try:
-            sd = self.backend
-            if sd is None:
-                import sounddevice as sd
-            segmenter = Segmenter()
-            with sd.RawInputStream(samplerate=16000, channels=1, dtype="int16", blocksize=1600) as stream:
-                while not self.stop_event.is_set():
-                    chunk, _overflowed = stream.read(1600)
-                    self.frames_read += 1
-                    from chutku.voice import mic
-                    if self.busy.is_set() or self.hold.is_set() or mic.muted() or voice_session.quiet_for() < 1.0:
-                        segmenter.reset()  # never listen to ourselves or during a request
-                        continue
-                    segment = segmenter.feed(bytes(chunk))
-                    if segment is None:
-                        continue
-                    self.segments_heard += 1
-                    from chutku.voice.heard import log_heard, meaningful
-                    from chutku.voice.recognition import analyze_pcm
-                    voiced = analyze_pcm([segment], threshold=segmenter.threshold)
-                    if voiced["active_frames"] < 25:   # under 0.5 s of voiced audio: a knock, a cough, a click
-                        continue
-                    heard = self.transcribe(segment)
-                    text = heard.get("text", "")
-                    woke, command = split_wake(text)
-                    if woke and (heard.get("confidence", 1.0) < WAKE_MIN_CONFIDENCE or not meaningful(text)):
-                        woke = False                   # a garbled near-match is not the owner calling Chutku
-                    if text:
-                        log_heard("wake", text, "wake" if woke else "ignored", level=voiced["peak_frame_rms"],
-                                  confidence=heard.get("confidence"))
-                    if woke:
-                        self.wakes += 1
-                        self.busy.set()
-                        threading.Thread(target=self._dispatch, args=(command,), daemon=True).start()
-        except Exception as error:  # surfaced in /api/state; the rest of Chutku keeps working
-            self.error = f"{type(error).__name__}: {error}"[:200]
+        """Listen; after a crash (unplugged mic, driver error) start again with growing pauses, up to RESTARTS."""
+        threading.Thread(target=self._transcriber, name="chutku-wake-stt", daemon=True).start()
+        for attempt in range(self.RESTARTS + 1):
+            try:
+                self._listen()
+                return
+            except Exception as error:  # surfaced in /api/state; the rest of Chutku keeps working
+                self.error = f"{type(error).__name__}: {error}"[:200]
+                if attempt == self.RESTARTS or self.stop_event.wait(2 ** (attempt + 1)):
+                    return
+                self.restarts += 1
+
+    def _listen(self):
+        sd = self.backend
+        if sd is None:
+            import sounddevice as sd
+        segmenter = Segmenter()
+        with sd.RawInputStream(samplerate=16000, channels=1, dtype="int16", blocksize=1600) as stream:
+            while not self.stop_event.is_set():
+                chunk, overflowed = stream.read(1600)
+                self.frames_read += 1
+                if overflowed:
+                    self.overflows += 1
+                from chutku.voice import mic
+                if self.busy.is_set() or self.hold.is_set() or mic.muted() or voice_session.quiet_for() < 1.0:
+                    segmenter.reset()  # never listen to ourselves or during a request
+                    continue
+                segment = segmenter.feed(bytes(chunk))
+                if segment is None:
+                    continue
+                self.segments_heard += 1
+                from chutku.voice.recognition import analyze_pcm
+                voiced = analyze_pcm([segment], threshold=segmenter.threshold)
+                if voiced["active_frames"] < 25:   # under 0.5 s of voiced audio: a knock, a cough, a click
+                    continue
+                # Whisper runs on its own thread: the microphone is read on time while it transcribes.
+                try:
+                    self._segments.put_nowait((segment, voiced["peak_frame_rms"]))
+                except queue.Full:
+                    try:
+                        self._segments.get_nowait()   # keep the newest speech, not the oldest
+                        self.dropped += 1
+                    except queue.Empty:
+                        pass
+                    self._segments.put_nowait((segment, voiced["peak_frame_rms"]))
+
+    def _transcriber(self):
+        from chutku.voice.heard import log_heard, meaningful
+        while not self.stop_event.is_set():
+            try:
+                segment, level = self._segments.get(timeout=0.5)
+            except queue.Empty:
+                continue
+            if self.busy.is_set() or self.hold.is_set():
+                continue   # a request started meanwhile
+            try:
+                heard = self.transcribe(segment)
+            except Exception as error:
+                self.error = f"{type(error).__name__}: {error}"[:200]
+                continue
+            text = heard.get("text", "")
+            woke, command = split_wake(text)
+            if woke and (heard.get("confidence", 1.0) < WAKE_MIN_CONFIDENCE or not meaningful(text)):
+                woke = False                   # a garbled near-match is not the owner calling Chutku
+            if text:
+                log_heard("wake", text, "wake" if woke else "ignored", level=level, confidence=heard.get("confidence"))
+            if woke and not self.busy.is_set():
+                self.wakes += 1
+                self.busy.set()
+                threading.Thread(target=self._dispatch, args=(command,), daemon=True).start()
 
     def _dispatch(self, command):
         self.handling = True

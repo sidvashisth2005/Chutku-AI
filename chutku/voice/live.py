@@ -59,14 +59,14 @@ When they want something DONE on the PC (open/close apps, files, web research, m
 the screen, settings, anything), call do_task with ONE clear, complete goal in English that captures their intent
 (include names, paths, exact message text). Prefer these exact short forms, which Chutku runs instantly (keep the
 owner's names and texts exactly as said, never "the user named X"):
-  send "hi" to UB on whatsapp | open spotify | close spotify | set volume to 30 | mute | play lofi hip hop on youtube
+  send "hi" to <name> on whatsapp | open spotify | close spotify | set volume to 30 | mute | play lofi hip hop on youtube
   what time is it | weather in Pune | remind me in 20 minutes to drink water | set a timer for 25 minutes
   note: buy milk | show my list | find my resume | open my downloads | is my internet working | lock my pc
   switch audio to headphones | how much space is left | what did you do today | start work mode
   open youtube.com in brave | search Latent season 2 latest episode on youtube in brave
-  play Latent season 2 latest episode on youtube in brave | open Pita Shri's chat on whatsapp
-  what did Pita Shri say on whatsapp | did mammi reply
-Write every name in Roman letters exactly as the owner saved it ("Pita Shri", "mammi", "UB"), never in Hindi
+  play Latent season 2 latest episode on youtube in brave | open <name>'s chat on whatsapp
+  what did <name> say on whatsapp | did <name> reply
+Write every name in Roman letters exactly as the owner saved it (the "Saved people" list below), never in Hindi
 script. Give ONE complete goal per request (e.g. "play Latent season 2 latest episode on youtube in brave"), never
 several fragments, and never resend the same request reworded after an update: report the result and ask.
 Websites, YouTube and searches open in Brave unless the owner names another browser. When an update says a chat
@@ -97,6 +97,35 @@ TOOLS = [{"functionDeclarations": [
     {"name": "end_conversation", "description": "End the voice conversation.",
      "parameters": {"type": "OBJECT", "properties": {}}},
 ]}]
+
+
+_FOREIGN = {"sí", "si", "un", "una", "poco", "de", "la", "el", "los", "las", "que", "por", "para", "voz", "mi", "muy",
+            "gracias", "bueno", "pero", "como", "está", "esta", "yo", "tu", "não", "nao", "uma", "obrigado"}
+_HINGLISH_ALSO = {"de", "la", "mi", "tu", "yo", "si"}   # also Hindi words ("de do", "tu", "la do") or English letters
+
+
+def foreign_words(text):
+    """True when most words are Spanish/Portuguese and few are Hindi or English: misheard speech, not a request."""
+    words = re.findall(r"[^\W\d_]+", str(text or "").casefold())
+    if len(words) < 2:
+        return False
+    strong = [w for w in words if w in _FOREIGN and w not in _HINGLISH_ALSO]
+    return len(strong) >= 1 and sum(w in _FOREIGN for w in words) / len(words) >= 0.6
+
+
+def saved_names(limit=20):
+    """The owner's saved people (names and nicknames) from mind.json, for the voice model to write exactly."""
+    try:
+        from chutku import mind
+        people = mind.default().load()["people"]
+    except (OSError, ValueError, KeyError):
+        return []
+    names = []
+    for person in people:
+        for name in [person.get("name", "")] + list(person.get("aliases", [])):
+            if name and name not in names:
+                names.append(name)
+    return names[:limit]
 
 
 def approval_words(heard):
@@ -142,6 +171,8 @@ class LiveConversation(threading.Thread):
         self.last_activity = time.monotonic()
         self._playback = bytearray()
         self._play_lock = threading.Lock()
+        self._turn_done = False           # the model finished a turn: its next words start a new transcript entry
+        self.recent_goals = {}            # goal -> when do_task last started it (one utterance heard twice)
 
     # -- lifecycle (any thread) ------------------------------------------------------
     def stop(self):
@@ -202,10 +233,14 @@ class LiveConversation(threading.Thread):
             known = self.server.memory_slice(self.topic, 800)
         except Exception:
             known = {}
-        if not known:
-            return ""
-        return ("\nWhat you know about the owner (people, facts, open tasks, earlier conversation; use it when it "
-                "fits, never invent more): " + json.dumps(known, ensure_ascii=False)[:800])
+        parts = []
+        names = saved_names()
+        if names:   # the owner's people come from their memory, never from this file (audit 2026-10-06)
+            parts.append("\nSaved people (write these exactly): " + ", ".join(names))
+        if known:
+            parts.append("\nWhat you know about the owner (people, facts, open tasks, earlier conversation; use it "
+                         "when it fits, never invent more): " + json.dumps(known, ensure_ascii=False)[:800])
+        return "".join(parts)
 
     async def _main(self):
         self.loop = asyncio.get_running_loop()
@@ -310,6 +345,8 @@ class LiveConversation(threading.Thread):
         if said:
             self.last_activity = time.monotonic()
             self._add("chutku", said)
+        if content.get("turnComplete") or content.get("generationComplete"):
+            self._turn_done = True   # live 2026-10-06: separate model turns were glued into one repeated reply
         calls = (message.get("toolCall") or {}).get("functionCalls") or []
         if calls:
             return {"toolResponse": {"functionResponses": [
@@ -319,11 +356,19 @@ class LiveConversation(threading.Thread):
         return None
 
     def _add(self, speaker, text):
-        if self.transcript and self.transcript[-1][0] == speaker:
+        new_turn = self._turn_done and speaker == "chutku"
+        if new_turn:
+            self._turn_done = False
+            previous = next((t for s, t in reversed(self.full_transcript) if s == "chutku"), None)
+            if previous is not None and previous.strip() == text.strip():
+                return   # the very same reply again: keep it once
+        if speaker == "you":
+            self._turn_done = False
+        if self.transcript and self.transcript[-1][0] == speaker and not new_turn:
             self.transcript[-1] = (speaker, (self.transcript[-1][1] + text)[-600:])
         else:
             self.transcript.append((speaker, text))
-        if self.full_transcript and self.full_transcript[-1][0] == speaker:
+        if self.full_transcript and self.full_transcript[-1][0] == speaker and not new_turn:
             self.full_transcript[-1] = (speaker, (self.full_transcript[-1][1] + text)[-600:])
         elif len(self.full_transcript) < 400:
             self.full_transcript.append((speaker, text))
@@ -341,6 +386,12 @@ class LiveConversation(threading.Thread):
                     self._log_heard(self.heard_since_task, "ignored: " + doubt)
                     return {"error": f"Not started: {doubt} Ask the owner \"Did you say ...?\" and only call "
                                      "do_task again after they clearly confirm."}
+                from chutku.translit import roman
+                key = " ".join(roman(goal).casefold().split())
+                if time.monotonic() - self.recent_goals.get(key, -99) < 2.0:
+                    # One utterance reached the model twice (live 2026-10-05: "do-do input chale gaye").
+                    return {"status": "already started", "note": WAIT_NOTE}
+                self.recent_goals[key] = time.monotonic()
                 self._log_heard(self.heard_since_task, "task: " + goal[:120])
                 self.heard_since_task, self.speech_at_task = "", self.gate.speech_seconds
                 if self._task_running():
@@ -379,6 +430,9 @@ class LiveConversation(threading.Thread):
             return "no clear speech from the owner was heard (maybe background noise)."
         if not meaningful(self.heard_since_task):
             return "what was heard does not sound like a request (likely noise)."
+        if foreign_words(self.heard_since_task):
+            # live 2026-10-05: Hinglish was transcribed as Spanish ("Sí, un poco", "un poco a voz de mi")
+            return "the words came out in another language (probably misheard Hinglish)."
         return None
 
     def _log_heard(self, text, decision):
@@ -391,6 +445,11 @@ class LiveConversation(threading.Thread):
             return {"error": "Nothing is waiting for approval."}
         heard = self.heard_since_question
         from chutku.voice.approval import decide
+        if approve and not heard.strip():
+            # The model can answer before the owner's words are transcribed (live 2026-10-05: a short "हां" was refused
+            # with an empty transcript and had to be repeated). Decide once the words arrive, off the receive loop.
+            threading.Thread(target=self._late_approval, daemon=True).start()
+            return {"status": "checking", "note": "Confirming what the owner said; say nothing about the result yet."}
         spoke = self.gate.speech_seconds - self.speech_at_question >= 0.25
         if approve and (decide(heard) is not True or not spoke):
             # The decision must come from the owner's own clearly spoken words: a breath or noise transcribed as
@@ -402,6 +461,32 @@ class LiveConversation(threading.Thread):
         self.heard_since_question = ""
         threading.Thread(target=self._follow, args=(self.task_id,), daemon=True).start()
         return {"status": "approved", "note": WAIT_NOTE} if approve else {"status": "declined"}
+
+    LATE_WORDS_SECONDS = 2.0
+
+    def _late_approval(self):
+        """A yes that arrived before its transcript: wait for the words, then approve only on a clear spoken yes."""
+        from chutku.voice.approval import decide
+        deadline = time.monotonic() + self.LATE_WORDS_SECONDS
+        while not self.heard_since_question.strip() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        heard = self.heard_since_question
+        snapshot = self._snapshot()
+        if not snapshot or snapshot["status"] != "waiting_confirmation":
+            return
+        import re as _re
+        sound_only = _re.sub(r"[^a-z]", "", heard.casefold()) in {"hmm", "hm", "hmmm", "hnn", "hn", "hnnn", "hamm", "hum",
+                                                                  "humm"}
+        spoke = self.gate.speech_seconds - self.speech_at_question >= 0.25
+        if decide(heard) is not True or (sound_only and not spoke):   # a breath read as "hmm" is never a yes
+            self._log_heard(heard, "approval refused: no clear spoken yes (late)")
+            self.inject("[Approval] I did not hear a clear yes from the owner. Ask once more: haan ya na?")
+            return
+        self._log_heard(heard, "approval: yes (late words)")
+        self.server.confirm_session(self.task_id, True)
+        self.heard_since_question = ""
+        threading.Thread(target=self._follow, args=(self.task_id,), daemon=True).start()
+        self.inject("[Approval] The owner said yes; it is running now. " + WAIT_NOTE)
 
     def _snapshot(self):
         if not self.task_id:

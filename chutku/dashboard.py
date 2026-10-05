@@ -584,7 +584,22 @@ class DashboardServer(ThreadingHTTPServer):
         self.hotkey = HotkeyListener(lambda: self.handsfree_request(), on_mute=self.toggle_mute)
         self.hotkey.start()
         self.hotkey.registered.wait(2)
-        self.apply_wake(self.preferences.load()["wake_word"])
+        prefs = self.preferences.load()
+        self.apply_wake(prefs["wake_word"])
+        if prefs["wake_word"] or prefs.get("offline_mode"):
+            self._preload_whisper()
+
+    def _preload_whisper(self, delay=10.0):
+        """Load offline speech recognition in the background once Chutku is up, so the first spoken command does
+        not wait for the model (and its hash check). Only when the offline voice path is in use."""
+        def work():
+            time.sleep(delay)
+            try:
+                from chutku.voice import whisper_stt
+                whisper_stt._load(self.base)
+            except Exception:
+                pass   # the first real transcription loads it (or reports why it can't)
+        threading.Thread(target=work, name="chutku-whisper-preload", daemon=True).start()
 
     def apply_wake(self, enabled):
         from chutku.voice.handsfree import WAKE_PROMPT, WakeListener
@@ -607,6 +622,7 @@ class DashboardServer(ThreadingHTTPServer):
                 "mic_muted": __import__("chutku.voice.mic", fromlist=["muted"]).muted(),
                 "mute_hotkey": getattr(self.hotkey, "mute_hotkey", None) if self.hotkey else None,
                 "wake_listening": bool(wake and wake.is_alive()), "wake_error": wake.error if wake else None,
+                "wake_audio": {key: getattr(wake, key, 0) for key in ("overflows", "dropped", "restarts")} if wake else None,
                 "latest_session": self.latest_session_id}
 
     def stop_everything(self):

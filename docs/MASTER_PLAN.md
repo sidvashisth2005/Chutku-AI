@@ -315,26 +315,26 @@ Each fix gets one test, in `tests/test_quick_intents.py` or `tests/test_real_ses
 - **Negative:** "bhai ko hi bolo" with "bhai" unknown asks first.
 
 ## S8: Voice and Live
-- [ ] **Turn boundaries** (`voice/live.py`):
+- [x] **Turn boundaries** (`voice/live.py`):
   - `handle()` sets `self._new_turn = True` when `serverContent` has `turnComplete` or `generationComplete`.
   - `_add()` starts a new entry when that flag is set, even for the same speaker, and drops an entry identical to the previous one from the same speaker.
   - Tests: two identical model turns → 1 entry; two different turns → 2 entries.
-- [ ] **Double input:**
+- [x] **Double input:**
   - `heard.recent_duplicate(text, seconds=2.0)`: `handsfree_request` and `do_task` ignore a goal identical (romanised, casefolded) to one started in the last 2 s.
   - `start_live` asserts that `WakeListener.hold` is set.
   - Test: the same goal twice within 1 s → one session.
-- [ ] **Hindi yes/no.** The voice-approval parsing (`voice/approval.py`, `dashboard._approve_by_voice`) runs `translit.roman` first.
+- [x] **Hindi yes/no.** The voice-approval parsing (`voice/approval.py`, `dashboard._approve_by_voice`) runs `translit.roman` first.
   - YES set: haan, haa, ha, han, ji, yes, ok, okay, theek hai, kar do, bhej do.
   - NO set: nahi, nahin, na, mat, no, cancel, ruko.
   - Tests: हां / हाँ / हा / जी → yes; नहीं / ना → no.
-- [ ] **Wrong-language guard.** `_doubtful_request` treats input whose words are mostly common Spanish/Portuguese stopwords (sí, un, poco, de, la, que, el, los, las, por, para, voz) as "not heard clearly". No task starts from it.
-- [ ] **Wake listener** (`voice/handsfree.py`):
+- [x] **Wrong-language guard.** `_doubtful_request` treats input whose words are mostly common Spanish/Portuguese stopwords (sí, un, poco, de, la, que, el, los, las, por, para, voz) as "not heard clearly". No task starts from it.
+- [x] **Wake listener** (`voice/handsfree.py`):
   - Transcription moves to one worker thread fed by a queue (max 2; drop the oldest and count it).
   - Count `overflows` and show them in `/api/state`.
   - `run()` restarts after an exception, up to 5 times, with backoff of 2–32 s.
   - Preload Whisper in the background 10 s after the dashboard is ready.
-- [ ] **No personal names in the persona.** Replace the owner's names in `PERSONA` (live.py ~62–69) with placeholders. `_context()` appends the saved people's names and aliases from `mind.default()` (max 20).
-- [ ] **API key in a header.** Probe once whether the Live socket accepts the key as a request header instead of the URL query.
+- [x] **No personal names in the persona.** Replace the owner's names in `PERSONA` (live.py ~62–69) with placeholders. `_context()` appends the saved people's names and aliases from `mind.default()` (max 20).
+- [x] **API key in a header.** Probe once whether the Live socket accepts the key as a request header instead of the URL query.
   - Use the header form if it works; otherwise keep today's form and note it in the ledger.
   - Never log the URL.
 - **Real path:**

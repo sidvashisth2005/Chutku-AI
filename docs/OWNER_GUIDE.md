@@ -36,6 +36,13 @@ All commands are run from `D:\Project\Chutku` using `.venv\Scripts\python.exe -m
 **Give several orders and walk away:** while one task runs, new orders (typed in the dashboard or the panel, or spoken with the wake phrase) wait in line, marked **queued**, and start by themselves one after another. Up to 10 can wait. Stop on a queued task removes it from the line. When a run of two or more tasks is over, a Windows notification lists them (✓ done / ✗ not done). Voice answers are spoken as each task finishes.
 
 
+### Voice conversation fixes (2026-10-06)
+- **A quick "हां"** is no longer lost. If Chutku answers before your words are written down, she waits up to 2 seconds for them.
+- **One request is started once,** even if it is heard twice within 2 seconds.
+- **Words that come out in Spanish** ("Sí, un poco") are treated as misheard and start nothing. Say it again.
+- **Her replies no longer repeat** or run into each other in the conversation log.
+- **Names come from your memory.** She writes your saved people's names exactly as saved ("remember UB is my mammi"); no names are built into the code.
+
 ### Mute the mic without stopping Chutku
 When friends are talking or laughing around you, mute the mic: Chutku keeps talking and finishes her answer, but hears nothing from the room until you unmute.
 - **Ctrl+Alt+X** toggles mute from anywhere, with one hand. If another program ever takes it, Chutku uses the next free one (Ctrl+Alt+Z → Ctrl+Alt+M → Ctrl+Alt+Shift+Space); the panel and the dashboard show which key is active.

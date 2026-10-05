@@ -16,6 +16,37 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S8 — voice fixes from the owner's real Live sessions
+
+| Real failure | Cause found | Fix |
+|---|---|---|
+| A single "हां" was refused; the owner had to say "हां। हां।" | `heard.jsonl` line 266 has an **empty** transcript: the Live model called `answer_approval` before the owner's words were transcribed | `_answer_approval` returns "checking", and `_late_approval` waits up to 2 s for the words off the receive loop, then decides on what was actually said. A sound-only "hmm" still needs real speech behind it. |
+| "Bye-bye!" reply logged four times, glued together | `turnComplete`/`generationComplete` were never handled, so consecutive model turns merged into one entry | Each model turn starts a new transcript entry, and an identical repeated reply is kept once |
+| "दो-दो इनपुट चले गए" (one request ran twice) | one utterance reached `do_task` twice | the same goal (romanised) within 2 s returns "already started" |
+| "Sí, un poco", "un poco a voz de mi" | Hinglish transcribed as Spanish | `foreign_words()`: mostly Spanish/Portuguese words make the request doubtful, so no task starts |
+| Personal names hard-coded in the Live persona | — | Placeholders in `PERSONA`; `saved_names()` from `mind.json` goes into the context ("Saved people") |
+
+**Wake listener** (`voice/handsfree.py`):
+- Whisper runs on its own thread with a 2-segment queue; when it is busy the oldest segment is dropped and counted.
+- The microphone loop never blocks, and sound-card `overflowed` is counted.
+- After a crash it restarts with backoff (2–32 s, up to 5 times); before, a crash ended it for good.
+- `overflows/dropped/restarts` appear in `/api/state.handsfree.wake_audio`.
+- Whisper preloads in the background 10 s after start when the wake word or offline mode is on.
+
+**Not done, recorded:**
+- Moving the Gemini key from the Live URL query to a header was not attempted. A live probe of the owner's key was not run; the URL form stays, and it is never logged.
+
+**Tests:**
+- New `tests/test_voice_fixes_s8.py` (9): separate turns; repeat kept once; double input; Spanish refused while Hinglish passes; a late "हां" approves; a late "hmm" does not; no names in the persona; restart with backoff; drop-oldest.
+- **Full suite: 806 tests OK (153 s).**
+
+**Real path (independent, on the owner's real logs):**
+- `foreign_words` over 51 real voice turns flags **exactly** the 2 Spanish mishearings, and none of the turns that ran tools.
+- Over 532 `heard.jsonl` lines it blocks **0 of the 7** real task requests.
+- `decide()` on the real transcripts: "हां।" → yes, "हां। हां।" → yes, "ना ना बंद हो जा।" → no.
+
+**Limits:** a live Gemini conversation has not been re-run with the new code (the dashboard restart is pending); this is the first item of the next live check.
+
 ### 2026-10-06: S7 — intent routing fixes from real phrasing; real-goal replay
 
 | Phrase | Was | Now |
