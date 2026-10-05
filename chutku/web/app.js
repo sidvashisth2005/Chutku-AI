@@ -89,10 +89,38 @@ function renderSession(bubble,s){
   scrollChat();
 }
 
+// Server-sent updates read with fetch() (so the session token stays in a header, never in the URL).
+// Returns true when the stream ended normally; throws when streaming is not available (the caller then polls).
+async function stream(path,onData){
+  const response=await fetch(path,{headers:{"X-Chutku-Token":sessionToken}});
+  if(!response.ok||!response.body)throw new Error("no stream");
+  const reader=response.body.getReader(),decoder=new TextDecoder();
+  let buffer="";
+  for(;;){
+    const {value,done}=await reader.read();
+    if(done)return true;
+    buffer+=decoder.decode(value,{stream:true});
+    let cut;
+    while((cut=buffer.indexOf("\n\n"))>=0){
+      const block=buffer.slice(0,cut);buffer=buffer.slice(cut+2);
+      if(block.startsWith("data: ")&&onData(JSON.parse(block.slice(6)))===false){reader.cancel().catch(()=>{});return true;}
+    }
+  }
+}
 async function follow(bubble,id){
   // Each task updates its own bubble; the box stays free so more orders can be queued meanwhile.
   try{
-    for(;;){
+    let finished=false;
+    try{
+      for(let round=0;round<20&&!finished;round++){   // a stream lasts about a minute; long tasks reconnect
+        await stream("/api/events?id="+encodeURIComponent(id),({session})=>{
+          renderSession(bubble,session);
+          finished=TERMINAL.has(session.status)||session.status==="waiting_confirmation";
+          return !finished;
+        });
+      }
+    }catch{}
+    for(;!finished;){   // fallback: ask every 0.6 s (older browser, or the stream was cut)
       await new Promise(r=>setTimeout(r,600));
       const {session}=await api("/api/agent/session?id="+encodeURIComponent(id));
       renderSession(bubble,session);

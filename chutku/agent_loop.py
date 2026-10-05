@@ -473,8 +473,20 @@ class LocalAgentPlanner:
         from chutku.profiles import QWEN
         messages = [{"role": "system", "content": ANSWER_SYSTEM},
                     {"role": "user", "content": session.planner_input(profile=QWEN)}]
-        raw, _meta = self.service.complete(messages, schema=ANSWER_SCHEMA, schema_name="final_answer",
-                                           max_tokens=QWEN.answer_tokens, check=check)
+        say = getattr(session, "on_sentence", None)
+        if say is not None and hasattr(self.service, "stream_complete"):
+            # Voice: speak each finished sentence while the rest is written, through the same guards as the reply.
+            from chutku.persona import feminine
+            from chutku.streaming import AnswerSentences
+            sentences = AnswerSentences(say, lambda s: None if session._unsupported_claim(s) else feminine(s))
+            session.streamed = sentences
+            raw, _meta = self.service.stream_complete(messages, schema=ANSWER_SCHEMA, schema_name="final_answer",
+                                                      max_tokens=QWEN.answer_tokens, check=check,
+                                                      on_text=sentences.feed)
+            sentences.feed(json.dumps(raw, ensure_ascii=False), final=True)
+        else:
+            raw, _meta = self.service.complete(messages, schema=ANSWER_SCHEMA, schema_name="final_answer",
+                                               max_tokens=QWEN.answer_tokens, check=check)
         text = raw.get("answer") if isinstance(raw, dict) else None
         return text.strip() if isinstance(text, str) else None
 

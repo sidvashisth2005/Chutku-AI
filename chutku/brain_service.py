@@ -312,6 +312,56 @@ class BrainService:
         except Exception as error:
             return False, error
 
+    def stream_complete(self, messages, *, schema, schema_name, max_tokens, on_text, check=None):
+        """Like complete(), but streamed: on_text(output_so_far) after every piece (to speak the first sentence early)."""
+        self.ensure_started()
+        with self._lock:
+            port, key = self.port, self.key
+            self.last_used = time.monotonic()
+            self.inflight += 1
+        payload = {"model": MODEL_NAME, "messages": messages, "temperature": 0, "seed": 42, "max_tokens": max_tokens,
+                   "stream": True, "response_format": {"type": "json_schema", "json_schema": {
+                       "name": schema_name, "strict": True, "schema": schema}}}
+        started = time.monotonic()
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=REQUEST_SECONDS - 5)
+        try:
+            connection.request("POST", "/v1/chat/completions", body=json.dumps(payload),
+                               headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+            response = connection.getresponse()
+            if response.status != 200:
+                raise BrainUnavailable(f"Local model request failed (HTTP {response.status}).")
+            text, finish = [], None
+            for raw in response:
+                line = raw.decode("utf-8", "replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                choice = json.loads(data)["choices"][0]
+                piece = (choice.get("delta") or {}).get("content") or ""
+                finish = choice.get("finish_reason") or finish
+                if piece:
+                    text.append(piece)
+                    self.last_used = time.monotonic()
+                    if check is not None:
+                        check()
+                    on_text("".join(text))
+            if finish not in (None, "stop"):
+                raise ValueError("Local model response was truncated; nothing will execute.")
+            content = "".join(text)
+            return json.loads(content), {"seconds": round(time.monotonic() - started, 3), "backend": self.backend,
+                                         "streamed": True}
+        except BaseException as error:
+            if not isinstance(error, (ValueError, json.JSONDecodeError)):
+                self.close()   # a stop or a broken stream: the server must not keep generating
+            raise
+        finally:
+            connection.close()
+            with self._lock:
+                self.inflight -= 1
+                self.last_used = time.monotonic()
+
     def complete(self, messages, *, schema, schema_name, max_tokens, check=None):
         """One bounded structured completion. `check` is polled (e.g. pause/stop)."""
         self.ensure_started()
@@ -375,9 +425,14 @@ _shared_lock = threading.Lock()
 def strong_service(base: Path = PROJECT_ROOT):
     """The 8B planner/coder used when the 4B is not enough and Gemini cannot be reached (None if not installed)."""
     global _strong
+    # Presence only: the full SHA-256 of the 5 GB file happens when the 8B is actually started (_candidates ->
+    # pinned_model). Hashing it here cost the first request after every restart 5-20 s (live check 2026-10-06).
     try:
-        pinned_model(base, "strong")
-    except BrainUnavailable:
+        entry = json.loads((Path(base) / "models/manifest.json").read_text(encoding="utf-8"))["strong"]
+        path = (Path(base) / str(entry.get("path", ""))).resolve()
+        if path.parent != (Path(base) / "models").resolve() or not path.is_file():
+            return None
+    except (OSError, ValueError, KeyError, TypeError):
         return None
     with _shared_lock:
         if _strong is None or _strong.base != Path(base):

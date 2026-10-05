@@ -16,6 +16,31 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S11 — streaming first words, live push to the page, and a 20-second first-request stall fixed
+
+- **Streaming answer.**
+  - New `chutku/streaming.py`: reads the answer text out of the model's partial `{"answer": …}` JSON and hands out each finished sentence.
+  - Every sentence passes the same guards as the final reply (`feminine()`; a claim no step did **stops** the stream).
+  - `BrainService.stream_complete` (llama-server `stream: true`; it counts in-flight, and a stop closes the model).
+  - `LocalAgentPlanner.answer` streams when the session has `on_sentence`.
+- **Who streams:** offline voice requests get a `SpeechQueue` (one thread with its own runtime, sentences in order), and `speak_result` does not repeat a streamed answer.
+  - Live-conversation tasks never get a speaker: `begin_session(..., silent=True)` is set *before* work starts. The first version set it afterwards and was caught in review.
+- **Live push to the page.**
+  - `GET /api/events?id=…` sends a session's updates the moment they change (server-sent events, checked every 0.2 s, one stream ≤ 55 s, it ends when the task ends). The same token, host and origin checks apply.
+  - `app.js` reads it with `fetch()`, so the token stays in a header, never the URL. It falls back to the old 0.6-s polling.
+- **Found by the real path and fixed:** the first chat after a restart took **20.9 s** to be accepted.
+  - Cause: `strong_service()` hashed the whole 5 GB 8B file just to know whether a backup exists.
+  - Now it checks presence only; the full hash runs when the 8B is actually started (test: a tampered file is never started).
+  - Live after redeploy: **64 ms** to accept, the answer in 0.29 s.
+- **Tests:**
+  - `tests/test_streaming_s11.py` (10): sentences, false claim stops, escapes, a fake streaming model server, stop closes the model, the answer pass speaks through the guards, no double speech, the event stream end-to-end plus token/404 refusals, live tasks silent.
+  - `test_model_services_s6` +1 (cheap presence, a tampered 8B is refused at start).
+  - **Full suite: 827 tests OK (145 s).**
+- **Real path:**
+  - **Real 4B (Vulkan) streaming:** correct answer ("41 files … Comprehensive NFL Ammonia-1 Training.pdf … 32.1 MB"), first sentence at 1.24 s = whole answer (one sentence), vs 1.31 s plain. The gain shows only on multi-sentence answers.
+  - **Live dashboard:** `POST /api/chat "kitne baje hain"`, then `/api/events` → 2–3 pushed events, final `done` "04:29 AM" = the real clock.
+- **Not done:** an audible spoken test (it was 4 AM on the owner's laptop speakers).
+
 ### 2026-10-06: S10 (spike) — neural female voice measured; waiting for the owner's listening test
 
 - **Installed** into `.venv`, pinned in `requirements.lock`: `kokoro-onnx 0.6.1` plus its new dependencies (phonemizer, espeakng-loader, …).

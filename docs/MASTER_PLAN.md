@@ -383,7 +383,7 @@ Each fix gets one test, in `tests/test_quick_intents.py` or `tests/test_real_ses
 ---
 # Phase 2: Upgrades (each has an A/B measurement)
 
-## S10: Neural female voice (Kokoro spike → service)
+## S10: Neural female voice (Kokoro spike → service) — spike done 2026-10-06; service waits for the owner's listening test
 
 **Spike**
 1. Run `pip install kokoro-onnx` into `.venv`, then pin it and its dependencies in `requirements.lock`.
@@ -410,7 +410,7 @@ Each fix gets one test, in `tests/test_quick_intents.py` or `tests/test_real_ses
 - Real path: a spoken answer to "time batao", with first audio in seconds recorded.
 - Negative: missing model files make SAPI speak, with no crash.
 
-## S11: Streaming first words + live push (SSE)
+## S11: Streaming first words + live push (SSE) — done 2026-10-06
 
 **Streaming answer**
 - `BrainService.stream_text(messages, max_tokens, on_sentence)` posts with `stream: true` and parses `data:` lines. Each time a sentence ends, it calls `on_sentence`.

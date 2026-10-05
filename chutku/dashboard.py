@@ -53,11 +53,45 @@ class PreviewStore:
         self.pending.pop(token, None)
 
 
+class SpeechQueue:
+    """Speaks sentences in order on one thread (with its own runtime) while the answer is still being written."""
+
+    def __init__(self, base):
+        import queue as _queue
+        self.base, self.items, self.thread, self.spoken = base, _queue.Queue(), None, 0
+
+    def say(self, text):
+        if self.thread is None:
+            self.thread = threading.Thread(target=self._run, name="chutku-speech", daemon=True)
+            self.thread.start()
+        self.items.put(text)
+
+    def _run(self):
+        with create_runtime(self.base) as runtime:
+            while True:
+                text = self.items.get()
+                if text is None:
+                    return
+                try:
+                    runtime.run("voice.speak", {"text": text[:200]}, provenance="tool_observed")
+                    self.spoken += 1
+                except Exception:
+                    _log().exception("speaking a sentence failed")
+
+    def close(self, timeout=60):
+        if self.thread is not None:
+            self.items.put(None)
+            self.thread.join(timeout)
+
+
 def speak_result(session, router):
     """Voice requests get a spoken answer (Chutku's own words, never an instruction)."""
     snapshot = session.snapshot()
     if session.origin != "voice" or snapshot["status"] == "waiting_confirmation" or getattr(session, "silent", False):
         return  # (live conversation tasks are narrated by the conversation itself)
+    streamed = getattr(session, "streamed", None)
+    if streamed is not None and streamed.spoken and snapshot["status"] == "done":
+        return  # already spoken sentence by sentence while it was written
     import re
     text = re.sub(r"\s*\[Verified:.*\]\s*$", "", snapshot["reply"]).strip() or "Done."
     try:
@@ -478,8 +512,7 @@ class DashboardServer(ThreadingHTTPServer):
     def live_task(self, goal):
         """A task the conversation asked for: the normal agent path, narrated by the conversation."""
         mode = self.preferences.load()["handsfree_mode"]
-        session = self.begin_session(goal, mode, "voice")
-        session.silent = True
+        session = self.begin_session(goal, mode, "voice", silent=True)
         self.hud_state["session_id"] = session.id
         return session
 
@@ -652,7 +685,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.latest_session_id = session.id
         return session
 
-    def begin_session(self, goal, mode, origin):
+    def begin_session(self, goal, mode, origin, *, silent=False):
         from chutku import control_intent
         control = control_intent.kind(goal)
         busy = self.action_lock.locked() or bool(self.queued_ids())
@@ -678,15 +711,22 @@ class DashboardServer(ThreadingHTTPServer):
         if examples:
             context["past_successes"] = examples
         session = self.agent_sessions.add(AgentSession(goal, mode=mode, origin=origin, context=context))
+        session.silent = silent   # set before any work starts: a live conversation narrates its own results
         if self.planner_factory is None:
             from chutku.quick_intents import QuickPlanner
             session.quick = QuickPlanner()
         planner, fallback = self.planners()
         self.latest_session_id = session.id
 
+        speech = SpeechQueue(self.base) if origin == "voice" and not silent else None
+        if speech is not None:
+            session.on_sentence = speech.say   # first sentences are spoken while the answer is still being written
+
         def run(router, beat):
             try:
                 session.advance(router, planner, fallback=fallback, heartbeat=beat)
+                if speech is not None:
+                    speech.close()
                 speak_result(session, router)
             finally:
                 recall.log_session(session.snapshot(), base=self.base)   # remembered for later conversations
@@ -732,6 +772,40 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _host_ok(self) -> bool:
         return self.headers.get("Host") == f"127.0.0.1:{self.server.server_port}"
 
+    EVENTS_SECONDS = 55     # a stream ends after this; the page reconnects (the server never waits long on shutdown)
+
+    def _events(self, session_id):
+        """Server-sent updates for one task (or the latest-task/hands-free state): pushed the moment they change,
+        instead of the page asking every 0.6 s. The page reads it with fetch(), so the token stays in a header."""
+        session = None
+        if session_id:
+            session = self.server.agent_sessions.get(session_id)   # unknown id: ValueError -> 404
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        last, started, pinged = None, time.monotonic(), time.monotonic()
+        try:
+            while time.monotonic() - started < self.EVENTS_SECONDS:
+                payload = ({"session": session.snapshot()} if session is not None else
+                           {"id": self.server.latest_session_id, "handsfree": self.server.handsfree_status()})
+                text = json.dumps(payload, ensure_ascii=False, default=str)
+                if text != last:
+                    self.wfile.write(b"data: " + text.encode("utf-8") + b"\n\n")
+                    self.wfile.flush()
+                    last = text
+                    if session is not None and payload["session"]["status"] in {
+                            "done", "clarify", "failed", "stopped", "cancelled", "waiting_confirmation"}:
+                        return
+                elif time.monotonic() - pinged > 10:
+                    self.wfile.write(b": ping\n\n")   # keeps the connection alive through quiet stretches
+                    self.wfile.flush()
+                    pinged = time.monotonic()
+                time.sleep(0.2)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError):
+            return   # the page went away
+
     def _discard_bounded_body(self):
         # Windows may reset a connection closed with unread POST data, hiding
         # the intended refusal. Discard only a bounded body, without parsing it.
@@ -766,6 +840,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._reply(403, {"error": "Open the complete dashboard link printed by Chutku, including its session token."})
             return
         try:
+            if parts.path == "/api/events":
+                self._events(parse_qs(parts.query).get("id", [""])[0])
+                return
             # The polled endpoints only read in-memory sessions: no runtime (5 databases, 148 tools) per poll.
             if parts.path == "/api/agent/latest":
                 self._reply(200, {"id": self.server.latest_session_id, "handsfree": self.server.handsfree_status()})

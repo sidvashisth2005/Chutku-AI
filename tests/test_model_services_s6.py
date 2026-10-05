@@ -90,6 +90,25 @@ class HashCacheTests(unittest.TestCase):
             self.assertEqual(digest.call_count, 2)
 
 
+class StrongModelTests(unittest.TestCase):
+    def test_presence_is_cheap_but_a_tampered_file_never_starts(self):
+        import json
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        base = Path(temp.name)
+        (base / "models").mkdir()
+        (base / "models" / "big.gguf").write_bytes(b"tampered weights")
+        (base / "models" / "manifest.json").write_text(json.dumps({"strong": {
+            "path": "models/big.gguf", "sha256": "0" * 64}}), encoding="utf-8")
+        with patch.object(hashcache.hashlib, "file_digest", wraps=hashlib.file_digest) as digest:
+            service = brain_service.strong_service(base)
+            self.assertIsNotNone(service)
+            self.assertEqual(digest.call_count, 0)          # deciding "is there a backup?" reads nothing
+            with self.assertRaises(brain_service.BrainUnavailable):
+                brain_service.pinned_model(base, "strong")  # what starting it runs: the hash refuses the file
+        brain_service._strong = None
+
+
 class RoutingTests(unittest.TestCase):
     def test_only_real_screen_requests_go_vision_first(self):
         for goal in ("screen pe kya hai", "what is on my screen?", "ye kya hai", "click the first video",
