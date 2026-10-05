@@ -16,6 +16,53 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S3 — network, paths and the action log fail closed
+
+**Causes (audit):**
+- `web.read` checked DNS, then let urllib resolve the name again (a rebinding window).
+- Downloads had only per-socket timeouts.
+- `browser.inspect/workflow` accepted any http(s) address and were not marked as network senders.
+- AppData protection silently vanished when `USERPROFILE` was unset.
+- `files.organize` used `os.replace` after a check (a file appearing in between was overwritten).
+- `files.organize_undo` trusted recorded paths.
+- Action-log write failures were swallowed *after* the action had run.
+- The Today weather tile fetched without `internet.read`.
+- The `log.undo` inner call skipped capability checks.
+
+**Fixes:**
+- **Network (`tools/internet.py`):**
+  - `public_address()`: every resolved address must be public.
+  - `_PinnedHTTP(S)Connection` resolves and checks inside `connect()` and connects to that address. TLS still verifies the hostname.
+  - `_read_bounded`: 3 MB within a total deadline of 2 × TIMEOUT.
+- **Browser tools:** `browser.inspect/workflow` get `network_egress=True`. `step_question` asks for an agent step whose URL is local or private, or can't be checked. The owner's own and test uses on local fixtures still work.
+- **Private file listings:** `filesystem.list`, `filesystem.largest`, `files.find` and `files.recent` are now "private". A later network step in that session needs a click (the exfiltration guard).
+- **AppData (`core/paths.py`):** `appdata_root()` comes from `SHGetKnownFolderPath(RoamingAppData)` (falling back to `USERPROFILE`). If neither is known, `protection_reason` refuses every change.
+- **Organize:** moves use `os.rename` (it never overwrites on Windows). A collision is skipped and reported. Undo refuses protected recorded paths and collisions.
+- **Action log:**
+  - `ActionLog.ready()` is checked under the execution lock before any R1+ action, including approved ones.
+  - If the log can't be appended, the action does not run ("nothing ran. Run doctor.").
+  - The plan's STARTED-row design was replaced by this pre-check, which gives the same fail-closed guarantee without changing the log format that `log.recent`/undo read.
+- **`log.undo`:** re-checks the inner undo tool's capability.
+- **Today weather:** fetches only when `internet.read` is granted.
+
+**Tests:**
+- `tests/test_failclosed_s3.py` (10):
+  - a pinned connect to a rebinding name is refused before any socket opens;
+  - a mixed public/private DNS answer is refused;
+  - a dripping download hits the deadline;
+  - an agent browser on 192.168.1.1 asks, while a public site is allowed;
+  - an unknown AppData refuses;
+  - AppData resolves from the shell and is protected;
+  - organize never overwrites;
+  - undo skips a recorded `C:\Windows` path;
+  - a broken action log means the tool did not run;
+  - the weather tile without the grant does not fetch.
+- Full suite: **757 tests**, all green after the owner-mode fix (an empty browser URL is left to validation).
+
+**Real path:** `chutku.cli run web.read https://example.com/` → COMPLETED in 1.0 s through the pinned connection, and the page text contains the real title "Example Domain".
+
+**Negative:** `web.read http://127.0.0.1:8765/` (Chutku's own dashboard) → FAILED, "points to a local or private address", in 0.4 s.
+
 ### 2026-10-06: S2 — taint and identity hardening
 
 **Causes (audit):**

@@ -87,6 +87,12 @@ def register_action_log_tools(registry, runtime):
         reason = runtime.protected_target(undo_tool, undo_arguments)
         if reason is not None:
             return ToolResult({"error": reason}, Verification.FAIL)
+        if undo_tool.required_capability is not None:   # the undo is run here directly: re-check its own authority
+            try:
+                runtime.current_capability(undo_tool.required_capability)
+            except ValueError:
+                return ToolResult({"error": f"Undoing this needs the {undo_tool.required_capability} capability, "
+                                            "which is not granted."}, Verification.FAIL)
         result = undo_tool.execute(undo_arguments, context)
         if undo_tool.verify is not None and result.verification != Verification.FAIL:
             result = undo_tool.verify(undo_arguments, result, context)

@@ -155,8 +155,8 @@ def _workflow(arguments, _context):
 def register_browser_tools(registry):
     registry.register(Tool("browser.inspect", "Open one explicit HTTP(S) URL in a fresh visible browser profile and return bounded untrusted structure.",
         Risk.OBSERVATION, _inspect, _validate_inspect, required_capability="browser.navigate", argument_schema=_INSPECT_SCHEMA,
-        prerequisites=("pinned Playwright", "installed Edge or Chrome",), reversibility="browser_closes_after_observation", success_predicate="page_dom_loaded_and_bounded_structure_returned"))
+        prerequisites=("pinned Playwright", "installed Edge or Chrome",), reversibility="browser_closes_after_observation", success_predicate="page_dom_loaded_and_bounded_structure_returned", network_egress=True))
     registry.register(Tool("browser.workflow", "Run 1-20 reviewed semantic browser actions in a fresh visible profile with a postcondition after every action.",
         Risk.EXTERNAL_SIDE_EFFECT, _workflow, _validate_workflow, frozenset({"steps"}), required_capability="browser.input",
         argument_schema=_WORKFLOW_SCHEMA, prerequisites=("pinned Playwright", "installed Edge or Chrome",),
-        reversibility="site_dependent", success_predicate="every_semantic_action_postcondition_verified"))
+        reversibility="site_dependent", success_predicate="every_semantic_action_postcondition_verified", network_egress=True))

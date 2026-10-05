@@ -49,6 +49,15 @@ class ActionLog:
         except json.JSONDecodeError:
             return None
 
+    def ready(self) -> None:
+        """Raise unless the next entry can be appended (checked before acting: an action is never unlogged)."""
+        last = self._last()
+        if last is None and self.path.exists() and self.path.stat().st_size:
+            raise ValueError("The action log ends with an unreadable line; run doctor before acting.")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.open("a", encoding="utf-8"):
+            pass
+
     def append(self, record: dict[str, Any]) -> dict[str, Any]:
         last = self._last()
         if last is None and self.path.exists() and self.path.stat().st_size:

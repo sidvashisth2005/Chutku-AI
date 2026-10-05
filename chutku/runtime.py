@@ -127,6 +127,15 @@ class Runtime:
         contact = self._contact_change(tool, arguments)
         if contact:
             return contact
+        if tool.name in {"browser.inspect", "browser.workflow"} and arguments.get("url"):   # no url: validation refuses
+            from chutku.tools.internet import Blocked, check_public_url
+            try:
+                check_public_url(str(arguments.get("url", "")))
+            except Blocked:
+                return "This page is on this PC or the home network; opening it asks first."
+            except (OSError, ValueError):
+                return "Chutku could not check where this page is; opening it asks first."
+
         if tool.name in {"keyboard.keys", "keyboard.edit", "mouse.click", "mouse.drag"}:
             from chutku.tools.free_input import file_risk  # keys/clicks that would save, delete or move files
             return file_risk(tool.name, arguments)
@@ -200,6 +209,9 @@ class Runtime:
             autonomy: str | None = None, tainted: bool = False, exposed: bool | None = None) -> dict[str, Any]:
         try:
             with self.execution_lock:
+                unlogged = self._log_not_ready(tool_name)
+                if unlogged is not None:
+                    return unlogged
                 result = self._run(tool_name, arguments, provenance=provenance, autonomy=autonomy, tainted=tainted,
                                    exposed=exposed)
                 self._log_action(tool_name, arguments, result, provenance, autonomy)
@@ -210,6 +222,23 @@ class Runtime:
             self._transition(task, TaskState.FAILED)
             self.event_log.append(task.task_id, "runtime_error", {"type": "ExecutionBusy", "message": str(error)})
             return {"task_id": task.task_id, "state": TaskState.FAILED, "error": str(error)}
+
+    def _log_not_ready(self, tool_name):
+        """Fail closed when a change could not be written to the action log: nothing runs unlogged."""
+        try:
+            if self.registry.get(tool_name).base_risk == 0:
+                return None   # plain observations are not in the action log
+            self.action_log.ready()
+            return None
+        except KeyError:
+            return None       # unknown tools are refused by _run itself
+        except (OSError, ValueError) as error:
+            task = Task(command=tool_name)
+            self.event_log.append(task.task_id, "task_received", {"tool": tool_name, "arguments": {}})
+            self._transition(task, TaskState.FAILED)
+            self.event_log.append(task.task_id, "runtime_error", {"type": "ActionLogUnavailable", "message": str(error)})
+            return {"task_id": task.task_id, "state": TaskState.FAILED,
+                    "error": f"The action log cannot be written ({error}); nothing ran. Run doctor."}
 
     def approve(self, token: str, *, cancel: bool = False) -> dict[str, Any]:
         with self.execution_lock:
@@ -225,6 +254,9 @@ class Runtime:
             if pending.get("manifest_version") != current_tool.manifest_version():
                 raise ValueError("Tool manifest changed after approval was requested.")
             task = Task(command=pending["tool"], task_id=pending["task_id"], state=TaskState.WAITING_CONFIRMATION)
+            unlogged = None if cancel else self._log_not_ready(pending["tool"])
+            if unlogged is not None:
+                return unlogged
             if cancel:
                 self._transition(task, TaskState.DENIED)
                 result = {"task_id": task.task_id, "state": task.state, "reason": "Cancelled on screen."}

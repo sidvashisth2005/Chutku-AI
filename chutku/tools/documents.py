@@ -415,10 +415,14 @@ def _organize(arguments, context):
         return ToolResult({"error": f"{len(moves)} files is more than the {MAX_ORGANIZE}-file safety limit."},
                           Verification.FAIL)
     record_id = secrets.token_hex(4)
-    done = []
+    done, skipped = [], []
     for source, destination in moves:
         destination.parent.mkdir(exist_ok=True)
-        os.replace(source, destination)  # same folder tree, same volume: an atomic rename
+        try:
+            os.rename(source, destination)  # never replaces: a file that appeared there meanwhile is left alone
+        except FileExistsError:
+            skipped.append(source.name)
+            continue
         done.append({"from": str(source), "to": str(destination), "size": destination.stat().st_size})
     record = _records_dir() / f"organize-{record_id}.json"
     record.write_text(json.dumps({"folder": str(folder), "moves": done,
@@ -429,6 +433,8 @@ def _organize(arguments, context):
         summary[Path(move["to"]).parent.name] = summary.get(Path(move["to"]).parent.name, 0) + 1
     output = {"folder": str(folder), "moved": len(done), "by_category": summary, "undo_id": record_id,
               "undo_hint": f"files.organize_undo id={record_id}"}
+    if skipped:
+        output["skipped_because_a_file_appeared"] = skipped[:20]
     return ToolResult(output, Verification.PASS if ok else Verification.FAIL, output | {"folder": "[REDACTED]"})
 
 
@@ -447,10 +453,17 @@ def _organize_undo(arguments, _context):
     restored, conflicts = 0, []
     for move in reversed(data["moves"]):
         source, destination = Path(move["to"]), Path(move["from"])
+        if protection_reason(source) or protection_reason(destination):
+            conflicts.append(source.name)  # a record never makes Chutku touch a protected area
+            continue
         if not source.is_file() or destination.exists() or source.stat().st_size != move["size"]:
             conflicts.append(source.name)  # moved or edited since: leave it where it is
             continue
-        os.replace(source, destination)
+        try:
+            os.rename(source, destination)
+        except FileExistsError:
+            conflicts.append(source.name)
+            continue
         restored += 1
     for category in {Path(m["to"]).parent for m in data["moves"]}:
         try:

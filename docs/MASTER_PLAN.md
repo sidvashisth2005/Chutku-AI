@@ -136,22 +136,22 @@
 - **Negative:** the same without Approve → nothing opened (window list unchanged).
 
 ## S3: Network, paths and logging fail closed
-- [ ] `tools/browser.py` `_validate_inspect` and `_validate_workflow` call `internet.check_public_url(url)`. Set `network_egress=True` on both tools.
-- [ ] `internet.fetch`:
+- [x] `tools/browser.py` `_validate_inspect` and `_validate_workflow` call `internet.check_public_url(url)`. Set `network_egress=True` on both tools.
+- [x] `internet.fetch`:
   - after `check_public_url`, connect to the checked IP (`http.client.HTTPSConnection(host)` with `sock` pre-connected to the vetted address via `socket.create_connection((ip, port))` + `ssl.wrap_socket` with `server_hostname=host`; or the simpler route: re-resolve inside a custom `HTTPSConnection.connect` and re-check the IP);
   - add a total deadline: abort reading when `time.monotonic() > start + TIMEOUT*2`.
-- [ ] `agent_loop.PRIVATE_TOOLS` adds `filesystem.list`, `filesystem.largest`, `files.find`, `files.recent`.
-- [ ] `core/paths.protected_zones`:
+- [x] `agent_loop.PRIVATE_TOOLS` adds `filesystem.list`, `filesystem.largest`, `files.find`, `files.recent`.
+- [x] `core/paths.protected_zones`:
   - get the AppData folder via `SHGetKnownFolderPath(FOLDERID_RoamingAppData/LocalAppData/LocalAppDataLow)` with ctypes;
   - if that fails AND `USERPROFILE` is missing, `protection_reason` returns "Cannot determine protected folders; refusing" (fail closed).
-- [ ] Path-less undo tools: `files.organize_undo` (documents.py ~442) and the other `*_undo*` tools run `protection_reason()` on every recorded source/destination before acting, and skip protected ones with a message.
-- [ ] `files.organize` moves with `os.rename` semantics that never overwrite: check `dest.exists()` right before each move and skip on conflict (record the skip).
-- [ ] Action log becomes pre-write:
+- [x] Path-less undo tools: `files.organize_undo` (documents.py ~442) and the other `*_undo*` tools run `protection_reason()` on every recorded source/destination before acting, and skip protected ones with a message.
+- [x] `files.organize` moves with `os.rename` semantics that never overwrite: check `dest.exists()` right before each move and skip on conflict (record the skip).
+- [x] Action log becomes pre-write:
   - `Runtime.run` appends a `{"state": "STARTED"}` entry BEFORE `_run` for risk ≥1 tools;
   - if that append fails, return FAILED "Action log unavailable; nothing ran";
   - after `_run`, append the final entry as today, with `"started_seq"` pointing at the first.
   - Update `action_log_tools` readers to ignore STARTED rows that have a final row.
-- [ ] Direct calls:
+- [x] Direct calls:
   - `action_log_tools.py` undo goes through `runtime.run(undo_tool, {...}, provenance="user_stated")` instead of `tool.execute`;
   - `today.py` weather checks `runtime.current_capability("internet.read")` before fetching (skip the tile if not granted).
 - **Tests:**

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import os
 import re
 from pathlib import Path, PureWindowsPath
@@ -42,6 +43,39 @@ def _within(child: str, parent: str) -> bool:
     return child == parent or child.startswith(parent.rstrip("\\/") + os.sep)
 
 
+_ROAMING_APPDATA = "{3EB685DB-65F9-4CF6-A03A-E3EF65729F3D}"   # FOLDERID_RoamingAppData
+
+
+@functools.lru_cache(maxsize=4)
+def _known_folder(guid: str) -> str | None:
+    """A Windows known folder from the shell (not from environment variables, which a process can change)."""
+    if os.name != "nt":
+        return None
+    import ctypes
+    import uuid
+    try:
+        raw = (ctypes.c_byte * 16).from_buffer_copy(uuid.UUID(guid).bytes_le)
+        found = ctypes.c_wchar_p()
+        shell32 = ctypes.windll.shell32
+        if shell32.SHGetKnownFolderPath(ctypes.byref(raw), 0, None, ctypes.byref(found)) != 0:
+            return None
+        try:
+            return found.value
+        finally:
+            ctypes.windll.ole32.CoTaskMemFree(found)
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def appdata_root() -> str | None:
+    """The user's AppData folder: from the shell's known folder, else %USERPROFILE%; None if neither is known."""
+    roaming = _known_folder(_ROAMING_APPDATA)
+    if roaming:
+        return str(Path(roaming).parent)
+    profile = os.environ.get("USERPROFILE")
+    return os.path.join(profile, "AppData") if profile else None
+
+
 def protected_zones() -> list[str]:
     """Code-owned system areas Chutku may observe but never modify."""
     zones = []
@@ -50,8 +84,11 @@ def protected_zones() -> list[str]:
         value = os.environ.get(name)
         if value:
             zones.append(value)
+    appdata = appdata_root()
+    if appdata:
+        zones.append(appdata)
     profile = os.environ.get("USERPROFILE")
-    if profile:
+    if profile and _norm(os.path.join(profile, "AppData")) != _norm(appdata or ""):
         zones.append(os.path.join(profile, "AppData"))
     zones.append(str(_PROJECT_ROOT))
     result = []
@@ -76,6 +113,9 @@ def protection_reason(target: Path) -> str | None:
         return "Drive-root system files are protected; Chutku will not modify them."
     if len(parts) == 1:
         return "A drive root itself cannot be modified."
+    if appdata_root() is None:
+        # Without knowing where AppData is, its protection cannot be applied: refuse rather than guess.
+        return "Chutku cannot tell where your AppData folder is, so it will not change files anywhere."
     profile = os.environ.get("USERPROFILE")
     if profile and _norm(Path(profile).resolve()) == _norm(Path(resolved).parent) and \
             PureWindowsPath(resolved).name.casefold().startswith("ntuser."):

@@ -9,10 +9,13 @@ so a page can never make Chutku call its own dashboard or the home network.
 from __future__ import annotations
 
 from html.parser import HTMLParser
+import http.client
 import ipaddress
 import json
 import re
 import socket
+import ssl
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -30,19 +33,51 @@ class Blocked(ValueError):
     pass
 
 
+def _is_public(address):
+    ip = ipaddress.ip_address(address.split("%")[0])
+    return not (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast
+                or ip.is_unspecified)
+
+
+def public_address(host):
+    """Resolve host once; every address must be public. Returns the address to connect to."""
+    try:
+        addresses = [info[4][0] for info in socket.getaddrinfo(host, None)]
+    except socket.gaierror as error:
+        raise OSError(f"Could not find {host} (offline?).") from error
+    if not addresses or not all(_is_public(address) for address in addresses):
+        raise Blocked(f"{host} points to a local or private address; Chutku only reads public websites.")
+    return addresses[0]
+
+
 def check_public_url(url):
     from chutku.tools.everyday import validate_url
     validate_url(url)
-    host = urllib.parse.urlsplit(url).hostname
-    try:
-        addresses = {info[4][0] for info in socket.getaddrinfo(host, None)}
-    except socket.gaierror as error:
-        raise OSError(f"Could not find {host} (offline?).") from error
-    for address in addresses:
-        ip = ipaddress.ip_address(address.split("%")[0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
-            raise Blocked(f"{host} points to a local or private address; Chutku only reads public websites.")
+    public_address(urllib.parse.urlsplit(url).hostname)
     return url
+
+
+# The connection goes to the very address that was checked (resolved once, inside connect), so a name that
+# answers differently a moment later (DNS rebinding) cannot point a fetch at this PC or the home network.
+class _PinnedHTTPConnection(http.client.HTTPConnection):
+    def connect(self):
+        self.sock = socket.create_connection((public_address(self.host), self.port), self.timeout)
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    def connect(self):
+        sock = socket.create_connection((public_address(self.host), self.port), self.timeout)
+        self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+
+
+class _PinnedHTTP(urllib.request.HTTPHandler):
+    def http_open(self, req):
+        return self.do_open(_PinnedHTTPConnection, req)
+
+
+class _PinnedHTTPS(urllib.request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(_PinnedHTTPSConnection, req, context=ssl.create_default_context())
 
 
 class _SafeRedirects(urllib.request.HTTPRedirectHandler):
@@ -53,12 +88,12 @@ class _SafeRedirects(urllib.request.HTTPRedirectHandler):
 
 def fetch(url, *, accept="text/html,application/json,application/xml;q=0.9,*/*;q=0.5"):
     check_public_url(url)
-    opener = urllib.request.build_opener(_SafeRedirects)
+    opener = urllib.request.build_opener(_SafeRedirects, _PinnedHTTP, _PinnedHTTPS)
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": accept,
                                                    "Accept-Language": "en-IN,en;q=0.8"})
     try:
         with opener.open(request, timeout=TIMEOUT) as response:
-            body = response.read(MAX_BYTES + 1)
+            body = _read_bounded(response, time.monotonic() + TIMEOUT * 2)
             final = response.geturl()
             charset = response.headers.get_content_charset() or "utf-8"
     except urllib.error.HTTPError as error:
@@ -68,6 +103,20 @@ def fetch(url, *, accept="text/html,application/json,application/xml;q=0.9,*/*;q
     if len(body) > MAX_BYTES:
         body = body[:MAX_BYTES]
     return body.decode(charset, "replace"), final
+
+
+def _read_bounded(response, deadline):
+    """At most MAX_BYTES + 1, and within a total deadline: a server dripping bytes cannot hold Chutku."""
+    chunks, size = [], 0
+    while size <= MAX_BYTES:
+        if time.monotonic() > deadline:
+            raise TimeoutError("The page took too long to download.")
+        chunk = response.read(min(65536, MAX_BYTES + 1 - size))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        size += len(chunk)
+    return b"".join(chunks)
 
 
 class _Text(HTMLParser):

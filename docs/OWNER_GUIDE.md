@@ -277,6 +277,9 @@ Rules:
 - **Unclear locations are refused.** A path Chutku can't resolve safely (network shares, `\\?\` tricks, `CON`, `file:stream`, `..`) is refused, not guessed.
 - **Delete means the Recycle Bin.** You can restore from Chutku or from Explorer. Every delete asks first. Removable and network drives are refused, because they have no Recycle Bin.
 - **Permanent delete** happens only when *you* say "permanently delete …". The agent can never choose it, and it always asks.
+- **Web reading only reaches public sites.** The address is checked, and the connection goes to exactly that checked address, so a page can't redirect Chutku to this PC or your home network. An agent step that opens the test browser on a local or home-network address asks first.
+- **Nothing runs unlogged.** If the action log can't be written (for example, its last line is damaged), Chutku refuses to act and tells you to run `doctor`.
+- **Organize never overwrites.** If a file with the same name appears in the target folder meanwhile, that file is skipped. Undo also never touches system folders, whatever a record says.
 - **Chutku never runs as administrator.** If it is ever started elevated, it refuses to act. This keeps Windows' own protection of system folders in place.
 - **Everything is logged** in `data\actions.log.jsonl`: every change, every question it asked you, every refusal. Each line is chained to the previous one, so `doctor` reports any edit or truncation.
 - **Chutku never clicks its own dashboard, HUD or tray**, so it can never approve its own step. A consequential screen click (send, pay, delete…) names the button it saw. If the screen was read again and that button changed, the click is refused.

@@ -74,6 +74,7 @@ PRIVATE_TOOLS = frozenset({
     "filesystem.read_text", "filesystem.search", "file.extract_text", "clipboard.read_text",
     "screen.read_text", "screen.understand", "screen.capture", "uia.inspect", "windows.list", "memory.search",
     "code.run_python", "log.recent", "message.read_chat",
+    "filesystem.list", "filesystem.largest", "files.find", "files.recent",   # names of the owner's files
 })
 # On-screen actions may legitimately repeat with identical arguments (press "5" twice, look again after a
 # click); other completed steps are never re-run. Step and round limits still bound any loop.

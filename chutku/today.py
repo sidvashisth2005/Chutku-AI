@@ -30,8 +30,16 @@ def _weather_cache(base: Path) -> Path:
 def _refresh_weather(base: Path) -> None:
     global _weather_fetching
     try:
+        from chutku.core.capability_grants import CapabilityGrantStore
         from chutku.core.memory import MemoryStore
         from chutku.tools.internet import _weather
+        grants = CapabilityGrantStore(Path(base) / "data" / "capability_grants.db")
+        try:
+            grants.get("internet.read")   # the Today tile fetches only with the same grant the web tools need
+        except ValueError:
+            return
+        finally:
+            grants.close()
         memory = MemoryStore(Path(base) / "data" / "memory.db")
         try:
             result = _weather({}, SimpleNamespace(memory=memory))
