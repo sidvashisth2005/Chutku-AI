@@ -270,7 +270,14 @@ _STANDIN = re.compile(r"\((?:size|name|date|path|value|number|details?|result|ti
                       r"\b(?:file|item|result|entry|name|title)\s?[1-9]\s*\((?:size|name|date|path|value)", re.I)
 
 
-_IN_PROGRESS = re.compile(r"^\s*(?:i am |i'm |now |)[\w-]+ing\b|\bto continue\b|\.\.\.\s*$|…\s*$", re.I)
+# "Opening Spotify...", "I'm checking the folder" are still in progress; "Nothing is playing", "Everything is done" are
+# finished answers that merely start with an -ing word (audit 2026-10-06).
+_ING_NOUNS = (r"(?:nothing|everything|something|anything|morning|evening|during|king|thing|bring|string|ring|wing|"
+              r"ceiling|building|meeting|setting|settings|warning|spring|sibling)")
+_IN_PROGRESS = re.compile(
+    r"^\s*(?:i am|i'm|i’m|now|currently|abhi)\s+\w+ing\b"
+    rf"|^\s*(?!{_ING_NOUNS}\b)[\w-]+ing\b(?!\s+(?:is|was|are|were|has|had|have)\b)"
+    r"|\bto continue\b|\.\.\.\s*$|…\s*$", re.I)
 _TELL_ME = re.compile(r"\b(?:tell me|show me|let me know|what is|what's|how much|how many|the result|batao|bata do|"
                       r"report back|read (?:it|out))\b", re.I)
 
@@ -291,7 +298,12 @@ _CLAIMS = [
     (re.compile(r"\b(?:shut (?:it )?down|restarted|rebooted|powered off)\b", re.I), ("power.",)),
     (re.compile(r"\b(?:sent|messaged)\b", re.I), ("message.", "keyboard.press_enter", "screen.click_risky")),
     # benchmark 2026-10-04: "The file draft.txt has been renamed to final.txt" after only files.recent ran.
-    (re.compile(r"\b(?:renamed|moved)\b", re.I), ("filesystem.move", "filesystem.undo_last_move", "files.organize", "filesystem.recycle",
+    # About files only: "the meeting was moved to Friday" is not a file action (audit 2026-10-06).
+    (re.compile(r"\b(?:renamed|moved)\b(?=.{0,60}(?:\b(?:file|folder|document|directory|recycle bin|it|them)\b|"
+                r"[a-z]:\\|\w+\.[a-z0-9]{2,4}\b))|"
+                r"(?:\b(?:file|folder|document|directory)\b|[a-z]:\\|\w+\.[a-z0-9]{2,4}\b).{0,60}\b(?:renamed|moved)\b",
+                re.I),
+     ("filesystem.move", "filesystem.undo_last_move", "files.organize", "filesystem.recycle",
                                                   "log.undo", "mouse.drag", "keyboard.", "input.", "uia.")),
     (re.compile(r"\b(?:has|have|was|were|been)\s+copied\b|\b(?:i|we)\s+copied\b", re.I),
      ("filesystem.copy", "clipboard.", "keyboard.", "files.zip", "files.unzip")),
@@ -305,6 +317,8 @@ _CLAIMS = [
 ]
 
 
+_NEGATED = re.compile(r"\b(?:nothing|no (?:files?|folders?|documents?|messages?)|not|never|nahi|nahin)\b[^.!?]{0,40}",
+                      re.I)
 _QUESTION = re.compile(r"^\s*(?:what|which|how|when|where|who|whose|why|is|are|am|does|did|was|were|tell me|"
                        r"show me|list|kya|kaun|kitne|kitna|kab|kahan|kaise)\b|\?\s*$", re.IGNORECASE)
 _ACTION_WORDS = re.compile(r"\b(?:open|close|launch|start|run|create|make|write|save|delete|remove|recycle|move|copy|"
@@ -529,6 +543,7 @@ class AgentSession:
         self.created = time.monotonic()
         self.updated = time.time()
         self.lock = threading.RLock()
+        self.cancelled = threading.Event()   # set by cancel(); the running loop checks it after every step
 
     # -- planner view -----------------------------------------------------
     def planner_input(self, profile=None):
@@ -545,10 +560,22 @@ class AgentSession:
         return json.dumps({
             "GOAL": self.goal,
             "CONTEXT": {"now": datetime.now().isoformat(timespec="minutes"), **context},
-            "STEPS": [{"n": i, "tool": s["tool"], "arguments": s["arguments"], "state": s["state"],
-                       "observed_data": s["observation"]} for i, s in enumerate(self.steps, 1)],
+            "STEPS": self._steps_view(profile.steps_chars if profile is not None else 60000),
             **({"FEEDBACK": self.feedback} if self.feedback else {}),
         }, ensure_ascii=False, separators=(",", ":"))
+
+    def _steps_view(self, budget):
+        """STEPS for the planner within a total budget of observed data: the newest steps keep theirs whole, older
+        ones keep only tool, arguments and state (a 60-step session must not overflow the model's context)."""
+        view, used = [], 0
+        for i, step in reversed(list(enumerate(self.steps, 1))):
+            row = {"n": i, "tool": step["tool"], "arguments": step["arguments"], "state": step["state"]}
+            data = step["observation"]
+            if used + len(data) <= budget:
+                row["observed_data"] = data
+                used += len(data)
+            view.append(row)
+        return list(reversed(view))
 
     def snapshot(self):
         with self.lock:
@@ -636,6 +663,10 @@ class AgentSession:
             self.status = "running"
         while True:
             with self.lock:
+                if self.cancelled.is_set():   # the owner said stop: nothing more is planned or run
+                    if self.status != "cancelled":
+                        self._finish("cancelled", "Cancelled. Completed steps remain; use undo where available.")
+                    break
                 if not self.queue and self.finish_pending:
                     round_steps = self.steps[self.round_start:]
                     self.finish_pending = False
@@ -706,14 +737,19 @@ class AgentSession:
                     # "Finished" is believed only when the planner's own remaining plan fits in this round, its
                     # final answer is not still in progress, and the user did not ask to be told a result (that
                     # needs an observation and status=done afterwards).
-                    self.finish_pending = proposal.get("finish", False) and any(
-                        _risk(runtime, s["tool"]) > 0 for s in fresh) and                         len(proposal.get("declared_plan") or []) <= len(fresh) and                         not _IN_PROGRESS.search(proposal.get("reply") or "") and not _TELL_ME.search(self.goal)
+                    self.finish_pending = (proposal.get("finish", False)
+                                           and any(_risk(runtime, s["tool"]) > 0 for s in fresh)
+                                           and len(proposal.get("declared_plan") or []) <= len(fresh)
+                                           and not _IN_PROGRESS.search(proposal.get("reply") or "")
+                                           and not _TELL_ME.search(self.goal))
                     self.round_start = len(self.steps)
                     self.round_declared = len(proposal.get("declared_plan") or [])
                     self.round_planner = meta.get("planner") if isinstance(meta, dict) else None
                     self.status = "running"
                 notify()
             with self.lock:
+                if self.cancelled.is_set() or not self.queue:
+                    continue   # the top of the loop finishes a cancelled session or plans again
                 step = self.queue.pop(0)
                 if step["tool"] in LONG_TOOLS:
                     self.limits.update(LONG_LIMITS)
@@ -724,6 +760,11 @@ class AgentSession:
             result = target.run(step["tool"], step["arguments"], provenance=self.provenance,
                                 autonomy=self.mode, tainted=tainted, exposed=self.exposed)
             with self.lock:
+                if self.cancelled.is_set():   # stopped while this step ran: keep its record, run nothing more
+                    self._record(step, result)
+                    if self.status != "cancelled":
+                        self._finish("cancelled", "Cancelled. Completed steps remain; use undo where available.")
+                    break
                 if str(result.get("state")) == "WAITING_CONFIRMATION":
                     self.pending = {"approval": {**result["approval"], "reason": result.get("reason")}, "step": step,
                                     "grant_id": target.resource_grant.grant_id}
@@ -738,9 +779,14 @@ class AgentSession:
     def _propose(self, runtime, planner, fallback, check):
         if self.quick is not None and not self.pending_feedback:
             try:
-                return self.quick.propose(self, runtime, check)  # deterministic tier first
+                proposal, meta = self.quick.propose(self, runtime, check)  # deterministic tier first
+                # The cheap guards apply to rule-matched plans too: a wrong match must not invent or overreach.
+                self._reject_placeholders(proposal)
+                self._reject_unnamed_documents(proposal)
+                self._reject_unrelated_effects(proposal)
+                return proposal, meta
             except (LookupError, ValueError, KeyError, OSError):
-                pass
+                pass   # no rule, or a rule's plan was refused: the model plans instead
         replay = self._replay(runtime)
         if replay is not None:
             return replay
@@ -843,6 +889,7 @@ class AgentSession:
     def _unsupported_claim(self, reply):
         """A drastic action the answer claims although no completed step performed it."""
         done = [s["tool"] for s in self.steps if s["state"] == "COMPLETED"]
+        reply = _NEGATED.sub(" ", reply or "")   # "nothing was deleted", "not moved": a denial is not a claim
         for pattern, prefixes in _CLAIMS:
             match = pattern.search(reply)
             if match and not any(tool.startswith(prefixes) for tool in done):
@@ -974,6 +1021,7 @@ class AgentSession:
             return self.snapshot()
 
     def cancel(self, runtime):
+        self.cancelled.set()
         with self.lock:
             if self.pending is not None:
                 try:

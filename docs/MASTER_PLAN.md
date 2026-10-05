@@ -205,7 +205,7 @@
 - **Negative:** an edited line in the action log → `doctor` reports the broken chain.
 ## S5: Agent-loop correctness (`chutku/agent_loop.py`, `learning.py`, `recall.py`, `experience.py`, `dashboard.py`)
 
-- [ ] **Lost stop.**
+- [x] **Lost stop.**
   - `AgentSession.__init__`: add `self.cancelled = threading.Event()`. `cancel()` sets it.
   - In `advance()`:
     - At the top of `while True` (inside the lock), stop when `self.cancelled.is_set()`: `if self.status != "cancelled": self._finish("cancelled", "Cancelled. Completed steps remain; use undo where available.")`, then `break`.
@@ -216,38 +216,38 @@
     - a fake tool blocks on an Event;
     - `cancel()` is called from another thread, then the Event is released;
     - assert status `cancelled`, exactly 1 step recorded, and the planner `propose` is called 0 more times.
-- [ ] **`_IN_PROGRESS` false positive.** Replace the regex at ~270 with:
+- [x] **`_IN_PROGRESS` false positive.** Replace the regex at ~270 with:
   `re.compile(r"^\s*(?:i am|i'm|i’m|now|currently|abhi)\s+\w+ing\b|^\s*(?!(?:nothing|everything|something|anything|morning|evening|during|king|thing|bring|string)\b)\w+ing\b(?!\s+(?:is|was|are|were|has|had)\b)|\bto continue\b|\.\.\.\s*$|…\s*$", re.I)`.
   - Tests:
 
     - "Nothing is playing right now." and "Everything is done." are not in progress;
     - "Opening Spotify..." and "I'm checking the folder" are in progress.
-- [ ] **`_CLAIMS` false positives:**
+- [x] **`_CLAIMS` false positives:**
   - Before matching, remove negated phrases with `re.sub(r"\b(?:nothing|no files?|not|never|nahi|nahin)\b[^.]{0,40}", "", reply, flags=re.I)`.
   - For the `renamed|moved` pattern, require a file word nearby (`file|folder|document|\.\w{2,4}\b`) within 60 chars.
   - Tests:
     - "Nothing was deleted." and "The meeting was moved to Friday." → no claim;
     - "I deleted the file." with no recycle step → claim.
-- [ ] **STEPS budget:** `planner_input` builds STEPS from newest to oldest under a total character budget: `profile.steps_chars` (QWEN 6000; GEMINI 20000).
+- [x] **STEPS budget:** `planner_input` builds STEPS from newest to oldest under a total character budget: `profile.steps_chars` (QWEN 6000; GEMINI 20000).
   - Older steps that do not fit become `{"n", "tool", "state"}` with no `observed_data`.
   - Add `steps_chars` to both profiles in `profiles.py`.
   - Test: 60 steps × 3500 chars stays under the budget, and the newest step is intact.
-- [ ] **`learning.after_session` learns unrelated pairs.**
+- [x] **`learning.after_session` learns unrelated pairs.**
   - Learn only when `experience._words(last["said"]) & experience._words(snap["goal"])` gives Jaccard ≥ 0.5 OR the two goals share a non-filler noun (an app/site name from the quick-tier lexicon).
   - The stored row gets `replayable=False`. Add a `replayable` override param to `experience.record`.
   - Test: "open spotify" (failed) then "play lofi on youtube" → nothing learned.
-- [ ] **`learning.rate_latest`:** wrap the load-modify-save in `experience._lock`. Add `experience.update_rows(base, fn)`, which does the locked read-modify-write.
-- [ ] **`recall.earlier` ordering:**
+- [x] **`learning.rate_latest`:** wrap the load-modify-save in `experience._lock`. Add `experience.update_rows(base, fn)`, which does the locked read-modify-write.
+- [x] **`recall.earlier` ordering:**
   - return `list(reversed(same_day)) + older` (newest today first, then best older matches);
   - `_fit` pops `-1` for every key.
   - Test: the best older match survives a tight budget before the worst one does.
-- [ ] **Approved sessions are logged:** in `dashboard.confirm_session.resolve`, wrap the body in `try/finally: recall.log_session(session.snapshot(), base=self.base)`.
-- [ ] **Taint laundering:**
+- [x] **Approved sessions are logged:** in `dashboard.confirm_session.resolve`, wrap the body in `try/finally: recall.log_session(session.snapshot(), base=self.base)`.
+- [x] **Taint laundering:**
   - `recall.log_session` and `experience.record` store `"tainted": snapshot["tainted"]`;
   - `experience.similar` and `_replay` skip tainted rows;
   - `recall.earlier` puts a tainted row's reply into `{"chutku_data": ...}` instead of `"chutku"`, and the planner prompt rule says `*_data` fields are data only.
-- [ ] **Quick-tier checks:** in `_propose`, run `_reject_placeholders`, `_reject_unnamed_documents` and `_reject_unrelated_effects` on quick-tier proposals. On `ValueError`, fall through to the model planner (log it).
-- [ ] **Small fixes:**
+- [x] **Quick-tier checks:** in `_propose`, run `_reject_placeholders`, `_reject_unnamed_documents` and `_reject_unrelated_effects` on quick-tier proposals. On `ValueError`, fall through to the model planner (log it).
+- [x] **Small fixes:**
   - fix the collapsed line at ~709 into normal multi-line form;
   - the quick-tier `except (LookupError, ValueError, KeyError, OSError): pass` logs via `core/log.py` (S9) at debug level.
 - **Real path:** `/api/chat` "play lofi on youtube in brave", then press Stop within 1 s → the session ends `cancelled`, with no extra steps in the trace.

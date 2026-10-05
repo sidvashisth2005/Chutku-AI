@@ -27,6 +27,7 @@ class Profile:
     answer_tokens: int = 220
     about_you_chars: int = 1200
     past_successes: int = 3
+    steps_chars: int = 60000   # total observed data shown in STEPS; newest steps first, older ones lose their data
     core_tools: frozenset = field(default_factory=frozenset)
 
 
@@ -48,7 +49,7 @@ QWEN_CORE = frozenset({
 })
 
 QWEN = Profile("qwen", menu_extra=8, reply_max=200, plan_items=3, plan_len=40, purpose_len=40, max_tokens=400,
-               answer_tokens=160, about_you_chars=600, past_successes=2, core_tools=QWEN_CORE)
+               answer_tokens=160, about_you_chars=600, past_successes=2, steps_chars=6000, core_tools=QWEN_CORE)
 
 # The same rules as the full prompt (agent_loop.AGENT_SYSTEM), said briefly. Tool-specific guidance lives in
 # TOOL_NOTES and is sent only when that tool is offered.

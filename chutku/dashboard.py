@@ -186,7 +186,7 @@ class DashboardServer(ThreadingHTTPServer):
                 with create_runtime(self.base) as runtime:
                     runtime.approvals = self.approvals
                     router = RuntimeRouter(runtime, opener=lambda grant_id: create_runtime(self.base, grant_id))
-                    progress.set_hook(beat, lambda: session.status == "cancelled")
+                    progress.set_hook(beat, lambda: session.status == "cancelled" or session.cancelled.is_set())
                     try:
                         action(router, beat)
                         try:  # a fully verified plan becomes a worked example for similar requests
@@ -226,9 +226,13 @@ class DashboardServer(ThreadingHTTPServer):
         planner, fallback = self.planners()
 
         def resolve(router, beat):
-            session.decide(router, approve=approve)
-            session.advance(router, planner, fallback=fallback, heartbeat=beat)
-            speak_result(session, router)
+            from chutku import recall
+            try:
+                session.decide(router, approve=approve)
+                session.advance(router, planner, fallback=fallback, heartbeat=beat)
+                speak_result(session, router)
+            finally:
+                recall.log_session(session.snapshot(), base=self.base)   # approved tasks are remembered too
         with session.lock:
             if session.pending is None or session.status != "waiting_confirmation":
                 raise ValueError("No confirmation is pending for this session.")

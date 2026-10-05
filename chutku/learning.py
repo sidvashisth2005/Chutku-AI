@@ -116,14 +116,14 @@ def rate_latest(rating, base=None):
                    if t.get("tools") and parse_feedback(t["said"]) is None), None)
     if latest is None:
         return None
-    rows = experience.load(base)
-    changed = False
-    for row in rows:
-        if row["goal"].casefold() == latest["said"].casefold():
-            row["rating"] = rating
-            changed = True
-    if changed:
-        experience.save_rows(base, rows)
+    def rate(rows):
+        changed = False
+        for row in rows:
+            if row["goal"].casefold() == latest["said"].casefold():
+                row["rating"] = rating
+                changed = True
+        return changed
+    experience.update_rows(base, rate)
     _feedback_log(base, latest["said"], rating)
     return latest["said"]
 
@@ -140,6 +140,30 @@ def _feedback_log(base, goal, rating):
 
 
 # -- learning from a rephrased retry ---------------------------------------------------------------------------
+
+# Apps, sites and places a request can name. "open spotify" failing and then "play lofi on youtube" working are two
+# different requests; "woh gaana lagao jo kal suna tha" failing and "play lofi on youtube" right after is a rephrase.
+_NAMED_TARGETS = {"spotify", "youtube", "whatsapp", "telegram", "instagram", "discord", "chrome", "brave", "edge",
+                  "firefox", "notepad", "calculator", "vlc", "steam", "epic", "code", "vscode", "word", "excel",
+                  "powerpoint", "explorer", "settings", "gmail", "google", "maps", "amazon", "flipkart", "github",
+                  "downloads", "desktop", "documents", "pictures", "music", "videos", "netflix", "hotstar", "prime"}
+REPHRASE_SECONDS = 120
+
+
+def _same_request(first, second, gap=None):
+    """Two wordings of one request: most meaningful words shared (Jaccard >= 0.5), a shared distinctive name, or a
+    quick rephrase (within 2 minutes) whose first wording named no app or site that the second one lacks."""
+    from chutku import experience
+    a, b = experience._words(first), experience._words(second)
+    if not a or not b:
+        return False
+    if len(a & b) / len(a | b) >= 0.5:
+        return True
+    if (a & b) & _NAMED_TARGETS:
+        return True
+    named_first = a & _NAMED_TARGETS
+    return gap is not None and gap <= REPHRASE_SECONDS and not (named_first - b)
+
 
 class _Renamed:
     def __init__(self, session, goal):
@@ -162,7 +186,9 @@ def after_session(base, session, runtime=None, *, window=600):
     last = previous[-1]
     if last.get("status") not in ("failed", "stopped", "clarify") or time.time() - last["at"] > window:
         return None
-    if experience.record(base, _Renamed(session, last["said"]), runtime):
+    if not _same_request(last["said"], snap["goal"], gap=time.time() - last["at"]):
+        return None   # "open spotify" failed, then "play lofi on youtube" worked: two different requests
+    if experience.record(base, _Renamed(session, last["said"]), runtime, replayable=False):
         return last["said"]
     return None
 

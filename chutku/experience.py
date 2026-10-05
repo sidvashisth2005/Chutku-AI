@@ -14,7 +14,7 @@ import threading
 import time
 
 MAX_EXAMPLES = 500
-_lock = threading.Lock()
+_lock = threading.RLock()
 _STOP = {"a", "an", "the", "to", "and", "of", "in", "on", "for", "my", "me", "it", "is", "please", "then", "into",
          "with", "at", "from", "this", "that", "karo", "kar", "do", "ko", "ka", "ki", "ke", "mein", "me", "aur", "se"}
 
@@ -27,12 +27,16 @@ def _words(text):
     return {w for w in re.findall(r"[a-z0-9]+", text.casefold()) if w not in _STOP and len(w) > 1}
 
 
-def record(base, session, runtime=None):
-    """Store a fully verified session as an example (no-op otherwise)."""
+def record(base, session, runtime=None, *, replayable=None):
+    """Store a fully verified session as an example (no-op otherwise).
+
+    ``replayable=False`` keeps it as an example the planner may read but never re-run blindly."""
     snap = session.snapshot()
     steps = snap["steps"]
     if snap["status"] != "done" or not steps or any(s["state"] != "COMPLETED" for s in steps):
         return False
+    if snap.get("tainted"):
+        return False  # a plan steered by a web page or a message must never become a worked example
     planners = [p.get("planner") for p in snap.get("planners", [])]
     if planners and all(name == "quick" for name in planners):
         return False  # rule-matched plans teach the model nothing, and a wrong match must never become an example
@@ -52,7 +56,7 @@ def record(base, session, runtime=None):
     row = {"goal": snap["goal"][:300], "steps": kept[:20], "at": time.time(),
            "planners": [p.get("planner") for p in snap.get("planners", [])][:6],
            # A plan made in ONE round never depended on observed results, so it can be replayed as it is.
-           "replayable": complete and snap.get("rounds", 99) == 1 and len(steps) <= 4}
+           "replayable": complete and snap.get("rounds", 99) == 1 and len(steps) <= 4 and replayable is not False}
     path = _path(base)
     with _lock:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -83,6 +87,14 @@ def save_rows(base, rows):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows[-MAX_EXAMPLES:]),
                         encoding="utf-8")
+
+
+def update_rows(base, change):
+    """Read, change and write the examples under one lock (no lost update against record())."""
+    with _lock:
+        rows = load(base)
+        if change(rows):
+            save_rows(base, rows)
 
 
 def similar(base, goal, k=3, minimum=0.34):

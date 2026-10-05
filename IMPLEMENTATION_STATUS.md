@@ -16,6 +16,38 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S5 — agent-loop correctness
+
+| Problem (audit) | Fix |
+|---|---|
+| **Stop could be lost.** `cancel()` set "cancelled", but a step already running let `advance()` reset the status to "planning" and keep going. A cancel at the wrong moment also hit an IndexError. | `AgentSession.cancelled` (Event). It is checked at the top of every loop pass and right after each step returns (the step is recorded, nothing more runs); the queue pop is guarded. The dashboard's progress hook also watches it. |
+| **Correct answers rejected.** `_IN_PROGRESS` rejected "Nothing is playing" and "Everything is done" as "still in progress", costing a fallback planner call (offline: loading the 8B). | Only first-person/progressive forms count; -ing nouns (nothing, morning, meeting…) and "X-ing is/was…" are excluded. |
+| **Correct answers withheld.** `_CLAIMS` flagged "Nothing was deleted" and "the meeting was moved". | Negated phrases are removed before matching, and "moved/renamed" needs a file, folder, path or "it" nearby. |
+| **Context overflow.** STEPS in the prompt were unbounded (≤3500 chars × 60 steps against 16K tokens). | `Profile.steps_chars` (Qwen 6000, others 60000): the newest steps keep their data, older ones only tool, arguments and state. The Gemini request is unchanged (it uses `cloud_view`). |
+| **Wrong learning.** `learning.after_session` mapped *any* failure to the next success, as a replayable plan. | `_same_request()`: similar wording (Jaccard ≥ 0.5) or a shared app/site name, or a rephrase within 2 min when the failed wording named no app or site the new one lacks. "open spotify" → YouTube is no longer learned; the owner's real "woh gaana lagao jo kal suna tha" → lofi still is. Learned pairs are `replayable=False`. |
+| **Lost rating.** `rate_latest` loaded and saved outside the lock. | `experience.update_rows()` (one lock; the lock is now an RLock). |
+| **Best memory dropped first.** `recall._fit` dropped the best older match first. | `earlier()` returns newest-today first, then the best older matches; `_fit` trims from the end. |
+| **Approved tasks forgotten.** Tasks finished after an on-screen approval were never written to `conversations.jsonl`. | `confirm_session.resolve` logs them in a `finally`. |
+| **Taint laundering.** Replies written after reading outside content came back as ordinary context in later sessions. | Tainted sessions are never stored as examples. Conversation rows carry `tainted`, and `earlier()` shows their reply as `chutku_data`. |
+| **Rule plans unchecked.** Quick-tier plans skipped every guard. | The cheap guards (placeholders, unnamed documents, unrelated effects) apply to quick-tier plans; a refused rule plan falls back to the model. |
+
+Also fixed: the collapsed continuation line in `advance()`.
+
+**Tests**
+- New `tests/test_agent_correctness_s5.py` (11):
+  - a real threaded cancel during a step (it **fails on the old code**, checked by stashing the fix);
+  - the -ing replies; denials; the STEPS budget;
+  - an unrelated failure not learned; a rephrase learned but not replayable;
+  - a tainted session not stored; the rating saved;
+  - `_fit` keeps the best; tainted replies come back as data;
+  - a quick-tier placeholder falls back.
+- Updated: `test_recall` (newest-first order).
+- **Full suite: 781 tests OK (149 s).**
+
+**Real path** (`s5_cancel_real.py`: real runtime, the owner's grants, a scripted plan of two real `web.read` steps):
+- Stop was pressed while the first read was in flight.
+- Result: status `cancelled`; 1 step (example.com, COMPLETED and recorded); the second page was **never read**; the planner was called once; 0.66 s → PASS.
+
 ### 2026-10-06: S4 — owner's apps survive a stop; bounded logs; redaction; truthful safety docs
 
 - **Guard job.**

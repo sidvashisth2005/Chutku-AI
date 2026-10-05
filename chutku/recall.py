@@ -56,7 +56,8 @@ def conversations_path(base=None):
 
 # -- conversation log --------------------------------------------------------------------------------------
 
-def log_conversation(said, reply, *, origin="text", status="done", tools=(), base=None, at=None, planners=None):
+def log_conversation(said, reply, *, origin="text", status="done", tools=(), base=None, at=None, planners=None,
+                     tainted=False):
     said, reply = " ".join(str(said or "").split()), _VERIFIED_TAIL.sub("", str(reply or "")).strip()
     if not said:
         return
@@ -64,6 +65,8 @@ def log_conversation(said, reply, *, origin="text", status="done", tools=(), bas
            "tools": sorted({str(t) for t in tools})[:12]}
     if planners:
         row["planners"] = [str(p) for p in planners][:8]   # quick / replay / local / local-8b / gemini
+    if tainted:
+        row["tainted"] = True   # the reply followed outside content: shown to later planners only as data
     file = conversations_path(base)
     with _lock:
         try:
@@ -83,7 +86,8 @@ def log_session(snapshot, base=None):
     tools = [s.get("tool") for s in snapshot.get("steps", []) if s.get("state") == "COMPLETED"]
     log_conversation(snapshot.get("goal"), snapshot.get("reply"), origin=snapshot.get("origin", "text"),
                      status=snapshot.get("status"), tools=tools, base=base,
-                     planners=[p.get("planner") for p in snapshot.get("planners", []) if p.get("planner")])
+                     planners=[p.get("planner") for p in snapshot.get("planners", []) if p.get("planner")],
+                     tainted=bool(snapshot.get("tainted")))
 
 
 def log_voice(transcript, base=None):
@@ -129,12 +133,15 @@ def earlier(goal, base=None, *, now=None):
         scored = [(len(wanted & words(r["said"] + " " + r.get("reply", ""))), r["at"], r) for r in rows
                   if r not in same_day]
         older = [r for score, _, r in sorted(scored, key=lambda x: (x[0], x[1]), reverse=True) if score >= 1][:3]
-    return [_brief(r) for r in older + same_day]
+    # Newest of today first, then the best older matches: _fit trims from the end, so the least relevant goes first.
+    return [_brief(r) for r in list(reversed(same_day)) + older]
 
 
 def _brief(row):
     when = datetime.fromtimestamp(row["at"]).strftime("%d %b %H:%M")
-    return {"when": when, "you": row["said"][:200], "chutku": row.get("reply", "")[:200], "status": row.get("status")}
+    # A reply written after reading a web page or a message is data, never an instruction for a later session.
+    key = "chutku_data" if row.get("tainted") else "chutku"
+    return {"when": when, "you": row["said"][:200], key: row.get("reply", "")[:200], "status": row.get("status")}
 
 
 def talked_about(day: date, base=None, limit=580):
@@ -229,7 +236,7 @@ def _fit(view, budget):
                 if isinstance(part, dict):
                     part.pop(list(part)[-1])
                 else:
-                    part.pop(0 if key == "earlier" else -1)   # earlier: oldest-matching first in the list
+                    part.pop(-1)   # every list is ordered most relevant first
                 break
         else:
             break

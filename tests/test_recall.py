@@ -51,8 +51,8 @@ class RecallTests(unittest.TestCase):
         said = [t["you"] for t in found]
         self.assertIn("Latent season 2 kab aaya", said)          # older and related
         self.assertNotIn("weather kaisa hai", said)              # older and unrelated
-        self.assertEqual(said[-3:], ["task 1", "task 2", "task 3"])   # today's last three
-        self.assertEqual(found[-1]["chutku"], "ok")              # verification tail stripped
+        self.assertEqual(said[:3], ["task 3", "task 2", "task 1"])   # today's last three, newest first
+        self.assertEqual(found[0]["chutku"], "ok")               # verification tail stripped
 
     def test_voice_conversation_turns_skip_noise(self):
         recall.log_voice([("you", "Thank you."), ("chutku", "Welcome!"), ("you", "agla gaana chalao"),
