@@ -1,0 +1,122 @@
+{
+ "noise": {
+  "near_silence": {
+   "seconds": 40.0,
+   "segments_to_whisper": 0,
+   "wakes": [],
+   "heard": []
+  },
+  "fan_soft": {
+   "seconds": 40.0,
+   "segments_to_whisper": 0,
+   "wakes": [],
+   "heard": []
+  },
+  "fan_medium": {
+   "seconds": 40.0,
+   "segments_to_whisper": 0,
+   "wakes": [],
+   "heard": []
+  },
+  "fan_loud": {
+   "seconds": 40.0,
+   "segments_to_whisper": 1,
+   "wakes": [],
+   "heard": []
+  },
+  "mains_hum": {
+   "seconds": 30.0,
+   "segments_to_whisper": 1,
+   "wakes": [],
+   "heard": []
+  },
+  "keyboard": {
+   "seconds": 30.0,
+   "segments_to_whisper": 4,
+   "wakes": [],
+   "heard": []
+  },
+  "door_knock": {
+   "seconds": 20.0,
+   "segments_to_whisper": 0,
+   "wakes": [],
+   "heard": []
+  },
+  "music_chords": {
+   "seconds": 40.0,
+   "segments_to_whisper": 1,
+   "wakes": [],
+   "heard": []
+  },
+  "quiet_then_fan": {
+   "seconds": 40.0,
+   "segments_to_whisper": 1,
+   "wakes": [],
+   "heard": []
+  }
+ },
+ "speech": [
+  {
+   "voice": "Heera",
+   "said": "Oye Chutku, open Spotify.",
+   "woke": [
+    "open Spotify"
+   ],
+   "heard": [
+    [
+     "Oe chuku, open Spotify.",
+     "wake",
+     0.398
+    ]
+   ]
+  },
+  {
+   "voice": "Ravi",
+   "said": "Oye Chutku, gaana roko.",
+   "woke": [
+    "gana roko"
+   ],
+   "heard": [
+    [
+     "oi chutku, gana roko.",
+     "wake",
+     0.591
+    ]
+   ]
+  },
+  {
+   "voice": "Ravi",
+   "said": "Chutku, what time is it?",
+   "woke": [
+    "what time is it"
+   ],
+   "heard": [
+    [
+     "Chutku, what time is it?",
+     "wake",
+     0.687
+    ]
+   ]
+  },
+  {
+   "voice": "Kalpana",
+   "said": "ओए चुटकू, टाइम बताओ",
+   "woke": [
+    "time batao"
+   ],
+   "heard": [
+    [
+     "Oye chutku, time batao.",
+     "wake",
+     0.711
+    ]
+   ]
+  }
+ ],
+ "generated_at": "2026-10-04T15:46:56.892576+00:00",
+ "noise_seconds": 320.0,
+ "false_wakes": 0,
+ "false_wakes_per_hour": 0.0,
+ "recall": "4/4",
+ "scope": "Synthetic noise and OneCore voices through the real wake loop and Whisper; not a real room."
+}

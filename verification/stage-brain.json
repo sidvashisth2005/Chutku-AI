@@ -1,0 +1,38 @@
+{
+  "timestamp_utc": "2026-10-01T08:52:46.343933+00:00",
+  "source_sha256": "66b6ec2a79932de9d3350b7705e5dfa5ea1e0ca433090a5ba9978f395e970689",
+  "stage": "brain",
+  "passed": true,
+  "checks": [
+    {
+      "title": "Foundation dependency",
+      "passed": true,
+      "detail": "Stage 1 must remain accepted."
+    },
+    {
+      "title": "Closed intent vocabulary",
+      "passed": true,
+      "detail": "40 routes have 40 unique labels."
+    },
+    {
+      "title": "Planner regression",
+      "passed": true,
+      "detail": "15 tests; 0 failures; 0 errors; 0 skipped."
+    },
+    {
+      "title": "Preview has no effect",
+      "passed": true,
+      "detail": "Disposable plan preview did not create its target."
+    },
+    {
+      "title": "Reviewed real path",
+      "passed": true,
+      "detail": "Three-step disposable plan completed with exact final content."
+    },
+    {
+      "title": "Unsupported request",
+      "passed": true,
+      "detail": "Unsupported external-send request clarified without a proposal."
+    }
+  ]
+}

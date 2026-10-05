@@ -1,0 +1,28 @@
+{
+  "timestamp_utc": "2026-10-04T03:26:27.469686+00:00",
+  "source_sha256": "a35bfc35c482123607c47e627086ecd9d69e3bab45c51d0ac4f74c61678b3135",
+  "passed": true,
+  "checks": [
+    {
+      "check": "no_preexisting_notepad_targeted",
+      "passed": true
+    },
+    {
+      "check": "controlled_notepad_open_verified",
+      "passed": true
+    },
+    {
+      "check": "graceful_close_requires_review",
+      "passed": true
+    },
+    {
+      "check": "graceful_close_reobserved",
+      "passed": true
+    },
+    {
+      "check": "controlled_app_cleanup",
+      "passed": true
+    }
+  ],
+  "scope": "Stage 7B controlled real Notepad open, reviewed graceful close, re-observation and cleanup."
+}

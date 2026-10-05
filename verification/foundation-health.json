@@ -1,0 +1,123 @@
+{
+  "project": "D:\\Project\\CHUTKU COPY\\Chutku",
+  "python": "D:\\Project\\CHUTKU COPY\\Chutku\\.venv\\Scripts\\python.exe",
+  "ready": true,
+  "checks": [
+    {
+      "name": "Python",
+      "ready": true,
+      "required": true,
+      "detail": "3.13.5"
+    },
+    {
+      "name": "Windows",
+      "ready": true,
+      "required": true,
+      "detail": "win32"
+    },
+    {
+      "name": "Project pyproject.toml",
+      "ready": true,
+      "required": true,
+      "detail": "Required reproducibility and licensing record"
+    },
+    {
+      "name": "Project requirements.lock",
+      "ready": true,
+      "required": true,
+      "detail": "Required reproducibility and licensing record"
+    },
+    {
+      "name": "Project THIRD_PARTY_LICENSES.md",
+      "ready": true,
+      "required": true,
+      "detail": "Required reproducibility and licensing record"
+    },
+    {
+      "name": "Project models/manifest.json",
+      "ready": true,
+      "required": true,
+      "detail": "Required reproducibility and licensing record"
+    },
+    {
+      "name": "Dependency lock alignment",
+      "ready": true,
+      "required": true,
+      "detail": "Every direct dependency is exact and matches requirements.lock"
+    },
+    {
+      "name": "License ledger coverage",
+      "ready": true,
+      "required": true,
+      "detail": "Runtime packages, local model/runtime licenses and model revision are recorded"
+    },
+    {
+      "name": "Granted root",
+      "ready": true,
+      "required": true,
+      "detail": "D:\\Project\\CHUTKU COPY\\Chutku\\sandbox"
+    },
+    {
+      "name": "Dashboard index.html",
+      "ready": true,
+      "required": true,
+      "detail": "Bundled local asset"
+    },
+    {
+      "name": "Dashboard style.css",
+      "ready": true,
+      "required": true,
+      "detail": "Bundled local asset"
+    },
+    {
+      "name": "Dashboard app.js",
+      "ready": true,
+      "required": true,
+      "detail": "Bundled local asset"
+    },
+    {
+      "name": "chutku.db",
+      "ready": true,
+      "required": true,
+      "detail": "SQLite quick_check passed"
+    },
+    {
+      "name": "operations.db",
+      "ready": true,
+      "required": true,
+      "detail": "SQLite quick_check passed"
+    },
+    {
+      "name": "memory.db",
+      "ready": true,
+      "required": true,
+      "detail": "SQLite quick_check passed"
+    },
+    {
+      "name": "resource_grants.db",
+      "ready": true,
+      "required": true,
+      "detail": "SQLite quick_check passed"
+    },
+    {
+      "name": "numpy",
+      "ready": true,
+      "required": false,
+      "detail": "2.5.3"
+    },
+    {
+      "name": "sounddevice",
+      "ready": true,
+      "required": false,
+      "detail": "0.5.6"
+    },
+    {
+      "name": "Local model artifacts",
+      "ready": true,
+      "required": false,
+      "detail": "Presence only; integrity/inference require separate verification"
+    }
+  ],
+  "actions_paused": false,
+  "scope": "Read-only prerequisite and storage check. Does not prove microphone, foreground focus or model correctness."
+}

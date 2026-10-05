@@ -1,0 +1,58 @@
+{
+ "generated_at": "2026-10-01T06:14:09.440934+00:00",
+ "source_digest": "77dc03ec9d7b0ad5b5a842d2506ebaf620f694eb112632cefc7c72855a99357f",
+ "passed": true,
+ "checks": [
+  {
+   "said": "कैलकुलेटर खोलो",
+   "culture": "hi-IN",
+   "heard": "Calculator kholo.",
+   "engine": "whisper:faster-whisper-small",
+   "stt_seconds": 1.619,
+   "status": "done",
+   "completed_tools": [
+    "apps.launch"
+   ],
+   "planners": [
+    "quick"
+   ],
+   "reply": "Opened Calculator. [Verified: 1 of 1 steps completed.]",
+   "passed": true
+  },
+  {
+   "said": "अभी कितने बजे हैं",
+   "culture": "hi-IN",
+   "heard": "Abhi kite ne baje hain?",
+   "engine": "whisper:faster-whisper-small",
+   "stt_seconds": 2.116,
+   "status": "done",
+   "completed_tools": [
+    "system.get_time"
+   ],
+   "planners": [
+    "quick",
+    "local"
+   ],
+   "reply": "No, Abhi has not flown yet. The current time is Thursday, 01 October 2026, 11:43 AM (India Standard Time). [Verified: 1 of 1 steps completed.]",
+   "passed": true
+  },
+  {
+   "said": "How much free space does my computer have?",
+   "culture": "en-IN",
+   "heard": "How much free space does my computer have?",
+   "engine": "whisper:faster-whisper-small",
+   "stt_seconds": 2.29,
+   "status": "done",
+   "completed_tools": [
+    "system.environment"
+   ],
+   "planners": [
+    "local",
+    "local"
+   ],
+   "reply": "Your computer has 10.0 GiB of free space on the C: drive and 105.8 GiB of free space on the D: drive. [Verified: 1 of 1 steps completed.]",
+   "passed": true
+  }
+ ],
+ "scope": "Synthetic OneCore speech through real Whisper transcription, agent planning, policy and verified tools. Not a microphone or human-voice accuracy result."
+}

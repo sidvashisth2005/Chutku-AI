@@ -1,0 +1,167 @@
+{
+  "timestamp_utc": "2026-10-01T08:52:46.343933+00:00",
+  "source_sha256": "66b6ec2a79932de9d3350b7705e5dfa5ea1e0ca433090a5ba9978f395e970689",
+  "requested_through": "all",
+  "passed": false,
+  "stages": [
+    {
+      "stage": "foundation",
+      "passed": true,
+      "checks": [
+        {
+          "title": "Release evidence",
+          "passed": true,
+          "detail": "Fresh passing release evidence.",
+          "artifact": "release-report.json"
+        }
+      ]
+    },
+    {
+      "stage": "brain",
+      "passed": true,
+      "checks": [
+        {
+          "title": "Foundation dependency",
+          "passed": true,
+          "detail": "Stage 1 must remain accepted."
+        },
+        {
+          "title": "Closed intent vocabulary",
+          "passed": true,
+          "detail": "40 routes have 40 unique labels."
+        },
+        {
+          "title": "Planner regression",
+          "passed": true,
+          "detail": "15 tests; 0 failures; 0 errors; 0 skipped."
+        },
+        {
+          "title": "Preview has no effect",
+          "passed": true,
+          "detail": "Disposable plan preview did not create its target."
+        },
+        {
+          "title": "Reviewed real path",
+          "passed": true,
+          "detail": "Three-step disposable plan completed with exact final content."
+        },
+        {
+          "title": "Unsupported request",
+          "passed": true,
+          "detail": "Unsupported external-send request clarified without a proposal."
+        }
+      ]
+    },
+    {
+      "stage": "access",
+      "passed": true,
+      "checks": [
+        {
+          "title": "Brain dependency",
+          "passed": true,
+          "detail": "Stage 2 must remain accepted."
+        },
+        {
+          "title": "Access regression",
+          "passed": true,
+          "detail": "30 tests; 0 failures; 0 errors; 0 skipped."
+        },
+        {
+          "title": "Observe-only real path",
+          "passed": true,
+          "detail": "Observation passed; modification was denied without a file."
+        },
+        {
+          "title": "Revocation recheck",
+          "passed": true,
+          "detail": "Revoked access failed before tool execution."
+        },
+        {
+          "title": "Provenance matrix",
+          "passed": true,
+          "detail": "60/60 untrusted or invalid provenance mutations were denied."
+        },
+        {
+          "title": "Approval presentation",
+          "passed": true,
+          "detail": "Review contains risk, origin, resource and consequence; cancellation had no effect."
+        }
+      ]
+    },
+    {
+      "stage": "llm",
+      "passed": true,
+      "checks": [
+        {
+          "title": "Access dependency",
+          "passed": true,
+          "detail": "Stage 3 must remain accepted."
+        },
+        {
+          "title": "Pinned local artifacts",
+          "passed": true,
+          "detail": "Pinned runtime and model SHA-256 values match local artifacts.",
+          "artifact": "../models/manifest.json"
+        },
+        {
+          "title": "Adapter regression",
+          "passed": true,
+          "detail": "13 tests; 0 failures; 0 errors; 0 skipped."
+        },
+        {
+          "title": "Versioned language evaluation",
+          "passed": true,
+          "detail": "302/302 exact matches; 0 unsafe false actions.",
+          "artifact": "stage-llm-evaluation.json"
+        },
+        {
+          "title": "Reviewed real model path",
+          "passed": true,
+          "detail": "A real local proposal previewed without effects, then re-entered Runtime with inferred provenance and verified completion.",
+          "artifact": "model-review-path.json"
+        }
+      ]
+    },
+    {
+      "stage": "voice",
+      "passed": false,
+      "checks": [
+        {
+          "title": "Local-LLM dependency",
+          "passed": true,
+          "detail": "Stage 4 must remain accepted."
+        },
+        {
+          "title": "Voice safety regression",
+          "passed": true,
+          "detail": "35 tests; 0 failures; 0 errors; 0 skipped."
+        },
+        {
+          "title": "Real Windows audio path",
+          "passed": true,
+          "detail": "Fresh release evidence includes microphone capture, offline STT and local TTS.",
+          "artifact": "release-hardware.json"
+        },
+        {
+          "title": "Bound reviewed voice path",
+          "passed": true,
+          "detail": "Server-bound transcript review preserves microphone provenance and refuses tampering, replay and cancellation reuse.",
+          "artifact": "voice-review-path.json"
+        },
+        {
+          "title": "Live reviewed end-to-end command",
+          "passed": false,
+          "detail": "Requires one consented microphone -> VAD -> offline STT -> explicit review -> brain -> policy -> verified tool -> local TTS run.",
+          "artifact": "voice-live-e2e.json"
+        },
+        {
+          "title": "Human speech evaluation",
+          "passed": false,
+          "detail": "Requires 200 consented live trials across accent, distance and noise cohorts; quiet >=95%, noisy >=85%, and zero auto-execution.",
+          "artifact": "voice-human-evaluation.json"
+        }
+      ]
+    }
+  ],
+  "elapsed_seconds": 53.94
+}

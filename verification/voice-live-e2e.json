@@ -1,0 +1,18 @@
+{
+  "timestamp_utc": "2026-10-01T09:14:14.607292+00:00",
+  "source_sha256": "0f4fea01ec2151a865d3a3f629fa18e0bca3a974fe7d387bf9f722e4faf6e5b8",
+  "passed": false,
+  "expected": "what time is it",
+  "recognized": false,
+  "confidence": 0.688,
+  "reviewed_on_screen": false,
+  "command_state": null,
+  "command_verification": null,
+  "tts_state": null,
+  "capture_seconds": 4.055,
+  "end_to_end_seconds": 7.035,
+  "planned_tools": [],
+  "provenance": "reviewed_microphone",
+  "audio_saved": false,
+  "scope": "One consented English dictation -> local LLM plan -> explicit review -> read-only tool -> TTS path; audible TTS quality is not inferred from engine completion."
+}

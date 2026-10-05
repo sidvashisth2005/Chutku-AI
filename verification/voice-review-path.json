@@ -1,0 +1,36 @@
+{
+  "timestamp_utc": "2026-10-01T08:51:52.026681+00:00",
+  "source_sha256": "66b6ec2a79932de9d3350b7705e5dfa5ea1e0ca433090a5ba9978f395e970689",
+  "passed": true,
+  "checks": [
+    {
+      "check": "tampered_review_refused",
+      "passed": true
+    },
+    {
+      "check": "reviewed_command_completed",
+      "passed": true
+    },
+    {
+      "check": "source_task_bound",
+      "passed": true
+    },
+    {
+      "check": "microphone_provenance_preserved",
+      "passed": true
+    },
+    {
+      "check": "replay_refused",
+      "passed": true
+    },
+    {
+      "check": "cancel_accepted",
+      "passed": true
+    },
+    {
+      "check": "cancelled_review_cannot_execute",
+      "passed": true
+    }
+  ],
+  "scope": "Authenticated loopback voice-review token boundary; no microphone or raw audio used by this checker."
+}

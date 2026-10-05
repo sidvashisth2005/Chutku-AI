@@ -1,0 +1,32 @@
+{
+  "timestamp_utc": "2026-09-27T20:16:12.553235+00:00",
+  "source_sha256": "9bd5d8289f438d02e7d4b986f8404a39012a60940cc843acb5ae54ed8894abae",
+  "passed": true,
+  "checks": [
+    {
+      "check": "no_preexisting_calculator_targeted",
+      "passed": true
+    },
+    {
+      "check": "invoke_denied_without_desktop_input_capability",
+      "passed": true
+    },
+    {
+      "check": "controlled_calculator_open_and_focus_verified",
+      "passed": true
+    },
+    {
+      "check": "exact_action_requires_onscreen_review",
+      "passed": true
+    },
+    {
+      "check": "real_button_invoke_exact_postcondition_verified",
+      "passed": true
+    },
+    {
+      "check": "controlled_calculator_cleanup",
+      "passed": true
+    }
+  ],
+  "scope": "Stage 8A-3 real button invoke with exact Calculator UIA postcondition; complementary menu/value/selection/scroll evidence is in uia-fixture.json."
+}

@@ -1,0 +1,34 @@
+{
+  "timestamp_utc": "2026-09-27T16:17:45.568586+00:00",
+  "source_sha256": "2d78cafbd7411bc2b2cfbdfaaebec92f70b6b79c5dfcd9be7bd516391cefa2a0",
+  "passed": true,
+  "checks": [
+    {
+      "check": "process_observation_denied_without_grant",
+      "passed": true
+    },
+    {
+      "check": "real_current_process_observed",
+      "passed": true
+    },
+    {
+      "check": "revoked_process_observation_denied",
+      "passed": true
+    },
+    {
+      "check": "exact_process_launch_verified",
+      "passed": true
+    },
+    {
+      "check": "exact_process_termination_verified",
+      "passed": true
+    },
+    {
+      "check": "gemini_is_optional",
+      "passed": true,
+      "configured": false,
+      "detail": "Without a configured key, dual preview uses the local model; cloud calls require explicit consent."
+    }
+  ],
+  "scope": "Stage 6 authority foundation plus exact Windows process observation, approved launch, identity recheck and verified termination."
+}

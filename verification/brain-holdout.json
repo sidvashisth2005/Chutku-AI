@@ -1,0 +1,146 @@
+{
+  "timestamp_utc": "2026-09-25T16:05:24.468912+00:00",
+  "model": "Qwen3-4B-Q4_K_M",
+  "backend": "llama.cpp b11181 CPU, four threads, 2048 context, temperature zero",
+  "startup_seconds": 3.855,
+  "cases": [
+    {
+      "case": "notepad_paraphrase",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 6.976,
+      "usage": {
+        "completion_tokens": 26,
+        "prompt_tokens": 295,
+        "total_tokens": 321,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "needs_clarification": false
+    },
+    {
+      "case": "ordered_queries",
+      "expected": [
+        "what time is it",
+        "list files"
+      ],
+      "commands": [
+        "what time is it",
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 3.831,
+      "usage": {
+        "completion_tokens": 47,
+        "prompt_tokens": 301,
+        "total_tokens": 348,
+        "prompt_tokens_details": {
+          "cached_tokens": 279
+        }
+      },
+      "needs_clarification": false
+    },
+    {
+      "case": "hinglish_notepad",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 2.33,
+      "usage": {
+        "completion_tokens": 28,
+        "prompt_tokens": 294,
+        "total_tokens": 322,
+        "prompt_tokens_details": {
+          "cached_tokens": 279
+        }
+      },
+      "needs_clarification": false
+    },
+    {
+      "case": "graphics_paraphrase",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 2.116,
+      "usage": {
+        "completion_tokens": 25,
+        "prompt_tokens": 293,
+        "total_tokens": 318,
+        "prompt_tokens_details": {
+          "cached_tokens": 279
+        }
+      },
+      "needs_clarification": false
+    },
+    {
+      "case": "mixed_email",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 2.53,
+      "usage": {
+        "completion_tokens": 29,
+        "prompt_tokens": 298,
+        "total_tokens": 327,
+        "prompt_tokens_details": {
+          "cached_tokens": 279
+        }
+      },
+      "needs_clarification": true
+    },
+    {
+      "case": "unsupported_volume",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 3.083,
+      "usage": {
+        "completion_tokens": 39,
+        "prompt_tokens": 292,
+        "total_tokens": 331,
+        "prompt_tokens_details": {
+          "cached_tokens": 279
+        }
+      },
+      "needs_clarification": true
+    },
+    {
+      "case": "visible_apps",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 2.97,
+      "usage": {
+        "completion_tokens": 37,
+        "prompt_tokens": 294,
+        "total_tokens": 331,
+        "prompt_tokens_details": {
+          "cached_tokens": 279
+        }
+      },
+      "needs_clarification": false
+    }
+  ],
+  "passed": true,
+  "scope": "Small held-out smoke set after prompt tuning.",
+  "limitations": "Not a general reliability claim or final model selection. No proposed actions executed.",
+  "median_inference_seconds": 2.97
+}

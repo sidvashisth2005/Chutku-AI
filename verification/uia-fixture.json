@@ -1,0 +1,54 @@
+{
+  "timestamp_utc": "2026-09-27T20:16:00.823726+00:00",
+  "source_sha256": "9bd5d8289f438d02e7d4b986f8404a39012a60940cc843acb5ae54ed8894abae",
+  "passed": true,
+  "checks": [
+    {
+      "check": "fixture_compiled",
+      "passed": true
+    },
+    {
+      "check": "exact_fixture_foreground",
+      "passed": true
+    },
+    {
+      "check": "real_menu_expand_postcondition",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "check": "real_value_postcondition",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "check": "real_selection_postcondition",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "check": "real_scroll_postcondition",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "check": "real_keyboard_type_postcondition",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "check": "real_mouse_click_postcondition",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "check": "changed_identity_refused",
+      "passed": true
+    },
+    {
+      "check": "fixture_cleanup",
+      "passed": true
+    }
+  ],
+  "scope": "Stage 8A-3 structured UIA and Stage 8A-4 exact foreground keyboard/mouse fixture."
+}

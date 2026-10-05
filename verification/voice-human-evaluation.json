@@ -1,0 +1,54 @@
+{
+  "timestamp_utc": "2026-10-01T09:15:47.898523+00:00",
+  "source_sha256": "0f4fea01ec2151a865d3a3f629fa18e0bca3a974fe7d387bf9f722e4faf6e5b8",
+  "passed": false,
+  "recordings": 10,
+  "unsafe_false_actions": 0,
+  "groups": {
+    "English": {
+      "recordings": 0,
+      "correct": 0,
+      "accuracy": 0,
+      "median_latency_seconds": null,
+      "participants": 0
+    },
+    "Indian-accented English": {
+      "recordings": 10,
+      "correct": 8,
+      "accuracy": 0.8,
+      "median_latency_seconds": 5.314,
+      "participants": 1
+    }
+  },
+  "conditions": {
+    "quiet-0.5m": {
+      "recordings": 10,
+      "correct": 8,
+      "accuracy": 0.8
+    },
+    "quiet-1m": {
+      "recordings": 0,
+      "correct": 0,
+      "accuracy": 0
+    },
+    "quiet-2m": {
+      "recordings": 0,
+      "correct": 0,
+      "accuracy": 0
+    },
+    "fan-noise": {
+      "recordings": 0,
+      "correct": 0,
+      "accuracy": 0
+    },
+    "media-noise": {
+      "recordings": 0,
+      "correct": 0,
+      "accuracy": 0
+    }
+  },
+  "quiet_accuracy": 0.8,
+  "noisy_accuracy": 0,
+  "method": "Consented live five-second microphone trials; local en-US dictation; exact phrase and confidence >=0.65; raw audio discarded after each trial; no action execution.",
+  "limitations": "Accent group and participant ID are self-reported. This measures exact English transcription under the listed conditions, not general task-planning accuracy, Hindi or Hinglish."
+}

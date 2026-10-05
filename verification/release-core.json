@@ -1,0 +1,247 @@
+{
+  "timestamp_utc": "2026-10-01T08:48:18.367443+00:00",
+  "hardware_probes_enabled": false,
+  "source_sha256": "66b6ec2a79932de9d3350b7705e5dfa5ea1e0ca433090a5ba9978f395e970689",
+  "desktop_actions_enabled": false,
+  "speech_enabled": false,
+  "recognition_enabled": false,
+  "registered_tools": 109,
+  "exercised_tools": 13,
+  "not_exercised": [
+    "apps.close",
+    "apps.focus",
+    "apps.installed",
+    "apps.launch",
+    "apps.open",
+    "apps.quit",
+    "apps.status",
+    "audio.volume",
+    "browser.inspect",
+    "browser.workflow",
+    "clipboard.read_text",
+    "clipboard.write_text",
+    "code.build_project",
+    "code.run_python",
+    "desktop.wallpaper_set",
+    "desktop.wallpaper_status",
+    "display.brightness",
+    "display.brightness_status",
+    "file.extract_text",
+    "files.open",
+    "files.organize",
+    "files.organize_undo",
+    "filesystem.copy",
+    "filesystem.inspect",
+    "filesystem.largest",
+    "filesystem.move",
+    "filesystem.recycle",
+    "filesystem.restore_last_recycled",
+    "filesystem.search",
+    "filesystem.undo_last_copy",
+    "filesystem.undo_last_move",
+    "games.downloads",
+    "games.launch",
+    "games.list",
+    "input.click",
+    "input.type_text",
+    "keyboard.edit",
+    "keyboard.press_enter",
+    "keyboard.shortcut",
+    "keyboard.type_text",
+    "media.control",
+    "media.status",
+    "message.send",
+    "network.adapter_restore",
+    "network.adapter_set",
+    "network.status",
+    "power.cancel",
+    "power.schedule",
+    "process.launch",
+    "process.list",
+    "process.status",
+    "process.terminate",
+    "reminder.cancel",
+    "reminder.list",
+    "reminder.set",
+    "screen.capture",
+    "screen.click",
+    "screen.click_risky",
+    "screen.displays",
+    "screen.read_text",
+    "screen.scroll",
+    "screen.understand",
+    "screen.undo_last_capture",
+    "settings.theme_restore",
+    "settings.theme_set",
+    "settings.theme_status",
+    "system.audio_devices",
+    "system.gpu_status",
+    "system.lock",
+    "system.performance",
+    "system.volume_restore",
+    "system.volume_set",
+    "system.volume_status",
+    "uia.expand",
+    "uia.inspect",
+    "uia.invoke",
+    "uia.scroll",
+    "uia.select",
+    "uia.set_value",
+    "voice.audio_input_status",
+    "voice.list_voices",
+    "voice.listen_command",
+    "voice.microphone_activity_check",
+    "voice.microphone_level_check",
+    "voice.recognition_status",
+    "voice.speak",
+    "web.news",
+    "web.open",
+    "web.read",
+    "web.results",
+    "web.search",
+    "web.weather",
+    "windows.close",
+    "windows.list",
+    "windows.manage",
+    "youtube.play"
+  ],
+  "passed": true,
+  "checks": [
+    {
+      "check": "assistant.capabilities",
+      "tool": "assistant.capabilities",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "system.get_time",
+      "tool": "system.get_time",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "system.environment",
+      "tool": "system.environment",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "filesystem.create_directory",
+      "tool": "filesystem.create_directory",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "filesystem.write_text",
+      "tool": "filesystem.write_text",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "filesystem.read_text",
+      "tool": "filesystem.read_text",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "filesystem.list",
+      "tool": "filesystem.list",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "filesystem.undo_last_write",
+      "tool": "filesystem.undo_last_write",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "undo_removed_created_file",
+      "passed": true
+    },
+    {
+      "check": "filesystem.list_incomplete_writes",
+      "tool": "filesystem.list_incomplete_writes",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "filesystem.recover_incomplete_write",
+      "tool": "filesystem.recover_incomplete_write",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "recovery_removed_created_file",
+      "passed": true
+    },
+    {
+      "check": "memory.remember",
+      "tool": "memory.remember",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "memory.search",
+      "tool": "memory.search",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "memory.forget",
+      "tool": "memory.forget",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "traversal_refused",
+      "tool": "filesystem.write_text",
+      "state": "FAILED",
+      "expected": "FAILED",
+      "passed": true
+    },
+    {
+      "check": "alternate_stream_refused",
+      "tool": "filesystem.write_text",
+      "state": "FAILED",
+      "expected": "FAILED",
+      "passed": true
+    },
+    {
+      "check": "filesystem.write_text",
+      "tool": "filesystem.write_text",
+      "state": "COMPLETED",
+      "expected": "COMPLETED",
+      "passed": true
+    },
+    {
+      "check": "undo_conflict_refused",
+      "tool": "filesystem.undo_last_write",
+      "state": "FAILED",
+      "expected": "FAILED",
+      "passed": true
+    },
+    {
+      "check": "conflicting_edit_preserved",
+      "passed": true
+    },
+    {
+      "check": "six_step_project_recipe",
+      "state": "COMPLETED",
+      "passed": true
+    }
+  ]
+}

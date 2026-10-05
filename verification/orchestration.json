@@ -1,0 +1,28 @@
+{
+  "timestamp_utc": "2026-09-27T21:39:44.977881+00:00",
+  "source_sha256": "fd4d7e5248235bca67aaa422d395cf6bea947dec548a3f0b06a391313ae16047",
+  "passed": true,
+  "checks": [
+    {
+      "check": "server_owned_review_token_created",
+      "passed": true
+    },
+    {
+      "check": "failure_stopped_forward_plan",
+      "passed": true
+    },
+    {
+      "check": "declared_reverse_recovery_completed",
+      "passed": true
+    },
+    {
+      "check": "review_token_replay_refused",
+      "passed": true
+    },
+    {
+      "check": "original_theme_and_fixture_cleanup_verified",
+      "passed": true
+    }
+  ],
+  "scope": "Item 7 real settings-plus-browser orchestration failure with declared reverse recovery."
+}

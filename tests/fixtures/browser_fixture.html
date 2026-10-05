@@ -1,0 +1,6 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Chutku Browser Fixture</title></head>
+<body><h1>Local browser fixture</h1><label>Name <input id="name"></label>
+<label>Choice <select id="choice" data-testid="choice"><option>Alpha</option><option>Beta</option></select></label>
+<button id="run">Run</button><p data-testid="status">Idle</p>
+<script>document.querySelector('#run').addEventListener('click',()=>{document.querySelector('[data-testid=status]').textContent='Ran '+document.querySelector('#name').value+' '+document.querySelector('#choice').value;});</script>
+</body></html>

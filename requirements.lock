@@ -1,0 +1,39 @@
+# Runtime dependency lock for the supported CPython/Windows environment.
+# Regenerate deliberately when pyproject.toml dependencies change.
+numpy==2.5.3
+sounddevice==0.5.6
+cffi==2.1.1
+pycparser==3.0
+playwright==1.63.0
+pyee==13.0.1
+greenlet==3.5.6
+# Offline speech-to-text (added 2026-09-30) and its runtime dependencies.
+faster-whisper==1.2.1
+ctranslate2==4.8.2
+tokenizers==0.23.2
+huggingface_hub==1.32.0
+av==18.1.0
+onnxruntime==1.30.0
+numpy==2.5.3
+PyYAML==6.0.3
+tqdm==4.70.1
+filelock==4.0.1
+fsspec==2026.9.0
+packaging==26.3
+typing_extensions==4.16.0
+protobuf==7.36.2
+flatbuffers==25.12.19
+httpx==0.28.1
+httpcore==1.0.9
+h11==0.16.0
+anyio==4.15.1
+idna==3.20
+certifi==2026.7.22
+hf-xet==1.6.0
+click==8.5.0
+colorama==0.4.6
+# Document text extraction (added 2026-09-30).
+pypdf==6.19.0
+# Test-only (added 2026-10-01 for property-based path-guard tests; not needed at runtime).
+hypothesis==6.168.3
+sortedcontainers==2.4.0

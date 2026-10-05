@@ -1,0 +1,47 @@
+{
+ "generated_at": "2026-10-01T05:42:18.680192+00:00",
+ "source_digest": "8626e829451279abeff3f4c88c30a2fe3c7bd6a3b27d9612eab0778a37d02f6d",
+ "passed": 1,
+ "total": 1,
+ "rows": [
+  {
+   "id": "research-report",
+   "passed": true,
+   "status": "done",
+   "seconds": 76.3,
+   "rounds": 7,
+   "planners": [
+    "gemini",
+    "gemini",
+    "local",
+    "gemini",
+    "gemini",
+    "gemini",
+    "gemini"
+   ],
+   "steps": [
+    "web.results:COMPLETED",
+    "web.results:COMPLETED",
+    "web.results:COMPLETED",
+    "web.results:COMPLETED",
+    "web.results:COMPLETED",
+    "web.results:COMPLETED",
+    "web.results:COMPLETED",
+    "filesystem.create_directory:FAILED",
+    "filesystem.write_text:COMPLETED"
+   ],
+   "confirmations": [
+    {
+     "tool": "filesystem.write_text",
+     "approved": true,
+     "arguments": {
+      "path": "D:\\ChutkuLong\\laptops.txt",
+      "content": "Budget Laptops Comparison Report (Under Rs. 70,000 in India)"
+     }
+    }
+   ],
+   "reply": "Researched top budget laptops under 70000 rupees and saved the comparison report to D:\\ChutkuLong\\laptops.txt. [Verified: 8 of 9 steps completed. Not completed: filesystem.create_directory (failed: Target directory already exists.)]"
+  }
+ ],
+ "scope": "Real multi-step tasks on the owner's PC via the chat API: Gemini-led planning (free models), screen vision and clicks, web research, files, apps. End states checked on disk/screen."
+}

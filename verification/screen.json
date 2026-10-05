@@ -1,0 +1,37 @@
+{
+  "timestamp_utc": "2026-10-04T03:26:34.079891+00:00",
+  "source_sha256": "a35bfc35c482123607c47e627086ecd9d69e3bab45c51d0ac4f74c61678b3135",
+  "passed": true,
+  "checks": [
+    {
+      "check": "display_inventory_denied_without_capability",
+      "passed": true
+    },
+    {
+      "check": "real_bounded_display_inventory",
+      "passed": true
+    },
+    {
+      "check": "real_local_capture_hash_and_dimensions_verified",
+      "passed": true
+    },
+    {
+      "check": "capture_undo_deleted_temporary_pixels",
+      "passed": true
+    },
+    {
+      "check": "existing_path_refused_without_overwrite",
+      "passed": true
+    }
+  ],
+  "display_summary": [
+    {
+      "index": 0,
+      "primary": true,
+      "width": 1536,
+      "height": 864
+    }
+  ],
+  "privacy": "Screenshot pixels were kept in a disposable local directory, never printed or transmitted, and deleted.",
+  "scope": "Stage 8A-1 real display inventory and safe screen capture boundary."
+}

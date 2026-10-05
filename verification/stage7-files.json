@@ -1,0 +1,48 @@
+{
+  "timestamp_utc": "2026-10-04T03:25:54.265635+00:00",
+  "source_sha256": "a35bfc35c482123607c47e627086ecd9d69e3bab45c51d0ac4f74c61678b3135",
+  "passed": true,
+  "checks": [
+    {
+      "check": "real_file_identity",
+      "passed": true
+    },
+    {
+      "check": "bounded_recursive_name_search",
+      "passed": true
+    },
+    {
+      "check": "verified_no_overwrite_copy",
+      "passed": true
+    },
+    {
+      "check": "copy_collision_preserves_destination",
+      "passed": true
+    },
+    {
+      "check": "copy_undo_verified",
+      "passed": true
+    },
+    {
+      "check": "move_and_undo_verified",
+      "passed": true
+    },
+    {
+      "check": "traversal_refused",
+      "passed": true
+    },
+    {
+      "check": "recycle_asks_first",
+      "passed": true
+    },
+    {
+      "check": "recycle_and_restore_verified",
+      "passed": true
+    },
+    {
+      "check": "observe_only_grant_denies_mutation",
+      "passed": true
+    }
+  ],
+  "scope": "Stage 7A bounded real filesystem identity, search, copy, move, recycle/restore, undo and negative boundaries."
+}

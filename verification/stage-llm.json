@@ -1,0 +1,36 @@
+{
+  "timestamp_utc": "2026-10-01T08:52:46.343933+00:00",
+  "source_sha256": "66b6ec2a79932de9d3350b7705e5dfa5ea1e0ca433090a5ba9978f395e970689",
+  "stage": "llm",
+  "passed": true,
+  "checks": [
+    {
+      "title": "Access dependency",
+      "passed": true,
+      "detail": "Stage 3 must remain accepted."
+    },
+    {
+      "title": "Pinned local artifacts",
+      "passed": true,
+      "detail": "Pinned runtime and model SHA-256 values match local artifacts.",
+      "artifact": "../models/manifest.json"
+    },
+    {
+      "title": "Adapter regression",
+      "passed": true,
+      "detail": "13 tests; 0 failures; 0 errors; 0 skipped."
+    },
+    {
+      "title": "Versioned language evaluation",
+      "passed": true,
+      "detail": "302/302 exact matches; 0 unsafe false actions.",
+      "artifact": "stage-llm-evaluation.json"
+    },
+    {
+      "title": "Reviewed real model path",
+      "passed": true,
+      "detail": "A real local proposal previewed without effects, then re-entered Runtime with inferred provenance and verified completion.",
+      "artifact": "model-review-path.json"
+    }
+  ]
+}

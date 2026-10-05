@@ -1,0 +1,34 @@
+{
+  "timestamp_utc": "2026-09-27T18:10:22.094990+00:00",
+  "source_sha256": "273c1bae9b4171ab2b39fa402a874c42e7557d2f6027f99f8541c2eff86fd78f",
+  "passed": true,
+  "checks": [
+    {
+      "check": "zero_or_one_unambiguous_notepad_window",
+      "passed": true
+    },
+    {
+      "check": "controlled_notepad_open_verified",
+      "passed": true
+    },
+    {
+      "check": "uia_denied_without_screen_capability",
+      "passed": true
+    },
+    {
+      "check": "real_bounded_uia_tree_for_exact_window",
+      "passed": true
+    },
+    {
+      "check": "uia_text_redacted_from_audit",
+      "passed": true
+    },
+    {
+      "check": "checker_did_not_leave_a_new_app_window",
+      "passed": true
+    }
+  ],
+  "observed_element_count": 26,
+  "privacy": "UI element names were used only in memory and redacted from the audit/report.",
+  "scope": "Stage 8A-2 real read-only bounded UI Automation inspection of one exact app window."
+}

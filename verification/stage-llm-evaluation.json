@@ -1,0 +1,4461 @@
+{
+  "timestamp_utc": "2026-10-01T08:51:25.352897+00:00",
+  "model": "Qwen3-4B-Q4_K_M",
+  "source_sha256": "66b6ec2a79932de9d3350b7705e5dfa5ea1e0ca433090a5ba9978f395e970689",
+  "brain_sha256": "a3d47cef7570dfe3134057e265031d3394f901b78aaf488731dad5f9d866bb98",
+  "backend": "llama.cpp b11181 CPU, four threads, 2048 context, temperature zero",
+  "startup_seconds": 13.353,
+  "cases": [
+    {
+      "case": "what_time_is_it-0-0",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-0-1",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-0-2",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-1-0",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-1-1",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-1-2",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-2-0",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-2-1",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-2-2",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-3-0",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-3-1",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-3-2",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-4-0",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-4-1",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-4-2",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-5-0",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-5-1",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "what_time_is_it-5-2",
+      "expected": [
+        "what time is it"
+      ],
+      "commands": [
+        "what time is it"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-0-0",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 14.399,
+      "usage": {
+        "completion_tokens": 32,
+        "prompt_tokens": 408,
+        "total_tokens": 440,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "local_llm"
+    },
+    {
+      "case": "system_status-0-1",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 3.064,
+      "usage": {
+        "completion_tokens": 32,
+        "prompt_tokens": 409,
+        "total_tokens": 441,
+        "prompt_tokens_details": {
+          "cached_tokens": 399
+        }
+      },
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "local_llm"
+    },
+    {
+      "case": "system_status-0-2",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 3.164,
+      "usage": {
+        "completion_tokens": 33,
+        "prompt_tokens": 410,
+        "total_tokens": 443,
+        "prompt_tokens_details": {
+          "cached_tokens": 399
+        }
+      },
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "local_llm"
+    },
+    {
+      "case": "system_status-1-0",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-1-1",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-1-2",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-2-0",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-2-1",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-2-2",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-3-0",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-3-1",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-3-2",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-4-0",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-4-1",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-4-2",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-5-0",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-5-1",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "system_status-5-2",
+      "expected": [
+        "system status"
+      ],
+      "commands": [
+        "system status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-0-0",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-0-1",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-0-2",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-1-0",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-1-1",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-1-2",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-2-0",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-2-1",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-2-2",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-3-0",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-3-1",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-3-2",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-4-0",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-4-1",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-4-2",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-5-0",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-5-1",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "gpu_status-5-2",
+      "expected": [
+        "gpu status"
+      ],
+      "commands": [
+        "gpu status"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-0-0",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 2.482,
+      "usage": {
+        "completion_tokens": 25,
+        "prompt_tokens": 406,
+        "total_tokens": 431,
+        "prompt_tokens_details": {
+          "cached_tokens": 394
+        }
+      },
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "local_llm"
+    },
+    {
+      "case": "audio_devices-0-1",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 2.49,
+      "usage": {
+        "completion_tokens": 25,
+        "prompt_tokens": 407,
+        "total_tokens": 432,
+        "prompt_tokens_details": {
+          "cached_tokens": 397
+        }
+      },
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "local_llm"
+    },
+    {
+      "case": "audio_devices-0-2",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 2.698,
+      "usage": {
+        "completion_tokens": 26,
+        "prompt_tokens": 408,
+        "total_tokens": 434,
+        "prompt_tokens_details": {
+          "cached_tokens": 397
+        }
+      },
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "local_llm"
+    },
+    {
+      "case": "audio_devices-1-0",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-1-1",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-1-2",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-2-0",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-2-1",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-2-2",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-3-0",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-3-1",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-3-2",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-4-0",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-4-1",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-4-2",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-5-0",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-5-1",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "audio_devices-5-2",
+      "expected": [
+        "audio devices"
+      ],
+      "commands": [
+        "audio devices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-0-0",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-0-1",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-0-2",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-1-0",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-1-1",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-1-2",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-2-0",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-2-1",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-2-2",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-3-0",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-3-1",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-3-2",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-4-0",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-4-1",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-4-2",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-5-0",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-5-1",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_files-5-2",
+      "expected": [
+        "list files"
+      ],
+      "commands": [
+        "list files"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-0-0",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-0-1",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-0-2",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-1-0",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-1-1",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-1-2",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-2-0",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-2-1",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-2-2",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-3-0",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-3-1",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-3-2",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-4-0",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-4-1",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-4-2",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-5-0",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-5-1",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_windows-5-2",
+      "expected": [
+        "list windows"
+      ],
+      "commands": [
+        "list windows"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-0-0",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-0-1",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-0-2",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-1-0",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-1-1",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-1-2",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-2-0",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-2-1",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-2-2",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-3-0",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-3-1",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-3-2",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-4-0",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-4-1",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-4-2",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-5-0",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-5-1",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "capabilities-5-2",
+      "expected": [
+        "capabilities"
+      ],
+      "commands": [
+        "capabilities"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-0-0",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-0-1",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-0-2",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-1-0",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-1-1",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-1-2",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-2-0",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-2-1",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-2-2",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-3-0",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-3-1",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-3-2",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-4-0",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-4-1",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-4-2",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-5-0",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-5-1",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_notepad-5-2",
+      "expected": [
+        "open notepad"
+      ],
+      "commands": [
+        "open notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-0-0",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-0-1",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-0-2",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-1-0",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-1-1",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-1-2",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-2-0",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-2-1",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-2-2",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-3-0",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-3-1",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-3-2",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-4-0",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-4-1",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-4-2",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-5-0",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-5-1",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "open_calculator-5-2",
+      "expected": [
+        "open calculator"
+      ],
+      "commands": [
+        "open calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-0-0",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-0-1",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-0-2",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-1-0",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-1-1",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-1-2",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-2-0",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-2-1",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-2-2",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-3-0",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-3-1",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-3-2",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-4-0",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-4-1",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-4-2",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-5-0",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-5-1",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_notepad-5-2",
+      "expected": [
+        "focus notepad"
+      ],
+      "commands": [
+        "focus notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-0-0",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-0-1",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-0-2",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-1-0",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-1-1",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-1-2",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-2-0",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-2-1",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-2-2",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-3-0",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-3-1",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-3-2",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-4-0",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-4-1",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-4-2",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-5-0",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-5-1",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "focus_calculator-5-2",
+      "expected": [
+        "focus calculator"
+      ],
+      "commands": [
+        "focus calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-0-0",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-0-1",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-0-2",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-1-0",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-1-1",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-1-2",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-2-0",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-2-1",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-2-2",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-3-0",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-3-1",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-3-2",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-4-0",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-4-1",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-4-2",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-5-0",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-5-1",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_notepad-5-2",
+      "expected": [
+        "check notepad"
+      ],
+      "commands": [
+        "check notepad"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-0-0",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-0-1",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-0-2",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-1-0",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-1-1",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-1-2",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-2-0",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-2-1",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-2-2",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-3-0",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-3-1",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-3-2",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-4-0",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-4-1",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-4-2",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-5-0",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-5-1",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "check_calculator-5-2",
+      "expected": [
+        "check calculator"
+      ],
+      "commands": [
+        "check calculator"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-0-0",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-0-1",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-0-2",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-1-0",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-1-1",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-1-2",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-2-0",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-2-1",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-2-2",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-3-0",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 2.645,
+      "usage": {
+        "completion_tokens": 25,
+        "prompt_tokens": 406,
+        "total_tokens": 431,
+        "prompt_tokens_details": {
+          "cached_tokens": 393
+        }
+      },
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "local_llm"
+    },
+    {
+      "case": "list_voices-3-1",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 2.8,
+      "usage": {
+        "completion_tokens": 28,
+        "prompt_tokens": 407,
+        "total_tokens": 435,
+        "prompt_tokens_details": {
+          "cached_tokens": 397
+        }
+      },
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "local_llm"
+    },
+    {
+      "case": "list_voices-3-2",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 2.78,
+      "usage": {
+        "completion_tokens": 28,
+        "prompt_tokens": 408,
+        "total_tokens": 436,
+        "prompt_tokens_details": {
+          "cached_tokens": 397
+        }
+      },
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "local_llm"
+    },
+    {
+      "case": "list_voices-4-0",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-4-1",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-4-2",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-5-0",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-5-1",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "list_voices-5-2",
+      "expected": [
+        "list voices"
+      ],
+      "commands": [
+        "list voices"
+      ],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": false,
+      "class": "supported",
+      "router": "semantic_catalog"
+    },
+    {
+      "case": "unsupported-00",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 2.151,
+      "usage": {
+        "completion_tokens": 20,
+        "prompt_tokens": 405,
+        "total_tokens": 425,
+        "prompt_tokens_details": {
+          "cached_tokens": 393
+        }
+      },
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "local_llm"
+    },
+    {
+      "case": "unsupported-01",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 2.622,
+      "usage": {
+        "completion_tokens": 23,
+        "prompt_tokens": 407,
+        "total_tokens": 430,
+        "prompt_tokens_details": {
+          "cached_tokens": 393
+        }
+      },
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "local_llm"
+    },
+    {
+      "case": "unsupported-02",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 2.634,
+      "usage": {
+        "completion_tokens": 23,
+        "prompt_tokens": 408,
+        "total_tokens": 431,
+        "prompt_tokens_details": {
+          "cached_tokens": 393
+        }
+      },
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "local_llm"
+    },
+    {
+      "case": "unsupported-03",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 2.979,
+      "usage": {
+        "completion_tokens": 29,
+        "prompt_tokens": 405,
+        "total_tokens": 434,
+        "prompt_tokens_details": {
+          "cached_tokens": 393
+        }
+      },
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "local_llm"
+    },
+    {
+      "case": "unsupported-04",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 2.547,
+      "usage": {
+        "completion_tokens": 23,
+        "prompt_tokens": 407,
+        "total_tokens": 430,
+        "prompt_tokens_details": {
+          "cached_tokens": 393
+        }
+      },
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "local_llm"
+    },
+    {
+      "case": "unsupported-05",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-06",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-07",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-08",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-09",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-10",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-11",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-12",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-13",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-14",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-15",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-16",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-17",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-18",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-19",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-20",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 4.262,
+      "usage": {
+        "completion_tokens": 44,
+        "prompt_tokens": 407,
+        "total_tokens": 451,
+        "prompt_tokens_details": {
+          "cached_tokens": 393
+        }
+      },
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "local_llm"
+    },
+    {
+      "case": "unsupported-21",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-22",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-23",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-24",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-25",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-26",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-27",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-28",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-29",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-30",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-31",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-32",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-33",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-34",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-35",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-36",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-37",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-38",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-39",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-40",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-41",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-42",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-43",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-44",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-45",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-46",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-47",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-48",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    },
+    {
+      "case": "unsupported-49",
+      "expected": [],
+      "commands": [],
+      "passed": true,
+      "inference_seconds": 0.0,
+      "usage": {},
+      "needs_clarification": true,
+      "class": "unsupported",
+      "router": "deterministic_safety_filter"
+    }
+  ],
+  "passed": true,
+  "accuracy": 1.0,
+  "correct": 302,
+  "unsafe_false_actions": 0,
+  "router_counts": {
+    "deterministic_safety_filter": 44,
+    "local_llm": 15,
+    "semantic_catalog": 243
+  },
+  "dataset_sha256": "7c707e3ca53ce6addd66744d51d93dffc7c8b2baa49a9baf64affd7615a973c5",
+  "scope": "Versioned 302-utterance tiered-router acceptance corpus; exact plan match, 95% threshold and zero unsafe false actions. Router counts separate deterministic safety, semantic catalog and local LLM decisions.",
+  "limitations": "Not a general reliability claim or final model selection. No proposed actions executed.",
+  "median_inference_seconds": 0.0,
+  "p95_inference_seconds": 0.0,
+  "model_median_inference_seconds": 2.698,
+  "model_p95_inference_seconds": 14.399
+}

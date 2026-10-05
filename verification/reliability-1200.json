@@ -1,0 +1,41 @@
+{
+  "timestamp_utc": "2026-09-27T21:40:07.489684+00:00",
+  "source_sha256": "fd4d7e5248235bca67aaa422d395cf6bea947dec548a3f0b06a391313ae16047",
+  "passed": true,
+  "requests": 1200,
+  "correct": 1200,
+  "accuracy": 1.0,
+  "categories": {
+    "read_success": {
+      "total": 200,
+      "passed": 200
+    },
+    "verified_local_effect": {
+      "total": 200,
+      "passed": 200
+    },
+    "malformed_input_refused": {
+      "total": 200,
+      "passed": 200
+    },
+    "missing_capability_denied": {
+      "total": 200,
+      "passed": 200
+    },
+    "review_cancelled": {
+      "total": 200,
+      "passed": 200
+    },
+    "orchestration_single_use": {
+      "total": 200,
+      "passed": 200
+    }
+  },
+  "failures": [],
+  "latency_ms": {
+    "median": 12.404950000927784,
+    "p95": 16.66230000409996,
+    "maximum": 22.42389999446459
+  },
+  "scope": "1,200 deterministic runtime requests; not a human-language or arbitrary-PC-task success benchmark."
+}

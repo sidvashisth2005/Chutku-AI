@@ -1,0 +1,56 @@
+{
+ "date": "2026-09-30",
+ "model": "Qwen3-4B-Q4_K_M",
+ "runtime": "llama.cpp b11181",
+ "llama_bench_pp1024_tg128": {
+  "CPU_4t": {
+   "pp": 57.58,
+   "tg": 15.25
+  },
+  "Vulkan_ngl99": {
+   "pp": 1696.21,
+   "tg": 54.65
+  },
+  "CUDA12.4_ngl99": {
+   "pp": 2032.3,
+   "tg": 57.15
+  }
+ },
+ "full_catalog_tool_plan": {
+  "prompt_tokens": 6616,
+  "vulkan_first_run_after_shader_compile_s": 35.577,
+  "vulkan_run2": {
+   "backend": "Vulkan",
+   "runs": [
+    {
+     "request": "tell me the time and then show system status",
+     "seconds": 12.489,
+     "prompt_tokens": 6616,
+     "steps": [
+      "system.get_time",
+      "system.environment"
+     ]
+    },
+    {
+     "request": "what is my GPU status",
+     "seconds": 4.957,
+     "prompt_tokens": 6612,
+     "steps": [
+      "system.gpu_status"
+     ]
+    },
+    {
+     "request": "list the files in the sandbox",
+     "seconds": 4.682,
+     "prompt_tokens": 6613,
+     "steps": [
+      "filesystem.list"
+     ]
+    }
+   ],
+   "startup_s": 5.55
+  },
+  "cpu": "FAILED: request exceeded 105 s deadline (6.6K-token prefill at ~57 t/s)"
+ },
+ "decision": "Vulkan build selected (near-CUDA speed, 32 MB, no CUDA runtime); CPU kept as integrity-checked fallback using two-pass domain planning."
+}

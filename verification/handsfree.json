@@ -1,0 +1,43 @@
+{
+ "generated_at": "2026-10-01T08:45:37.624671+00:00",
+ "source_digest": "66b6ec2a79932de9d3350b7705e5dfa5ea1e0ca433090a5ba9978f395e970689",
+ "passed": true,
+ "checks": [
+  {
+   "check": "hotkey_registered",
+   "passed": true,
+   "detail": "Ctrl+Alt+Space"
+  },
+  {
+   "check": "hotkey_triggers_microphone_capture",
+   "passed": true,
+   "detail": "voice.listen_command task recorded after key press"
+  },
+  {
+   "check": "silence_starts_no_session",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "check": "wake_listener_reads_real_microphone",
+   "passed": true,
+   "detail": "frames read: 28"
+  },
+  {
+   "check": "laptop_mic_cancels_own_speaker_output (recorded fact)",
+   "passed": true,
+   "detail": "mic peak 0.0010 while playing speech vs idle floor 0.0010: the array mic's echo cancellation removes self-played audio, so over-the-air loopback cannot be tested here"
+  },
+  {
+   "check": "wake_phrase_runs_request",
+   "passed": true,
+   "detail": "{\"goal\": \"what time is it\", \"status\": \"done\", \"reply\": \"The current local time is Thursday, 01 October 2026, 02:14 PM. [Verified: 1 of 1 steps completed.]\"}"
+  },
+  {
+   "check": "near_miss_does_not_wake",
+   "passed": true,
+   "detail": "segments heard 1, wakes 0"
+  }
+ ],
+ "scope": "Real hotkey, real microphone, synthetic speech played through the laptop speakers. Not a human-voice or per-hour false-accept measurement."
+}

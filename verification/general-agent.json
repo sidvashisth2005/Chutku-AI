@@ -1,0 +1,34 @@
+{
+  "timestamp_utc": "2026-09-28T10:29:50.806749+00:00",
+  "source_sha256": "49f6923a9d6f62832f31a08837333725a9b2d9f1088b89ef3cf9216055d592fd",
+  "passed": true,
+  "checks": [
+    {
+      "check": "free_form_request_became_exact_ordered_tools",
+      "passed": true,
+      "observed_tools": [
+        "system.get_time",
+        "system.environment"
+      ]
+    },
+    {
+      "check": "preview_had_no_task_side_effect",
+      "passed": true
+    },
+    {
+      "check": "reviewed_plan_completed_and_verified",
+      "passed": true
+    },
+    {
+      "check": "reviewed_provenance_preserved",
+      "passed": true
+    }
+  ],
+  "model": "Qwen3-4B-Q4_K_M",
+  "selected_domains": [
+    "system",
+    "settings"
+  ],
+  "inference_seconds": 20.718,
+  "scope": "Real free-form local Qwen planning followed by exact reviewed observation-only Runtime execution."
+}

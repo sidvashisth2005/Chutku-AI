@@ -1,0 +1,52 @@
+{
+  "timestamp_utc": "2026-10-04T03:26:31.767022+00:00",
+  "source_sha256": "a35bfc35c482123607c47e627086ecd9d69e3bab45c51d0ac4f74c61678b3135",
+  "passed": true,
+  "checks": [
+    {
+      "check": "volume_observe_denied_without_capability",
+      "passed": true
+    },
+    {
+      "check": "real_volume_observed",
+      "passed": true
+    },
+    {
+      "check": "real_volume_exact_change",
+      "passed": true
+    },
+    {
+      "check": "real_volume_conflict_aware_restore",
+      "passed": true
+    },
+    {
+      "check": "real_bounded_network_inventory",
+      "passed": true
+    },
+    {
+      "check": "network_hardware_addresses_audit_redacted",
+      "passed": true
+    },
+    {
+      "check": "real_changed_adapter_identity_refused_without_mutation",
+      "passed": true
+    },
+    {
+      "check": "theme_observe_denied_without_capability",
+      "passed": true
+    },
+    {
+      "check": "real_theme_observed",
+      "passed": true
+    },
+    {
+      "check": "real_theme_exact_change",
+      "passed": true
+    },
+    {
+      "check": "real_theme_conflict_aware_restore",
+      "passed": true
+    }
+  ],
+  "scope": "Item 5 real Windows volume/theme reversible controls, network observation and non-mutating identity refusal."
+}

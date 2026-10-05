@@ -1,0 +1,32 @@
+{
+  "timestamp_utc": "2026-10-01T08:51:51.016226+00:00",
+  "source_sha256": "66b6ec2a79932de9d3350b7705e5dfa5ea1e0ca433090a5ba9978f395e970689",
+  "passed": true,
+  "checks": [
+    {
+      "check": "exact_bounded_proposal",
+      "passed": true
+    },
+    {
+      "check": "preview_has_no_runtime_effect",
+      "passed": true
+    },
+    {
+      "check": "reviewed_execution_verified",
+      "passed": true
+    },
+    {
+      "check": "model_provenance_preserved",
+      "passed": true
+    }
+  ],
+  "plan": {
+    "commands": [
+      "system status"
+    ],
+    "router": "local_llm",
+    "model": "Qwen3-4B-Q4_K_M",
+    "needs_clarification": false
+  },
+  "scope": "One reviewed read-only model proposal; no general reliability claim."
+}

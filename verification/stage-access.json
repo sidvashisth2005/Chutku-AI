@@ -1,0 +1,38 @@
+{
+  "timestamp_utc": "2026-10-01T08:52:46.343933+00:00",
+  "source_sha256": "66b6ec2a79932de9d3350b7705e5dfa5ea1e0ca433090a5ba9978f395e970689",
+  "stage": "access",
+  "passed": true,
+  "checks": [
+    {
+      "title": "Brain dependency",
+      "passed": true,
+      "detail": "Stage 2 must remain accepted."
+    },
+    {
+      "title": "Access regression",
+      "passed": true,
+      "detail": "30 tests; 0 failures; 0 errors; 0 skipped."
+    },
+    {
+      "title": "Observe-only real path",
+      "passed": true,
+      "detail": "Observation passed; modification was denied without a file."
+    },
+    {
+      "title": "Revocation recheck",
+      "passed": true,
+      "detail": "Revoked access failed before tool execution."
+    },
+    {
+      "title": "Provenance matrix",
+      "passed": true,
+      "detail": "60/60 untrusted or invalid provenance mutations were denied."
+    },
+    {
+      "title": "Approval presentation",
+      "passed": true,
+      "detail": "Review contains risk, origin, resource and consequence; cancellation had no effect."
+    }
+  ]
+}

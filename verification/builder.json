@@ -1,0 +1,62 @@
+{
+ "generated_at": "2026-10-01T06:16:14.453532+00:00",
+ "source_digest": "dd97bd734045c4548fcd49bf3c3e0930944ea71560697d094d43edb9055dcd16",
+ "passed": true,
+ "checks": [
+  {
+   "case": "declined confirmation writes nothing",
+   "status": "cancelled",
+   "asked_tool": "code.build_project",
+   "passed": true
+  },
+  {
+   "case": "protected folder refused",
+   "state": "FAILED",
+   "passed": true
+  },
+  {
+   "case": "build me a calculator app",
+   "status": "done",
+   "seconds": 122.2,
+   "max_heartbeat_gap_seconds": 1.0,
+   "reply": "Built calculator app. [Verified: 1 of 1 steps completed.]",
+   "folder": "D:\\ChutkuProjects\\calculator-app-7",
+   "build": {
+    "kind": "gui",
+    "entry_file": "main.py",
+    "design": "Build a modern, responsive desktop calculator app using Python's tkinter library, featuring a decoupled CalculatorEngine for full testability, keyboard support, and a sleek dark theme.",
+    "files": [
+     ".chutku_build.json",
+     "README.md",
+     "engine.py",
+     "main.py",
+     "test_app.py"
+    ],
+    "coder": "gemini",
+    "model": "gemini-3.5-flash",
+    "attempts": [
+     {
+      "attempt": 1,
+      "passed": true,
+      "problem": null
+     }
+    ],
+    "checks": [
+     "compiled 3 Python file(s)",
+     "unit tests passed (12 tests)",
+     "app window appeared: 'Calculator'"
+    ],
+    "vscode": {
+     "opened": true,
+     "title": "main.py - calculator-app-7 - Visual Studio Code"
+    },
+    "app_running": true,
+    "seconds": 120.7,
+    "error": null,
+    "note": null
+   },
+   "passed": true
+  }
+ ],
+ "scope": "Real chat API on the owner's profile: project build with the configured coder, VS Code, compile/tests/window checks, repair loop, heartbeat; decline and protected-folder negatives."
+}

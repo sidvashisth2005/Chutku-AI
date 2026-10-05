@@ -1,0 +1,2 @@
+"""Explicit deterministic tool implementations."""
+

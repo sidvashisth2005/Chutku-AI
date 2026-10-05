@@ -1,0 +1,1776 @@
+{
+ "generated_at": "2026-09-30T14:16:36.240822+00:00",
+ "results": {
+  "hinglish_prompt": {
+   "recall": "11/16",
+   "false_accepts": "2/57",
+   "rows": [
+    {
+     "voice": "Heera",
+     "said": "Oye Chutku, open Spotify.",
+     "heard": "Oye Chutku, Open Spotify.",
+     "positive": true,
+     "woke": true,
+     "command": "Open Spotify"
+    },
+    {
+     "voice": "Heera",
+     "said": "Oye Chutku",
+     "heard": "Oye Chutku.",
+     "positive": true,
+     "woke": true,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Chutku, what time is it?",
+     "heard": "Chutku, what time is it?",
+     "positive": true,
+     "woke": true,
+     "command": "what time is it"
+    },
+    {
+     "voice": "Heera",
+     "said": "Oye Chutku, gaana roko.",
+     "heard": "Oye Chutku, Gaana roko.",
+     "positive": true,
+     "woke": true,
+     "command": "Gaana roko"
+    },
+    {
+     "voice": "Heera",
+     "said": "Oye Chotu, idhar aao.",
+     "heard": "O.H.O.2. Idhar A.O.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Ek chutki bhar namak daal do.",
+     "heard": "Ek chutki ban namak dal do.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Chutney bana do please.",
+     "heard": "Chutney banadu please.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Hey Google, what's the weather?",
+     "heard": "Hey Google, what's the weather?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Okay computer, play some music.",
+     "heard": "Ok computer, play some music.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Kuch toh gadbad hai.",
+     "heard": "Kuch to ghar baad hai.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Let's meet at four o'clock.",
+     "heard": "Let's meet at 4 o'clock.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "I will open the file tomorrow.",
+     "heard": "I will open the file tomorrow.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Open the window, it is hot.",
+     "heard": "Open the window. It is hot.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Beta, homework kar liya?",
+     "heard": "Beta, Homework Kaliya.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "The chutney was delicious.",
+     "heard": "The chutney was delicious.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Oye, sun na yaar.",
+     "heard": "Oye, sun na jar.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "What time is the meeting?",
+     "heard": "What time is the meeting?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Search for flights to Delhi.",
+     "heard": "Search for flights to Delhi.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Pause karo movie ko.",
+     "heard": "Post karo movie ko.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Hello, how are you doing today?",
+     "heard": "Hello, how are you doing today?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Chat GPT se pooch lo.",
+     "heard": "Chat GPT se puj lo.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye Chutku, open Spotify.",
+     "heard": "Owe Chutku, open Spotify.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye Chutku",
+     "heard": "Owe Chutku.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Chutku, what time is it?",
+     "heard": "Chutku, what time is it?",
+     "positive": true,
+     "woke": true,
+     "command": "what time is it"
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye Chutku, gaana roko.",
+     "heard": "Owe Chutku, Gaana roko.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye Chotu, idhar aao.",
+     "heard": "O.H.O.2, is not out.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Ek chutki bhar namak daal do.",
+     "heard": "8 chutki van namak dal du.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Chutney bana do please.",
+     "heard": "Chutni banadu please.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Hey Google, what's the weather?",
+     "heard": "Hey Google, what's the weather?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Okay computer, play some music.",
+     "heard": "OK computer, play some music.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Kuch toh gadbad hai.",
+     "heard": "Kut tu, God mad hey.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Let's meet at four o'clock.",
+     "heard": "Let's meet at 4 o'clock.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "I will open the file tomorrow.",
+     "heard": "I will open the file tomorrow.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Open the window, it is hot.",
+     "heard": "Open the window, it is hot.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Beta, homework kar liya?",
+     "heard": "Beta, Homework Kalea.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "The chutney was delicious.",
+     "heard": "The chutney was delicious.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye, sun na yaar.",
+     "heard": "Oei, San Naya.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "What time is the meeting?",
+     "heard": "What time is the meeting?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Search for flights to Delhi.",
+     "heard": "Search for flights to Delhi.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Pause karo movie ko.",
+     "heard": "Pozkaro movie ko.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Hello, how are you doing today?",
+     "heard": "Hello, how are you doing today?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Chat GPT se pooch lo.",
+     "heard": "Chat GPT say pujlo.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Kalpana",
+     "said": "ओए चुटकू, टाइम बताओ",
+     "heard": "Oye Chutku, time batao.",
+     "positive": true,
+     "woke": true,
+     "command": "time batao"
+    },
+    {
+     "voice": "Kalpana",
+     "said": "ओए चुटकू",
+     "heard": "Oye Chutku.",
+     "positive": true,
+     "woke": true,
+     "command": ""
+    },
+    {
+     "voice": "Kalpana",
+     "said": "छोटू इधर आओ",
+     "heard": "Chutku ithar aw.",
+     "positive": false,
+     "woke": true,
+     "command": "ithar aw"
+    },
+    {
+     "voice": "Kalpana",
+     "said": "एक चुटकी नमक डालो",
+     "heard": "Ek chutki namak dalo.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Kalpana",
+     "said": "कल ऑफिस जाना है",
+     "heard": "Khol office gaana hai.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Hemant",
+     "said": "ओए चुटकू, टाइम बताओ",
+     "heard": "Oye Chutku, Time batao.",
+     "positive": true,
+     "woke": true,
+     "command": "Time batao"
+    },
+    {
+     "voice": "Hemant",
+     "said": "ओए चुटकू",
+     "heard": "Oye Chutku.",
+     "positive": true,
+     "woke": true,
+     "command": ""
+    },
+    {
+     "voice": "Hemant",
+     "said": "छोटू इधर आओ",
+     "heard": "Chutku ithar aw.",
+     "positive": false,
+     "woke": true,
+     "command": "ithar aw"
+    },
+    {
+     "voice": "Hemant",
+     "said": "एक चुटकी नमक डालो",
+     "heard": "Ek chutki namak dalo.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Hemant",
+     "said": "कल ऑफिस जाना है",
+     "heard": "Khol office gaana hai.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye Chutku, open Spotify.",
+     "heard": "Oichutku, open Spotify.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye Chutku",
+     "heard": "Oi Chutku.",
+     "positive": true,
+     "woke": true,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Chutku, what time is it?",
+     "heard": "Chutku, what time is it?",
+     "positive": true,
+     "woke": true,
+     "command": "what time is it"
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye Chutku, gaana roko.",
+     "heard": "Boichutku, Gaana roko.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye Chotu, idhar aao.",
+     "heard": "Boichu tu, Itter A.A.O.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Ek chutki bhar namak daal do.",
+     "heard": "EK Chutki Bar name Akdal Do.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Chutney bana do please.",
+     "heard": "Chutney Bonadu please.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Hey Google, what's the weather?",
+     "heard": "Hey Google, what's the weather?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Okay computer, play some music.",
+     "heard": "Ok computer, play some music.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Kuch toh gadbad hai.",
+     "heard": "Kuch toe gad bad hi.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Let's meet at four o'clock.",
+     "heard": "Let's meet at 4 o'clock.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "I will open the file tomorrow.",
+     "heard": "I will open the file tomorrow.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Open the window, it is hot.",
+     "heard": "Open the window, it is hot.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Beta, homework kar liya?",
+     "heard": "Beta, homework Karlya.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "The chutney was delicious.",
+     "heard": "The chutney was delicious.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye, sun na yaar.",
+     "heard": "Oy, sun and ayur.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "What time is the meeting?",
+     "heard": "What time is the meeting?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Search for flights to Delhi.",
+     "heard": "Search for flights to Delhi.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Pause karo movie ko.",
+     "heard": "Paws karo movie ko.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Hello, how are you doing today?",
+     "heard": "Hello, how are you doing today?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Chat GPT se pooch lo.",
+     "heard": "Chat gptse pooch lo.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    }
+   ]
+  },
+  "neutral_prompt": {
+   "recall": "8/16",
+   "false_accepts": "0/57",
+   "rows": [
+    {
+     "voice": "Heera",
+     "said": "Oye Chutku, open Spotify.",
+     "heard": "O'ichutku, open Spotify.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Oye Chutku",
+     "heard": "Oye chutku.",
+     "positive": true,
+     "woke": true,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Chutku, what time is it?",
+     "heard": "Chutku, what time is it?",
+     "positive": true,
+     "woke": true,
+     "command": "what time is it"
+    },
+    {
+     "voice": "Heera",
+     "said": "Oye Chutku, gaana roko.",
+     "heard": "Oye chutku, gana roko.",
+     "positive": true,
+     "woke": true,
+     "command": "gana roko"
+    },
+    {
+     "voice": "Heera",
+     "said": "Oye Chotu, idhar aao.",
+     "heard": "OHO2, Idhar Aho.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Ek chutki bhar namak daal do.",
+     "heard": "1 chutki per namak dal 2",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Chutney bana do please.",
+     "heard": "chutney banadoo please.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Hey Google, what's the weather?",
+     "heard": "Hey Google, what's the weather?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Okay computer, play some music.",
+     "heard": "OK Computer, play some music.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Kuch toh gadbad hai.",
+     "heard": "kuch to gad baad hai.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Let's meet at four o'clock.",
+     "heard": "Let's meet at 4 o'clock.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "I will open the file tomorrow.",
+     "heard": "I will open the file tomorrow.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Open the window, it is hot.",
+     "heard": "Open the window, it is hot.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Beta, homework kar liya?",
+     "heard": "beta, homework clear.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "The chutney was delicious.",
+     "heard": "The chutney was delicious.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Oye, sun na yaar.",
+     "heard": "Oye, sun na yar.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "What time is the meeting?",
+     "heard": "What time is the meeting?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Search for flights to Delhi.",
+     "heard": "Search for flights to Delhi.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Pause karo movie ko.",
+     "heard": "Postcaro Movico",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Hello, how are you doing today?",
+     "heard": "Hello, how are you doing today?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Chat GPT se pooch lo.",
+     "heard": "chat gpt se pujlo",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye Chutku, open Spotify.",
+     "heard": "Owei chudku, open Spotify.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye Chutku",
+     "heard": "Owei chudku.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Chutku, what time is it?",
+     "heard": "Chutku, what time is it?",
+     "positive": true,
+     "woke": true,
+     "command": "what time is it"
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye Chutku, gaana roko.",
+     "heard": "Owei chutku, gana roko.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye Chotu, idhar aao.",
+     "heard": "O.H.O.2 is now out.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Ek chutki bhar namak daal do.",
+     "heard": "8 chutki van namak dal du.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Chutney bana do please.",
+     "heard": "chutney banado please.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Hey Google, what's the weather?",
+     "heard": "Hey Google, what's the weather?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Okay computer, play some music.",
+     "heard": "OK computer, play some music.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Kuch toh gadbad hai.",
+     "heard": "Kut tu, god mad hei.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Let's meet at four o'clock.",
+     "heard": "Let's meet at 4 o'clock.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "I will open the file tomorrow.",
+     "heard": "I will open the file tomorrow.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Open the window, it is hot.",
+     "heard": "Open the window, it is hot.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Beta, homework kar liya?",
+     "heard": "bita, homework, career.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "The chutney was delicious.",
+     "heard": "The chutney was delicious.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye, sun na yaar.",
+     "heard": "Oei, san na ya.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "What time is the meeting?",
+     "heard": "What time is the meeting?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Search for flights to Delhi.",
+     "heard": "Search for flights to Delhi.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Pause karo movie ko.",
+     "heard": "Pozkarou Muviko.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Hello, how are you doing today?",
+     "heard": "Hello, how are you doing today?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Chat GPT se pooch lo.",
+     "heard": "chat GPT se pujlo",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Kalpana",
+     "said": "ओए चुटकू, टाइम बताओ",
+     "heard": "Oye chutku, time batao.",
+     "positive": true,
+     "woke": true,
+     "command": "time batao"
+    },
+    {
+     "voice": "Kalpana",
+     "said": "ओए चुटकू",
+     "heard": "Oye chutkoom.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Kalpana",
+     "said": "छोटू इधर आओ",
+     "heard": "Show to either owl.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Kalpana",
+     "said": "एक चुटकी नमक डालो",
+     "heard": "Add a pinch of salt.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Kalpana",
+     "said": "कल ऑफिस जाना है",
+     "heard": "kal office jaana hai.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Hemant",
+     "said": "ओए चुटकू, टाइम बताओ",
+     "heard": "Oye chutku, time batao.",
+     "positive": true,
+     "woke": true,
+     "command": "time batao"
+    },
+    {
+     "voice": "Hemant",
+     "said": "ओए चुटकू",
+     "heard": "Oye chutku.",
+     "positive": true,
+     "woke": true,
+     "command": ""
+    },
+    {
+     "voice": "Hemant",
+     "said": "छोटू इधर आओ",
+     "heard": "Chotu itharau.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Hemant",
+     "said": "एक चुटकी नमक डालो",
+     "heard": "1 pinch salt.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Hemant",
+     "said": "कल ऑफिस जाना है",
+     "heard": "kal office jaanahe.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye Chutku, open Spotify.",
+     "heard": "Oichutku, open Spotify.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye Chutku",
+     "heard": "Oichatku.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Chutku, what time is it?",
+     "heard": "Chutku, what time is it?",
+     "positive": true,
+     "woke": true,
+     "command": "what time is it"
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye Chutku, gaana roko.",
+     "heard": "Oichutku, gana roko.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye Chotu, idhar aao.",
+     "heard": "Oichotu, Itor-A.A.O.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Ek chutki bhar namak daal do.",
+     "heard": "ek chutki bar ne mak dal du.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Chutney bana do please.",
+     "heard": "Chutney Bonadu please.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Hey Google, what's the weather?",
+     "heard": "Hey Google, what's the weather?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Okay computer, play some music.",
+     "heard": "OK Computer, play some music.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Kuch toh gadbad hai.",
+     "heard": "kuch tou gad bad hai.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Let's meet at four o'clock.",
+     "heard": "Let's meet at 4 o'clock.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "I will open the file tomorrow.",
+     "heard": "I will open the file tomorrow.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Open the window, it is hot.",
+     "heard": "Open the window, it is hot.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Beta, homework kar liya?",
+     "heard": "beta, homework, karlia.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "The chutney was delicious.",
+     "heard": "The chutney was delicious.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye, sun na yaar.",
+     "heard": "Oye, sun and a year.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "What time is the meeting?",
+     "heard": "What time is the meeting?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Search for flights to Delhi.",
+     "heard": "Search for flights to Delhi.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Pause karo movie ko.",
+     "heard": "PawsKaro Movie KO",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Hello, how are you doing today?",
+     "heard": "Hello, how are you doing today?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Chat GPT se pooch lo.",
+     "heard": "chat gptse pooch lo",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    }
+   ]
+  },
+  "no_prompt": {
+   "recall": "5/16",
+   "false_accepts": "0/57",
+   "rows": [
+    {
+     "voice": "Heera",
+     "said": "Oye Chutku, open Spotify.",
+     "heard": "Oichudku Open Spotify",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Oye Chutku",
+     "heard": "Oye Chutku.",
+     "positive": true,
+     "woke": true,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Chutku, what time is it?",
+     "heard": "Chutku, what time is it?",
+     "positive": true,
+     "woke": true,
+     "command": "what time is it"
+    },
+    {
+     "voice": "Heera",
+     "said": "Oye Chutku, gaana roko.",
+     "heard": "Oye chutku, gana roko.",
+     "positive": true,
+     "woke": true,
+     "command": "gana roko"
+    },
+    {
+     "voice": "Heera",
+     "said": "Oye Chotu, idhar aao.",
+     "heard": "OHO2, Idhar Ayo.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Ek chutki bhar namak daal do.",
+     "heard": "1 pinch of salt",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Chutney bana do please.",
+     "heard": "chutney banado please",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Hey Google, what's the weather?",
+     "heard": "Hey Google, what's the weather?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Okay computer, play some music.",
+     "heard": "Okay computer, play some music.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Kuch toh gadbad hai.",
+     "heard": "There is something wrong.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Let's meet at four o'clock.",
+     "heard": "Let's meet at 4 o'clock.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "I will open the file tomorrow.",
+     "heard": "I will open the file tomorrow.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Open the window, it is hot.",
+     "heard": "Open the window, it is hot.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Beta, homework kar liya?",
+     "heard": "Beta, Homework Korea.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "The chutney was delicious.",
+     "heard": "The chutney was delicious.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Oye, sun na yaar.",
+     "heard": "Oye, sun now y'all.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "What time is the meeting?",
+     "heard": "What time is the meeting?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Search for flights to Delhi.",
+     "heard": "Search for flights to Delhi.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Pause karo movie ko.",
+     "heard": "Postcaro Movico",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Hello, how are you doing today?",
+     "heard": "Hello, how are you doing today?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Heera",
+     "said": "Chat GPT se pooch lo.",
+     "heard": "Chat GPT se pujlo",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye Chutku, open Spotify.",
+     "heard": "OE Chutku, Open Spotify",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye Chutku",
+     "heard": "Owei Chutku",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Chutku, what time is it?",
+     "heard": "Chudku, what time is it?",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye Chutku, gaana roko.",
+     "heard": "Owei Chutku, Ganaroko.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye Chotu, idhar aao.",
+     "heard": "O.H.O.2 is not out.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Ek chutki bhar namak daal do.",
+     "heard": "8-chutki vannamak dal du.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Chutney bana do please.",
+     "heard": "chutney banana do please",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Hey Google, what's the weather?",
+     "heard": "Hey Google, what's the weather?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Okay computer, play some music.",
+     "heard": "Okay computer, play some music.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Kuch toh gadbad hai.",
+     "heard": "Cooch to God, Buh-Hey!",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Let's meet at four o'clock.",
+     "heard": "Let's meet at 4 o'clock.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "I will open the file tomorrow.",
+     "heard": "I will open the file tomorrow.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Open the window, it is hot.",
+     "heard": "Open the window, it is hot.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Beta, homework kar liya?",
+     "heard": "Bita, Homework, Kaliya.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "The chutney was delicious.",
+     "heard": "The chutney was delicious.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Oye, sun na yaar.",
+     "heard": "Oei, sun now y'all.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "What time is the meeting?",
+     "heard": "What time is the meeting?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Search for flights to Delhi.",
+     "heard": "Search for flights to Delhi.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Pause karo movie ko.",
+     "heard": "Pozcaro Mubico",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Hello, how are you doing today?",
+     "heard": "Hello, how are you doing today?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Ravi",
+     "said": "Chat GPT se pooch lo.",
+     "heard": "Check GPT say Pooch low.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Kalpana",
+     "said": "ओए चुटकू, टाइम बताओ",
+     "heard": "Oye Chutku, time bataw.",
+     "positive": true,
+     "woke": true,
+     "command": "time bataw"
+    },
+    {
+     "voice": "Kalpana",
+     "said": "ओए चुटकू",
+     "heard": "Oye Chutkoom.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Kalpana",
+     "said": "छोटू इधर आओ",
+     "heard": "so to either out",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Kalpana",
+     "said": "एक चुटकी नमक डालो",
+     "heard": "Add a pinch of salt",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Kalpana",
+     "said": "कल ऑफिस जाना है",
+     "heard": "I have to go to office tomorrow",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Hemant",
+     "said": "ओए चुटकू, टाइम बताओ",
+     "heard": "Oye chudku, time batao.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Hemant",
+     "said": "ओए चुटकू",
+     "heard": "Oh, it should go.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Hemant",
+     "said": "छोटू इधर आओ",
+     "heard": "So, two either I, I, I, I, I, I, I, I, I, I, I, I, I,",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Hemant",
+     "said": "एक चुटकी नमक डालो",
+     "heard": "Add a pinch of salt",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Hemant",
+     "said": "कल ऑफिस जाना है",
+     "heard": "kal office jaanahe",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye Chutku, open Spotify.",
+     "heard": "Oichutku, open Spotify.",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye Chutku",
+     "heard": "Oichatku!",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Chutku, what time is it?",
+     "heard": "Chutku, what time is it?",
+     "positive": true,
+     "woke": true,
+     "command": "what time is it"
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye Chutku, gaana roko.",
+     "heard": "Oichutku, Gonaroko",
+     "positive": true,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye Chotu, idhar aao.",
+     "heard": "Oichotu, Iter-AAO",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Ek chutki bhar namak daal do.",
+     "heard": "E.K. Chutki Bar Namek Daldu",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Chutney bana do please.",
+     "heard": "Chutney Bonadoo please.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Hey Google, what's the weather?",
+     "heard": "Hey Google, what's the weather?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Okay computer, play some music.",
+     "heard": "Okay computer, play some music.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Kuch toh gadbad hai.",
+     "heard": "Kuch Toe Gad Bad High",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Let's meet at four o'clock.",
+     "heard": "Let's meet at 4 o'clock.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "I will open the file tomorrow.",
+     "heard": "I will open the file tomorrow",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Open the window, it is hot.",
+     "heard": "Open the window, it is hot.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Beta, homework kar liya?",
+     "heard": "beta homework Carlaya",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "The chutney was delicious.",
+     "heard": "The chutney was delicious.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Oye, sun na yaar.",
+     "heard": "Oy, son in a year.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "What time is the meeting?",
+     "heard": "What time is the meeting?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Search for flights to Delhi.",
+     "heard": "Search for flights to Delhi.",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Pause karo movie ko.",
+     "heard": "Paws Carol Movie KO",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Hello, how are you doing today?",
+     "heard": "Hello, how are you doing today?",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    },
+    {
+     "voice": "Zira",
+     "said": "Chat GPT se pooch lo.",
+     "heard": "Chat GPTSC Pooch Lo",
+     "positive": false,
+     "woke": false,
+     "command": ""
+    }
+   ]
+  }
+ },
+ "scope": "Synthetic OneCore voices, single clips; not a per-hour false-accept rate in a real room."
+}

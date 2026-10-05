@@ -1,0 +1,236 @@
+"""What Chutku remembers about the owner and past conversations, as one small, topic-relevant slice.
+
+Owner (2026-10-04): "remember my details and the context of all my previous chats"; Gemini may get only what relates
+to the current topic, and that must not cost extra tokens (so: one bounded slice, no extra calls).
+
+- about_you(goal, budget): people, facts, open list items, saved notes and earlier conversation that relate to the
+  goal (word overlap, then recency), trimmed to `budget` characters of JSON. Local planner: 1200; cloud and voice: 800.
+- log_conversation(): data/conversations.jsonl (local only): what the owner said, Chutku's reply (without the
+  verification tail), tools used, status. Text only; rotates at 20 MB.
+- earlier(goal): the last 3 turns from today + up to 3 older turns sharing words with the goal.
+- talked_about(day): a plain summary of one day's conversation ("what did we talk about yesterday").
+"""
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta
+import json
+from pathlib import Path
+import re
+import threading
+import time
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ROTATE_BYTES = 20_000_000
+_lock = threading.Lock()
+_STOP = {"the", "a", "an", "to", "of", "and", "or", "is", "it", "in", "on", "for", "me", "my", "i", "you", "do",
+         "karo", "kar", "ko", "ka", "ki", "ke", "hai", "h", "se", "me", "mein", "main", "pe", "par", "ye", "yeh",
+         "wo", "woh", "kya", "please", "chutku", "oye", "hi", "aur", "bhi", "na", "toh", "to", "do", "de", "dena"}
+_VERIFIED_TAIL = re.compile(r"\s*\[Verified:.*\]\s*$", re.S)
+# Words that say nothing about a topic (for the mind map's "recent topics").
+_PLAIN = {"what", "did", "does", "about", "today", "talk", "tell", "show", "open", "close", "play", "good", "job",
+          "map", "mind", "time", "with", "this", "that", "there", "here", "your", "from", "have", "has", "will",
+          "can", "could", "would", "should", "how", "when", "where", "which", "who", "why", "dikhao", "batao",
+          "kholo", "chalao", "band", "bhejo", "kitna", "kitne", "kaha", "kaise", "abhi", "kal", "aaj", "baje",
+          "please", "thanks", "thank", "okay", "yes", "now", "then", "again", "just", "want", "need", "make",
+          "send", "set", "put", "get", "give", "find", "search", "start", "stop", "kya", "hai", "karo", "wala",
+          "wali", "wale", "waala", "mera", "meri", "mere", "tum", "aap", "hum", "humne", "maine", "tha", "thi"}
+# Requests about Chutku's memory itself ("what did we talk about", "good job", "mind map") are not topics or history.
+_META_TOOLS = {"mind.feedback", "mind.map"}
+
+
+def _meta(row):
+    if set(row.get("tools") or ()) & _META_TOOLS:
+        return True
+    from chutku.quick_intents import HISTORY, MIND_MAP
+    return bool(HISTORY.search(row.get("said", "")) or MIND_MAP.search(row.get("said", "")))
+
+
+def words(text):
+    from chutku.translit import roman
+    return {w for w in re.findall(r"[a-z0-9]+", roman(str(text or "")).casefold()) if w not in _STOP and len(w) > 1}
+
+
+def conversations_path(base=None):
+    return Path(base or PROJECT_ROOT) / "data" / "conversations.jsonl"
+
+
+# -- conversation log --------------------------------------------------------------------------------------
+
+def log_conversation(said, reply, *, origin="text", status="done", tools=(), base=None, at=None, planners=None):
+    said, reply = " ".join(str(said or "").split()), _VERIFIED_TAIL.sub("", str(reply or "")).strip()
+    if not said:
+        return
+    row = {"at": at or time.time(), "origin": origin, "said": said[:600], "reply": reply[:800], "status": status,
+           "tools": sorted({str(t) for t in tools})[:12]}
+    if planners:
+        row["planners"] = [str(p) for p in planners][:8]   # quick / replay / local / local-8b / gemini
+    file = conversations_path(base)
+    with _lock:
+        try:
+            file.parent.mkdir(parents=True, exist_ok=True)
+            if file.exists() and file.stat().st_size > ROTATE_BYTES:
+                file.replace(file.with_suffix(".old.jsonl"))
+            with file.open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(row, ensure_ascii=False) + "\n")
+        except OSError:
+            pass  # memory is a help, never a reason for a task to fail
+
+
+def log_session(snapshot, base=None):
+    """One finished agent session (text, hotkey, wake or a voice-conversation task)."""
+    if not snapshot or snapshot.get("status") in (None, "planning", "running", "queued", "waiting_confirmation"):
+        return
+    tools = [s.get("tool") for s in snapshot.get("steps", []) if s.get("state") == "COMPLETED"]
+    log_conversation(snapshot.get("goal"), snapshot.get("reply"), origin=snapshot.get("origin", "text"),
+                     status=snapshot.get("status"), tools=tools, base=base,
+                     planners=[p.get("planner") for p in snapshot.get("planners", []) if p.get("planner")])
+
+
+def log_voice(transcript, base=None):
+    """A finished voice conversation: each owner turn with Chutku's answer to it (meaningful turns only)."""
+    from chutku.voice.heard import meaningful
+    pending = None
+    for speaker, text in transcript or []:
+        text = " ".join(str(text).split())
+        if speaker == "you":
+            if pending:
+                log_conversation(pending, "", origin="voice", status="said", base=base)
+            pending = text if meaningful(text) else None
+        elif pending:
+            log_conversation(pending, text, origin="voice", status="said", base=base)
+            pending = None
+    if pending:
+        log_conversation(pending, "", origin="voice", status="said", base=base)
+
+
+def turns(base=None, limit=2000):
+    try:
+        lines = conversations_path(base).read_text(encoding="utf-8").splitlines()[-limit:]
+    except OSError:
+        return []
+    rows = []
+    for line in lines:
+        try:
+            rows.append(json.loads(line))
+        except ValueError:
+            continue
+    return rows
+
+
+def earlier(goal, base=None, *, now=None):
+    """Last 3 turns of today, plus up to 3 older turns that share words with the goal (newest first)."""
+    now = now or time.time()
+    rows = turns(base)
+    today = datetime.fromtimestamp(now).date()
+    same_day = [r for r in rows if datetime.fromtimestamp(r["at"]).date() == today][-3:]
+    wanted = words(goal)
+    older = []
+    if wanted:
+        scored = [(len(wanted & words(r["said"] + " " + r.get("reply", ""))), r["at"], r) for r in rows
+                  if r not in same_day]
+        older = [r for score, _, r in sorted(scored, key=lambda x: (x[0], x[1]), reverse=True) if score >= 1][:3]
+    return [_brief(r) for r in older + same_day]
+
+
+def _brief(row):
+    when = datetime.fromtimestamp(row["at"]).strftime("%d %b %H:%M")
+    return {"when": when, "you": row["said"][:200], "chutku": row.get("reply", "")[:200], "status": row.get("status")}
+
+
+def talked_about(day: date, base=None, limit=580):
+    rows = [r for r in turns(base) if datetime.fromtimestamp(r["at"]).date() == day and not _meta(r)]
+    if not rows:
+        return None
+    head = f"{len(rows)} thing{'s' if len(rows) != 1 else ''} on {day.strftime('%d %b')}"
+    lines = []
+    for r in reversed(rows):   # newest first into the budget: a reply must stay under 600 characters
+        line = (f"{datetime.fromtimestamp(r['at']).strftime('%H:%M')} {r['said'][:60]}"
+                + (f" → {' '.join(r['reply'].split())[:45]}" if r.get("reply") else ""))
+        if len(head) + 20 + sum(len(x) + 1 for x in lines) + len(line) > limit:
+            break
+        lines.insert(0, line)
+    shown = f" (latest {len(lines)})" if len(lines) < len(rows) else ""
+    return head + shown + ":\n" + "\n".join(lines)
+
+
+def day_from_words(text, today=None):
+    text = str(text or "").casefold()
+    today = today or date.today()
+    if re.search(r"\b(?:yesterday|kal)\b", text):
+        return today - timedelta(days=1)
+    if re.search(r"\b(?:parso|day before yesterday)\b", text):
+        return today - timedelta(days=2)
+    return today
+
+
+def recent_topics(base=None, *, days=14, limit=8, now=None):
+    """Words the owner used most in the last two weeks (2+ times), for the mind map."""
+    from collections import Counter
+    since = (now or time.time()) - days * 86400
+    counts = Counter()
+    for row in turns(base):
+        if row["at"] >= since and not _meta(row):
+            counts.update(w for w in words(row["said"]) if not w.isdigit() and len(w) > 2 and w not in _PLAIN)
+    return [w for w, n in counts.most_common(limit) if n >= 2]
+
+
+def mind_map(base=None, *, now=None):
+    """Everything the mind map shows: people, facts, lists, habits and recent topics."""
+    from chutku.mind import Mind
+    data = Mind(Path(base or PROJECT_ROOT)).load()
+    return {"people": data["people"], "facts": data["facts"], "lists": data["lists"],
+            "habits": [h["text"] for h in (data.get("habits") or {}).values()],
+            "topics": recent_topics(base, now=now)}
+
+
+# -- the memory slice --------------------------------------------------------------------------------------
+
+def about_you(goal, *, budget=1200, base=None, notes=None, include_earlier=True, now=None):
+    """A compact, goal-relevant view of what the owner told Chutku; JSON-sized to at most `budget` characters."""
+    from chutku.mind import Mind
+    data = Mind(Path(base or PROJECT_ROOT)).load()
+    wanted = words(goal)
+
+    def score(*texts):
+        return len(wanted & words(" ".join(str(t) for t in texts)))
+
+    people = sorted(data["people"], key=lambda p: -score(p.get("name"), p.get("relation"), *p.get("aliases", [])))
+    people = [{k: v for k, v in {"name": p["name"], "also_called": p.get("aliases") or None,
+                                 "relation": p.get("relation") or None, "whatsapp": p.get("whatsapp") or None,
+                                 "notes": p.get("notes")[-2:] if p.get("notes") else None}.items() if v}
+              for p in people]
+    facts = dict(sorted(data["facts"].items(), key=lambda kv: -score(*kv)))
+    for row in notes or []:          # older memory.db notes ("remember city = Pune") are facts too
+        facts.setdefault(row["key"], row["value"])
+    open_items = []
+    for name, items in data["lists"].items():
+        for item in items:
+            if not item.get("done"):
+                open_items.append((score(name, item["text"]), item.get("added", ""), f"{name}: {item['text']}"))
+    open_items = [text for _, _, text in sorted(open_items, reverse=True)]
+    view = {"people": people, "facts": facts, "open": open_items}
+    if include_earlier:
+        view["earlier"] = earlier(goal, base, now=now)
+    habits = data.get("habits") or {}
+    if habits:
+        view["habits"] = [h["text"] for h in sorted(habits.values(), key=lambda h: -h.get("count", 0))][:5]
+    return _fit(view, budget)
+
+
+def _fit(view, budget):
+    """Drop the least relevant tail of each part until the JSON fits (each list is already ordered best-first)."""
+    def size():
+        return len(json.dumps(view, ensure_ascii=False))
+    order = ["habits", "earlier", "open", "facts", "people"]
+    while size() > budget:
+        for key in order:
+            part = view.get(key)
+            if part:
+                if isinstance(part, dict):
+                    part.pop(list(part)[-1])
+                else:
+                    part.pop(0 if key == "earlier" else -1)   # earlier: oldest-matching first in the list
+                break
+        else:
+            break
+    return {k: v for k, v in view.items() if v}

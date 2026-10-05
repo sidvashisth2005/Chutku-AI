@@ -1,0 +1,24 @@
+{
+  "timestamp_utc": "2026-09-27T21:22:26.637643+00:00",
+  "source_sha256": "c5bb310b90a5fcc8913f8c42bea67635924f334ad40b8d7b03957ede9528aefb",
+  "passed": true,
+  "checks": [
+    {
+      "check": "power_denied_without_capability",
+      "passed": true
+    },
+    {
+      "check": "real_delayed_shutdown_command_accepted",
+      "passed": true
+    },
+    {
+      "check": "real_shutdown_cancelled_and_absence_verified",
+      "passed": true
+    },
+    {
+      "check": "final_cleanup_confirms_no_shutdown_pending",
+      "passed": true
+    }
+  ],
+  "scope": "Consented real delayed shutdown scheduling with immediate verified cancellation and final cleanup."
+}

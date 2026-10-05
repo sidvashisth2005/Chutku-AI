@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.coverage
+*.log
+
+# Owner data and runtime state (local only, never versioned)
+data/
+sandbox/
+
+# Downloaded local inference artifacts (hash-pinned in models/manifest.json)
+vendor/
+models/*
+!models/manifest.json
+!models/*LICENSE*
+
+# Superseded evidence
+verification/archive/

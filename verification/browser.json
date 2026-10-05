@@ -1,0 +1,25 @@
+{
+  "timestamp_utc": "2026-09-27T21:33:15.836766+00:00",
+  "source_sha256": "18fb36b5bf8b9bfc35f4da45d8c5b1dbaa92447ea6a40c668d4f534cdb68198c",
+  "passed": true,
+  "checks": [
+    {
+      "check": "browser_denied_without_capability",
+      "passed": true
+    },
+    {
+      "check": "real_local_page_inspected",
+      "passed": true
+    },
+    {
+      "check": "real_semantic_workflow_postconditions",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "check": "local_fixture_cleanup",
+      "passed": true
+    }
+  ],
+  "scope": "Item 6 real Playwright against a local disposable fixture using installed Microsoft Edge."
+}

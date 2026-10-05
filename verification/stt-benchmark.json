@@ -1,0 +1,573 @@
+{
+ "generated_at": "2026-10-01T09:20:09.550614+00:00",
+ "device": "CPU int8, 6 threads (i5-12540H)",
+ "scope": "Synthetic Windows OneCore voices only; not a human-speech accuracy claim.",
+ "results": {
+  "faster-whisper-small": {
+   "load_seconds": 1.24,
+   "summary": {
+    "auto": {
+     "correct": 12,
+     "total": 12,
+     "median_seconds": 3.191,
+     "max_seconds": 3.513
+    },
+    "en": {
+     "correct": 11,
+     "total": 12,
+     "median_seconds": 1.592,
+     "max_seconds": 1.797
+    }
+   },
+   "rows": [
+    {
+     "language_mode": "auto",
+     "culture": "en-US",
+     "voice": "Zira",
+     "said": "Open Spotify.",
+     "heard": "Open Spotify.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 3.103,
+     "audio_seconds": 1.83
+    },
+    {
+     "language_mode": "auto",
+     "culture": "en-US",
+     "voice": "Zira",
+     "said": "Search YouTube for lofi hip hop music.",
+     "heard": "Search YouTube for Lofi hip-hop music.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 2.968,
+     "audio_seconds": 3.25
+    },
+    {
+     "language_mode": "auto",
+     "culture": "en-IN",
+     "voice": "Heera",
+     "said": "Find the newest PDF in my downloads folder and open it.",
+     "heard": "Find the newest PDF in my downloads folder and open it.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 3.106,
+     "audio_seconds": 5.21
+    },
+    {
+     "language_mode": "auto",
+     "culture": "en-IN",
+     "voice": "Ravi",
+     "said": "What time is it?",
+     "heard": "What time is it?",
+     "detected": "en",
+     "correct": true,
+     "seconds": 3.277,
+     "audio_seconds": 1.71
+    },
+    {
+     "language_mode": "auto",
+     "culture": "en-IN",
+     "voice": "Heera",
+     "said": "Pause the music.",
+     "heard": "Pause the music.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 3.051,
+     "audio_seconds": 1.85
+    },
+    {
+     "language_mode": "auto",
+     "culture": "en-IN",
+     "voice": "Ravi",
+     "said": "Create a folder called notes on the D drive.",
+     "heard": "Create a folder called notes on the D drive.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 2.983,
+     "audio_seconds": 3.3
+    },
+    {
+     "language_mode": "auto",
+     "culture": "hi-IN",
+     "voice": "Kalpana",
+     "said": "स्पॉटिफाई खोलो",
+     "heard": "Spotify kholo.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 3.191,
+     "audio_seconds": 2.12
+    },
+    {
+     "language_mode": "auto",
+     "culture": "hi-IN",
+     "voice": "Hemant",
+     "said": "कैलकुलेटर खोलो",
+     "heard": "Calculator kholo.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 3.513,
+     "audio_seconds": 2.18
+    },
+    {
+     "language_mode": "auto",
+     "culture": "hi-IN",
+     "voice": "Kalpana",
+     "said": "गाना रोको",
+     "heard": "Gaana roko.",
+     "detected": "ja",
+     "correct": true,
+     "seconds": 3.455,
+     "audio_seconds": 1.7
+    },
+    {
+     "language_mode": "auto",
+     "culture": "hi-IN",
+     "voice": "Hemant",
+     "said": "यूट्यूब पे अरिजीत सिंह के गाने चलाओ",
+     "heard": "YouTube pe arijit singh ke gaane chalao.",
+     "detected": "hi",
+     "correct": true,
+     "seconds": 3.505,
+     "audio_seconds": 3.48
+    },
+    {
+     "language_mode": "auto",
+     "culture": "hi-IN",
+     "voice": "Kalpana",
+     "said": "डाउनलोड्स फोल्डर में नई पीडीएफ खोलो",
+     "heard": "Downloads folder mein IPDF kholo.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 3.2,
+     "audio_seconds": 3.54
+    },
+    {
+     "language_mode": "auto",
+     "culture": "hi-IN",
+     "voice": "Hemant",
+     "said": "अभी कितने बजे हैं",
+     "heard": "Abhi kithne baje hai.",
+     "detected": "hi",
+     "correct": true,
+     "seconds": 3.067,
+     "audio_seconds": 2.17
+    },
+    {
+     "language_mode": "en",
+     "culture": "en-US",
+     "voice": "Zira",
+     "said": "Open Spotify.",
+     "heard": "Open Spotify.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 1.605,
+     "audio_seconds": 1.83
+    },
+    {
+     "language_mode": "en",
+     "culture": "en-US",
+     "voice": "Zira",
+     "said": "Search YouTube for lofi hip hop music.",
+     "heard": "Search YouTube for Lofi hip-hop music.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 1.736,
+     "audio_seconds": 3.25
+    },
+    {
+     "language_mode": "en",
+     "culture": "en-IN",
+     "voice": "Heera",
+     "said": "Find the newest PDF in my downloads folder and open it.",
+     "heard": "Find the newest PDF in my downloads folder and open it.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 1.797,
+     "audio_seconds": 5.21
+    },
+    {
+     "language_mode": "en",
+     "culture": "en-IN",
+     "voice": "Ravi",
+     "said": "What time is it?",
+     "heard": "What time is it?",
+     "detected": "en",
+     "correct": true,
+     "seconds": 1.552,
+     "audio_seconds": 1.71
+    },
+    {
+     "language_mode": "en",
+     "culture": "en-IN",
+     "voice": "Heera",
+     "said": "Pause the music.",
+     "heard": "Pause the music.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 1.55,
+     "audio_seconds": 1.85
+    },
+    {
+     "language_mode": "en",
+     "culture": "en-IN",
+     "voice": "Ravi",
+     "said": "Create a folder called notes on the D drive.",
+     "heard": "Create a folder called notes on the D drive.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 1.592,
+     "audio_seconds": 3.3
+    },
+    {
+     "language_mode": "en",
+     "culture": "hi-IN",
+     "voice": "Kalpana",
+     "said": "स्पॉटिफाई खोलो",
+     "heard": "Spotify kholo.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 1.579,
+     "audio_seconds": 2.12
+    },
+    {
+     "language_mode": "en",
+     "culture": "hi-IN",
+     "voice": "Hemant",
+     "said": "कैलकुलेटर खोलो",
+     "heard": "Calculator kholo.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 1.66,
+     "audio_seconds": 2.18
+    },
+    {
+     "language_mode": "en",
+     "culture": "hi-IN",
+     "voice": "Kalpana",
+     "said": "गाना रोको",
+     "heard": "Gaana roko.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 1.617,
+     "audio_seconds": 1.7
+    },
+    {
+     "language_mode": "en",
+     "culture": "hi-IN",
+     "voice": "Hemant",
+     "said": "यूट्यूब पे अरिजीत सिंह के गाने चलाओ",
+     "heard": "YouTube pe arjeet singh ke gaane chalao.",
+     "detected": "en",
+     "correct": false,
+     "seconds": 1.584,
+     "audio_seconds": 3.48
+    },
+    {
+     "language_mode": "en",
+     "culture": "hi-IN",
+     "voice": "Kalpana",
+     "said": "डाउनलोड्स फोल्डर में नई पीडीएफ खोलो",
+     "heard": "Downloads folder mein IPDF kholo.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 1.53,
+     "audio_seconds": 3.54
+    },
+    {
+     "language_mode": "en",
+     "culture": "hi-IN",
+     "voice": "Hemant",
+     "said": "अभी कितने बजे हैं",
+     "heard": "Abhi kite ne baje hai?",
+     "detected": "en",
+     "correct": true,
+     "seconds": 1.517,
+     "audio_seconds": 2.17
+    }
+   ]
+  },
+  "faster-whisper-large-v3-turbo": {
+   "load_seconds": 5.87,
+   "summary": {
+    "auto": {
+     "correct": 9,
+     "total": 12,
+     "median_seconds": 18.465,
+     "max_seconds": 18.592
+    },
+    "en": {
+     "correct": 9,
+     "total": 12,
+     "median_seconds": 9.185,
+     "max_seconds": 9.33
+    }
+   },
+   "rows": [
+    {
+     "language_mode": "auto",
+     "culture": "en-US",
+     "voice": "Zira",
+     "said": "Open Spotify.",
+     "heard": "Open Spotify.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 18.525,
+     "audio_seconds": 1.83
+    },
+    {
+     "language_mode": "auto",
+     "culture": "en-US",
+     "voice": "Zira",
+     "said": "Search YouTube for lofi hip hop music.",
+     "heard": "Search YouTube for Lofi hip hop music.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 18.465,
+     "audio_seconds": 3.25
+    },
+    {
+     "language_mode": "auto",
+     "culture": "en-IN",
+     "voice": "Heera",
+     "said": "Find the newest PDF in my downloads folder and open it.",
+     "heard": "Find the newest PDF in my downloads folder and open it.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 18.5,
+     "audio_seconds": 5.21
+    },
+    {
+     "language_mode": "auto",
+     "culture": "en-IN",
+     "voice": "Ravi",
+     "said": "What time is it?",
+     "heard": "What time is it?",
+     "detected": "en",
+     "correct": true,
+     "seconds": 18.437,
+     "audio_seconds": 1.71
+    },
+    {
+     "language_mode": "auto",
+     "culture": "en-IN",
+     "voice": "Heera",
+     "said": "Pause the music.",
+     "heard": "Pause the music.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 18.263,
+     "audio_seconds": 1.85
+    },
+    {
+     "language_mode": "auto",
+     "culture": "en-IN",
+     "voice": "Ravi",
+     "said": "Create a folder called notes on the D drive.",
+     "heard": "Create a folder called Notes on the D drive.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 18.282,
+     "audio_seconds": 3.3
+    },
+    {
+     "language_mode": "auto",
+     "culture": "hi-IN",
+     "voice": "Kalpana",
+     "said": "स्पॉटिफाई खोलो",
+     "heard": "",
+     "detected": "hi",
+     "correct": false,
+     "seconds": 18.246,
+     "audio_seconds": 2.12
+    },
+    {
+     "language_mode": "auto",
+     "culture": "hi-IN",
+     "voice": "Hemant",
+     "said": "कैलकुलेटर खोलो",
+     "heard": "Calculator kholo.",
+     "detected": "hi",
+     "correct": true,
+     "seconds": 18.262,
+     "audio_seconds": 2.18
+    },
+    {
+     "language_mode": "auto",
+     "culture": "hi-IN",
+     "voice": "Kalpana",
+     "said": "गाना रोको",
+     "heard": "",
+     "detected": "hi",
+     "correct": false,
+     "seconds": 18.309,
+     "audio_seconds": 1.7
+    },
+    {
+     "language_mode": "auto",
+     "culture": "hi-IN",
+     "voice": "Hemant",
+     "said": "यूट्यूब पे अरिजीत सिंह के गाने चलाओ",
+     "heard": "YouTube pe arijit singh ke gaanye chalau.",
+     "detected": "hi",
+     "correct": true,
+     "seconds": 18.483,
+     "audio_seconds": 3.48
+    },
+    {
+     "language_mode": "auto",
+     "culture": "hi-IN",
+     "voice": "Kalpana",
+     "said": "डाउनलोड्स फोल्डर में नई पीडीएफ खोलो",
+     "heard": "Downloads folder mein new PDF kholo.",
+     "detected": "hi",
+     "correct": true,
+     "seconds": 18.497,
+     "audio_seconds": 3.54
+    },
+    {
+     "language_mode": "auto",
+     "culture": "hi-IN",
+     "voice": "Hemant",
+     "said": "अभी कितने बजे हैं",
+     "heard": "Abhi kitnے bajay hai?",
+     "detected": "hi",
+     "correct": false,
+     "seconds": 18.592,
+     "audio_seconds": 2.17
+    },
+    {
+     "language_mode": "en",
+     "culture": "en-US",
+     "voice": "Zira",
+     "said": "Open Spotify.",
+     "heard": "Open Spotify.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 9.214,
+     "audio_seconds": 1.83
+    },
+    {
+     "language_mode": "en",
+     "culture": "en-US",
+     "voice": "Zira",
+     "said": "Search YouTube for lofi hip hop music.",
+     "heard": "Search YouTube for Lofi hip hop music.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 9.251,
+     "audio_seconds": 3.25
+    },
+    {
+     "language_mode": "en",
+     "culture": "en-IN",
+     "voice": "Heera",
+     "said": "Find the newest PDF in my downloads folder and open it.",
+     "heard": "Find the newest PDF in my downloads folder and open it.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 9.33,
+     "audio_seconds": 5.21
+    },
+    {
+     "language_mode": "en",
+     "culture": "en-IN",
+     "voice": "Ravi",
+     "said": "What time is it?",
+     "heard": "What time is it?",
+     "detected": "en",
+     "correct": true,
+     "seconds": 9.185,
+     "audio_seconds": 1.71
+    },
+    {
+     "language_mode": "en",
+     "culture": "en-IN",
+     "voice": "Heera",
+     "said": "Pause the music.",
+     "heard": "Pause the music.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 9.231,
+     "audio_seconds": 1.85
+    },
+    {
+     "language_mode": "en",
+     "culture": "en-IN",
+     "voice": "Ravi",
+     "said": "Create a folder called notes on the D drive.",
+     "heard": "Create a folder called Notes on the D drive.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 9.171,
+     "audio_seconds": 3.3
+    },
+    {
+     "language_mode": "en",
+     "culture": "hi-IN",
+     "voice": "Kalpana",
+     "said": "स्पॉटिफाई खोलो",
+     "heard": "",
+     "detected": "en",
+     "correct": false,
+     "seconds": 9.11,
+     "audio_seconds": 2.12
+    },
+    {
+     "language_mode": "en",
+     "culture": "hi-IN",
+     "voice": "Hemant",
+     "said": "कैलकुलेटर खोलो",
+     "heard": "Calculator kholo.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 9.121,
+     "audio_seconds": 2.18
+    },
+    {
+     "language_mode": "en",
+     "culture": "hi-IN",
+     "voice": "Kalpana",
+     "said": "गाना रोको",
+     "heard": "",
+     "detected": "en",
+     "correct": false,
+     "seconds": 9.096,
+     "audio_seconds": 1.7
+    },
+    {
+     "language_mode": "en",
+     "culture": "hi-IN",
+     "voice": "Hemant",
+     "said": "यूट्यूब पे अरिजीत सिंह के गाने चलाओ",
+     "heard": "YouTube pe arijit singh ke gaanye chalau.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 9.213,
+     "audio_seconds": 3.48
+    },
+    {
+     "language_mode": "en",
+     "culture": "hi-IN",
+     "voice": "Kalpana",
+     "said": "डाउनलोड्स फोल्डर में नई पीडीएफ खोलो",
+     "heard": "Downloads folder mein new PDF kholo.",
+     "detected": "en",
+     "correct": true,
+     "seconds": 9.173,
+     "audio_seconds": 3.54
+    },
+    {
+     "language_mode": "en",
+     "culture": "hi-IN",
+     "voice": "Hemant",
+     "said": "अभी कितने बजे हैं",
+     "heard": "Abhi kitnye bajay hai?",
+     "detected": "en",
+     "correct": false,
+     "seconds": 9.158,
+     "audio_seconds": 2.17
+    }
+   ]
+  }
+ }
+}
