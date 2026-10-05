@@ -39,9 +39,9 @@ All commands are run from `D:\Project\Chutku` using `.venv\Scripts\python.exe -m
 ### Try a more natural voice (your choice, 2026-10-06)
 Chutku can speak offline with a neural female voice (Kokoro) instead of Windows' Zira. Twenty of her real replies are already rendered. To choose, run this and listen:
 
-    .venv\Scripts\python.exe scripts	ts_ab.py --listen
+    .venv\Scripts\python.exe scripts\tts_ab.py --listen
 
-Each sentence plays twice, as A then B, in random order. Press 1 or 2 for the one you prefer (s skips, q stops). If you prefer Kokoro in most answers, Chutku switches her offline voice; if not, Zira stays. The files are in `D:\ChutkuScratch	ts_ab\`.
+Each sentence plays twice, as A then B, in random order. Press 1 or 2 for the one you prefer (s skips, q stops). If you prefer Kokoro in most answers, Chutku switches her offline voice; if not, Zira stays. The files are in `D:\ChutkuScratch\tts_ab\`.
 
 ### Voice conversation fixes (2026-10-06)
 - **A quick "हां"** is no longer lost. If Chutku answers before your words are written down, she waits up to 2 seconds for them.
