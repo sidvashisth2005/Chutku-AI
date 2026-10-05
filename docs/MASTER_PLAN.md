@@ -65,15 +65,15 @@
 ---
 
 ## S0: Safety net (no behaviour change)
-- [ ] **S0.1 Save the plan and memory:**
+- [x] **S0.1 Save the plan and memory:**
   - copy this plan to `docs/MASTER_PLAN.md`;
   - create memory `C:\Users\siddh\.claude\projects\d--Project-Chutku\memory\master-plan.md` (type project; points to `docs/MASTER_PLAN.md`; lists D1–D6; "resume at the first unticked slice");
   - add one line to `MEMORY.md`.
-- [ ] **S0.2 Set up git:**
+- [x] **S0.2 Set up git:**
   - add to `.gitignore`: `data/`, `sandbox/`, `models/*`, `!models/manifest.json`, `!models/*LICENSE*`, `vendor/`, `verification/archive/`, `*.log`;
   - `git init`, `git add -A`, `git commit -m "S0: baseline 2026-10-06"`;
   - confirm `git count-objects -vH` is under 50 MB.
-- [ ] **S0.3 Baseline (ledger entry "S0 baseline"):**
+- [x] **S0.3 Baseline (ledger entry "S0 baseline"):**
   - suite count and seconds;
   - `scripts/check_phrases.py` (expect 118/118);
   - `scripts/eval_planner.py` (expect ~31/40);

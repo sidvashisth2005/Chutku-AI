@@ -1,6 +1,6 @@
 # Chutku Implementation Status
 
-**Last updated:** 2026-10-04
+**Last updated:** 2026-10-06
 **Source of truth for scope:** [docs/DESIGN.md](docs/DESIGN.md)
 
 This file is the implementation ledger. Update it in the same change as every code, configuration, benchmark, or documentation change. A checked item means it exists and has been verified to the stated degree; it does not imply a broader roadmap phase is complete.
@@ -15,6 +15,24 @@ Stage 5 still needs the owner's consented live microphone run and 200 human tria
 Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
+
+### 2026-10-06: S0 baseline — master plan stored, git started, baseline measured
+
+The owner asked for a full audit and every flaw fixed, plus upgrades and new features, "planned and stored in a file first". The plan is `docs/MASTER_PLAN.md`: slices S0–S22, owner decisions D1–D6. Each slice ends with tests, a real path, a negative case, this ledger and a git commit.
+
+- **Git:** local repo, no remote.
+  - The baseline commit is `7f9bbb8` at 1.45 MiB packed; models, vendor and data are excluded (`.gitignore`).
+  - `core.autocrlf=false`, so git never rewrites line endings, which would make the source digest and evidence stale.
+- **Baseline, plugged in (BatteryStatus 2):**
+
+| Check | Result |
+|---|---|
+| Full suite | **725 tests OK in 168 s** |
+| `scripts/check_phrases.py` | 118/118 instant, slowest match 77 ms |
+| `scripts/live_check.py` (running Chutku) | **12/12 correct**, median 0.9 s |
+
+  - One live_check case was slow: "15 percent of 240" took 46.4 s on the local planner (correct answer, 36). This is likely a cold 4B reload; it will be re-measured in S6 and S14.
+- Not run yet: `scripts/eval_planner.py`. It needs Chutku's live llama-server stopped, so it is deferred to S14, where planner A/B numbers are needed anyway.
 
 ### 2026-10-06: WhatsApp follow-up fix verified on the real app (the 10-05 fix did not work live)
 
