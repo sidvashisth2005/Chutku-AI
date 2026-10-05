@@ -49,6 +49,10 @@ PATTERNS = [
     ("weather", re.compile(rf"^{_POLITE}(?:(?:what(?:'?s| is) the |how(?:'s| is) the |tell me the |check the )?weather|mausam|temperature)(?:\s+(?:like\s+)?(?:in|at|of|for)\s+(?P<city>[a-z .'-]{{2,60}}?))?(?:\s+(?:today|now|right now|currently|at the moment|tomorrow|kaisa hai|kya hai|batao|kaisa rahega))*{_TAIL}", re.I)),
     ("weather", re.compile(rf"^{_POLITE}(?P<city>[a-z .'-]{{2,60}}?)\s+(?:ka|mein|me)\s+(?:mausam|weather|temperature)(?:\s+(?:kaisa hai|kya hai|batao|kaisa rahega))?{_TAIL}", re.I)),
     ("news", re.compile(rf"^{_POLITE}(?:(?:give|tell|show|get) me |what(?:'?s| is) |any )?(?:the )?(?:(?:latest|today'?s|top|recent)\s+)?(?:news|headlines|khabar|samachar)(?:\s+(?:about|on|of|for|regarding)\s+(?P<topic>.{{2,100}}?))?(?:\s+(?:batao|sunao|dikhao))?{_TAIL}", re.I)),
+    ("info_perf", re.compile(rf"^{_POLITE}(?:what(?:'?s| is) (?:the |my )?)?(?:(?:cpu|gpu|processor|laptop|pc|computer)\s+"
+                             rf"(?:temperature|temp|heat)|(?:temperature|temp)\s+(?:of|in)\s+(?:my |the )?(?:cpu|gpu|"
+                             rf"processor|laptop|pc|computer))(?:\s+(?:kitna hai|kya hai|batao|now|right now))?{_TAIL}",
+                             re.I)),
     ("info_gpu", re.compile(rf"^{_POLITE}(?:(?:which|what(?:'?s| is))\s+(?:gpu|graphics card)(?: do i have| is (?:this|in my pc|installed))?(?: and how much vram)?|what(?:'?s| is) my (?:gpu|graphics card)|gpu (?:info|details|kaunsa hai)){_TAIL}", re.I)),
     ("info_windows", re.compile(rf"^{_POLITE}(?:(?:what|which) (?:version of )?windows(?: version)?(?: do i have| is this(?: pc)?(?: running)?| am i (?:on|running))?|windows version(?: kya hai)?|what(?:'?s| is) my windows version){_TAIL}", re.I)),
     ("info_volume", re.compile(rf"^{_POLITE}(?:what(?:'?s| is) (?:the |my )?(?:current )?volume(?: level)?(?: right now)?|current volume(?: level)?|volume (?:kitna|kitni) hai|how loud is (?:it|the volume)){_TAIL}", re.I)),
@@ -88,6 +92,9 @@ PATTERNS = [
     ("open_drive", re.compile(rf"^{_POLITE}(?P<drive>[a-z])\s+drive\s+{_HINDI_OPEN}{_TAIL}", re.I)),
     ("find_file", re.compile(rf"^{_POLITE}(?:find|locate|where(?:'s| is))\s+my\s+(?P<query>[a-z0-9 ._-]{{2,60}}?)(?:\s+(?:file|files|document|pdf|photo|photos))?{_TAIL}", re.I)),
     ("find_file", re.compile(rf"^{_POLITE}search\s+my\s+(?:files|pc|computer|laptop|documents)\s+for\s+(?P<query>[a-z0-9 ._-]{{2,60}}?){_TAIL}", re.I)),
+    ("find_in_folder", re.compile(rf"^{_POLITE}(?:search|find|look)\s+(?:in\s+|through\s+)?my\s+(?P<folder>downloads|desktop|"
+                                  rf"documents|pictures|photos|music|videos)(?:\s+folder)?\s+for\s+(?P<query>[a-z0-9 ._-]{{2,60}}?)"
+                                  rf"{_TAIL}", re.I)),
     ("find_file", re.compile(rf"^{_POLITE}(?:meri\s+|mera\s+)?(?P<query>[a-z0-9 ._-]{{2,60}}?)\s+(?:file\s+)?(?:dhundo|dhoondo|kahan hai|kaha hai){_TAIL}", re.I)),
     ("note_add", re.compile(rf"^{_POLITE}(?:(?:make a |take a |add a )?note|todo|to-do|add to (?:my )?(?:list|todo|to-do))\s*[:,-]\s*(?P<text>.{{1,300}}?){_TAIL}", re.I)),
     ("note_add", re.compile(rf"^{_POLITE}(?:make a |take a )?note (?:that |down )(?P<text>.{{1,300}}?){_TAIL}", re.I)),
@@ -127,7 +134,7 @@ PATTERNS = [
 _MEDIA = {"pause": "pause", "stop": "pause", "roko": "pause", "rok do": "pause", "band karo": "pause", "resume": "play",
           "play": "play", "chalao": "play", "chalu karo": "play", "next": "next", "skip": "next", "agla": "next",
           "previous": "previous", "pichla": "previous"}
-_NOT_APPS = re.compile(r"\b(?:and|then|after|folder|file|files|document|pdf|window|windows|tab|settings? of|wi-?fi|"
+_NOT_APPS = re.compile(r"\b(?:and|then|after|folder|file|files|document|pdf|window|windows|tabs?|settings? of|wi-?fi|"
                        r"bluetooth|hotspot|internet|airplane mode|flight mode|data)\b|[\\/:]", re.I)
 
 _cache = {"at": 0.0, "apps": None}
@@ -144,7 +151,7 @@ def _proposal(tool, arguments, purpose, reply, finish=True):
 
 
 _SPLIT = re.compile(r"\s*(?:,\s*)?\b(?:and then|and also|then|aur phir|phir|uske baad|and|aur)\b\s*", re.I)
-_PRONOUN = re.compile(r"\b(?:it|that|use|usko|ise|isko)\b", re.I)
+_PRONOUN = re.compile(r"\b(?:it|that|usko|ise|isko)\b", re.I)   # not "use": an English verb more often than "use" (him)
 
 
 # "... in a new tab" / "new tab mein": open a new tab; "isi tab mein" / "same tab": use the current tab. Without either,
@@ -380,8 +387,8 @@ def _single(goal, apps=None):
                 hour = 0
             if not (0 <= hour <= 23 and 0 <= minute <= 59):
                 return None
-            if not ampm and 1 <= int(match.group("h")) <= 12:
-                return None  # "at 5": morning or evening? never guess; the model asks
+            if not ampm and 1 <= hour <= 6:
+                hour += 12   # the owner's everyday meaning, as in "5 baje" (daily_intent._at): 1-6 is afternoon/evening
             now = datetime.now()
             when = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
             if match.group("day") or match.group("day2"):
@@ -406,6 +413,9 @@ def _single(goal, apps=None):
             return _proposal("youtube.play", {"query": query}, f"Play {query} on YouTube", f"Started “{query}” on YouTube.")
         if kind == "weather":
             city = (match.groupdict().get("city") or "").strip(" '\"")
+            if re.search(r"\b(?:cpu|gpu|processor|laptop|pc|computer|battery)\b", city, re.I):
+                # "temperature of my cpu" is not a city's weather
+                return _proposal("system.performance", {}, "Check CPU, GPU, memory and temperature", "", finish=False)
             return _proposal("web.weather", {"city": city} if city else {}, "Check the weather", "", finish=False)
         if kind == "news":
             topic = (match.groupdict().get("topic") or "").strip(" '\"")
@@ -484,7 +494,8 @@ def _single(goal, apps=None):
                              "info_windows": ("system.environment", "Check the Windows version"),
                              "info_volume": ("system.volume_status", "Check the volume"),
                              "info_theme": ("settings.theme_status", "Check the theme"),
-                             "info_health": ("system.health", "Check battery, memory and disk")}[kind]
+                             "info_health": ("system.health", "Check battery, memory and disk"),
+                             "info_perf": ("system.performance", "Check CPU, GPU, memory and temperature")}[kind]
             return _proposal(tool, {}, purpose, "", finish=False)
         if kind in {"net_check", "net_ip"}:
             return _proposal("net.check", {}, "Check the internet connection", "", finish=False)
@@ -497,6 +508,15 @@ def _single(goal, apps=None):
             return _proposal("games.install", {"name": game}, f"Install {game} from Steam",
                              f"Steam's install window for {game} is open: choose the drive (D: has the most space) "
                              "and click Install.")
+        if kind == "find_in_folder":
+            import os
+            home = os.environ.get("USERPROFILE")
+            folder = {"photos": "Pictures"}.get(match.group("folder").casefold(), match.group("folder").capitalize())
+            query = match.group("query").strip(" .")
+            if not home or _ORDERING.search(query):
+                return None
+            return _proposal("files.find", {"path": os.path.join(home, folder), "query": query},
+                             f"Find files named like {query} in {folder}", "", finish=False)
         if kind in {"open_folder", "open_drive", "find_file"}:
             import os
             home = os.environ.get("USERPROFILE")
@@ -600,8 +620,9 @@ def _single(goal, apps=None):
         except (ValueError, OSError):
             # Not one exact Start-menu name ("vs code", "word", or two apps fit): apps.launch asks Windows search,
             # like the owner would, and opens the first result that is an installed app.
-            if not re.fullmatch(r"[\w .+&'-]{2,60}", name) or name.casefold() in {"it", "this", "that", "everything", "all"}:
-                return None
+            if not re.fullmatch(r"[\w .+&'-]{2,60}", name) or name.casefold() in {"it", "this", "that", "everything", "all"} \
+                    or len(name.split()) > 3:
+                return None   # longer phrases are not app names: the model reads them
             return _proposal("apps.launch", {"name": name}, f"Open {name}", f"Opened {name}.")
         return _proposal("apps.launch", {"name": app["name"]}, f"Open {app['name']}", f"Opened {app['name']}.")
     return _follow_up(text)

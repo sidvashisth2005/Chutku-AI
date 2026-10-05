@@ -96,6 +96,8 @@ Everything below is **instant**: matched by rules and done within about a second
 - "weather in Pune" / "Pune ka mausam kaisa hai"
 - "khabar batao" / "latest news about cricket"
 - "remind me in 20 minutes to stretch" / "set a timer for 25 minutes"
+- "remind me at 5 to call papa": 1 to 6 without am/pm means the evening (5 pm), the same as "5 baje"; 7 to 11 means the morning. Say "am" or "pm" to be exact.
+- "search my downloads for invoice" looks only in Downloads (also desktop, documents, pictures, music, videos). "temperature of my cpu" shows CPU, GPU and memory, not the weather.
 - "remember city = Delhi" / "remember my birthday is 12 May"
 
 **Files, by full path** (instant; changing or deleting asks first)

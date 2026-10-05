@@ -290,25 +290,25 @@
 
 Each fix gets one test, in `tests/test_quick_intents.py` or `tests/test_real_sessions.py`, using the exact phrasing quoted below.
 
-- [ ] **Recipient check in message parsing.** In `message_intent.parse_tell` and the other message parsers, an unknown recipient still produces the proposal. The runtime's `step_question` then asks.
+- [x] **Recipient check in message parsing.** In `message_intent.parse_tell` and the other message parsers, an unknown recipient still produces the proposal. The runtime's `step_question` then asks.
   - Test: an unknown name ends WAITING_CONFIRMATION.
-- [ ] **"say good night to mammi" must not go to speech.** In `dashboard._agent_post` (~1006), skip the old `CommandCatalog` instant route when the goal matches `\b(?:say|tell|bolo|bol do)\b.+\b(?:to|ko)\b`.
+- [x] **"say good night to mammi" must not go to speech.** In `dashboard._agent_post` (~1006), skip the old `CommandCatalog` instant route when the goal matches `\b(?:say|tell|bolo|bol do)\b.+\b(?:to|ko)\b`.
   - Test: the goal reaches message parsing, not `voice.speak`.
-- [ ] **Folder search.** In `quick_intents` PATTERNS (~90), "search my downloads/desktop/documents/pictures/music/videos for X" → `files.find` in that folder.
-- [ ] **Weather vs CPU temperature.** The weather rule (~49) does not fire when the "city" contains `cpu|gpu|laptop|pc|computer|processor|battery`; those go to `system.performance`.
-- [ ] **Catch-all "open X"** (~603):
+- [x] **Folder search.** In `quick_intents` PATTERNS (~90), "search my downloads/desktop/documents/pictures/music/videos for X" → `files.find` in that folder.
+- [x] **Weather vs CPU temperature.** The weather rule (~49) does not fire when the "city" contains `cpu|gpu|laptop|pc|computer|processor|battery`; those go to `system.performance`.
+- [x] **Catch-all "open X"** (~603):
   - Use the Windows Search launch only when `everyday.resolve_app` finds nothing AND X has 1–3 words.
   - Otherwise clarify with the top 3 `difflib.get_close_matches` names from the installed apps.
-- [ ] **One am/pm helper:** `daily_intent.resolve_hour(h, said)`.
+- [x] **One am/pm helper:** `daily_intent.resolve_hour(h, said)`.
   - Explicit am/pm or subah/dopahar/shaam/raat wins.
   - Otherwise use the `mind.json` fact `time_convention`, default "1–6 = evening".
   - `quick_intents.py:383` uses it instead of refusing.
-- [ ] **Small vocabulary fixes:**
+- [x] **Small vocabulary fixes:**
   - the "call" rule ignores "call it a day";
   - `_ACTION_WORDS` adds `khol|kholna|chala|chalu`;
   - `_PRONOUN` drops `use`;
   - `_NOT_APPS` uses `tabs?`.
-- [ ] **Real-goal replay.** New `scripts/replay_real_goals.py` prints every logged goal with the tools it used. The deterministic ones become `(goal, expected_tool)` cases in `tests/test_real_sessions.py`. `check_phrases.py` must stay all-instant.
+- [x] **Real-goal replay.** New `scripts/replay_real_goals.py` prints every logged goal with the tools it used. The deterministic ones become `(goal, expected_tool)` cases in `tests/test_real_sessions.py`. `check_phrases.py` must stay all-instant.
 - **Real path:**
   - `live_check.py` 12/12;
   - "search my downloads for invoice" via `/api/chat`; compare the seconds and the result count against an `os.walk` count.

@@ -46,7 +46,8 @@ _PATTERNS = [
     ("screen", re.compile(_P + r"(?:kya chal raha hai screen (?:pe|par)|screen (?:pe|par) kya chal raha hai|ye+h? kya hai|ye+h? kya h|"
                           r"isko samjhao|isme kya likha hai|ye+h? screen pe kya hai|ye+h? kya dikh raha hai|what is this)" + _T, re.I)),
     ("call", re.compile(_P + r"(?P<who>[\w ]{1,40}?)\s+ko\s+(?:call|phone|video call)\s+(?:karo|kar do|lagao|laga do)" + _T, re.I)),
-    ("call", re.compile(_P + r"(?:call|phone|video call)\s+(?P<who>[\w ]{1,40}?)" + _T, re.I)),
+    ("call", re.compile(_P + r"(?:call|phone|video call)\s+(?!it\s+(?:a day|a night|quits|off)\b)(?P<who>[\w ]{1,40}?)"
+                        + _T, re.I)),
     ("empty_bin", re.compile(_P + r"(?:recycle bin|dustbin|bin)\s+(?:khali|saaf|empty)\s*(?:karo|kar do)?|empty (?:the )?recycle bin" + _T, re.I)),
 ]
 _PARTS = {"subah": "am", "savere": "am", "dopahar": "pm", "dophar": "pm", "sham": "pm", "shaam": "pm", "raat": "pm"}

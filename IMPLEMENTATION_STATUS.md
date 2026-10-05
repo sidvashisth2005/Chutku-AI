@@ -16,6 +16,36 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S7 — intent routing fixes from real phrasing; real-goal replay
+
+| Phrase | Was | Now |
+|---|---|---|
+| "search my downloads for invoice" | a Google search | `files.find` in that folder (new `find_in_folder` rule: downloads/desktop/documents/pictures/music/videos) |
+| "temperature of my cpu" / "cpu temperature" | `web.weather(city="my cpu")` | `system.performance` (new `info_perf` rule; the weather rule also refuses CPU/PC "cities") |
+| "call it a day" | "I can't make calls" | not a call |
+| "remind me at 5 to call papa" | refused (the model asked am or pm) | 5 pm: the same everyday convention as "5 baje" (1–6 is evening, 7–11 is morning) |
+| "open <a phrase of 4+ words>" | Windows Search's top installed app | the model reads it; "open X" with 1–3 words is unchanged |
+| "kya tum notepad khol sakti ho?" | its steps were dropped as "unrequested" | `khol/kholna/chala/chalu` count as action words |
+| "say good night to mammi" (`/api/chat`) | spoken aloud by the old instant catalog | goes to message parsing (`dashboard.message_for_person`) |
+
+Also:
+- `_PRONOUN` no longer treats the English word "use" as a pronoun.
+- `_NOT_APPS` covers "tabs".
+- Unknown message recipients already ask in every mode since S1 (`step_question`).
+
+**New `scripts/replay_real_goals.py`:** replays every logged real request through today's quick tier and compares it with the tools that actually ran. On 25 distinct real requests: 17 instant with the same tool, **0 changed**, 8 go to the model. Those 8 are the Reflex Compiler's (S17) targets, e.g. "what is the biggest file in my Downloads folder".
+
+**Tests:**
+- `tests/test_intent_fixes_s7.py` (7).
+- `test_quick_intents` was updated for the am/pm decision (it encoded the old "never guess").
+- `check_phrases.py`: 118/118 instant.
+- **Full suite: 797 tests**, green after that update.
+
+**Real path:** "search my downloads for training" → quick tier → the real runtime with the owner's C:\ grant → `files.find` COMPLETED in 0.22 s. It found `Comprehensive NFL Ammonia-1 Training.pdf`, which exactly matches an independent `rglob` scan of Downloads.
+- The first run reported WRONG; the cause was the check script reading `files` instead of `matches`, not the tool. It was fixed and rerun.
+
+`docs/OWNER_GUIDE.md` covers the am/pm rule, folder search and CPU temperature.
+
 ### 2026-10-06: S6 — model services: no mid-request kills, deadlock-free GPU hand-over, cached hashes, routing
 
 - **In-flight counter** (`BrainService`, `LocalVision`). The idle reaper now unloads only when nothing is running (`idle_expired()`). `complete_text` refreshes `last_used` while it waits.

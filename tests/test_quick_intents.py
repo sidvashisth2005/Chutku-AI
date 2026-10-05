@@ -249,7 +249,8 @@ class QuickIntentTests(unittest.TestCase):
         for text, expected in cases.items():
             self.assertEqual(step(text), expected, text)
         self.assertIsNone(step("set volume to 300"))
-        self.assertIsNone(step("remind me at 5 to call mom"))  # am or pm? the model asks
+        # The owner's everyday meaning, the same as "5 baje" (master plan S7): 1-6 without am/pm is the evening.
+        self.assertEqual(step("remind me at 5 to call mom")[1]["at"][-5:], "17:00")
 
     def test_open_and_play_chain(self):
         chain = quick_proposal("open spotify and play music", apps=APPS)

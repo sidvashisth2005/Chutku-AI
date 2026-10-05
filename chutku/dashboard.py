@@ -997,6 +997,12 @@ def _mode(data):
     return mode
 
 
+def message_for_person(tool, message):
+    """ "say good night to mammi" is a message to a person, not text to speak aloud (audit 2026-10-06)."""
+    return tool == "voice.speak" and bool(re.search(r"\b(?:say|tell|bolo|bol do)\b.+\b(?:to|ko)\s+\w|"
+                                                    r"\b\w+\s+ko\s+(?:bolo|bol do|bata do|batao)\b", message, re.I))
+
+
 def _agent_post(self, path, data):
     """Chat/agent endpoints. Work runs on a worker thread; the UI polls the session."""
     server = self.server
@@ -1009,8 +1015,9 @@ def _agent_post(self, path, data):
             from chutku.planning import plan_request
             understood = plan_request(data["message"])
             from chutku import control_intent
+            to_person = message_for_person(understood.tool, data["message"])
             if understood.state == "READY" and understood.tool in INSTANT_TOOLS and not server.action_lock.locked() \
-                    and control_intent.kind(data["message"]) is None:  # "what can you do" etc. get the friendly answers
+                    and control_intent.kind(data["message"]) is None and not to_person:
                 # Exact supported command: instant deterministic path (still policy-checked).
                 if not server.action_lock.acquire(blocking=False):
                     raise ExecutionBusy("Another action is running. Wait for it to finish.")

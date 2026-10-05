@@ -335,7 +335,7 @@ _QUESTION = re.compile(r"^\s*(?:what|which|how|when|where|who|whose|why|is|are|a
 _ACTION_WORDS = re.compile(r"\b(?:open|close|launch|start|run|create|make|write|save|delete|remove|recycle|move|copy|"
                            r"rename|play|pause|stop|resume|skip|next|search|type|click|minimi[sz]e|maximi[sz]e|"
                            r"restore|focus|set|change|turn|mute|unmute|increase|decrease|install|download|send|"
-                           r"kholo|band|chalao|roko|banao|likho|mitao|hatao)\b", re.IGNORECASE)
+                           r"kholo|khol|kholna|band|chalao|chala|chalu|roko|banao|likho|mitao|hatao)\b", re.IGNORECASE)
 
 
 _HINGLISH_QUESTION = re.compile(r"\b(?:kya|kitn\w*|kaun\w*|kab|kahan|kaise|batao)\b", re.I)
