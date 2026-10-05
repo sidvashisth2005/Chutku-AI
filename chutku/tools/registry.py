@@ -107,6 +107,7 @@ class ExecutionContext:
     granted_root: Path
     memory: "MemoryStore | None" = None
     capability_grants: Any = None     # this runtime's PC capability grants (e.g. may Gemini be the backup?)
+    approved: bool = False            # the owner confirmed this exact step on screen
 
     def granted(self, capability):
         if self.capability_grants is None:
@@ -141,6 +142,7 @@ class Tool:
     network_egress: bool = False  # sends data off the machine (e.g. a URL request)
     deletes: bool = False  # removes the user's data (even recoverably): always asked first
     user_only: bool = False  # only the user may request it; an agent or observed content never can
+    runs_code: bool = False  # runs a script or a program with arguments: confirmed on screen in every mode
 
     def manifest(self) -> dict[str, Any]:
         """Return the non-executable contract exposed to planners and reviewers."""
@@ -157,7 +159,8 @@ class Tool:
             "success_predicate": self.success_predicate,
             "independent_verifier": self.verify is not None,
         } | ({"network_egress": True} if self.network_egress else {}) | (
-            {"deletes": True} if self.deletes else {}) | ({"user_only": True} if self.user_only else {})
+            {"deletes": True} if self.deletes else {}) | ({"user_only": True} if self.user_only else {}) | (
+            {"runs_code": True} if self.runs_code else {})
 
     def manifest_version(self) -> str:
         encoded = json.dumps(self.manifest(), sort_keys=True, separators=(",", ":"),

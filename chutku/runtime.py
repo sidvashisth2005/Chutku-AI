@@ -29,6 +29,31 @@ UNDO_TOOLS = {
 }
 
 
+# Tools that send keystrokes or text to a window.
+TYPING_TOOLS = frozenset({"keyboard.type_text", "keyboard.press_enter", "keyboard.keys", "input.type_text",
+                          "uia.set_value"})
+
+
+def command_window_question(tool, arguments):
+    """Typing into a command window, opening the Run box, or launching a command-line app asks first."""
+    from chutku.tools import desktop_controls
+    if tool.name == "keyboard.shortcut" and arguments.get("action") == "run_dialog":
+        return "Opening the Run box asks first."
+    if tool.name == "apps.launch":
+        return desktop_controls.command_app_reason(str(arguments.get("name") or arguments.get("app_id") or ""))
+    if tool.name not in TYPING_TOOLS:
+        return None
+    try:
+        if arguments.get("executable"):
+            info = {"executable": str(arguments["executable"]), "title": ""}
+        else:
+            from chutku.tools.free_input import _foreground
+            info = _foreground()[1]
+        return desktop_controls.command_window_reason(info)
+    except (OSError, ValueError, KeyError, TypeError):
+        return "Chutku could not check which window is in front; this asks first."
+
+
 class Runtime:
     def __init__(self, registry: ToolRegistry, policy: PolicyKernel, event_log: EventLog, journal: OperationJournal,
                  granted_root: Path, memory: MemoryStore | None = None, *, resource_grants: ResourceGrantStore | None = None,
@@ -82,11 +107,16 @@ class Runtime:
                                      resource_access=access, capability_allowed=capability_allowed,
                                      autonomy=autonomy, tainted=tainted, exposed=exposed,
                                      protected_reason=self.protected_target(tool, arguments),
-                                     owner_question=self.owner_question(tool, arguments) if autonomy == "owner" else None)
+                                     owner_question=self.step_question(tool, arguments) if autonomy is not None else None)
 
-    def owner_question(self, tool, arguments):
-        """In owner mode a message to someone Chutku does not know yet still asks; once they are remembered,
-        messages to them go straight out."""
+    def step_question(self, tool, arguments):
+        """A reason this exact agent step must be confirmed on screen, in every autonomy mode, or None.
+
+        A message to someone Chutku does not know yet asks (once they are remembered, messages go straight out);
+        keys or clicks that would save, delete or move files ask; typing into a command window asks."""
+        command = command_window_question(tool, arguments)
+        if command:
+            return command
         if tool.name in {"keyboard.keys", "keyboard.edit", "mouse.click", "mouse.drag"}:
             from chutku.tools.free_input import file_risk  # keys/clicks that would save, delete or move files
             return file_risk(tool.name, arguments)
@@ -98,6 +128,8 @@ class Runtime:
             return None
         return (f"{to} is not in your memory yet, so this message asks first. Say 'remember {to} is my ...' "
                 "and later messages to them go straight out.")
+
+    owner_question = step_question  # older name, kept for callers and tests
 
     def protected_target(self, tool, arguments):
         """Deny modification of system/runtime areas regardless of grant, mode or approval."""
@@ -254,7 +286,7 @@ class Runtime:
             self.action_control.check()
             self._transition(task, TaskState.EXECUTING)
             context = ExecutionContext(task.task_id, self.journal, self.granted_root, self.memory,
-                                       getattr(self, "capability_grants", None))
+                                       getattr(self, "capability_grants", None), approved=approved_task is not None)
             result = tool.execute(arguments, context)
             self.event_log.append(
                 task.task_id,

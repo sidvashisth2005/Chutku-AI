@@ -37,6 +37,7 @@ _CEILING = {AutonomyMode.REVIEW: None, AutonomyMode.AUTO_SAFE: Risk.REVERSIBLE,
 # An automatically-run data change must have a runtime-owned way back.
 AUTO_EDIT_REVERSIBILITY = frozenset({"journaled", "compensatable", "single_use", "transient"})
 # File tools that only ever create something new (they never change or remove an existing file).
+RUNS_CODE_REASON = "Running code or a program with arguments always asks first."
 CREATE_ONLY_TOOLS = frozenset({"filesystem.create_directory", "files.zip", "files.unzip", "code.build_project",
                                "screen.capture"})
 
@@ -67,6 +68,8 @@ class PolicyKernel:
             return Authorization(Decision.DENY, risk, "Untrusted or inferred content cannot authorize data modifications or external actions.")
         if risk == Risk.DISABLED:
             return Authorization(Decision.DENY, risk, "This operation class is disabled.")
+        if tool.runs_code and not confirmed_on_screen:
+            return Authorization(Decision.CONFIRM, risk, RUNS_CODE_REASON)
         if risk >= Risk.EXTERNAL_SIDE_EFFECT and not confirmed_on_screen:
             return Authorization(Decision.CONFIRM, risk, "On-screen confirmation is required for this risk level.")
         if tool.deletes and not confirmed_on_screen:
@@ -87,8 +90,12 @@ class PolicyKernel:
             return Authorization(Decision.DENY, risk, "This operation class is disabled.")
         if confirmed_on_screen:
             return Authorization(Decision.ALLOW, risk, "Confirmed on screen for this exact step.")
+        if tool.runs_code:
+            return Authorization(Decision.CONFIRM, risk, RUNS_CODE_REASON)
         if tool.deletes:
             return Authorization(Decision.CONFIRM, risk, "Deleting always asks first.")
+        if owner_question:  # a step-specific question (unknown recipient, file-changing keys) asks in every mode
+            return Authorization(Decision.CONFIRM, risk, str(owner_question))
         if mode == AutonomyMode.OWNER:
             return PolicyKernel._owner(tool, risk, tainted, exposed, owner_question)
         ceiling = _CEILING[mode]

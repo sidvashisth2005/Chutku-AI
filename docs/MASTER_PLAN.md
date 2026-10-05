@@ -80,21 +80,21 @@
   - `scripts/live_check.py` against the running Chutku (12 cases, seconds, PASS count).
 
 ## S1: Code execution always confirms (decision D5 fallback)
-- [ ] `tools/registry.py` `Tool`:
+- [x] `tools/registry.py` `Tool`:
   - add the field `runs_code: bool = False`;
   - `manifest()` adds `{"runs_code": True}` when it is set.
-- [ ] `policy/kernel.py`:
+- [x] `policy/kernel.py`:
   - in `authorize` (the non-delegated path, before the R3 check) and at the top of `_delegated` (after DISABLED), add: `if tool.runs_code and not confirmed_on_screen: return Authorization(Decision.CONFIRM, risk, "Running code or a program with arguments always asks first.")`.
   - This applies in every mode, including OWNER.
-- [ ] Set `runs_code=True` on:
+- [x] Set `runs_code=True` on:
   - `code.run_python` (`tools/documents.py` registration; its description already promises confirmation);
   - `process.launch` (`tools/processes.py`).
-- [ ] Owner-facing reminder: the code-builder (`code.build_project`) stays as it is (owner-approved, create-only).
-- [ ] `runtime.Runtime.owner_question` is renamed `step_question`, and it is called for **every delegated autonomy mode**:
+- [x] Owner-facing reminder: the code-builder (`code.build_project`) stays as it is (owner-approved, create-only).
+- [x] `runtime.Runtime.owner_question` is renamed `step_question`, and it is called for **every delegated autonomy mode**:
   - `authorize` passes `owner_question=self.step_question(tool, arguments) if autonomy is not None else None`;
   - `kernel._delegated` returns CONFIRM with that text right after the `tool.deletes` check when it is set;
   - this also fixes `auto_edits` being weaker than OWNER for File Explorer delete/save.
-- [ ] Command-line windows: add the helper `desktop_controls.command_window_reason(info)` with one constant set `COMMAND_WINDOW_APPS` (console/terminal/shell host executables plus the Windows Run box).
+- [x] Command-line windows: add the helper `desktop_controls.command_window_reason(info)` with one constant set `COMMAND_WINDOW_APPS` (console/terminal/shell host executables plus the Windows Run box).
   - `step_question` returns its reason for keyboard and text-entry tools when the foreground window matches, and for `keyboard.shortcut` actions that open the Run box.
   - `apps.launch` of a command-line app asks first.
   - On any error while checking, it asks (fail closed).

@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 
 from chutku import mind
+from chutku.tools import free_input
 from chutku.app import create_runtime
 from chutku.policy.kernel import Decision
 
@@ -14,10 +15,15 @@ class OwnerModeTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.mind_root = patch.object(mind, "PROJECT_ROOT", Path(self.temp.name) / "mind")
         self.mind_root.start()
+        # A neutral window in front (Notepad), so typing checks never depend on the real desktop.
+        self.foreground = patch.object(free_input, "_foreground", return_value=(
+            None, {"executable": "C:/Windows/notepad.exe", "title": "Untitled - Notepad"}, "notepad.exe"))
+        self.foreground.start()
         self.runtime = create_runtime(Path(self.temp.name) / "state")
 
     def tearDown(self):
         self.runtime.close()
+        self.foreground.stop()
         self.mind_root.stop()
         self.temp.cleanup()
 
@@ -30,7 +36,7 @@ class OwnerModeTests(unittest.TestCase):
 
     def test_everyday_actions_run_without_asking(self):
         for name in ("apps.launch", "apps.quit", "apps.close", "windows.close", "keyboard.type_text", "keyboard.press_enter",
-                     "input.click", "browser.workflow", "code.run_python", "code.build_project", "files.zip",
+                     "input.click", "browser.workflow", "code.build_project", "files.zip",
                      "filesystem.create_directory", "settings.theme_set", "system.volume_set", "reminder.set",
                      "mind.person", "note.add", "youtube.play"):
             self.assertEqual(self.decide(name), Decision.ALLOW, name)
@@ -38,6 +44,11 @@ class OwnerModeTests(unittest.TestCase):
     def test_file_changes_and_every_deletion_still_ask(self):
         for name in ("filesystem.write_text", "filesystem.move", "filesystem.copy", "files.organize", "log.undo",
                      "filesystem.undo_last_write", "filesystem.recycle", "memory.forget", "routine.forget", "mind.forget"):
+            self.assertEqual(self.decide(name), Decision.CONFIRM, name)
+
+    def test_running_code_always_asks(self):
+        # Owner decision 2026-10-06: scripts and programs with arguments are confirmed on screen in every mode.
+        for name in ("code.run_python", "process.launch"):
             self.assertEqual(self.decide(name), Decision.CONFIRM, name)
 
     def test_power_kill_and_network_off_still_ask(self):

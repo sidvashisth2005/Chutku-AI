@@ -238,10 +238,43 @@ def _validate_type(arguments):
     _validate_window(arguments)
 
 
-def _type_text(arguments, _context):
+# Windows where typed text runs as a command. Typing into them, or opening one, is confirmed on screen first
+# (owner decision 2026-10-06); the check repeats when the keys are sent, in case the window changed meanwhile.
+COMMAND_WINDOW_APPS = frozenset({"cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe", "windowsterminal.exe",
+                                 "wt.exe", "conhost.exe", "openconsole.exe", "wsl.exe", "bash.exe", "mintty.exe",
+                                 "python.exe", "py.exe"})
+_COMMAND_APP_NAMES = re.compile(r"\b(?:cmd|command prompt|powershell|pwsh|terminal|wsl|bash|ubuntu|registry editor|"
+                                r"regedit)\b", re.I)
+
+
+def command_window_reason(info):
+    """Why typing into this window asks first (it runs commands), or None."""
+    exe = Path(str(info.get("executable") or "")).name.casefold()
+    if exe in COMMAND_WINDOW_APPS:
+        return "Typing into a command window asks first."
+    if exe == "explorer.exe" and str(info.get("title") or "").strip().casefold() == "run":
+        return "Typing into the Run box asks first."
+    return None
+
+
+def command_app_reason(name):
+    """Why launching this app asks first (it is a command-line app), or None."""
+    name = str(name or "")
+    if _COMMAND_APP_NAMES.search(name) or Path(name).name.casefold() in COMMAND_WINDOW_APPS:
+        return "Opening a command window asks first."
+    return None
+
+
+def _refuse_command_window(info, context):
+    if not getattr(context, "approved", False) and command_window_reason(info):
+        raise ValueError("The window in front is a command window; Chutku types there only after you confirm.")
+
+
+def _type_text(arguments, context):
     try:
         desktop, info = target_window(arguments)
         guard_document(info, arguments)
+        _refuse_command_window(info, context)
         type_unicode(arguments["text"])
     except (OSError, ValueError) as error:
         return ToolResult({"error": str(error)}, Verification.FAIL)
@@ -255,10 +288,11 @@ def _type_text(arguments, _context):
                       output | {"window": "[REDACTED]"})
 
 
-def _press_enter(arguments, _context):
+def _press_enter(arguments, context):
     try:
         desktop, info = target_window(arguments)
         guard_document(info, arguments)
+        _refuse_command_window(info, context)
         press_combo([0x0D])
     except (OSError, ValueError) as error:
         return ToolResult({"error": str(error)}, Verification.FAIL)

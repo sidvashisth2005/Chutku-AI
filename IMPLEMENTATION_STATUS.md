@@ -16,6 +16,36 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S1 — running code always confirms; typing into command windows asks
+
+- **Cause:** found by the audit.
+  - `code.run_python` and `process.launch` are R3 tools.
+  - The owner-mode rule asks only for R4 and file-modify tools, so both ran without a click.
+  - `code.run_python`'s own description, and OWNER_GUIDE §6, said they always ask.
+  - Separately, keyboard tools could type into a command window with no question in OWNER mode.
+- **Owner decision D5 (2026-10-06):** "sandbox first, ask for full rights". The sandboxed runner could not be specified in this session (parked in `docs/MASTER_PLAN.md`), so the safe fallback ships: code execution always confirms.
+- **Fix:**
+  - `Tool.runs_code` (in the manifest), set on `code.run_python` and `process.launch`.
+  - `PolicyKernel` returns CONFIRM for it in every path and every mode, unless it was confirmed on screen.
+  - `Runtime.owner_question` → `step_question` (the old name is an alias). It now applies in **every delegated mode**, and `_delegated` honours it. This also closes the gap where `auto_edits` was weaker than OWNER for file-changing keys.
+  - New `command_window_question`:
+    - typing tools aimed at a command window (cmd, PowerShell, Terminal, conhost, the Run box) ask;
+    - `keyboard.shortcut run_dialog` asks;
+    - `apps.launch` of a command-line app asks;
+    - if the window can't be checked, it asks.
+  - **Execution-time recheck:** `keyboard.type_text`, `keyboard.press_enter` and `keyboard.keys` refuse a command window unless `ExecutionContext.approved` (new; set only for approved tasks).
+- **Tests:**
+  - `tests/test_code_confirm.py` (4): every mode asks; a click allows; the manifest flag; a real `Runtime.run` returns WAITING_CONFIRMATION and the script's marker file is absent.
+  - `tests/test_command_window.py` (6): detection; asks in owner/auto_edits/auto_safe; Notepad and Spotify unaffected; can't-check asks; typing and keys refused at execution without approval; allowed with it.
+  - `tests/test_owner_mode.py`: code tools moved from "runs without asking" to the new `test_running_code_always_asks`; the foreground is patched to Notepad, so the tests no longer depend on the real desktop.
+  - **Full suite: 736 tests OK (142 s).**
+- **Real path:** the real runtime with the owner's D: grant, `chutku.cli run code.run_python D:/ChutkuScratch/s1_hello.py` → `WAITING_CONFIRMATION`, "Running code or a program with arguments always asks first.", in 0.45 s.
+- **Negative:** the script's marker file `D:\ChutkuScratch\s1_marker.txt` does not exist after the request (it did not run).
+- **Limits:**
+  - The running dashboard picks this up at its next restart.
+  - The approved positive path is covered by the unit test, not a live click.
+  - `docs/OWNER_GUIDE.md` §2 and §6 were updated (they had claimed this before it was true in OWNER mode).
+
 ### 2026-10-06: S0 baseline — master plan stored, git started, baseline measured
 
 The owner asked for a full audit and every flaw fixed, plus upgrades and new features, "planned and stored in a file first". The plan is `docs/MASTER_PLAN.md`: slices S0–S22, owner decisions D1–D6. Each slice ends with tests, a real path, a negative case, this ledger and a git commit.

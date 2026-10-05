@@ -175,7 +175,7 @@ def register_process_tools(registry):
     registry.register(Tool("process.launch", "Launch one exact absolute executable without a shell and verify its process image.",
         Risk.EXTERNAL_SIDE_EFFECT, _launch_process, _validate_launch, frozenset({"arguments"}),
         required_capability="process.launch", argument_schema=_LAUNCH_ARGUMENTS,
-        prerequisites=("absolute existing non-reparse executable",), reversibility="compensatable",
+        prerequisites=("absolute existing non-reparse executable",), reversibility="compensatable", runs_code=True,
         success_predicate="spawned_pid_image_matches_reviewed_executable"))
     registry.register(Tool("process.terminate", "Force-terminate one exact PID only if its image still matches the reviewed executable.",
         Risk.DESTRUCTIVE_OR_PRIVILEGED, _terminate_process, _validate_terminate,

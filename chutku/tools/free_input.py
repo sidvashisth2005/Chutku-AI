@@ -138,11 +138,14 @@ def _validate_keys(arguments):
     parse_keys(arguments["keys"])
 
 
-def _keys(arguments, _context):
-    from chutku.tools.desktop_controls import press_combo
+def _keys(arguments, context):
+    from chutku.tools.desktop_controls import command_window_reason, press_combo
     combos = parse_keys(arguments["keys"])
     try:
         _desktop, info, exe = _foreground()
+        if not getattr(context, "approved", False) and command_window_reason(info):
+            return ToolResult({"error": "The window in front is a command window; Chutku presses keys there only "
+                                        "after you confirm."}, Verification.FAIL)
         for _ in range(arguments.get("repeat", 1)):
             for combo in combos:
                 press_combo(combo)

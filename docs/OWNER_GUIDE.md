@@ -53,12 +53,13 @@ Pick a level under the chat box. Each browser remembers its own choice; a new br
 | **Review every step** | Nothing. You approve every step. |
 | **Auto: safe steps** | Looking at things, answering questions, opening apps, sites and files, volume and brightness. |
 | **Auto: incl. file edits** | All of the above, plus file changes Chutku can undo (writes, moves, copies). |
-| **Owner: no approvals** (your standing order, default since 2026-10-04) | Everything else: closing apps, typing and clicking, settings, running code, building projects, reminders, memory, and messages to people in your memory. |
+| **Owner: no approvals** (your standing order, default since 2026-10-04) | Everything else: closing apps, typing and clicking, settings, building projects, reminders, memory, and messages to people in your memory. |
 
 **In Owner mode, Chutku still asks before:**
 - **Changing files:** writing, moving, copying, organizing, and undoing file changes. Creating something new (a folder, a zip, a project) does not ask.
 - **Deleting anything:** files (always to the Recycle Bin), memory, routines. Permanent delete is something only you can ask for.
 - **Shutdown, restart, killing a program, or turning the network off**, because unsaved work could be lost.
+- **Running a script or a program with arguments** (`code.run_python`, `process.launch`), **typing into a command window** (Command Prompt, PowerShell, Terminal, the Run box), or **opening one**. This holds in every level (since 2026-10-06).
 - **A message to someone not in your memory.** Teach them once ("Rahul is my DL wale sir") and later messages go straight out.
 - **Any step that comes right after Chutku read a web page or a message**, so a page cannot order Chutku to act.
 
@@ -276,7 +277,7 @@ Rules:
 - **Permanent delete** happens only when *you* say "permanently delete …". The agent can never choose it, and it always asks.
 - **Chutku never runs as administrator.** If it is ever started elevated, it refuses to act. This keeps Windows' own protection of system folders in place.
 - **Everything is logged** in `data\actions.log.jsonl`: every change, every question it asked you, every refusal. Each line is chained to the previous one, so `doctor` reports any edit or truncation.
-- **Running other programs or Python scripts** (`process.launch`, `code.run_python`) always asks you on screen first.
+- **Running other programs or Python scripts** (`process.launch`, `code.run_python`) always asks you on screen first, in every level including Owner. So does typing into, or opening, a command window (Command Prompt, PowerShell, Terminal, the Run box). Chutku checks the window again at the moment it types.
 
 ---
 

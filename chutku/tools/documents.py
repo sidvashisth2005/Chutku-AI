@@ -496,7 +496,7 @@ def register_document_tools(registry):
             "path": {"type": "string", "minLength": 1, "maxLength": 1000},
             "args": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 300}}},
             "required": ["path"], "additionalProperties": False},
-        reversibility="none", success_predicate="script_finished_with_captured_output"))
+        reversibility="none", success_predicate="script_finished_with_captured_output", runs_code=True))
     registry.register(Tool("files.organize", "Tidy a folder (e.g. Desktop or Downloads): move its files into "
         "Images, Documents, Videos, Music, Archives, Installers and Code subfolders. Undo with files.organize_undo.",
         Risk.EXTERNAL_SIDE_EFFECT, _organize, _validate_path, resource_access="modify", argument_schema=path_schema,
