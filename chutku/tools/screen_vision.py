@@ -29,8 +29,12 @@ _UNDERSTAND_SCHEMA = {"type": "object", "properties": {
     "when": {"type": "string", "enum": ["now", "hotkey_moment"]}}, "additionalProperties": False}
 _CLICK_SCHEMA = {"type": "object", "properties": {
     "element": {"type": "string", "pattern": "^e[0-9]{1,2}$"},
+    "label": {"type": "string", "maxLength": 120},
     "button": {"type": "string", "enum": ["left", "right", "double"]}},
     "required": ["element"], "additionalProperties": False}
+# A consequential click names what it clicks; the label is checked again when the click runs, so an approval for
+# "Send" can never land on another element after the screen was read again.
+_RISKY_CLICK_SCHEMA = {**_CLICK_SCHEMA, "required": ["element", "label"]}
 _SCROLL_SCHEMA = {"type": "object", "properties": {
     "direction": {"type": "string", "enum": ["up", "down"]},
     "amount": {"type": "integer", "minimum": 1, "maximum": 15},
@@ -93,10 +97,23 @@ def _validate_understand(arguments):
 
 
 def _validate_click(arguments):
-    if set(arguments) - {"element", "button"} or not re.fullmatch(r"e[0-9]{1,2}", str(arguments.get("element"))):
+    if set(arguments) - {"element", "button", "label"} or not re.fullmatch(r"e[0-9]{1,2}", str(arguments.get("element"))):
         raise ValueError("Give element as an id like e3 from the latest screen.understand.")
+    if not isinstance(arguments.get("label", ""), str) or len(arguments.get("label", "")) > 120:
+        raise ValueError("label is the element's label as screen.understand listed it.")
     if arguments.get("button", "left") not in {"left", "right", "double"}:
         raise ValueError("button must be left, right or double.")
+
+
+def _validate_risky_click(arguments):
+    _validate_click(arguments)
+    if not str(arguments.get("label", "")).strip():
+        raise ValueError("Give the element's label too (as screen.understand listed it), e.g. element e3, label Send.")
+
+
+def _same_label(wanted, label):
+    norm = lambda text: " ".join(re.sub(r"[^\w\s]", " ", str(text).casefold()).split())
+    return bool(norm(wanted)) and (norm(wanted) == norm(label) or norm(wanted) in norm(label))
 
 
 def _click(arguments, context, *, risky_allowed):
@@ -104,7 +121,15 @@ def _click(arguments, context, *, risky_allowed):
         element, shot = vision.element(arguments["element"])
     except ValueError as error:
         return ToolResult({"error": str(error)}, Verification.FAIL)
+    if arguments.get("label") and not _same_label(arguments["label"], element["label"]):
+        return ToolResult({"error": f"The screen was read again: {arguments['element']} is now "
+                                    f"'{element['label']}', not '{arguments['label']}'. Look again before clicking."},
+                          Verification.FAIL)
     rect = element["rect"]
+    from chutku.tools.desktop_controls import own_window_at
+    if own_window_at((rect[0] + rect[2]) // 2, (rect[1] + rect[3]) // 2):
+        return ToolResult({"error": "That element is on Chutku's own window; Chutku never clicks there."},
+                          Verification.FAIL)
     local_text = vision.crop_text(shot, rect)
     if not risky_allowed:
         hit = RISKY.search(element["label"]) or RISKY.search(local_text or "")
@@ -172,9 +197,9 @@ def register_screen_vision(registry):
         required_capability="desktop.input", argument_schema=_CLICK_SCHEMA, prerequisites=desktop,
         reversibility="transient", success_predicate="visible_change_after_click"))
     registry.register(Tool("screen.click_risky", "Click a consequential element (send, delete, pay, submit, "
-        "install ...) seen by the latest screen.understand. Always confirmed on screen by the user.",
-        Risk.EXTERNAL_SIDE_EFFECT, lambda a, c: _click(a, c, risky_allowed=True), _validate_click,
-        required_capability="desktop.input", argument_schema=_CLICK_SCHEMA, prerequisites=desktop,
+        "install ...) seen by the latest screen.understand; give its element id and label. Always confirmed on screen by the user.",
+        Risk.EXTERNAL_SIDE_EFFECT, lambda a, c: _click(a, c, risky_allowed=True), _validate_risky_click,
+        required_capability="desktop.input", argument_schema=_RISKY_CLICK_SCHEMA, prerequisites=desktop,
         reversibility="none", success_predicate="visible_change_after_click"))
     registry.register(Tool("screen.scroll", "Scroll the screen (or over one element from screen.understand) "
         "up or down.", Risk.REVERSIBLE, _scroll, _validate_scroll, required_capability="desktop.input",

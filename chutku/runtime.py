@@ -41,6 +41,13 @@ def command_window_question(tool, arguments):
         return "Opening the Run box asks first."
     if tool.name == "apps.launch":
         return desktop_controls.command_app_reason(str(arguments.get("name") or arguments.get("app_id") or ""))
+    if tool.name == "keyboard.keys":
+        from chutku.tools.free_input import opens_run_box
+        try:
+            if opens_run_box(arguments.get("keys", "")):
+                return "Opening the Run box asks first."
+        except ValueError:
+            return None  # unknown keys fail validation anyway
     if tool.name not in TYPING_TOOLS:
         return None
     try:
@@ -117,6 +124,9 @@ class Runtime:
         command = command_window_question(tool, arguments)
         if command:
             return command
+        contact = self._contact_change(tool, arguments)
+        if contact:
+            return contact
         if tool.name in {"keyboard.keys", "keyboard.edit", "mouse.click", "mouse.drag"}:
             from chutku.tools.free_input import file_risk  # keys/clicks that would save, delete or move files
             return file_risk(tool.name, arguments)
@@ -130,6 +140,24 @@ class Runtime:
                 "and later messages to them go straight out.")
 
     owner_question = step_question  # older name, kept for callers and tests
+
+    def _contact_change(self, tool, arguments):
+        """Changing where a remembered person's messages go asks first (messages to them go out unasked)."""
+        try:
+            if tool.name == "mind.person":
+                from chutku import mind
+                what = mind.default().identity_change(arguments.get("name", ""), whatsapp=arguments.get("whatsapp", ""),
+                                                      phone=arguments.get("phone", ""))
+                if what:
+                    return (f"This changes the saved {what} of {arguments.get('name')}; messages to them would go "
+                            "somewhere new, so it asks first.")
+            if tool.name == "memory.remember" and str(arguments.get("key", "")).casefold().startswith("contact_"):
+                saved = self.memory.get(str(arguments["key"])) if self.memory is not None else None
+                if saved and str(saved.get("value", "")) != str(arguments.get("value", "")):
+                    return "This changes a saved contact; messages to them would go somewhere new, so it asks first."
+        except (OSError, ValueError, KeyError, TypeError):
+            return "Chutku could not check the saved contact; this asks first."
+        return None
 
     def protected_target(self, tool, arguments):
         """Deny modification of system/runtime areas regardless of grant, mode or approval."""

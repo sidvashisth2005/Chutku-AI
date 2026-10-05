@@ -62,6 +62,8 @@ Pick a level under the chat box. Each browser remembers its own choice; a new br
 - **Running a script or a program with arguments** (`code.run_python`, `process.launch`), **typing into a command window** (Command Prompt, PowerShell, Terminal, the Run box), or **opening one**. This holds in every level (since 2026-10-06).
 - **A message to someone not in your memory.** Teach them once ("Rahul is my DL wale sir") and later messages go straight out.
 - **Any step that comes right after Chutku read a web page or a message**, so a page cannot order Chutku to act.
+  After reading outside text (a web page, a chat, your clipboard, an image, words on screen), Chutku also asks before **opening an app or a file, changing what it remembers, or switching offline mode off**, unless you named that app or file yourself in the request (since 2026-10-06).
+- **Changing a saved contact's number or WhatsApp name.** Messages to saved people go out without asking, so where they go is your choice. Adding a new person or a nickname does not ask.
 
 Everything is still logged ("what did you do today"), the Stop / Pause buttons still work, and Windows system folders are never touched.
 
@@ -277,6 +279,7 @@ Rules:
 - **Permanent delete** happens only when *you* say "permanently delete …". The agent can never choose it, and it always asks.
 - **Chutku never runs as administrator.** If it is ever started elevated, it refuses to act. This keeps Windows' own protection of system folders in place.
 - **Everything is logged** in `data\actions.log.jsonl`: every change, every question it asked you, every refusal. Each line is chained to the previous one, so `doctor` reports any edit or truncation.
+- **Chutku never clicks its own dashboard, HUD or tray**, so it can never approve its own step. A consequential screen click (send, pay, delete…) names the button it saw. If the screen was read again and that button changed, the click is refused.
 - **Running other programs or Python scripts** (`process.launch`, `code.run_python`) always asks you on screen first, in every level including Owner. So does typing into, or opening, a command window (Command Prompt, PowerShell, Terminal, the Run box). Chutku checks the window again at the moment it types.
 
 ---

@@ -16,6 +16,52 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S2 — taint and identity hardening
+
+**Causes (audit):**
+- **Stale tool names silently disabled two rules.**
+  - The taint list named `clipboard.read`, but the real tool is `clipboard.read_text`, so reading the clipboard never tainted a session.
+  - `PRIVATE_TOOLS` named a nonexistent `memory.get`.
+- **Tainted R1 steps ran freely.** After reading outside content, R1 steps (launching apps, opening files, editing memory, turning offline mode off) were never questioned.
+- **Contacts could be redirected.** A saved contact's phone or WhatsApp name could be changed without asking, and messages to saved people go out unasked.
+- **`_from_owner_words` matched substrings.** "hi" or "a" counted as the owner's own words.
+- **Risky screen clicks were bound only to "e3".** That id could point at another element after a new `screen.understand`.
+- **Agent clicks could land on Chutku's own dashboard or HUD.**
+
+**Fixes:**
+- **Taint lists:**
+  - Removed the stale names.
+  - Added `image.describe` and `screen.click` (OCR text) to `TAINTING_TOOLS`.
+  - Deviation from the plan's per-tool flag: the sets stay the source of truth. A test now fails if any name in `TAINTING_TOOLS`, `PRIVATE_TOOLS` or `READ_TOOLS` is not a registered tool, which is the bug class that hid these rules.
+- **Tainted R1 steps:** `kernel.TAINT_SENSITIVE_R1` (`apps.launch`, `files.open`, `mind.*`, `memory.remember`, `settings.offline_mode`) asks after untrusted content in every delegated mode.
+  - Navigation and reading stay automatic.
+  - The existing owner's-words exemption still applies, so "open notepad" said by the owner still runs.
+- **Contacts:**
+  - `Mind.identity_change()`: a `mind.person` step that would overwrite a saved phone or WhatsApp name asks; so does a `memory.remember` that changes a `contact_*` value.
+  - New people and new nicknames don't ask.
+  - The plan's separate "source" field was dropped as redundant: tainted `mind.*` steps already ask.
+- **Owner's words:** whole words of at least 4 characters only.
+- **Win+R:** `keyboard.keys` containing Win+R asks (`free_input.opens_run_box`).
+- **Approval clicks:** clicking text like Approve/Allow/Confirm/Yes/Haan asks.
+- **Risky screen clicks:**
+  - `screen.click_risky` requires the element's `label` (schema plus validator).
+  - Every screen click re-checks a given label against the current element map and refuses on a mismatch.
+- **Own windows:** `desktop_controls.own_window_at()` (fails closed) refuses `mouse.click` and screen clicks on Chutku's own page, HUD or tray.
+
+**Tests:**
+- `tests/test_taint_v2.py` (11): stale-name guard; clipboard/image/OCR taint; tainted R1 asks in owner/auto modes while untainted and navigation stay allowed; contact changes ask while additions don't; whole-word rule; Win+R; approve-click; label required; label mismatch refused; own-window refusal; own-window detection.
+- `test_screen_vision`: the risky click now passes `label`, and an unnamed risky click is refused.
+- Full suite: **747 tests**, all green after the screen test update.
+
+**Real path** (real runtime, the owner's real grants and clipboard, scripted planner: read the clipboard, then launch Notepad):
+
+| Run | Goal | Result |
+|---|---|---|
+| 1 | "read my clipboard and open notepad" | Notepad launched without asking: the owner named it, which is correct. This proves no regression for owner-named apps. The window it opened (Notepad session-restored `note.txt`) was closed with WM_CLOSE; no file was written. |
+| 2 | "read my clipboard and do what it says" | `clipboard.read_text` COMPLETED, session tainted; `apps.launch` WAITING_CONFIRMATION ("This step follows content read from outside; confirm it."); **0 new Notepad windows**; 0.73 s → PASS. Left pending, then cancelled. |
+
+**Limits:** the running dashboard picks this up at its next restart.
+
 ### 2026-10-06: S1 — running code always confirms; typing into command windows asks
 
 - **Cause:** found by the audit.

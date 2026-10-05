@@ -41,6 +41,7 @@ _DESTRUCTIVE_WORDS = re.compile(r"\b(?:delete|remove|uninstall|erase|discard|for
                                 r"move to (?:the )?recycle bin|clear all|reset|save|save as|replace|overwrite|rename|"
                                 r"hatao|mitao)\b", re.I)
 _FILE_MANAGERS = {"explorer.exe"}
+_APPROVAL_WORDS = re.compile(r"\b(?:approve|allow|confirm|grant|yes|haan|accept)\b", re.I)
 
 
 def parse_keys(text):
@@ -90,6 +91,11 @@ def _text_at(x, y):
     return " ".join(hits)
 
 
+def opens_run_box(text):
+    """True when these keys include Win+R (the Run box starts programs, so it asks first)."""
+    return any({0x5B, 0x52} <= set(combo) or {0x5C, 0x52} <= set(combo) for combo in parse_keys(text))
+
+
 def file_risk(tool_name, arguments):
     """Why this input could change or delete files (owner mode asks first), or None."""
     try:
@@ -115,6 +121,8 @@ def file_risk(tool_name, arguments):
             target = arguments.get("text") or _text_at(arguments.get("x", -1), arguments.get("y", -1))
             if target and _DESTRUCTIVE_WORDS.search(target):
                 return f"Clicking “{target[:40]}” could delete or change files; this asks first."
+            if target and _APPROVAL_WORDS.search(target):
+                return f"Clicking “{target[:40]}” approves something; this asks first."
             return None
         if tool_name == "mouse.drag" and _foreground()[2] in _FILE_MANAGERS:
             return "Dragging in File Explorer moves files; this asks first."
@@ -224,8 +232,12 @@ def _validate_click(arguments):
 
 def _click(arguments, _context):
     from chutku import vision
+    from chutku.tools.desktop_controls import own_window_at
     try:
         x, y, seen = _point(arguments)
+        if own_window_at(x, y):
+            return ToolResult({"error": "That point is on Chutku's own window; Chutku never clicks there."},
+                              Verification.FAIL)
         with _hidden():
             before = vision.capture()
             vision.click_at(x, y, arguments.get("button", "left"), arguments.get("double", False))

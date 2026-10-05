@@ -64,16 +64,16 @@ def is_long_goal(goal):
 # these is observed, later data changes need an on-screen click (taint rule).
 TAINTING_TOOLS = frozenset({
     "filesystem.read_text", "filesystem.search", "browser.inspect", "browser.workflow",
-    "uia.inspect", "clipboard.read", "windows.list", "screen.capture", "web.read", "web.results", "web.news",
+    "uia.inspect", "clipboard.read_text", "windows.list", "screen.capture", "web.read", "web.results", "web.news",
     "file.extract_text", "screen.read_text", "code.run_python", "screen.understand", "log.recent",
-    "message.read_chat",
+    "message.read_chat", "image.describe", "screen.click",
 })
 # Tools that read the user's private data. After one of these, network requests need a click,
 # because a URL built from that data could leak it. Public web content alone does not count.
 PRIVATE_TOOLS = frozenset({
-    "filesystem.read_text", "filesystem.search", "file.extract_text", "clipboard.read", "clipboard.read_text",
+    "filesystem.read_text", "filesystem.search", "file.extract_text", "clipboard.read_text",
     "screen.read_text", "screen.understand", "screen.capture", "uia.inspect", "windows.list", "memory.search",
-    "memory.get", "code.run_python", "log.recent", "message.read_chat",
+    "code.run_python", "log.recent", "message.read_chat",
 })
 # On-screen actions may legitimately repeat with identical arguments (press "5" twice, look again after a
 # click); other completed steps are never re-run. Step and round limits still bound any loop.
@@ -322,7 +322,7 @@ _LIVE_STATE = re.compile(r"\b(?:(?:are|is) (?:open|running)|open (?:windows|apps
 _READ_GOAL = re.compile(r"\b(?:read|padh\w*|what does\b.{0,80}\bsay|contents? of|tell me the first|first (?:task|line|item)|"
                         r"summari[sz]e)\b", re.I)
 READ_TOOLS = frozenset({"file.extract_text", "filesystem.read_text", "browser.inspect", "web.read", "screen.read_text",
-                        "screen.understand", "clipboard.read_text", "clipboard.read"})
+                        "screen.understand", "clipboard.read_text"})
 
 _EFFECT_INTENTS = [
     (("apps.close", "apps.quit", "windows.close", "process.terminate"),
@@ -862,9 +862,11 @@ class AgentSession:
         Ids/numbers are ignored here; any text first seen in observed content keeps the confirmation."""
         from chutku.translit import roman
         goal = " ".join(roman(self.goal).casefold().split())
-        texts = [value for key, value in step["arguments"].items()
+        texts = [" ".join(roman(value).casefold().split()) for key, value in step["arguments"].items()
                  if isinstance(value, str) and key not in {"executable", "document", "app", "browser", "site", "mode"}]
-        return bool(texts) and all(" ".join(roman(text).casefold().split()) in goal for text in texts)
+        # Whole words only, and at least 4 characters: "hi" or "a" is in almost every request (audit 2026-10-06).
+        return bool(texts) and all(len(text) >= 4 and re.search(rf"(?<!\w){re.escape(text)}(?!\w)", goal)
+                                   for text in texts)
 
     def _reject_unobserved_ids(self, proposal):
         """window_id / process_id must come from an earlier observation (live 2026-10-04: the model typed into

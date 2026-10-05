@@ -95,10 +95,14 @@ class ScreenToolTests(unittest.TestCase):
 
     def test_risky_click_always_waits_for_the_user_even_in_auto_edits(self):
         self.remember("Send")
-        waiting = self.runtime.run("screen.click_risky", {"element": "e1"}, provenance="delegated",
+        waiting = self.runtime.run("screen.click_risky", {"element": "e1", "label": "Send"}, provenance="delegated",
                                    autonomy="auto_edits")
         self.assertEqual(str(waiting["state"]), "WAITING_CONFIRMATION")
         self.assertEqual(self.clicks, [])
+        # A consequential click must name what it clicks (master plan S2): without the label it is refused.
+        unnamed = self.runtime.run("screen.click_risky", {"element": "e1"}, provenance="delegated",
+                                   autonomy="auto_edits")
+        self.assertEqual(str(unnamed["state"]), "FAILED")
 
     def test_only_fresh_element_ids_can_be_clicked(self):
         with vision._lock:

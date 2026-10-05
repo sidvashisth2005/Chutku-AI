@@ -109,6 +109,34 @@ def _is_chutku_page(info):
                                                                 "opera.exe", "vivaldi.exe"}
 
 
+def is_own_window(info):
+    """Chutku's own dashboard page, HUD or tray: the agent never clicks there (it could approve its own step)."""
+    if info is None:
+        return False
+    if _is_chutku_page(info):
+        return True
+    exe = Path(info.get("executable") or "").name.casefold()
+    return exe in {"python.exe", "pythonw.exe"} and "chutku" in (info.get("title") or "").casefold()
+
+
+def own_window_at(x, y):
+    """True when the screen point (x, y) is on one of Chutku's own windows (fails closed: True if unknown)."""
+    try:
+        from chutku.tools.everyday import Desktop
+        user32 = ctypes.windll.user32
+        user32.WindowFromPoint.restype = ctypes.c_void_p
+        user32.WindowFromPoint.argtypes = [w.POINT]
+        user32.GetAncestor.restype = ctypes.c_void_p
+        user32.GetAncestor.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        hwnd = user32.WindowFromPoint(w.POINT(int(x), int(y)))
+        root = user32.GetAncestor(hwnd, 2) if hwnd else None  # GA_ROOT
+        if not root:
+            return False  # the bare desktop
+        return is_own_window(Desktop().describe(int(root)))
+    except (OSError, ValueError, AttributeError):
+        return True
+
+
 def _active_dialog(desktop, info):
     """If the window has a dialog open (Save As, Open, a prompt), input belongs to that dialog, as Windows
     itself would route it. Only a visible popup of the same process qualifies."""

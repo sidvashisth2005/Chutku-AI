@@ -106,21 +106,21 @@
 - **Negative:** deny → the script did not run (a marker file the script would create stays absent).
 
 ## S2: Taint and identity hardening
-- [ ] Add `Tool.output_untrusted: bool = False` (in the manifest when True).
+- [x] Add `Tool.output_untrusted: bool = False` (in the manifest when True).
   - Set it True for the tools whose output carries outside or user-controlled text: `filesystem.read_text`, `filesystem.search`, `browser.inspect`, `browser.workflow`, `uia.inspect`, `clipboard.read_text`, `windows.list`, `screen.capture`, `screen.read_text`, `screen.understand`, `screen.click`, `web.read`, `web.results`, `web.news`, `web.open`, `web.search`, `youtube.play`, `file.extract_text`, `code.run_python`, `log.recent`, `message.read_chat`, `image.describe`, `memory.search`, `mind.show`, `mind.who`, `files.find`, `files.recent`, `media.status`, `keyboard.keys`.
-- [ ] `agent_loop.py`:
+- [x] `agent_loop.py`:
   - replace the hand-kept `TAINTING_TOOLS` with `{t.name for t in registry.list() if t.output_untrusted}`, computed once per `advance()` and stored on the session;
   - remove the stale name `clipboard.read` from every set.
-- [ ] `kernel.py`: a new constant `TAINT_SENSITIVE_R1 = ("apps.launch", "files.open", "keyboard.", "input.", "mouse.", "mind.", "memory.remember", "settings.offline_mode", "screen.click")`.
+- [x] `kernel.py`: a new constant `TAINT_SENSITIVE_R1 = ("apps.launch", "files.open", "keyboard.", "input.", "mouse.", "mind.", "memory.remember", "settings.offline_mode", "screen.click")`.
   - In `_owner` and `_delegated`, a tainted step at R1 whose name starts with one of these asks: "This step follows content read from outside; confirm it."
   - R0 stays automatic.
-- [ ] Contacts: `mind.Mind.remember_person` reports `changed_identity=True` when an existing person's non-empty phone or WhatsApp name would change.
+- [x] Contacts: `mind.Mind.remember_person` reports `changed_identity=True` when an existing person's non-empty phone or WhatsApp name would change.
   - `step_question` asks for `mind.person` in that case: "Changing a saved contact's number asks first."
   - `memory.remember` keys starting with `contact_` follow the same rule.
   - `apps_extra.known_recipient` ignores people created in a tainted session: store `"source": "owner"|"session_tainted"` on the person; `mind.person` sets it from a `tainted` flag that the runtime passes through `ExecutionContext.tainted` (a new field).
-- [ ] `agent_loop._from_owner_words`: every text argument must be ≥4 characters and appear as whole words (regex `\b…\b` on the romanised goal).
-- [ ] `screen.click_risky` and `screen.click` approvals: `vision.remember_seen` keeps a `generation` counter. The step arguments record `element` + `generation`, and execution refuses when the generation changed ("The screen was read again; look again before clicking").
-- [ ] Self-approval guard:
+- [x] `agent_loop._from_owner_words`: every text argument must be ≥4 characters and appear as whole words (regex `\b…\b` on the romanised goal).
+- [x] `screen.click_risky` and `screen.click` approvals: `vision.remember_seen` keeps a `generation` counter. The step arguments record `element` + `generation`, and execution refuses when the generation changed ("The screen was read again; look again before clicking").
+- [x] Self-approval guard:
   - `mouse.click`, `screen.click` and `screen.click_risky` refuse when the foreground window is Chutku's own dashboard, HUD or tray (reuse `desktop_controls._is_chutku_page`);
   - add `approve|allow|confirm|haan|yes` to `free_input._DESTRUCTIVE_WORDS`.
 - **Tests (`tests/test_taint_v2.py`):**

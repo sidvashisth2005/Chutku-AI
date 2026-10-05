@@ -37,7 +37,11 @@ _CEILING = {AutonomyMode.REVIEW: None, AutonomyMode.AUTO_SAFE: Risk.REVERSIBLE,
 # An automatically-run data change must have a runtime-owned way back.
 AUTO_EDIT_REVERSIBILITY = frozenset({"journaled", "compensatable", "single_use", "transient"})
 # File tools that only ever create something new (they never change or remove an existing file).
-RUNS_CODE_REASON = "Running code or a program with arguments always asks first."
+# Reversible (R1) steps that still ask right after Chutku read outside content (a web page, a message, the clipboard),
+# because they start programs, open files, change what Chutku remembers, or turn the cloud back on.
+TAINT_SENSITIVE_R1 = ("apps.launch", "files.open", "mind.", "memory.remember", "settings.offline_mode")
+TAINT_R1_REASON = "This step follows content read from outside; confirm it."
+RUNS_CODE_REASON ="Running code or a program with arguments always asks first."
 CREATE_ONLY_TOOLS = frozenset({"filesystem.create_directory", "files.zip", "files.unzip", "code.build_project",
                                "screen.capture"})
 
@@ -96,6 +100,8 @@ class PolicyKernel:
             return Authorization(Decision.CONFIRM, risk, "Deleting always asks first.")
         if owner_question:  # a step-specific question (unknown recipient, file-changing keys) asks in every mode
             return Authorization(Decision.CONFIRM, risk, str(owner_question))
+        if tainted and risk >= Risk.REVERSIBLE and tool.name.startswith(TAINT_SENSITIVE_R1):
+            return Authorization(Decision.CONFIRM, risk, TAINT_R1_REASON)
         if mode == AutonomyMode.OWNER:
             return PolicyKernel._owner(tool, risk, tainted, exposed, owner_question)
         ceiling = _CEILING[mode]

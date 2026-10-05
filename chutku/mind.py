@@ -110,6 +110,22 @@ class Mind:
                 found.append(person)
         return found[0] if len(found) == 1 else None
 
+    def identity_change(self, name, *, whatsapp="", phone=""):
+        """Which saved contact detail (phone or WhatsApp chat name) remembering this would overwrite, or None.
+
+        Messages to remembered people go out without asking, so changing where they go must be the owner's choice."""
+        name = " ".join(str(name or "").split())
+        person = next((p for p in self.load()["people"] if norm(p.get("name", "")) == norm(name)), None)
+        if person is None:
+            return None
+        phone = re.sub(r"[ -]", "", str(phone or ""))
+        if phone and person.get("phone") and phone != re.sub(r"[ -]", "", person["phone"]):
+            return "phone"
+        whatsapp = " ".join(str(whatsapp or "").split())
+        if whatsapp and person.get("whatsapp") and norm(whatsapp) != norm(person["whatsapp"]):
+            return "WhatsApp chat name"
+        return None
+
     def remember_person(self, name, *, aliases=(), relation="", whatsapp="", phone="", note=""):
         """Add a person or merge into the existing one with that name (aliases are added, never dropped)."""
         name = " ".join(str(name).split())
