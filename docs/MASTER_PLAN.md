@@ -254,34 +254,34 @@
 - **Negative:** "nothing is playing?" through the quick tier, then a model answer → the reply is accepted the first time (no fallback planner in `planners`).
 
 ## S6: Model services (`brain_service.py`, `local_vision.py`, `brain.py`, `agent_loop.py`)
-- [ ] **In-flight counter:**
+- [x] **In-flight counter:**
   - `BrainService` gets `self.inflight = 0`;
   - `complete` and `complete_text` increment it under the lock before the request and decrement it in `finally`;
   - the reaper closes only when `self.inflight == 0` and idle has passed;
   - the `complete_text` loop sets `self.last_used = time.monotonic()` every iteration.
   - Test: `idle_seconds=0.5`, a fake request that takes 2 s → the server is not closed mid-request.
-- [ ] **GPU lock ordering:**
+- [x] **GPU lock ordering:**
   - `claim_gpu(owner)` becomes: acquire the module `_gpu_lock` (an RLock) FIRST, then if the previous owner differs, call `previous.release_gpu(timeout=30)`, which waits for `previous.inflight == 0` (poll 0.1 s) and then closes;
   - `ensure_started` must call `claim_gpu(self)` BEFORE taking `self._lock`. Restructure: `def ensure_started(self): claim_gpu(self); with self._lock: ...`.
   - Apply the same to `LocalVision.ensure_started`.
   - Test: two threads start two fake services at once → both finish within 5 s (no deadlock), and only one is running at the end.
-- [ ] **Cancel kills generation:** in `complete_text`, when `check()` raises, call `self.close()` before re-raising (the same as `complete`).
-- [ ] **Hash cache:**
+- [x] **Cancel kills generation:** in `complete_text`, when `check()` raises, call `self.close()` before re-raising (the same as `complete`).
+- [x] **Hash cache:**
   - `brain.verify_local_artifacts` uses `local_vision._verified` (the existing `(path, size, mtime_ns) → sha` dict);
   - `brain_service.directory_digest` is memoized by `tuple(sorted((rel, size, mtime_ns)))` of the directory listing;
   - the cache is in-process only.
   - Test: the second call does not re-read the file (patch `hashlib.file_digest` and count calls).
-- [ ] **Error text:** `_safe_request` and the `complete` failure path include `str(response)[:200]` in the `BrainUnavailable` message.
-- [ ] **`cloud_first` heuristics:**
+- [x] **Error text:** `_safe_request` and the `complete` failure path include `str(response)[:200]` in the `BrainUnavailable` message.
+- [x] **`cloud_first` heuristics:**
   - `_SCREEN_HINT` requires a screen noun (`screen|window|page|tab|image|photo|ye kya|yeh kya|what is this|what's this`) — bare "ye/this/here" no longer counts;
   - `is_multipart_goal` requires ≥2 action verbs from `_ACTION_WORDS`;
   - offline (`online.reachable()` False or `offline_mode()`): keep the 4B as the leader with LONG_LIMITS; the 8B is only the fallback on failure.
   - Measure `benchmark_agent.py` 45/45 before and after.
-- [ ] **Legacy path:**
+- [x] **Legacy path:**
   - `/api/brain/preview` and voice `/api/command` call `begin_session(goal, mode="review", origin=...)` instead of `brain.preview_tool_plan`;
   - keep the `brain.py` functions that `scripts/check_stages.py` and the benchmarks import;
   - remove `GeminiAdvisor` from the user paths.
-- [ ] **Manifest honesty:**
+- [x] **Manifest honesty:**
   - `models/manifest.json` `cloud_fallback` becomes `"grant:cloud.gemini"`;
   - `brain.py:133` accepts that string (`false` means the same as before).
 - **Real path:** `/api/chat` "build me a tiny calculator app" offline with the 8B coder → the generation is not killed at 300 s (record total seconds).

@@ -151,7 +151,8 @@ def verify_local_artifacts(base=PROJECT_ROOT):
         raise OSError("Local brain manifest is missing or invalid.") from error
     if not executable.is_file() or not model.is_file():
         raise OSError("Local brain artifacts are missing. Run scripts/setup_local_brain.py first.")
-    if _sha256(executable) != expected_executable or _sha256(model) != expected_model:
+    from chutku.core import hashcache   # hashed once per process while the files are unchanged
+    if not hashcache.matches(executable, expected_executable) or not hashcache.matches(model, expected_model):
         raise OSError("Local brain artifact integrity check failed; inference was not started.")
     return {"runtime": str(executable), "model": str(model),
             "runtime_sha256": expected_executable, "model_sha256": expected_model,

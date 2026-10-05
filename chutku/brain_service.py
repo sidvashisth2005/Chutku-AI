@@ -20,6 +20,7 @@ import time
 
 from chutku.app import PROJECT_ROOT
 from chutku.brain import MODEL_NAME, _request, verify_local_artifacts
+from chutku.core import hashcache
 
 IDLE_UNLOAD_SECONDS = 2700   # 45 min: a reload costs seconds of start-up plus the whole prompt again
 STARTUP_SECONDS = 60
@@ -51,7 +52,7 @@ def runtime_candidates(base: Path = PROJECT_ROOT) -> list[dict]:
         vendor = (base / "vendor").resolve()
         if (directory.parent == vendor and directory.is_dir()
                 and isinstance(gpu.get("directory_sha256"), str)
-                and directory_digest(directory) == gpu["directory_sha256"]):
+                and hashcache.directory_digest(directory, directory_digest) == gpu["directory_sha256"]):
             candidates.append({"backend": gpu.get("backend", "GPU"),
                                "executable": str(directory / "llama-server.exe"),
                                "gpu_layers": 99})
@@ -63,27 +64,37 @@ class BrainUnavailable(OSError):
     pass
 
 
+def _describe(error):
+    """Keep the server's own words (e.g. a context overflow), not only the exception's class name."""
+    return f"{type(error).__name__}: {str(error)[:200]}" if str(error) else type(error).__name__
+
+
 # -- one GPU, several local models ---------------------------------------------------------------------------
 # 4 GB of graphics memory holds one model at a time: the planner (4B), the strong planner (8B, partly on the GPU)
 # or the vision model. Whoever starts next unloads the current one; each restarts by itself when needed again.
-_gpu_lock = threading.Lock()
+_gpu_lock = threading.RLock()
 _gpu_owner = None
+GPU_HANDOVER_SECONDS = 30
 
 
 def claim_gpu(owner):
+    """Make `owner` the one model on the GPU. Call it WITHOUT holding the service's own lock (lock order: GPU first,
+    then a service), and the previous model is closed only after its running request finished (or 30 s passed)."""
     global _gpu_owner
-    with _gpu_lock:
+    with _gpu_lock:   # held across the hand-over: two models never start at once
         previous, _gpu_owner = _gpu_owner, owner
-    if previous is not None and previous is not owner:
-        try:
-            previous.close()
-        except Exception:
-            pass
+        if previous is not None and previous is not owner:
+            deadline = time.monotonic() + GPU_HANDOVER_SECONDS
+            while getattr(previous, "inflight", 0) > 0 and time.monotonic() < deadline:
+                time.sleep(0.1)
+            try:
+                previous.close()
+            except (OSError, subprocess.SubprocessError):
+                pass
 
 
 def pinned_model(base, key):
     """Path of an extra model listed in models/manifest.json under `key`, after checking its pinned sha256."""
-    from chutku.local_vision import _sha256, _verified
     try:
         entry = json.loads((Path(base) / "models/manifest.json").read_text(encoding="utf-8"))[key]
     except (OSError, ValueError, KeyError) as error:
@@ -91,11 +102,9 @@ def pinned_model(base, key):
     path = (Path(base) / str(entry.get("path", ""))).resolve()
     if path.parent != (Path(base) / "models").resolve() or not path.is_file():
         raise BrainUnavailable(f"The {key} model file is missing.")
-    state = (str(path), path.stat().st_size, path.stat().st_mtime_ns)
-    if _verified.get(state) != entry.get("sha256"):
-        if _sha256(path) != entry.get("sha256"):
-            raise BrainUnavailable(f"{path.name} does not match its pinned hash; not loading it.")
-        _verified[state] = entry["sha256"]
+    from chutku.core import hashcache
+    if not hashcache.matches(path, str(entry.get("sha256"))):
+        raise BrainUnavailable(f"{path.name} does not match its pinned hash; not loading it.")
     return str(path), entry
 
 
@@ -114,6 +123,7 @@ class BrainService:
         self.last_used = 0.0
         self.started_seconds = None
         self._reaper = None
+        self.inflight = 0    # requests running now: never reaped or handed over mid-request
 
     # -- lifecycle -------------------------------------------------------
     def _spawn(self, candidate):
@@ -157,14 +167,20 @@ class BrainService:
         process.wait(timeout=5)
         raise BrainUnavailable(f"{candidate['backend']} model startup exceeded {STARTUP_SECONDS} seconds.")
 
+    def _running(self):
+        return self.process is not None and self.process.poll() is None
+
     def ensure_started(self):
         with self._lock:
-            if self.process is not None and self.process.poll() is None:
+            if self._running():
+                return
+        claim_gpu(self)   # outside our own lock: another service may need it to close
+        with self._lock:
+            if self._running():
                 return
             self.process = None
             started = time.monotonic()
             errors = []
-            claim_gpu(self)
             for candidate in self._candidates():
                 try:
                     self.process, self.port, self.key = self._spawn(candidate)
@@ -214,11 +230,15 @@ class BrainService:
                 with self._lock:
                     if self.process is None:
                         return
-                    if time.monotonic() - self.last_used > self.idle_seconds:
+                    if self.idle_expired():
                         self.close()
                         return
         self._reaper = threading.Thread(target=reap, name="chutku-brain-reaper", daemon=True)
         self._reaper.start()
+
+    def idle_expired(self):
+        """Unload only when nothing is running and the idle time has passed (a long generation is not idle)."""
+        return self.inflight == 0 and time.monotonic() - self.last_used > self.idle_seconds
 
     def close(self):
         with self._lock:
@@ -242,10 +262,20 @@ class BrainService:
     def complete_text(self, messages, *, max_tokens, check=None, timeout=600):
         """Free-text completion (e.g. source code), with a progress heartbeat while it runs."""
         from chutku.core.progress import beat
+        self.ensure_started()
         with self._lock:
-            self.ensure_started()
             port, key = self.port, self.key
             self.last_used = time.monotonic()
+            self.inflight += 1
+        try:
+            return self._complete_text(port, key, messages, max_tokens, check, timeout)
+        finally:
+            with self._lock:
+                self.inflight -= 1
+                self.last_used = time.monotonic()
+
+    def _complete_text(self, port, key, messages, max_tokens, check, timeout):
+        from chutku.core.progress import beat
         payload = {"model": MODEL_NAME, "messages": messages, "temperature": 0.2, "seed": 42,
                    "max_tokens": max_tokens, "stream": False}
         results = queue.Queue(maxsize=1)
@@ -254,15 +284,20 @@ class BrainService:
         started = time.monotonic()
         while time.monotonic() - started < timeout + 5:
             if check is not None:
-                check()
+                try:
+                    check()
+                except BaseException:
+                    self.close()   # a stop ends the generation too (it would otherwise keep the server busy)
+                    raise
             beat()
+            self.last_used = time.monotonic()   # a long generation is not "idle"
             try:
                 ok, response = results.get(timeout=1.0)
             except queue.Empty:
                 continue
             self.last_used = time.monotonic()
             if not ok:
-                raise BrainUnavailable(f"Local model request failed ({type(response).__name__}).")
+                raise BrainUnavailable(f"Local model request failed ({_describe(response)}).")
             choice = response["choices"][0]
             if choice.get("finish_reason") != "stop":
                 raise ValueError("The local model ran out of room before finishing.")
@@ -279,10 +314,19 @@ class BrainService:
 
     def complete(self, messages, *, schema, schema_name, max_tokens, check=None):
         """One bounded structured completion. `check` is polled (e.g. pause/stop)."""
+        self.ensure_started()
         with self._lock:
-            self.ensure_started()
             port, key = self.port, self.key
             self.last_used = time.monotonic()
+            self.inflight += 1
+        try:
+            return self._complete(port, key, messages, schema, schema_name, max_tokens, check)
+        finally:
+            with self._lock:
+                self.inflight -= 1
+                self.last_used = time.monotonic()
+
+    def _complete(self, port, key, messages, schema, schema_name, max_tokens, check):
         payload = {"model": MODEL_NAME, "messages": messages, "temperature": 0, "seed": 42,
                    "max_tokens": max_tokens, "stream": False,
                    "response_format": {"type": "json_schema", "json_schema": {
@@ -312,7 +356,7 @@ class BrainService:
             self.last_used = time.monotonic()
             if not ok:
                 self.close()
-                raise BrainUnavailable(f"Local model request failed ({type(response).__name__}).")
+                raise BrainUnavailable(f"Local model request failed ({_describe(response)}).")
             choice = response["choices"][0]
             if choice.get("finish_reason") != "stop":
                 raise ValueError("Local model response was truncated; nothing will execute.")

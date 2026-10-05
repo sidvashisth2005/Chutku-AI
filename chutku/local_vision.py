@@ -55,11 +55,9 @@ def files(base=PROJECT_ROOT):
         path = (base / str(item.get("path", ""))).resolve()
         if path.parent != root or not path.is_file() or not re.fullmatch(r"[0-9a-f]{64}", str(item.get("sha256"))):
             raise VisionUnavailable("The local vision model files are missing.")
-        state = (str(path), path.stat().st_size, path.stat().st_mtime_ns)
-        if _verified.get(state) != item["sha256"]:
-            if _sha256(path) != item["sha256"]:
-                raise VisionUnavailable(f"{path.name} does not match its pinned hash; not loading it.")
-            _verified[state] = item["sha256"]
+        from chutku.core import hashcache
+        if not hashcache.matches(path, item["sha256"]):
+            raise VisionUnavailable(f"{path.name} does not match its pinned hash; not loading it.")
         paths.append(str(path))
     return paths[0], paths[1]
 
@@ -98,6 +96,7 @@ class LocalVision:
         self.backend = None
         self.last_used = 0.0
         self._reaper = None
+        self.inflight = 0    # looks running now: never reaped or handed over mid-request
 
     def _runtimes(self):
         vendor = self.base / "vendor"
@@ -150,9 +149,12 @@ class LocalVision:
         with self._lock:
             if self.process is not None and self.process.poll() is None:
                 return
-            model, mmproj = files(self.base)
-            from chutku.brain_service import claim_gpu
-            claim_gpu(self)   # free the GPU: the planner restarts on its own next request
+        model, mmproj = files(self.base)
+        from chutku.brain_service import claim_gpu
+        claim_gpu(self)   # outside our lock (GPU first, then a service): the planner restarts on its next request
+        with self._lock:
+            if self.process is not None and self.process.poll() is None:
+                return
             errors = []
             for exe, backend, layers in self._runtimes():
                 try:
@@ -175,7 +177,7 @@ class LocalVision:
                 with self._lock:
                     if self.process is None:
                         return
-                    if time.monotonic() - self.last_used > IDLE_SECONDS:
+                    if self.inflight == 0 and time.monotonic() - self.last_used > IDLE_SECONDS:
                         self.close()
                         return
         self._reaper = threading.Thread(target=reap, name="chutku-vision-reaper", daemon=True)
@@ -196,10 +198,19 @@ class LocalVision:
     def look(self, images, system, prompt, *, schema=None, max_tokens=1024, timeout=180):
         """Ask about one or more images [(mime, bytes)]. Returns (text, info)."""
         started = time.monotonic()
+        self.ensure_started()
         with self._lock:
-            self.ensure_started()
             port, key = self.port, self.key
             self.last_used = time.monotonic()
+            self.inflight += 1
+        try:
+            return self._look(port, key, images, system, prompt, schema, max_tokens, timeout, started)
+        finally:
+            with self._lock:
+                self.inflight -= 1
+                self.last_used = time.monotonic()
+
+    def _look(self, port, key, images, system, prompt, schema, max_tokens, timeout, started):
         parts = [{"type": "image_url", "image_url": {"url": f"data:{mime};base64,"
                                                            + base64.b64encode(data).decode("ascii")}}
                  for mime, data in images]

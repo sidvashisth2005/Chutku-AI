@@ -38,8 +38,12 @@ _BUILD_HINT = re.compile(r"\b(?:apps?|application|program|software|website|web ?
                          r"dashboard|script|code|coding|project)\b", re.I)
 
 
-_SCREEN_HINT = re.compile(r"\b(?:this|these|that one|screen|here|click|tap|button|page|dikh\w*|dekh\w*|ye|yeh|"
-                          r"isko|isme|iska|yahan|yaha|what am i looking at|jo dikh)\b", re.I)
+# A real reference to what is on screen. Bare "this / here / ye" are in most Hinglish requests ("ye file kholo") and
+# used to send them to the slow vision-first path (audit 2026-10-06).
+_SCREEN_HINT = re.compile(r"\b(?:screen|what am i looking at|jo dikh\w*|dikh (?:raha|rahi|rahe)\w*|"
+                          r"(?:ye|yeh|is|isme|iska|isko|this|that) (?:kya|what)\b|what(?:'s| is) (?:this|that)|"
+                          r"(?:this|that|ye|yeh|is) (?:page|window|button|tab|image|photo|picture|video|error|message|"
+                          r"popup|dialog|box|link)|click|tap|button|isko (?:dekh|padh|click)\w*)\b", re.I)
 
 
 def is_screen_goal(goal):
@@ -51,8 +55,15 @@ _MULTIPART = re.compile(r"\b(?:and|then|aur|phir|after|also)\b|,", re.I)
 
 
 def is_multipart_goal(goal):
-    """Several things in one request ("find X and write it into Y"): the stronger planner leads."""
-    return len(goal.split()) >= 10 and bool(_MULTIPART.search(goal))
+    """Several things in one request ("find X and write it into Y"): the stronger planner leads. Needs two action
+    verbs: a long sentence with one "and" ("what is the weather and time in Pune") is still one thing."""
+    return (len(goal.split()) >= 10 and bool(_MULTIPART.search(goal))
+            and len(_ACTION_WORDS.findall(goal)) + len(_LOOKUP_VERBS.findall(goal)) >= 2)
+
+
+# Lookups that make a step of their own ("find the largest files and write them into a file").
+_LOOKUP_VERBS = re.compile(r"\b(?:find|read|list|count|check|get|fetch|look up|summari[sz]e|compare|dhundo|khojo|"
+                           r"padho|gino|nikalo)\b", re.I)
 
 
 def is_long_goal(goal):
@@ -655,8 +666,10 @@ class AgentSession:
         check = runtime.action_control.check
         notify = on_update or (lambda: None)
         beat = heartbeat or (lambda: None)
-        if self.cloud_first and fallback is not None:
-            planner, fallback = fallback, planner  # the stronger cloud planner leads long tasks
+        if self.cloud_first and fallback is not None and getattr(fallback, "cheap_second_opinion", lambda: True)():
+            # The stronger cloud planner leads long tasks when it is reachable. Offline the backup is the local 8B
+            # (1-3 minutes to load): the 4B leads with the long-task limits and the 8B steps in only on failure.
+            planner, fallback = fallback, planner
         with self.lock:
             if self.pending is not None or self.status in {"done", "clarify", "failed", "stopped", "cancelled"}:
                 return self.snapshot()

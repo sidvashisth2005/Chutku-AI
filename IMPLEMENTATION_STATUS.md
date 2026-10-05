@@ -16,6 +16,41 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S6 — model services: no mid-request kills, deadlock-free GPU hand-over, cached hashes, routing
+
+- **In-flight counter** (`BrainService`, `LocalVision`). The idle reaper now unloads only when nothing is running (`idle_expired()`). `complete_text` refreshes `last_used` while it waits.
+  - Cause: the 8B (idle limit 300 s) could be killed in the middle of a 900-s code generation.
+- **GPU hand-over** (`claim_gpu`):
+  - one RLock is held across the hand-over (lock order: GPU first, then a service);
+  - services call it *outside* their own lock;
+  - the previous model is closed only after its running request finished (up to 30 s).
+  - Cause: possible deadlock (each service held its own lock and then took the other's), and closing a model mid-request.
+- **Stop during code generation** closes the server; it used to keep generating up to 7,000 tokens and block the next request.
+- **Hash cache** (new `core/hashcache.py`): a file is hashed once per process while its path, size, mtime and file id are unchanged; the runtime directory digest is cached per listing. Used by `brain.verify_local_artifacts`, `local_vision.files` and `brain_service.pinned_model`. A fresh process always re-hashes.
+- **Errors keep the server's words** (`_describe`), e.g. a context overflow, instead of only the exception class.
+- **Routing:**
+  - `is_screen_goal` needs a real screen phrase (screen, "ye kya hai", "this page", click/tap/button), no longer bare "this/here/ye".
+  - `is_multipart_goal` needs two step verbs.
+  - Offline, cloud-first goals stay with the 4B (long-task limits); the 8B steps in only when the 4B fails.
+- **Left as is, recorded:**
+  - `/api/command` and `/api/brain/preview` (legacy `brain.preview_tool_plan`) are not called by the web UI, only by stage-gate tests, so they were not rerouted.
+  - `manifest.cloud_fallback: false` describes that legacy local adapter, which indeed has no cloud fallback.
+- **Tests:** `tests/test_model_services_s6.py` (9):
+  - the hand-over waits for a running request;
+  - 4 concurrent claims finish (no deadlock);
+  - no reaping in flight;
+  - a stop ends code generation and `inflight` returns to 0;
+  - the error text is kept;
+  - a big file is hashed once, and a tampered file is hashed again and fails;
+  - screen routing; multipart routing;
+  - offline, the 4B leads and a clarify does not load the 8B.
+
+  Full suite: **790 tests**. One unidentified flake in 4 full runs; the three runs after it were clean. The new timing tests ran **0/15 failures** in a loop, so the flake is a pre-existing sleep-based test (the hands-free and dashboard polls flagged by the audit; to fix in S9).
+- **Real path (independent timing on the real 2.5 GB model):**
+  - `verify_local_artifacts()`: first 3.24 s, second 0.003 s, identical result.
+  - `runtime_candidates()` with the Vulkan directory: 0.20 s, then 0.008 s; backends `['Vulkan', 'CPU']`.
+  - Routing measured on the owner's real goals (`data/conversations.jsonl`, 74 goals): the vision/cloud-first path drops from **11 to 3**. The 3 kept ("screen pe kya hai" ×2, "What is on screen?") are genuine screen questions; the 8 freed ("mind map dikhao", "which is bigger, 2^10 or 10 cubed") never needed vision.
+
 ### 2026-10-06: S5 — agent-loop correctness
 
 | Problem (audit) | Fix |
