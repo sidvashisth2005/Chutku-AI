@@ -38,3 +38,11 @@ hypothesis==6.168.3
 sortedcontainers==2.4.0
 # Live voice conversation (Gemini Live websocket; was imported but not pinned until 2026-10-06).
 websockets==15.0.1
+# Neural voice spike (master plan S10, 2026-10-06): used only by scripts/tts_ab.py until the owner chooses.
+kokoro-onnx==0.6.1
+phonemizer==3.4.0
+espeakng-loader==0.2.4
+attrs==26.1.0
+cloudpickle==3.1.2
+dlinfo==2.0.0
+joblib==1.6.0

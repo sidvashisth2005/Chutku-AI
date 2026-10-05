@@ -16,6 +16,31 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S10 (spike) — neural female voice measured; waiting for the owner's listening test
+
+- **Installed** into `.venv`, pinned in `requirements.lock`: `kokoro-onnx 0.6.1` plus its new dependencies (phonemizer, espeakng-loader, …).
+  - A dry run first confirmed that no pinned package changes.
+- **Model:** Kokoro-82M (Apache-2.0 weights; MIT packaging). `models/kokoro/kokoro-v1.0.onnx` (326 MB) and `voices-v1.0.bin` (28 MB), sha256-pinned in `models/manifest.json` under `tts`.
+  - `scripts/setup_all.py` reports **8/8 artifacts OK** (it now accepts sub-folders of `models/`).
+  - The int8 build was measured and dropped: it was slower here.
+- **Measured on this CPU, warm, on AC:**
+  - fp32: RTF **0.28–0.29**, about 3.5× faster than real time.
+  - int8: RTF 1.03–1.05, slower than real time.
+  - Hindi text in Devanagari speaks through espeak-ng's `hi` phonemes (RTF 1.34 cold).
+- **New `scripts/tts_ab.py`:** renders the 20 most recent real replies from `conversations.jsonl` with `hf_alpha`, `hf_beta`, `af_heart` and SAPI (female) into `D:\ChutkuScratch\tts_ab\`. Medians:
+
+| Voice | RTF | First audio |
+|---|---|---|
+| hf_alpha | 0.29 | 1.76 s |
+| hf_beta | 0.29 | 1.60 s |
+| af_heart | 0.28 | 1.62 s |
+| SAPI | 0.06 | 0.41 s |
+
+- Kokoro's first-audio time is per first sentence. S11 (streaming) can speak a short first phrase sooner.
+- **`--listen`** runs the owner's blind A/B test (Kokoro hf_alpha vs SAPI, random order, 1/2/skip) and saves `verification/tts-ab.json`. Chutku switches only if Kokoro is preferred in most of at least 5 answers.
+- **Owner-only, pending:** the listening test. The TTS service, barge-in and reminder voice wait for it. OWNER_GUIDE ("Try a more natural voice") explains how.
+- **Full suite: 816 tests OK.** The count fell from 835 because `test_efficiency_s9` no longer re-runs the 19 dashboard tests.
+
 ### 2026-10-06: S9 — efficiency, packaging, logging; live redeploy of S1–S9
 
 **Logging**

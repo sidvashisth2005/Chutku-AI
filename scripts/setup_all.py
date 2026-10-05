@@ -63,7 +63,7 @@ def main():
     problems = 0
     for label, entry in file_entries(manifest):
         path = (ROOT / str(entry["path"]).replace("\\", "/")).resolve()
-        if path.parent != (ROOT / "models").resolve():
+        if not path.is_relative_to((ROOT / "models").resolve()):
             print(f"SKIP     {label}: path is outside models/")
             problems += 1
             continue
@@ -75,6 +75,7 @@ def main():
             continue
         if args.download:
             print(f"DOWNLOAD {label}: {path.name} ...", flush=True)
+            path.parent.mkdir(parents=True, exist_ok=True)
             download(entry["source"], path, entry["sha256"])
             print(f"OK       {label}: {path.name} (downloaded and hash-checked)")
         else:
