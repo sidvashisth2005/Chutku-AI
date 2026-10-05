@@ -430,7 +430,7 @@ Each fix gets one test, in `tests/test_quick_intents.py` or `tests/test_real_ses
 - Real path: time to first audio for "weather batao" offline, before vs after.
 - Negative: an SSE request with the wrong Origin → 403.
 
-## S12: Semantic memory (embeddings)
+## S12: Semantic memory (embeddings) — measured 2026-10-06: gate not met, word overlap kept
 
 **Spike**
 - Model: `intfloat/multilingual-e5-small`, int8 ONNX (about 120 MB), in `models/e5-small/`, pinned in the manifest under `"embed"`. Tokenizer through the already-installed `tokenizers`.

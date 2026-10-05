@@ -16,6 +16,28 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S12 — meaning-based memory measured; word overlap kept (gate not met)
+
+- **Model:** multilingual-e5-small (MIT), int8 ONNX (118 MB) plus its tokenizer in `models/e5-small/`, sha256-pinned in the manifest under `embed`. `setup_all.py` reports all artifacts OK.
+- **New `chutku/memory_index.py`:**
+  - `embed()` reads text as Roman Hinglish first, does mean pooling and L2 normalisation, and caches vectors in `data/embeddings.sqlite`;
+  - `rank()` scores by cosine.
+  - Load plus first embed takes 1.5 s; a warm query takes 13 ms.
+- **The gate** (`scripts/eval_memory.py`):
+  - **Data:** 76 real requests with known tools; 46 have at least one other request that ran the same tools.
+  - **Label:** "ran the same tools", taken from execution, independent of both methods.
+
+| Method | recall@3 | MRR |
+|---|---|---|
+| Word overlap (today) | **0.978** | 0.841 |
+| Embeddings | 0.848 | 0.833 |
+| Hybrid (overlap + 0.3·cosine) | 0.978 | **0.856** |
+
+- **Decision:** the plan required beating word overlap on recall@3. Nothing did, so **word overlap stays** in `experience.similar` / `recall`.
+  - The owner's history repeats its wording a lot, which suits overlap.
+  - The module and the evaluation stay, to be re-run as the history grows (Night Shift, S20) and used by the timeline (S21).
+- **Tests:** `tests/test_memory_index_s12.py` (4, fake model): normalised and cached vectors, Hindi script read as Roman, ranking order, a missing model is reported. **Full suite: 832 tests OK.**
+
 ### 2026-10-06: S11 — streaming first words, live push to the page, and a 20-second first-request stall fixed
 
 - **Streaming answer.**
