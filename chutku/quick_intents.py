@@ -248,6 +248,33 @@ _REWIND_PREVIEW = re.compile(rf"^{_POLITE}(?:rewind preview|(?:pichh?le|last) (?
                              rf"(?P<n2>\d{{1,4}}) (?:minutes?|mins?) undo){_TAIL}", re.I)
 
 
+_WHEN = (r"(?:abhi|abhi abhi|thodi der pehle|just now|earlier|kal|aaj|parso|yesterday|today|this|last week|"
+         r"pichh?le hafte)(?:\s+(?:subah|dopahar|shaam|sham|raat|morning|afternoon|evening|night))?")
+_TIMELINE = [
+    re.compile(rf"^{_POLITE}(?:wo|woh|vo|that)\s+(?P<q>.+?)\s+jo\s+(?:maine\s+)?(?P<when>{_WHEN})\s+(?:khola|kholi|"
+               rf"dekha|dekhi|padha|padhi|open kiya|open ki)\s+th[ai]\b.*$", re.I),
+    re.compile(rf"^{_POLITE}(?P<when>{_WHEN})?\s*(?:maine\s+)?(?:kaunsa|kaun sa|kaun si|kaunsi|konsa|konsi)\s+"
+               rf"(?P<q>.+?)\s+(?:khola|kholi|dekha|dekhi|padha|padhi|open kiya|open ki)\s+th[ai](?:\s+maine)?{_TAIL}",
+               re.I),
+    re.compile(rf"^{_POLITE}which\s+(?P<q>.+?)\s+did i\s+(?:open|have open|look at|read)(?:\s+(?P<when>{_WHEN}|this "
+               rf"morning|this evening|yesterday evening|yesterday morning))?{_TAIL}", re.I),
+    re.compile(rf"^{_POLITE}what was i (?:looking at|reading)\s+(?P<when>{_WHEN}|yesterday evening|this morning)"
+               rf"(?P<q>){_TAIL}", re.I),
+]
+
+
+def _timeline(text):
+    """"wo PDF jo kal shaam khola tha" / "abhi kaunsa PDF khola tha" / "which pdf did I open yesterday" (S21)."""
+    for pattern in _TIMELINE:
+        found = pattern.match(text)
+        if found:
+            query = " ".join((found.group("q") or "").split())[:120]
+            arguments = {"query": query} | ({"when": found.group("when").strip()} if found.group("when") else {})
+            return _proposal("timeline.search", arguments, f"Look up {query or 'what was open'} in the timeline",
+                             "", finish=False)
+    return None
+
+
 def _rewind(text):
     """"pichhle 5 minute ka sab wapas karo" / "aaj jo kiya sab wapas" / "last task undo karo" (Causal Rewind, S18)."""
     from datetime import datetime, timedelta
@@ -277,6 +304,9 @@ def _single(goal, apps=None):
     rewind = _rewind(text)
     if rewind is not None:
         return rewind
+    remembered = _timeline(text)
+    if remembered is not None:
+        return remembered
     from chutku import control_intent
     control = control_intent.kind(text)
     if control == "undo":
@@ -834,6 +864,20 @@ def _say_reliability(out):
     return text
 
 
+def _say_timeline(out):
+    if out.get("note"):
+        return out["note"]
+    matches = out["matches"]   # strict: an unexpected shape lets the model answer instead of a wrong fixed reply
+    if not matches:
+        return ("Nothing like that in the timeline for that time." if out["recording"]
+                else "The timeline is off, so I don't know. Type 'timeline on' to let me remember window titles.")
+    first = matches[0]
+    text = f"{first['title']} ({first['app']}, {first['at']})"
+    if len(matches) > 1:
+        text += ". Also: " + "; ".join(f"{m['title']} ({m['at']})" for m in matches[1:4])
+    return text + "."
+
+
 def _say_rewind(out):
     """rewind.preview / rewind.run in plain words."""
     if "undone" not in out:
@@ -1032,7 +1076,7 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
-QUICK_ANSWERS = {"rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
+QUICK_ANSWERS = {"timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,
@@ -1071,7 +1115,12 @@ def quick_answer(session):
             parts.append(step["purpose"] + " ✓")
             continue
         try:
-            parts.append(formatter(json.loads(step["observation"])))
+            data = json.loads(step["observation"])
+            if isinstance(data, dict) and set(data) == {"untrusted_data", "source"} and data["source"] == step["tool"]:
+                # Outside text is wrapped for the planner (S15; instruction-like lines already removed). The instant
+                # answer only shows the owner what was read, so it formats the data inside.
+                data = data["untrusted_data"]
+            parts.append(formatter(data))
         except (ValueError, KeyError, TypeError, IndexError):
             return None  # truncated or unexpected output: let the model answer
     return (proposal["reply"] + " " if routine else "") + " ".join(parts)

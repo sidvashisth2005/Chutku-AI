@@ -121,12 +121,21 @@ def snapshot(base: Path, runtime) -> dict:
                          "done": sum(a.get("state") == "COMPLETED" for a in actions),
                          "refused": sum(a.get("state") == "DENIED" for a in actions),
                          "latest": [{"tool": a["tool"], "state": a["state"], "time": a["time"]} for a in actions[:4]],
-                         "log_intact": chain["ok"], "instant": _instant(base)},
+                         "log_intact": chain["ok"], "instant": _instant(base), "night": _night(base)},
         "actions_paused": runtime.action_control.paused,
         "alerts": [{"title": title, "message": message} for _key, title, message, _band in _health_problems()],
         "routines": _routines(),
         "notes": _notes(),
     }
+
+
+def _night(base):
+    """What Night Shift did last night (master plan S20), as one line for the Today card."""
+    try:
+        from chutku.nightshift import morning_line
+        return morning_line(base)
+    except (OSError, ValueError):
+        return None
 
 
 def _instant(base):

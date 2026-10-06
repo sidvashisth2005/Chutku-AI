@@ -51,6 +51,7 @@ class PlanningTests(unittest.TestCase):
             "say hello": ("SPEAK_TEXT", "voice.speak"),
             "earned autonomy relax on": ("SET_EARNED_AUTONOMY", "settings.earned_autonomy"),
             "voice lock on": ("SET_VOICE_LOCK", "settings.voice_lock"),
+            "timeline on": ("SET_TIMELINE", "settings.timeline"),
             "list windows": ("LIST_WINDOWS", "windows.list"),
         }
         self.assertEqual(len(cases), len(INTENT_BY_TOOL))

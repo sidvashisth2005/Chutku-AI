@@ -34,4 +34,6 @@ def create_runtime(base: Path = PROJECT_ROOT, grant_id: str = "sandbox") -> Runt
     register_action_log_tools(registry, runtime)
     from chutku.rewind import register_rewind_tools
     register_rewind_tools(registry, runtime)
+    from chutku.tools.timeline_tools import register_timeline_tools
+    register_timeline_tools(registry, runtime)
     return runtime

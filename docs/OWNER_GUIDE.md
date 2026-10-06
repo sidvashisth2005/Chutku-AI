@@ -253,6 +253,30 @@ Everything below is **instant**: matched by rules and done within about a second
 - "find my newest PDF in Downloads and open it"
 - "make a folder D:\Notes and write today's plan in it"
 
+### Timeline: "wo PDF jo kal shaam khola tha" (since 2026-10-06, off until you turn it on)
+
+- **"timeline on"** (typed only) starts it. Every 5 seconds Chutku notes which app and window title is in front, and only when that changes.
+  - **Window titles only:** no screenshots, no contents, no keystrokes.
+  - Kept for 14 days.
+  - Private windows (InPrivate / Incognito, password managers) are stored as "[private]". Add your own, for example a banking app, with the preference `timeline_private` (a list of app names such as `mybank.exe`).
+- Ask: **"wo PDF jo kal shaam khola tha"**, **"abhi kaunsa PDF khola tha"**, **"wo invoice jo maine aaj subah dekha tha"**, **"which pdf did I open yesterday evening"**, **"what was I looking at this morning"**. Files Chutku opened for you are included too.
+- **"timeline off"** stops it **and deletes everything it stored**.
+
+### Night Shift: Chutku improves while you sleep (since 2026-10-06)
+
+Every night at 02:30, Chutku does her homework, but only when the PC has been idle for 10 minutes and is plugged in. On battery she skips the night.
+- She learns new instant skills from the day's requests.
+- She checks which kinds of actions keep failing.
+- She **re-plans every request from the last 7 days without doing anything**, and compares the plan with what worked before.
+- She tidies old logs and checks that the action log is intact.
+
+The **Today** card then shows a line like *"Raat ko: 1 naye skills, 4 badle hue plans, 3 ab fail, 16 same."*
+
+- Run it by hand: `.venv\Scripts\python.exe -m chutku.cli nightshift run`. While Chutku is running, the work happens inside her, so only one model uses the graphics card.
+- `chutku.cli nightshift report` prints the last report. The full report is in `data\nightshift\report-YYYYMMDD.json`, including which requests are planned differently now.
+- The task is `\Chutku\NightShift` in Task Scheduler; `chutku.cli nightshift install` sets it up again.
+- When there are 300 verified requests, she also writes `data\nightshift\lora-ready.json`. That means enough data for the planned weekly fine-tune, which still needs your yes the first time.
+
 ### Undo everything at once (Causal Rewind, since 2026-10-06)
 
 - **"pichhle 10 minute ka sab wapas karo"** / "undo everything from the last 10 minutes", **"aaj jo kiya sab wapas karo"** / "undo everything today", **"last task undo karo"** / "undo the last task".

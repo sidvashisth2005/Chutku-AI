@@ -51,6 +51,7 @@ INTENT_BY_TOOL = {
     "voice.speak": "SPEAK_TEXT",
     "settings.earned_autonomy": "SET_EARNED_AUTONOMY",
     "settings.voice_lock": "SET_VOICE_LOCK",
+    "settings.timeline": "SET_TIMELINE",
     "windows.list": "LIST_WINDOWS",
 }
 
@@ -95,6 +96,9 @@ class CommandCatalog:
         if match := re.fullmatch(r"voice lock (on|off)", normalized, re.IGNORECASE):
             # Owner-only switch (master plan S19): typed by the owner, never by voice or the agent.
             return RoutedCommand("settings.voice_lock", {"on": match[1].casefold() == "on"})
+        if match := re.fullmatch(r"timeline (on|off)", normalized, re.IGNORECASE):
+            # Owner-only switch (master plan S21): typed by the owner, never by voice or the agent.
+            return RoutedCommand("settings.timeline", {"on": match[1].casefold() == "on"})
         if normalized.casefold() == "listen for a command":
             return RoutedCommand("voice.listen_command", {})
         if normalized.casefold() == "speech recognition status":

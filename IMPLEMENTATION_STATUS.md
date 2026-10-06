@@ -16,6 +16,79 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S21 — Episodic timeline (opt-in, window titles only)
+
+Checked item by item against `docs/MASTER_PLAN.md` S21.
+
+- **`chutku/timeline.py` (new):**
+  - A dashboard thread runs every 5 s **only while the preference `timeline` is true**. It records `{at, app exe, title}` of the foreground window when it changes, in `data/timeline.sqlite`.
+  - The schema has 3 columns (REAL, TEXT, TEXT): **no image data is possible**.
+  - Rows older than 14 days are expired hourly.
+  - Private windows become "[private]" and are never returned: InPrivate/Incognito/private-browsing titles, password managers and lock screens, plus `timeline_private` apps the owner names.
+- **Search:** "kal shaam", "yesterday evening", "aaj subah", "abhi" (last 30 min), "last week", etc. become a time window; then word matching plus a file-kind hint (pdf/word/excel…), newest first on ties. Files Chutku opened (`files.open` in the action log) are included.
+  - **Deviation:** word overlap instead of embeddings. S12 measured embeddings below word overlap on the owner's data and kept them off.
+- **Tools:**
+  - `timeline.search` (R0). It is in TAINTING_TOOLS and PRIVATE_TOOLS, since titles are outside text and private.
+  - `settings.timeline` (`user_only`; "timeline on/off" typed only). **Off deletes the stored data.**
+  - 160 tools: R0 62, R1 44.
+- **Phrases:** "wo PDF jo kal shaam khola tha", "abhi kaunsa PDF khola tha", "wo invoice jo maine aaj subah dekha tha", "which pdf did I open yesterday evening", "what was I looking at this morning". "what was I working on" still goes to `files.recent`.
+- **Bug found by the real path and fixed (it had been present since S15):**
+  - The S15 `untrusted_data` wrapping reached the instant-answer formatters of every tainting tool. Most raised, so the model answered instead (slower). The new timeline formatter used `.get` defaults and so replied **"the timeline is off"** while it was recording.
+  - `quick_answer` now unwraps the (already defanged) data before formatting, and the timeline formatter is strict.
+  - Covered by a full-session regression test.
+- **Tests:** `tests/test_timeline.py` (10), covering:
+  - off by default, and the watcher records nothing while off;
+  - private masking;
+  - 14-day expiry;
+  - the schema has no image column;
+  - "kal shaam" finds the evening PDF and not the morning one;
+  - off deletes the data, and the agent cannot switch it (DENY);
+  - the tool explains when the timeline is off;
+  - the phrases;
+  - taint and private lists;
+  - the session instant answer reads through the wrapping.
+
+  **Full suite: 919 tests OK (163 s).**
+- **Real path** (live Chutku after redeploy):
+  1. "timeline on" (typed, direct path, 0.05 s).
+  2. A generated `D:\ChutkuScratch\Timeline-Check-Report.pdf` was opened (Edge).
+  3. "abhi kaunsa PDF khola tha" answered **"Timeline-Check-Report.pdf - … Edge (msedge.exe, Tue 06 Oct, 10:36 PM)" in 0.53 s**, which matches the file that was opened.
+  4. The window was closed. **"timeline off" deleted `data/timeline.sqlite`** (checked), and the test PDF was removed. The timeline is left **off**.
+- **Regression:** `live_check.py` 12/12 (median 0.8 s); `check_phrases.py` 118/118.
+
+### 2026-10-06: S20 — Night Shift (nightly self-improvement, nothing executed)
+
+Checked item by item against `docs/MASTER_PLAN.md` S20.
+
+- **`chutku/nightshift.py` (new).** `run_once` runs 5 time-boxed jobs, each with ok/error and seconds, and writes `data/nightshift/report-YYYYMMDD.json`. One failing job does not stop the others.
+  1. `reflex.compile_all`.
+  2. The earned-autonomy summary.
+  3. **Regression replay.** Every distinct goal of the last 7 days, newest first, within a 30-min box, is planned with rules → learned skill → exact replay → one model round (review-mode session). It never calls `runtime.run`. The first-round tools are compared with the last verified ones:
+     - same / changed / new plan;
+     - answers directly / chat;
+     - fails now (model clarifies);
+     - rejected plan (validation error; the live loop retries).
+  4. **Maintenance:** event archive >90 days, heard-log prune (new `heard.prune`), action-log chain check.
+  5. **Fine-tune readiness:** at 300+ verified untainted turns and no adapter in 7 days, write `lora-ready.json`.
+- **GPU safety (deviation in the wiring):** while Chutku runs, `chutku.cli nightshift run` asks her (POST `/api/nightshift`, session token) to run the jobs in-process with her own model service, so there is never a second llama-server on the 4 GB GPU. Otherwise the CLI runs them itself.
+- **Schedule:** `chutku.cli nightshift install` registered `\Chutku\NightShift`: daily 02:30, RunOnlyIfIdle 10 min, DisallowStartIfOnBatteries + StopIfGoingOnBatteries, normal rights, `pythonw -m chutku.cli nightshift run`. Verified with Get-ScheduledTask: State Ready, AcOnly True, IdleOnly True. `run_once` also refuses on battery.
+- **Morning card:** Today shows "Raat ko (date): N naye skills, M badle hue plans, … ab fail, … galat plan, … same."
+- **Tests:** `tests/test_nightshift.py` (6), covering:
+  - the replay never executes (with `runtime.run` patched to raise), and goals answered by rules skip the model;
+  - same / changed / fails-now / answers-directly classification, with duplicates counted once and goals older than 7 days ignored;
+  - no model → "not checked";
+  - a full run writes every job, prunes the heard log and gives the morning line;
+  - on battery nothing runs;
+  - one failing job does not stop the others;
+  - the 300-turn readiness marker.
+- **Real path** (live Chutku, `chutku.cli nightshift run`, inside the running process with the local 4B):
+  - **162 distinct goals, equal to an independent count** of `conversations.jsonl` (7 days, normalised).
+  - Results: answers directly 48, same 45, new plan 37, chat 20, changed 4, fails now / rejected 8.
+  - **11 min 17 s.** Learned skills: 1 kept, 1 turned down. 19 kinds measured, none keep failing. Chain OK. 131/300 verified turns.
+  - The first run was capped at 60 goals and counted direct answers as failures. Both were fixed against the plan ("every distinct goal") before the full run.
+  - The 7 "rejected plan" rows are model plans that broke a tool's rules (e.g. `apps.launch` without a name); the live loop retries those.
+- **Limit:** with Chutku off at night, the CLI starts its own model, so the regression replay is GPU-bound (~11 min per 160 goals).
+
 ### 2026-10-06: S19 — Owner Voice Lock (built and checked with the real model; the owner's enrollment is pending)
 
 Checked item by item against `docs/MASTER_PLAN.md` S19.

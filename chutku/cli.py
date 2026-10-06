@@ -11,6 +11,58 @@ def _runtime(grant_id="sandbox") -> Runtime:
     return create_runtime(grant_id=grant_id)
 
 
+def _nightshift_command(namespace):
+    """Night Shift (master plan S20). With Chutku running, the jobs run inside it (one model on the GPU)."""
+    import time as _time
+    from chutku import nightshift
+    from chutku.app import PROJECT_ROOT
+    if namespace.night_action == "install":
+        print(json.dumps(nightshift.install(PROJECT_ROOT), indent=2))
+        return
+    if namespace.night_action == "report":
+        print(json.dumps(nightshift.latest_report(PROJECT_ROOT), indent=2, ensure_ascii=False))
+        print(nightshift.morning_line(PROJECT_ROOT))
+        return
+    if not namespace.force and nightshift.on_ac_power() is False:
+        print("On battery: Night Shift skipped.")
+        return
+    before = nightshift.latest_report(PROJECT_ROOT)
+    if not namespace.no_model and _ask_running_chutku({"action": "run"}):
+        print("Started inside the running Chutku; waiting for the report ...")
+        for _ in range(45 * 60):
+            _time.sleep(1)
+            now = nightshift.latest_report(PROJECT_ROOT)
+            if now and now != before and now.get("finished"):
+                print(json.dumps(now, indent=2, ensure_ascii=False)[:4000])
+                return
+        raise SystemExit("No report within 45 minutes.")
+    model = None
+    if not namespace.no_model:
+        from chutku.agent_loop import LocalAgentPlanner
+        from chutku.brain_service import shared_service
+        model = LocalAgentPlanner(shared_service(PROJECT_ROOT))
+    report = nightshift.run_once(PROJECT_ROOT, model=model, force=namespace.force)
+    print(json.dumps(report, indent=2, ensure_ascii=False)[:4000])
+
+
+def _ask_running_chutku(body):
+    """POST /api/nightshift to the running dashboard (same user, its session token); False when it is not running."""
+    import http.client
+    from chutku.app import PROJECT_ROOT
+    try:
+        link = json.loads((PROJECT_ROOT / "data" / "dashboard-session.json").read_text(encoding="utf-8"))["url"]
+        token, origin = link.split("#token=")[1], link.split("/#")[0]
+        connection = http.client.HTTPConnection("127.0.0.1", int(origin.rsplit(":", 1)[1]), timeout=10)
+        connection.request("POST", "/api/nightshift", json.dumps(body),
+                           {"X-Chutku-Token": token, "Origin": origin, "Content-Type": "application/json"})
+        response = connection.getresponse()
+        ok = response.status == 200 and json.loads(response.read()).get("started") is True
+        connection.close()
+        return ok
+    except (OSError, ValueError, KeyError, IndexError):
+        return False
+
+
 def _voice_command(namespace):
     """Owner Voice Lock (master plan S19) from the terminal."""
     from pathlib import Path
@@ -110,6 +162,10 @@ def main() -> None:
     gemini = subparsers.add_parser("gemini", help="Configure Gemini as the secondary planner (off unless cloud.gemini is granted)")
     gemini.add_argument("gemini_action", choices=("status", "set-key"))
     subparsers.add_parser("open", help="Open the running Chutku dashboard in your browser")
+    night = subparsers.add_parser("nightshift", help="Night Shift: nightly self-improvement jobs (run, install, report)")
+    night.add_argument("night_action", choices=("run", "install", "report"))
+    night.add_argument("--no-model", action="store_true", help="run: skip the model round of the regression replay")
+    night.add_argument("--force", action="store_true", help="run: also on battery")
     voice = subparsers.add_parser("voice", help="Owner voice lock: enroll your voice, record clips, status, forget")
     voice.add_argument("voice_action", choices=("enroll", "record", "status", "forget"))
     voice.add_argument("folder", nargs="?", help="record: where to save 16 kHz WAV clips")
@@ -120,6 +176,9 @@ def main() -> None:
     if namespace.command == "open":
         from chutku.dashboard import open_running_dashboard
         print(open_running_dashboard())
+        return
+    if namespace.command == "nightshift":
+        _nightshift_command(namespace)
         return
     if namespace.command == "voice":
         _voice_command(namespace)

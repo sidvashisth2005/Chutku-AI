@@ -332,6 +332,22 @@ class DashboardServer(ThreadingHTTPServer):
                 return
             time.sleep(0.3)
 
+    def run_nightshift(self):
+        """Start the nightly jobs on a background thread (one at a time); the report lands in data/nightshift/."""
+        if getattr(self, "_nightshift", None) is not None and self._nightshift.is_alive():
+            return {"started": False, "reason": "Night Shift is already running."}
+
+        def work():
+            from chutku import nightshift
+            try:
+                planner = self.planners()[0] if self.planner_factory is None else None
+                nightshift.run_once(self.base, model=planner)
+            except Exception:
+                _log().exception("night shift failed")
+        self._nightshift = threading.Thread(target=work, name="chutku-nightshift", daemon=True)
+        self._nightshift.start()
+        return {"started": True}
+
     def voice_enroll(self, action):
         """Owner Voice Lock enrollment from the dashboard: record one prompted line at a time (memory only)."""
         from chutku.voice import speaker
@@ -1033,7 +1049,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         path = urlsplit(self.path).path
         if path in {"/api/chat", "/api/agent/confirm", "/api/agent/stop", "/api/voice/ask", "/api/preferences",
-                    "/api/suggestions", "/api/reflexes", "/api/voice/enroll"}:
+                    "/api/suggestions", "/api/reflexes", "/api/voice/enroll", "/api/nightshift"}:
             self._reply(*self._agent_post(path, data))
             return
         if not self.server.action_lock.acquire(blocking=False):
@@ -1164,7 +1180,7 @@ INSTANT_TOOLS = frozenset({
     "filesystem.undo_last_write", "filesystem.undo_last_copy", "filesystem.undo_last_move",
     "filesystem.restore_last_recycled", "screen.undo_last_capture", "screen.displays",
     "voice.list_voices", "voice.recognition_status", "voice.audio_input_status", "voice.speak",
-    "settings.earned_autonomy", "settings.voice_lock",
+    "settings.earned_autonomy", "settings.voice_lock", "settings.timeline",
 })
 
 
@@ -1230,6 +1246,10 @@ def _agent_post(self, path, data):
             if set(data) != {"id", "action"}:
                 raise ValueError("Give id and action.")
             return 200, suggest.respond(server.base, data["id"], data["action"])
+        if path == "/api/nightshift":   # Night Shift (S20): run the nightly jobs here, sharing this process's model
+            if set(data) != {"action"} or data["action"] != "run":
+                raise ValueError("Give action: run.")
+            return 200, server.run_nightshift()
         if path == "/api/voice/enroll":   # Owner Voice Lock tab: status, record a line, finish, lock on/off
             if set(data) != {"action"} or data["action"] not in {"status", "reset", "clip", "finish", "lock_on",
                                                                   "lock_off"}:
@@ -1404,6 +1424,9 @@ def serve(port: int = 8765, open_browser: bool = False, *, base=PROJECT_ROOT, he
             threading.Thread(target=suggest.watch, args=(base, threading.Event()), name="chutku-suggest",
                              daemon=True).start()
             threading.Thread(target=_warm_app_list, name="chutku-apps-warm", daemon=True).start()
+            from chutku import timeline
+            threading.Thread(target=timeline.watch, args=(base, threading.Event()), name="chutku-timeline",
+                             daemon=True).start()   # opt-in ("timeline on"): window titles only, 14 days
             from chutku import scheduled
             threading.Thread(target=scheduled.watch, args=(server, threading.Event()), name="chutku-scheduled",
                              daemon=True).start()   # "30 min baad ...", "har 15 min ...": runs beside normal work

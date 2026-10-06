@@ -42,6 +42,9 @@ class QuickIntentTests(unittest.TestCase):
         from chutku.quick_intents import QUICK_ANSWERS
         samples = {
             "system.get_time": {"local_time": "Friday, 02 October 2026, 11:00 AM"},
+            "timeline.search": {"window": ["2026-10-05T16:00", "2026-10-05T21:00"], "recording": True,
+                                "matches": [{"title": "Invoice.pdf - Edge", "app": "msedge.exe",
+                                             "at": "Mon 05 Oct, 07:15 PM"}]},
             "rewind.preview": {"items": [], "summary": "Undo 2 change(s), newest first:\n✓ filesystem.move(...)",
                                "can_undo": 2},
             "rewind.run": {"undone": ["filesystem.move(source=a, destination=b)"], "skipped_conflict": [],

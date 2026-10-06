@@ -358,8 +358,9 @@ function renderToday(t){
   tile("tile-reminders",t.reminders.length?list(t.reminders.map(r=>[r.message,new Date(r.at).toLocaleString([], {weekday:"short",hour:"numeric",minute:"2-digit"})])):node("div","tile-sub","Nothing scheduled. Try “remind me in 20 minutes to stretch”."));
   tile("tile-recent",t.recent_files.length?list(t.recent_files.slice(0,5).map(f=>[f.name,f.modified.slice(11)])):node("div","tile-sub",t.recent_scope.length?"No changes in the last 3 days.":"Grant access to your user folders to see recent work."));
   const c=t.chutku_today;
+  const night=c.night?node("div","tile-sub",c.night):node("span");
   const instant=c.instant&&c.instant.this_week!==null?node("div","tile-sub",`Instant answers this week: ${pct(c.instant.this_week)} (last week ${pct(c.instant.last_week)})`):node("span");
-  tile("tile-chutku",node("div","tile-big",String(c.done)),node("div","tile-sub",`actions done · ${c.refused} refused`+(c.log_intact?"":" · LOG DAMAGED")),instant,
+  tile("tile-chutku",node("div","tile-big",String(c.done)),node("div","tile-sub",`actions done · ${c.refused} refused`+(c.log_intact?"":" · LOG DAMAGED")),instant,night,
     list(c.latest.slice(0,3).map(a=>[TOOL_WORDS[a.tool]||a.tool,a.state==="COMPLETED"?"✓":a.state==="DENIED"?"⛔":"…"])));
 }
 async function refreshToday(){try{renderToday(await api("/api/today"));}catch{}}

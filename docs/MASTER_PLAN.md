@@ -720,7 +720,7 @@ In `AgentSession._after_step`, a FAIL/UNKNOWN sets `self.pending_feedback`:
 - **Real path:** the owner says "Oye Chutku, volume 30" → it runs. A SAPI voice playing the same command → it asks.
 - **Honest limits (OWNER_GUIDE):** a recording of the owner's voice can pass; this is a convenience filter, not a security boundary.
 
-## S20: N5 Night Shift (Chutku improves while the PC idles)
+## S20: N5 Night Shift (Chutku improves while the PC idles) — done 2026-10-06 (S20b LoRA waits for data + owner)
 
 ### `chutku/nightshift.py` (new) — `run_once(base)`
 Runs these jobs in order. Each is time-boxed and logged.
@@ -755,7 +755,7 @@ The Today panel shows "Raat ko: N naye skills, M regressions, …" from the newe
 - **Keep rule:** keep the adapter only if `eval_planner.py` and the held-out replay are both ≥ the current ones.
 - Load it via the llama-server `--lora` flag, pinned by hash in the manifest under `"planner_lora"`.
 
-## S21: N6 Episodic timeline (opt-in, metadata only)
+## S21: N6 Episodic timeline (opt-in, metadata only) — done 2026-10-06
 
 ### `chutku/timeline.py` (new)
 - Every 5 s while enabled, record `{at, exe, title}` of the foreground window (via `everyday.Desktop`) when it changes.

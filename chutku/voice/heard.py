@@ -143,12 +143,28 @@ def log_heard(path_name, text, decision, *, level=None, confidence=None, base=No
             today = time.strftime("%Y-%m-%d")
             if file.stat().st_size > 1_000_000 or _pruned_day != today:   # by age at least once a day, not only by size
                 _pruned_day = today
-                cutoff = time.time() - KEEP_DAYS * 86400
-                kept = [line for line in file.read_text(encoding="utf-8").splitlines()
-                        if _at(line) >= cutoff][-5000:]
-                file.write_text("\n".join(kept) + "\n", encoding="utf-8")
+                _prune_file(file)
         except OSError:
             pass  # the log is a diagnostic aid, never a reason to fail
+
+
+def _prune_file(file):
+    """Keep the last KEEP_DAYS (at most 5000 lines). Returns how many lines were dropped."""
+    cutoff = time.time() - KEEP_DAYS * 86400
+    lines = file.read_text(encoding="utf-8").splitlines()
+    kept = [line for line in lines if _at(line) >= cutoff][-5000:]
+    file.write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
+    return len(lines) - len(kept)
+
+
+def prune(base=None):
+    """Night Shift (S20): prune the heard log even on days nothing was heard."""
+    file = heard_path(base)
+    with _log_lock:
+        try:
+            return _prune_file(file) if file.exists() else 0
+        except OSError:
+            return 0
 
 
 def _under_test():
