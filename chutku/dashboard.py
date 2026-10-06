@@ -549,6 +549,8 @@ class DashboardServer(ThreadingHTTPServer):
             state["phase"] = {"planning": "thinking", "running": "running", "waiting_confirmation": "confirm",
                               "done": "done", "clarify": "clarify", "queued": "thinking"}.get(session["status"], "error")
         state["session"] = session
+        if session is not None and session.get("suspicious"):
+            state["message"] = "⚠ What I read tried to give me instructions: every change waits for your OK."
         state["level"] = LEVEL["rms"] if time.monotonic() - LEVEL["at"] < 0.3 else 0.0
         state["paused"] = ActionControl(self.base).paused
         from chutku.voice import mic

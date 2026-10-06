@@ -483,7 +483,7 @@ Each fix gets one test, in `tests/test_quick_intents.py` or `tests/test_real_ses
 - Gate: `eval_planner.py` ≥ the S0 baseline, zero invented app or contact names, median round time within +10%. Record before/after in the ledger.
 - Negative: a goal naming an app that is not installed → the model cannot emit another app's name (the schema enum holds only installed names plus the goal literal), and the runtime's `resolve_app` then clarifies.
 
-## S15: Prompt-injection hardening
+## S15: Prompt-injection hardening — done 2026-10-06
 
 **Wrapping observed data**
 - In `agent_loop._observation(result)`, wrap the output of tools with `output_untrusted` as `{"untrusted_data": <text>, "source": tool}`.

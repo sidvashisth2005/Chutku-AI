@@ -71,6 +71,7 @@ function renderSession(bubble,s){
   head.append(badge(statusText,s.status==="done"?"ok":TERMINAL.has(s.status)?"warn":"live"),badge(s.mode.replace("_"," "),"mode"));
   if(s.planners.some(p=>p.planner==="gemini"))head.append(badge("planned with Gemini","cloud"));
   if(s.tainted)head.append(badge("read untrusted content","warn"));
+  if(s.suspicious)head.append(badge("page tried to give instructions","danger"));
   bubble.append(head);
   if(s.declared_plan.length&&!TERMINAL.has(s.status)){const plan=node("ol","declared");s.declared_plan.forEach(p=>plan.append(node("li","",p)));bubble.append(node("div","small-title","Plan"),plan);}
   if(s.steps.length){

@@ -40,6 +40,9 @@ AUTO_EDIT_REVERSIBILITY = frozenset({"journaled", "compensatable", "single_use",
 # Reversible (R1) steps that still ask right after Chutku read outside content (a web page, a message, the clipboard),
 # because they start programs, open files, change what Chutku remembers, or turn the cloud back on.
 TAINT_SENSITIVE_R1 = ("apps.launch", "files.open", "mind.", "memory.remember", "settings.offline_mode")
+# Content Chutku read contained instruction-like text (a page or message trying to steer her, master plan S15):
+# from then on every step that changes anything waits for the owner, in every mode.
+SUSPICIOUS_REASON = "What Chutku read tried to give her instructions; every change now waits for your click."
 TAINT_R1_REASON = "This step follows content read from outside; confirm it."
 RUNS_CODE_REASON ="Running code or a program with arguments always asks first."
 CREATE_ONLY_TOOLS = frozenset({"filesystem.create_directory", "files.zip", "files.unzip", "code.build_project",
@@ -49,7 +52,7 @@ CREATE_ONLY_TOOLS = frozenset({"filesystem.create_directory", "files.zip", "file
 class PolicyKernel:
     """Small fail-closed policy kernel; expand rules before adding mutating tools."""
 
-    def authorize(self, tool: Tool, arguments: dict[str, Any], confirmed_on_screen: bool = False, *, provenance="user_stated", resource_access=None, capability_allowed=None, autonomy=None, tainted=False, protected_reason=None, exposed=None, owner_question=None) -> Authorization:
+    def authorize(self, tool: Tool, arguments: dict[str, Any], confirmed_on_screen: bool = False, *, provenance="user_stated", resource_access=None, capability_allowed=None, autonomy=None, tainted=False, protected_reason=None, exposed=None, owner_question=None, suspicious=False) -> Authorization:
         del arguments  # Risk is runtime-owned; caller-provided risk is deliberately ignored.
         risk = tool.base_risk
         if tool.resource_access is not None and (resource_access is None or tool.resource_access not in resource_access):
@@ -62,7 +65,7 @@ class PolicyKernel:
             return Authorization(Decision.DENY, risk, "Only you can ask for this directly; Chutku never chooses it by itself.")
         if provenance in DELEGATED_PROVENANCE:
             return self._delegated(tool, risk, confirmed_on_screen, autonomy, tainted,
-                                   tainted if exposed is None else exposed, owner_question)
+                                   tainted if exposed is None else exposed, owner_question, suspicious)
         if autonomy is not None:
             return Authorization(Decision.DENY, risk, "An autonomy mode applies only to delegated agent steps.")
         if provenance not in {"user_stated", "external_untrusted", "microphone_untrusted", "tool_observed", "inferred",
@@ -82,7 +85,7 @@ class PolicyKernel:
 
     @staticmethod
     def _delegated(tool: Tool, risk: Risk, confirmed_on_screen: bool, autonomy, tainted, exposed,
-                   owner_question=None) -> Authorization:
+                   owner_question=None, suspicious=False) -> Authorization:
         """Agent-proposed step for a user-stated goal, bounded by the chosen mode."""
         try:
             mode = AutonomyMode(autonomy)
@@ -100,6 +103,8 @@ class PolicyKernel:
             return Authorization(Decision.CONFIRM, risk, "Deleting always asks first.")
         if owner_question:  # a step-specific question (unknown recipient, file-changing keys) asks in every mode
             return Authorization(Decision.CONFIRM, risk, str(owner_question))
+        if suspicious and risk >= Risk.REVERSIBLE:
+            return Authorization(Decision.CONFIRM, risk, SUSPICIOUS_REASON)
         if tainted and risk >= Risk.REVERSIBLE and tool.name.startswith(TAINT_SENSITIVE_R1):
             return Authorization(Decision.CONFIRM, risk, TAINT_R1_REASON)
         if mode == AutonomyMode.OWNER:

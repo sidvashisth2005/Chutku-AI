@@ -16,7 +16,8 @@ class ApprovalStore:
         self.lock = threading.Lock()
 
     def add(self, task_id, tool, arguments, root, *, grant=None, capability=None,
-            manifest_version=None, provenance="user_stated", autonomy=None, tainted=False, exposed=None):
+            manifest_version=None, provenance="user_stated", autonomy=None, tainted=False, exposed=None,
+            suspicious=False):
         with self.lock:
             now = time.monotonic()
             self.pending = {k: v for k, v in self.pending.items() if v[0] > now}
@@ -28,7 +29,7 @@ class ApprovalStore:
                                   "capability": capability,
                                   "manifest_version": manifest_version,
                                   "provenance": provenance, "autonomy": autonomy,
-                                  "tainted": tainted, "exposed": exposed}))
+                                  "tainted": tainted, "exposed": exposed, "suspicious": suspicious}))
             return token
 
     def take(self, token):

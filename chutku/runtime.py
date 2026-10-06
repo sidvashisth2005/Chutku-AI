@@ -101,7 +101,7 @@ class Runtime:
         return current
 
     def authorize(self, tool, arguments, confirmed=False, *, provenance="user_stated", autonomy=None, tainted=False,
-                  exposed=None):
+                  exposed=None, suspicious=False):
         access = self.current_grant().access if tool.resource_access is not None else None
         capability_allowed = None
         if tool.required_capability is not None:
@@ -114,7 +114,8 @@ class Runtime:
                                      resource_access=access, capability_allowed=capability_allowed,
                                      autonomy=autonomy, tainted=tainted, exposed=exposed,
                                      protected_reason=self.protected_target(tool, arguments),
-                                     owner_question=self.step_question(tool, arguments) if autonomy is not None else None)
+                                     owner_question=self.step_question(tool, arguments) if autonomy is not None else None,
+                                     suspicious=suspicious)
 
     def step_question(self, tool, arguments):
         """A reason this exact agent step must be confirmed on screen, in every autonomy mode, or None.
@@ -206,14 +207,15 @@ class Runtime:
         return {key: "[REDACTED]" if key in sensitive_names else value for key, value in arguments.items()}
 
     def run(self, tool_name: str, arguments: dict[str, Any], *, provenance: str = "user_stated",
-            autonomy: str | None = None, tainted: bool = False, exposed: bool | None = None) -> dict[str, Any]:
+            autonomy: str | None = None, tainted: bool = False, exposed: bool | None = None,
+            suspicious: bool = False) -> dict[str, Any]:
         try:
             with self.execution_lock:
                 unlogged = self._log_not_ready(tool_name)
                 if unlogged is not None:
                     return unlogged
                 result = self._run(tool_name, arguments, provenance=provenance, autonomy=autonomy, tainted=tainted,
-                                   exposed=exposed)
+                                   exposed=exposed, suspicious=suspicious)
                 self._log_action(tool_name, arguments, result, provenance, autonomy)
                 return result
         except ExecutionBusy as error:
@@ -264,7 +266,7 @@ class Runtime:
                 result = self._run(pending["tool"], pending["arguments"],
                                    provenance=pending["provenance"], approved_task=task,
                                    autonomy=pending.get("autonomy"), tainted=pending.get("tainted", False),
-                                   exposed=pending.get("exposed"))
+                                   exposed=pending.get("exposed"), suspicious=pending.get("suspicious", False))
             self._log_action(pending["tool"], pending["arguments"], result, pending["provenance"],
                              pending.get("autonomy"), approved=not cancel)
             return result
@@ -300,7 +302,7 @@ class Runtime:
                                   {"type": "ActionLogUnavailable", "message": str(error)})
 
     def _run(self, tool_name: str, arguments: dict[str, Any], *, provenance="user_stated", approved_task=None,
-             autonomy=None, tainted=False, exposed=None) -> dict[str, Any]:
+             autonomy=None, tainted=False, exposed=None, suspicious=False) -> dict[str, Any]:
         task = approved_task or Task(command=tool_name)
         try:
             if approved_task is None:
@@ -320,10 +322,10 @@ class Runtime:
                 self._transition(task, TaskState.DENIED)
                 return {"task_id": task.task_id, "state": task.state, "reason": elevation.ELEVATED_REASON}
             authorization = self.authorize(tool, arguments, approved_task is not None, provenance=provenance,
-                                           autonomy=autonomy, tainted=tainted, exposed=exposed)
+                                           autonomy=autonomy, tainted=tainted, exposed=exposed, suspicious=suspicious)
             self.event_log.append(task.task_id, "authorization", authorization.__dict__ | {
                 "risk": int(authorization.risk), "provenance": provenance,
-                "autonomy": autonomy, "tainted": tainted, "exposed": exposed})
+                "autonomy": autonomy, "tainted": tainted, "exposed": exposed, "suspicious": suspicious})
             if authorization.decision == Decision.DENY:
                 self._transition(task, TaskState.DENIED)
                 return {"task_id": task.task_id, "state": task.state, "reason": authorization.reason}
@@ -334,7 +336,7 @@ class Runtime:
                 token = self.approvals.add(task.task_id, tool_name, arguments, self.granted_root,
                                            grant=grant.snapshot(), capability=capability,
                                            manifest_version=tool.manifest_version(), provenance=provenance,
-                                           autonomy=autonomy, tainted=tainted, exposed=exposed)
+                                           autonomy=autonomy, tainted=tainted, exposed=exposed, suspicious=suspicious)
                 self._transition(task, TaskState.WAITING_CONFIRMATION)
                 return {"task_id": task.task_id, "state": task.state, "reason": authorization.reason,
                         "approval": {"token": token, "tool": tool_name, "arguments": arguments,

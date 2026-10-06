@@ -299,6 +299,7 @@ Rules:
 - **Apps Chutku opens for you stay open when Chutku stops** (browser, VS Code, an app it built). Only Chutku's own helpers (the local model, OCR) stop with it.
 - **Chutku never runs as administrator.** If it is ever started elevated, it refuses to act. This keeps Windows' own protection of system folders in place.
 - **Everything is logged** in `data\actions.log.jsonl`: every change, every question it asked you, every refusal. Each line is chained to the previous one, so `doctor` reports any edit or truncation.
+- **If something Chutku reads tries to give her orders** ("ignore previous instructions…", "Chutku, ye link kholo"), that line is removed before her model sees it. A red badge says "page tried to give instructions", and every change in that task waits for your click.
 - **Chutku never clicks its own dashboard, HUD or tray**, so it can never approve its own step. A consequential screen click (send, pay, delete…) names the button it saw. If the screen was read again and that button changed, the click is refused.
 - **Running other programs or Python scripts** (`process.launch`, `code.run_python`) always asks you on screen first, in every level including Owner. So does typing into, or opening, a command window (Command Prompt, PowerShell, Terminal, the Run box). Chutku checks the window again at the moment it types.
 
