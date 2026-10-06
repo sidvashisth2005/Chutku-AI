@@ -16,8 +16,7 @@ import re
 
 from chutku import mind
 
-_P = r"^(?:(?:please|pls|plz|chutku|hey chutku|oye chutku)[,\s]+)*"
-_T = r"[\s.!?]*$"
+from chutku.intents.lexicon import LEAD as _P, TAIL as _T   # one Hinglish vocabulary for every parser
 _PERSON_WORDS = re.compile(
     r"\b(?:gf|bf|girl ?friend|boy ?friend|mom|mummy|mammi|mummi|mumma|maa|mother|dad|papa|father|pita\w*|bro|brother|bhai\w*|"
     r"sis|sister|behen|didi|wife|husband|friend|dost|sir|ma'?am|madam|mam|teacher|boss|manager|uncle|aunty|aunt|chacha|"
@@ -49,7 +48,7 @@ _PATTERNS = [
     ("send", re.compile(_P + r"(?:message|text|ping)\s+(?:my\s+)?(?P<to>[^,.]{1,40}?)\s+(?:saying|that|:|-)\s*(?P<text>.{1,300}?)" + _T, re.I)),
     ("send", re.compile(_P + r"(?:meri |mera |mere )?(?P<to>[^,.]{1,40}?)\s+ko\s+(?P<text>.{1,300}?)\s+(?:bhejo|bhej do|bhejdo|bol do|bolo|send karo)" + _T, re.I)),
 ]
-_NO_TEXT = {"message", "a message", "the message", "msg", "a msg", "text", "a text", "it", "this", "that"}
+from chutku.intents.lexicon import NO_TEXT as _NO_TEXT
 
 
 def _person_word(alias):

@@ -13,8 +13,7 @@ import re
 
 from chutku.tools.free_input import parse_keys
 
-_P = r"^(?:(?:please|pls|plz|chutku|hey chutku|oye chutku)[,\s]+)*"
-_T = r"(?:\s+(?:please|pls|now|jaldi|zara))*[\s.!?]*$"
+from chutku.intents.lexicon import LEAD as _P, TAIL as _T   # one Hinglish vocabulary for every parser
 _TIMES = r"(?:\s+(?P<n>\d{1,2})\s*(?:times|time|baar|bar|x))?"
 _KEYS = [
     re.compile(_P + r"(?:press|hit|tap|send)\s+(?:the\s+)?(?P<keys>[a-z0-9+ ,.-]{1,60}?)(?:\s+keys?)?" + _TIMES + _T, re.I),

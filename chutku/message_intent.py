@@ -27,7 +27,7 @@ _TYPED = [
     re.compile(r"^(?P<to>[^,.]{1,40}?)\s+ko\s+(?P<text>.{1,300}?)\s+(?:bhejo|bhej\s+do|bhejdo)\s+(?P<app>whats\s?app|telegram)"
                r"\s+(?:pe|par|se)[\s.!]*$", re.I),
 ]
-_NO_TEXT = {"message", "a message", "the message", "msg", "a msg", "text", "a text", "it", "this", "that"}
+from chutku.intents.lexicon import NO_TEXT as _NO_TEXT
 _TO_ON_APP = re.compile(r"\bto\s+(?!it\b)([^\"“”'‘’,.]{1,40}?)\s+(?:on|in|via)\s+(?:whats\s?app|telegram)\b", re.I)
 _FILLER = re.compile(r"^(?:the\s+)?(?:user|contact|chat|person)\s+(?:named|called|titled)\s+", re.I)
 

@@ -16,6 +16,27 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S13 — one Hinglish vocabulary for every instant parser
+
+Checked item by item against `docs/MASTER_PLAN.md` S13.
+
+**Done**
+- New `chutku/intents/lexicon.py`: one list of lead-in words (please/pls/plz/kindly/oye chutku/chutku/bhai/yaar/zara) and closing fillers (please/na/zara/abhi/jaldi/now/right now/for me/bhai/yaar/chutku).
+  - `quick_intents`, `daily_intent`, `mind_intent`, `file_intent`, `browser_intent`, `control_intent` and `input_intent` import them; each had its own differing list before.
+- The true duplicates `_DOMAIN` (quick/browser) and `_NO_TEXT` (message/mind) now come from the lexicon.
+
+**Checked and deliberately kept** (not real duplicates)
+- The two `_SITES` maps: search-engine names vs homepage URLs.
+- The time/volume/brightness/timer rules: English forms in `quick_intents`, Hindi forms in `daily_intent`. They are complementary, and merging them would only risk breaking phrases.
+
+**Verification**
+- The new case works: "bhai delete D:\notes\old.txt" now parses exactly like "delete D:\notes\old.txt" (`filesystem.recycle`, which still asks first).
+- `tests/test_lexicon_s13.py` (2).
+- `check_phrases.py` 118/118 instant.
+- `replay_real_goals.py`: 25 real requests, 17 same, **0 changed**.
+- **Full suite: 833 tests OK.**
+- **Live, after redeploy:** "bhai zara kitne baje hain abhi" → "07:40 AM" in 0.39 s, which equals the real clock.
+
 ### 2026-10-06: S12 — meaning-based memory measured; word overlap kept (gate not met)
 
 - **Model:** multilingual-e5-small (MIT), int8 ONNX (118 MB) plus its tokenizer in `models/e5-small/`, sha256-pinned in the manifest under `embed`. `setup_all.py` reports all artifacts OK.

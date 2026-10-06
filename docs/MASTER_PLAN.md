@@ -452,7 +452,7 @@ Each fix gets one test, in `tests/test_quick_intents.py` or `tests/test_real_ses
 - Real path: the "kal kya baat hui thi DBMS ke baare mein" answer cites the right turn.
 - Negative: an embedding nearest neighbour is never used to resolve `message.send` "to".
 
-## S13: One intent lexicon
+## S13: One intent lexicon — done 2026-10-06
 - New `chutku/intents/__init__.py` and `chutku/intents/lexicon.py`, holding:
   - `POLITE_PREFIX` (please, pls, plz, kindly, hey/oye chutku, chutku, bhai, yaar, zara);
   - `TAIL` (please, now, jaldi, na, zara, bhai, yaar);

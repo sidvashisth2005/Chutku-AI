@@ -11,8 +11,7 @@ from pathlib import Path
 import re
 import time
 
-_POLITE = r"(?:(?:please|pls|plz|kindly|hey chutku|oye chutku|chutku)[,\s]+)*"
-_TAIL = r"(?:\s+(?:please|pls|plz|for me|now|jaldi|na|zara))*[\s.!?]*$"
+from chutku.intents.lexicon import POLITE as _POLITE, TAIL as _TAIL   # one Hinglish vocabulary for every parser
 _OPEN_VERB = r"(?:open|launch|start|run|fire up|bring up)"
 _HINDI_OPEN = r"(?:kholo|khol do|khol|open karo|open kar do|chalu karo|chalu kar do|start karo|start kar do|chalao|launch karo)"
 _APP_WORDS = r"(?:\s+(?:app|application|program|software))?"
@@ -20,7 +19,7 @@ _SITES = {"youtube": "youtube", "yt": "youtube", "google": "google", "bing": "bi
           "wikipedia": "wikipedia", "wiki": "wikipedia", "maps": "maps", "google maps": "maps", "github": "github",
           "amazon": "amazon", "flipkart": "flipkart"}
 _SITE = r"(?P<site>youtube|yt|google maps|google|bing|duckduckgo|wikipedia|wiki|maps|github|amazon|flipkart)"
-_DOMAIN = re.compile(r"^(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/\S*)?$", re.IGNORECASE)
+from chutku.intents.lexicon import DOMAIN as _DOMAIN
 
 _UNIT = r"(?P<unit>minutes?|mins?|min|hours?|hrs?|hr|ghante?|minute)"
 _CLOSE = r"(?:close|quit|exit|band karo|band kar do|band|bund karo)"

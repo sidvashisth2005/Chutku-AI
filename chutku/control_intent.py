@@ -10,8 +10,7 @@ import json
 from pathlib import Path
 import re
 
-_P = r"^(?:(?:please|pls|plz|chutku|hey chutku|oye chutku|bhai|yaar)[,\s]+)*"
-_T = r"(?:[,\s]+(?:please|pls|chutku|bhai|yaar|na|abhi|now|right now))*[\s.!?]*$"
+from chutku.intents.lexicon import LEAD as _P, TAIL as _T   # one Hinglish vocabulary for every parser
 _KINDS = [
     ("stop", r"(?:stop|stop it|stop that|stop everything|cancel|cancel it|cancel that|abort|ruko|ruk jao|ruk ja|bas|bas karo|"
              r"rehne do|chhodo|chodo|band karo sab|sab band karo|stop karo|cancel karo)"),

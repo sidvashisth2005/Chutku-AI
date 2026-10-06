@@ -24,9 +24,8 @@ _SITES = {"youtube": "https://www.youtube.com", "yt": "https://www.youtube.com",
           "chatgpt": "https://chatgpt.com", "whatsapp web": "https://web.whatsapp.com", "netflix": "https://www.netflix.com",
           "amazon": "https://www.amazon.in", "flipkart": "https://www.flipkart.com", "linkedin": "https://www.linkedin.com",
           "twitter": "https://x.com", "x": "https://x.com", "facebook": "https://www.facebook.com", "maps": "https://maps.google.com"}
-_DOMAIN = re.compile(r"^(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/\S*)?$", re.I)
-_P = r"^(?:(?:please|pls|plz|chutku|hey chutku|oye chutku|bhai|yaar)[,\s]+)*"
-_T = r"[\s.!?]*$"
+from chutku.intents.lexicon import DOMAIN as _DOMAIN
+from chutku.intents.lexicon import LEAD as _P, TAIL as _T   # one Hinglish vocabulary for every parser
 _Q = r"[\"'“”‘’]?"
 
 

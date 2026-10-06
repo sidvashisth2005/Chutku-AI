@@ -16,8 +16,7 @@ from pathlib import PureWindowsPath
 import re
 
 _PATH = r"[a-z]:\\(?:(?!\s+(?:and|then|aur|phir)\s)[^?*\x22'<>|]){1,240}?"  # stops at " and " / quotes: never swallows the next clause
-_P = r"^(?:(?:please|pls|plz|chutku|hey chutku|oye chutku)[,\s]+)*"
-_T = r"[\s.!?]*$"
+from chutku.intents.lexicon import LEAD as _P, TAIL as _T   # one Hinglish vocabulary for every parser
 _Q = r"[\"'“”‘’]"
 _PATTERNS = [
     ("delete", re.compile(_P + r"(?:delete|remove|recycle|trash|bin)\s+(?:the\s+)?(?:file\s+|folder\s+)?(?P<path>" + _PATH + r")" + _T, re.I)),

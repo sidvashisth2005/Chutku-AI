@@ -17,8 +17,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 import re
 
-_P = r"^(?:(?:please|pls|plz|chutku|hey chutku|oye chutku|bhai|yaar|zara)[,\s]+)*"
-_T = r"(?:\s+(?:please|pls|na|zara|jaldi|abhi|bhai|yaar))*[\s.!?]*$"
+from chutku.intents.lexicon import LEAD as _P, TAIL as _T   # one Hinglish vocabulary for every parser
 _DO = r"(?:karo|kar do|kardo|kar de|karna|do|de do)"
 
 _PATTERNS = [
