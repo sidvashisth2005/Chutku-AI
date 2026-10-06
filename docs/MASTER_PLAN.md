@@ -463,7 +463,7 @@ Each fix gets one test, in `tests/test_quick_intents.py` or `tests/test_real_ses
 - Gate: `check_phrases.py` all-instant (≥ the S0 count), and `tests/test_quick_intents.py`, `test_daily_intent.py` and `test_real_sessions.py` green.
 - New test: "bhai delete D:\x.txt" now parses (it was a miss).
 
-## S14: State-grounded decoding + confidence escalation
+## S14: State-grounded decoding + confidence escalation — measured 2026-10-06: gates not met, both off (code kept)
 
 **Grounded enums**
 - In `agent_loop.agent_schema(tool_schemas, profile, grounding)`, `grounding` is a dict built per round in `LocalAgentPlanner.propose`:

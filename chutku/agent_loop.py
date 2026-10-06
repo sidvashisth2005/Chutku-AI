@@ -427,6 +427,62 @@ def _observation(result):
     return text if len(text) <= OBSERVATION_CHARS else text[:OBSERVATION_CHARS] + "...[truncated]"
 
 
+# Arguments whose value must name something that exists (master plan S14): (tool, argument, grounding source).
+GROUNDED_ARGUMENTS = (("apps.launch", "name", "apps"), ("apps.quit", "name", "apps"),
+                      ("message.send", "to", "contacts"), ("message.read_chat", "to", "contacts"),
+                      ("message.open_chat", "to", "contacts"))
+MAX_GROUNDED_APPS = 300
+# Off: measured 2026-10-06 (3 A/B runs of scripts/eval_planner.py) it removed invented names but scored 26/40 vs
+# 26-27/40 without, below the S14 gate (>= 27). Messages to unknown people already ask first (Runtime.step_question).
+GROUNDING_ENABLED = False
+
+
+def grounding():
+    """What exists right now: installed app names and the people the owner saved (names and nicknames)."""
+    found = {"apps": [], "contacts": []}
+    try:
+        from chutku.tools.everyday import start_apps
+        found["apps"] = sorted({app["name"] for app in start_apps() if app.get("name")})[:MAX_GROUNDED_APPS]
+    except OSError:
+        pass
+    try:
+        from chutku import mind
+        for person in mind.default().load()["people"]:
+            found["contacts"] += [n for n in [person.get("name", "")] + list(person.get("aliases", [])) if n]
+    except (OSError, ValueError, KeyError):
+        pass
+    return found
+
+
+def goal_phrases(goal, limit=80):
+    """Every 1-3 word phrase of the owner's request: a name the owner says is always allowed, even a new one."""
+    words = re.findall(r"[\w.+&'-]+", goal)
+    phrases = []
+    for size in (1, 2, 3):
+        for start in range(len(words) - size + 1):
+            phrase = " ".join(words[start:start + size])
+            for form in (phrase, phrase.title()):   # "open photoshop" may be written "Photoshop"
+                if form not in phrases:
+                    phrases.append(form)
+    return phrases[:limit]
+
+
+def ground_schemas(schemas, found, goal):
+    """The grammar may only name an installed app or a saved person, or words the owner actually said: the small
+    model can no longer invent "Spotify Music" or a contact. Validation still uses the tools' own schemas."""
+    grounded = dict(schemas)
+    literals = goal_phrases(goal)
+    for tool, key, source in GROUNDED_ARGUMENTS:
+        schema = schemas.get(tool)
+        if not schema or not found.get(source) or key not in (schema.get("properties") or {}):
+            continue
+        copy = json.loads(json.dumps(schema))
+        copy["properties"][key]["enum"] = sorted(set(found[source]) | set(literals))
+        copy["properties"][key].pop("pattern", None)
+        grounded[tool] = copy
+    return grounded
+
+
 def qwen_prompt(runtime, session):
     """The local planner's request: a FIXED system prefix (rules + core tools + their notes, identical for every
     goal, so llama-server reuses it from its prompt cache) and a short user message (matched tools, their notes,
@@ -494,7 +550,9 @@ class LocalAgentPlanner:
         from chutku.profiles import QWEN
         schemas, system, user = qwen_prompt(runtime, session)
         messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
-        raw, meta = self.service.complete(messages, schema=agent_schema(schemas, QWEN), schema_name="agent_step",
+        grammar = agent_schema(ground_schemas(schemas, grounding(), session.goal) if GROUNDING_ENABLED else schemas,
+                               QWEN)
+        raw, meta = self.service.complete(messages, schema=grammar, schema_name="agent_step",
                                           max_tokens=QWEN.max_tokens, check=check)
         proposal = validate_proposal(raw, runtime, set(schemas))
         if proposal["status"] == "clarify" and not session.steps and not getattr(session, "full_catalog", False) \

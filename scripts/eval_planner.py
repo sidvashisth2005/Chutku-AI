@@ -54,12 +54,15 @@ EXE = ROOT / "vendor/llama-b11181-vulkan/llama-server.exe"
 class Service:
     def complete(self, messages, *, schema, schema_name, max_tokens, check=None):
         payload = {"messages": messages, "temperature": 0, "seed": 42, "max_tokens": max_tokens,
-                   "response_format": {"type": "json_schema", "json_schema": {"name": schema_name, "strict": True,
+                   "logprobs": True, "top_logprobs": 1, "response_format": {"type": "json_schema", "json_schema": {"name": schema_name, "strict": True,
                                                                              "schema": schema}}}
         request = urllib.request.Request(f"http://127.0.0.1:{PORT}/v1/chat/completions",
                                          data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
         out = json.loads(urllib.request.urlopen(request, timeout=300).read())
-        return json.loads(out["choices"][0]["message"]["content"]), {"backend": "eval"}
+        from chutku.brain_service import tool_confidence
+        choice = out["choices"][0]
+        return json.loads(choice["message"]["content"]), {
+            "backend": "eval", "tool_confidence": tool_confidence((choice.get("logprobs") or {}).get("content"))}
 
 
 class OldPromptPlanner(LocalAgentPlanner):
@@ -91,7 +94,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="models/Qwen3-4B-Q4_K_M.gguf")
     parser.add_argument("--old-prompt", action="store_true", help="the pre-2026-10-05 full prompt, for comparison")
+    parser.add_argument("--dump-margins", action="store_true", help="print tool confidence vs right/wrong (S14)")
+    parser.add_argument("--no-grounding", action="store_true", help="free-text names (the default since S14)")
+    parser.add_argument("--grounding", action="store_true", help="names limited to installed apps / saved people")
     args = parser.parse_args()
+    import chutku.agent_loop as loop
+    loop.GROUNDING_ENABLED = bool(args.grounding) and not args.no_grounding
     device = discrete_device(str(EXE))
     command = [str(EXE), "--model", str(ROOT / args.model), "--host", "127.0.0.1", "--port", str(PORT), "--offline",
                "--no-webui", "--ctx-size", "16384", "--parallel", "1", "--reasoning", "off", "--n-gpu-layers", "99",
@@ -114,6 +122,7 @@ def main():
             for task in TASKS:
                 session = AgentSession(task["goal"], mode=task["mode"], context=context)
                 t = time.monotonic()
+                _meta = {}
                 try:
                     proposal, _meta = planner.propose(session, runtime)
                     ok = score(task["id"], proposal)
@@ -121,7 +130,7 @@ def main():
                 except Exception as error:   # an invalid plan counts as a miss
                     ok, shown = False, f"error {type(error).__name__}: {str(error)[:80]}"
                 seconds = time.monotonic() - t
-                results.append((task["id"], ok, seconds))
+                results.append((task["id"], ok, seconds, (_meta or {}).get("tool_confidence")))
                 print(f"{'PASS' if ok else ('----' if ok is None else 'MISS')} {task['id']:24s} {seconds:5.1f}s {shown}",
                       flush=True)
     finally:
@@ -130,6 +139,15 @@ def main():
     times = sorted(r[2] for r in results)
     print(f"model={args.model} old_prompt={args.old_prompt}: {sum(1 for r in scored if r[1])}/{len(scored)} first rounds right, "
           f"median {times[len(times) // 2]:.1f}s per round")
+    if args.dump_margins:
+        rows = sorted((r for r in scored if r[3] is not None), key=lambda r: r[3])
+        print("tool confidence (lowest first) | right?")
+        for task_id, ok, _s, confidence in rows:
+            print(f"  {confidence:.3f}  {'right' if ok else 'WRONG'}  {task_id}")
+        for threshold in (0.3, 0.5, 0.7, 0.9):
+            low = [r for r in rows if r[3] < threshold]
+            print(f"threshold {threshold}: escalates {len(low)} rounds, of which {sum(1 for r in low if not r[1])} were "
+                  f"wrong; wrong rounds above it: {sum(1 for r in rows if r[3] >= threshold and not r[1])}")
 
 
 if __name__ == "__main__":

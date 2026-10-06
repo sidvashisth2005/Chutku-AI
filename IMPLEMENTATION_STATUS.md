@@ -16,6 +16,37 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S14 — grounded decoding and confidence escalation measured; both kept off (gates not met)
+
+Checked item by item against `docs/MASTER_PLAN.md` S14.
+
+**Baseline** (S0 deferred it; GPU free, on AC; `scripts/eval_planner.py`, 40 scored golden first rounds):
+- current code before S14: **26/40**;
+- S0 code (checked out and re-run): **27/40**.
+- The 10-05 figure of 31/40 does not reproduce even on the old code.
+- The single task that differs (`neg-injection-url`) fails closed: its second step does not validate, so nothing runs.
+
+**Grounded enums** (`agent_loop.grounding/goal_phrases/ground_schemas`):
+- Implemented for `apps.launch/apps.quit name` (installed apps, ≤300) and `message.* to` (saved people), plus every 1–3-word phrase of the goal (also capitalised) as the escape for new names.
+- No registered tool has a `title` argument, so that part of the plan has nothing to apply to.
+- The tools' own schemas and the Gemini profile are unchanged.
+
+**Escalation**
+- `BrainService._complete` asks for logprobs. `brain_service.tool_confidence()` = the probability of the first allowed tool-name token.
+- llama-server's top alternatives are the *unconstrained* distribution, so the chosen token's own probability is the signal. It is logged in `meta`.
+- **Calibration** (`eval_planner.py --dump-margins`): the wrong rounds are confidently wrong (≥ 0.948); any threshold escalates 0–1 rounds and catches **0** errors. Escalation is therefore **not enabled**.
+
+**Gate**
+- **Invented names**, real 4B, 7 goals: 0 invented with grounding.
+  - Without grounding, "whatsapp kholo" invented the contact "Pita Shri" (not in memory) and window ids.
+  - Negative "open photoshop" (not installed): refused, nothing launched; `resolve_app` asks to clarify.
+- **Accuracy** (3 A/B runs on the final code): grounded **26/26/26** vs ungrounded **26/27/27**, same median (~4.0 s). Below the gate of ≥ 27/40.
+- **Decision:** `GROUNDING_ENABLED = False`. Its benefit is already covered, because messages to unknown people ask first (S1 `step_question`). `eval_planner.py --grounding` re-tests it.
+
+**Tests and checks**
+- `tests/test_grounding_s14.py` (6). **Full suite: 839 tests OK.**
+- **Live after redeploy:** `live_check.py` **12/12 correct**, median 1.0 s, slowest 4.6 s.
+
 ### 2026-10-06: S13 — one Hinglish vocabulary for every instant parser
 
 Checked item by item against `docs/MASTER_PLAN.md` S13.

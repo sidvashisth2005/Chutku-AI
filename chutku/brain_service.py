@@ -64,6 +64,23 @@ class BrainUnavailable(OSError):
     pass
 
 
+def tool_confidence(tokens):
+    """How much the model itself wanted the first tool name the grammar let through: the probability of the first
+    token after "tool": " (None when there is no tool or no probabilities). Low means the model's own first choice
+    was not an allowed tool: it is unsure (master plan S14)."""
+    import math
+    import re as _re
+    if not tokens:
+        return None
+    text = ""
+    for token in tokens:
+        if _re.search(r'"tool"\s*:\s*"$', text):
+            logprob = token.get("logprob")
+            return round(math.exp(logprob), 4) if isinstance(logprob, (int, float)) else None
+        text += str(token.get("token", ""))
+    return None
+
+
 def _describe(error):
     """Keep the server's own words (e.g. a context overflow), not only the exception's class name."""
     return f"{type(error).__name__}: {str(error)[:200]}" if str(error) else type(error).__name__
@@ -378,7 +395,7 @@ class BrainService:
 
     def _complete(self, port, key, messages, schema, schema_name, max_tokens, check):
         payload = {"model": MODEL_NAME, "messages": messages, "temperature": 0, "seed": 42,
-                   "max_tokens": max_tokens, "stream": False,
+                   "max_tokens": max_tokens, "stream": False, "logprobs": True, "top_logprobs": 1,
                    "response_format": {"type": "json_schema", "json_schema": {
                        "name": schema_name, "strict": True, "schema": schema}}}
         results = queue.Queue(maxsize=1)
@@ -412,7 +429,8 @@ class BrainService:
                 raise ValueError("Local model response was truncated; nothing will execute.")
             content = json.loads(choice["message"]["content"])
             return content, {"seconds": round(time.monotonic() - started, 3),
-                             "usage": response.get("usage", {}), "backend": self.backend}
+                             "usage": response.get("usage", {}), "backend": self.backend,
+                             "tool_confidence": tool_confidence((choice.get("logprobs") or {}).get("content"))}
         self.close()
         raise TimeoutError("Local model request exceeded its deadline.")
 
