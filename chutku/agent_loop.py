@@ -86,6 +86,7 @@ PRIVATE_TOOLS = frozenset({
     "screen.read_text", "screen.understand", "screen.capture", "uia.inspect", "windows.list", "memory.search",
     "code.run_python", "log.recent", "message.read_chat",
     "filesystem.list", "filesystem.largest", "files.find", "files.recent",   # names of the owner's files
+    "reflex.list",   # the owner's past requests
 })
 # On-screen actions may legitimately repeat with identical arguments (press "5" twice, look again after a
 # click); other completed steps are never re-run. Step and round limits still bound any loop.
@@ -670,6 +671,7 @@ class AgentSession:
         self.round_start = 0
         self.round_declared, self.round_planner = 0, None
         self.quick = None  # optional deterministic first-round planner
+        self.reflex = None  # optional learned instant skills (master plan S17), tried after the hand-written rules
         self.limits = {"steps": MAX_EXECUTED_STEPS, "rounds": MAX_PLANNING_ROUNDS, "failures": MAX_FAILURES,
                        "seconds": SESSION_SECONDS}
         self.long_task = is_long_goal(self.goal)
@@ -951,6 +953,15 @@ class AgentSession:
                 return proposal, meta
             except (LookupError, ValueError, KeyError, OSError):
                 pass   # no rule, or a rule's plan was refused: the model plans instead
+        if self.reflex is not None and not self.steps and not self.pending_feedback:
+            try:
+                proposal, meta = self.reflex.propose(self, runtime, check)
+                self._reject_placeholders(proposal)
+                self._reject_unnamed_documents(proposal)
+                self._reject_unrelated_effects(proposal)
+                return proposal, meta
+            except (LookupError, ValueError, KeyError, OSError):
+                pass   # no learned skill fits: the model plans
         replay = self._replay(runtime)
         if replay is not None:
             return replay

@@ -124,6 +124,9 @@ def rate_latest(rating, base=None):
                 changed = True
         return changed
     experience.update_rows(base, rate)
+    if rating == "bad":
+        from chutku import reflex
+        reflex.on_bad_rating(base, latest["said"])   # a learned skill that planned it is switched off
     _feedback_log(base, latest["said"], rating)
     return latest["said"]
 

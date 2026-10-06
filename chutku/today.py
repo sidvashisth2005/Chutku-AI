@@ -121,12 +121,22 @@ def snapshot(base: Path, runtime) -> dict:
                          "done": sum(a.get("state") == "COMPLETED" for a in actions),
                          "refused": sum(a.get("state") == "DENIED" for a in actions),
                          "latest": [{"tool": a["tool"], "state": a["state"], "time": a["time"]} for a in actions[:4]],
-                         "log_intact": chain["ok"]},
+                         "log_intact": chain["ok"], "instant": _instant(base)},
         "actions_paused": runtime.action_control.paused,
         "alerts": [{"title": title, "message": message} for _key, title, message, _band in _health_problems()],
         "routines": _routines(),
         "notes": _notes(),
     }
+
+
+def _instant(base):
+    """Share of requests answered without the model, this week and last week (learned skills, master plan S17)."""
+    try:
+        from chutku.reflex import instant_share
+        this_week, last_week = instant_share(base)
+    except (OSError, ValueError):
+        return None
+    return {"this_week": this_week, "last_week": last_week}
 
 
 def _notes():

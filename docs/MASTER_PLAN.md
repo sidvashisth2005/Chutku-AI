@@ -567,7 +567,7 @@ In `AgentSession._after_step`, a FAIL/UNKNOWN sets `self.pending_feedback`:
 - Real path: 5 forced-FAIL fake runs of a test tool → the 6th asks. Then `/api/chat` "reliability batao" lists it.
 - Negative: an agent-proposed `settings.earned_autonomy` → DENIED.
 
-## S17: N1 Reflex Compiler (Chutku writes her own instant skills)
+## S17: N1 Reflex Compiler (Chutku writes her own instant skills) — done 2026-10-06
 
 ### `chutku/reflex.py` (new)
 - **Input rows:** from `experience.load(base)`, take rows with `rating != "bad"`, not `tainted`, every step `risk <= 1` (look up the registry), and no sensitive arguments.

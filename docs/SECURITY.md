@@ -26,11 +26,11 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (150 registered)
+### Risk levels and tools (151 registered)
 
 | Level | Count | Meaning |
 |---|---|---|
-| R0 observation | 57 | reads only |
+| R0 observation | 58 | reads only |
 | R1 reversible | 40 | easily undone (open apps or pages, window and media control) |
 | R2 data modification | 22 | changes data, with runtime undo where available |
 | R3 external side effect | 25 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, screen.click_risky, settings.theme_restore, settings.theme_set, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close |

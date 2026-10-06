@@ -8,7 +8,7 @@ if(location.hash)history.replaceState(null,"",location.pathname);
 let sessionToken = tokenFromLink || "";
 try{sessionToken = sessionToken || sessionStorage.getItem("chutku-token") || "";}catch{}
 let state=null, busy=false;
-const labels={reliability:"Reliability",mind:"Mind map",home:"Command center",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
+const labels={skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Command center",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
 const MODE_HELP={
   review:"Review: every step waits for your click before it runs.",
   auto_safe:"Auto (safe): looking, opening apps/files/sites and other easily reversible steps run by themselves. File changes and anything risky wait for your click.",
@@ -27,7 +27,7 @@ async function api(path,data){
   if(!response.ok)throw new Error(payload.error||"The request failed.");
   return payload;
 }
-function switchTab(id){if(id==="mind")loadMind();if(id==="reliability")loadReliability();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
+function switchTab(id){if(id==="mind")loadMind();if(id==="reliability")loadReliability();if(id==="skills")loadSkills();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
 document.querySelectorAll("[data-tab]").forEach(e=>e.addEventListener("click",()=>switchTab(e.dataset.tab)));
 
 // ---- autonomy selector (remembered per browser) ----
@@ -204,6 +204,21 @@ async function loadReliability(){
     box.append(table);
   }catch(e){error(e.message);}
 }
+function pct(v){return v===null||v===undefined?"–":Math.round(v*100)+"%";}
+async function loadSkills(data){
+  try{
+    const s=data||await api("/api/reflexes");const box=$("skills-table");box.replaceChildren();
+    box.append(node("p","muted",`Instant answers this week: ${pct(s.instant_this_week)} (last week ${pct(s.instant_last_week)}).`));
+    if(!s.skills.length){box.append(node("p","muted","Nothing learned yet."));return;}
+    const table=node("table","reliability");const head=node("tr");["Phrase","Steps","Examples","Worked",""].forEach(h=>head.append(node("th","",h)));table.append(head);
+    s.skills.forEach(k=>{const tr=node("tr",k.enabled?"":"weak");
+      [k.phrase,k.tools.join(" → "),k.examples.join(" · "),`${k.passes}/${k.hits}`+(k.enabled?"":" (off: "+k.disabled_reason+")")].forEach(v=>tr.append(node("td","",String(v))));
+      const cell=node("td"),b=node("button","text-button",k.enabled?"Switch off":"Switch on");
+      b.addEventListener("click",async()=>{try{await loadSkills(await api("/api/reflexes",{id:k.id,enabled:!k.enabled}));}catch(e){error(e.message);}});
+      cell.append(b);tr.append(cell);table.append(tr);});
+    box.append(table);
+  }catch(e){error(e.message);}
+}
 async function loadMind(){try{renderMind(await api("/api/mind"));}catch(e){error(e.message);}}
 function renderMind(m){
   const open=items=>(items||[]).map(i=>({label:i.text,detail:(i.done?"✓ done":"open")+" · #"+i.id+(i.added?" · added "+i.added:""),done:i.done}));
@@ -325,7 +340,8 @@ function renderToday(t){
   tile("tile-reminders",t.reminders.length?list(t.reminders.map(r=>[r.message,new Date(r.at).toLocaleString([], {weekday:"short",hour:"numeric",minute:"2-digit"})])):node("div","tile-sub","Nothing scheduled. Try “remind me in 20 minutes to stretch”."));
   tile("tile-recent",t.recent_files.length?list(t.recent_files.slice(0,5).map(f=>[f.name,f.modified.slice(11)])):node("div","tile-sub",t.recent_scope.length?"No changes in the last 3 days.":"Grant access to your user folders to see recent work."));
   const c=t.chutku_today;
-  tile("tile-chutku",node("div","tile-big",String(c.done)),node("div","tile-sub",`actions done · ${c.refused} refused`+(c.log_intact?"":" · LOG DAMAGED")),
+  const instant=c.instant&&c.instant.this_week!==null?node("div","tile-sub",`Instant answers this week: ${pct(c.instant.this_week)} (last week ${pct(c.instant.last_week)})`):node("span");
+  tile("tile-chutku",node("div","tile-big",String(c.done)),node("div","tile-sub",`actions done · ${c.refused} refused`+(c.log_intact?"":" · LOG DAMAGED")),instant,
     list(c.latest.slice(0,3).map(a=>[TOOL_WORDS[a.tool]||a.tool,a.state==="COMPLETED"?"✓":a.state==="DENIED"?"⛔":"…"])));
 }
 async function refreshToday(){try{renderToday(await api("/api/today"));}catch{}}

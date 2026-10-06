@@ -287,6 +287,11 @@ Rules:
 - **Memory tab:** the notes you saved.
 - **Mind map tab:** everything you told Chutku, drawn as a map (see section 3).
 - **Reliability tab:** for each action and target (an app, site, folder or contact), how many times it ran, how many really worked, and the cautious success estimate. Each step in a task also shows a small chip like "12/13 ✓". When trust is low, the spoken reply starts with "Shayad ho gaya, ek baar check kar lo".
+- **Skills I learned tab** (since 2026-10-06): when you ask the same kind of thing twice in different words (for example "tell me whether VLC exists on this laptop", then "… Steam …") and the model's plan worked both times, Chutku learns that shape. Next time ("… Spotify …") she does it instantly, without the model. Ask **"tumne kya seekha"** / **"what did you learn"** to hear the list.
+  - Each skill has a **Switch off / Switch on** button. A skill also switches itself off after one failure, when you say **"galat kiya"** about a request it handled, or when one of its steps keeps failing.
+  - Learned skills never send messages, delete, change files, run code, or click/type on screen.
+  - The Today card shows **"Instant answers this week: X% (last week Y%)"**.
+  - From a terminal: `python -m chutku.cli reflex list|compile|enable <id>|disable <id>`.
 
 ---
 

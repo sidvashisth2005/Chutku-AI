@@ -48,6 +48,9 @@ PATTERNS = [
     ("weather", re.compile(rf"^{_POLITE}(?:(?:what(?:'?s| is) the |how(?:'s| is) the |tell me the |check the )?weather|mausam|temperature)(?:\s+(?:like\s+)?(?:in|at|of|for)\s+(?P<city>[a-z .'-]{{2,60}}?))?(?:\s+(?:today|now|right now|currently|at the moment|tomorrow|kaisa hai|kya hai|batao|kaisa rahega))*{_TAIL}", re.I)),
     ("weather", re.compile(rf"^{_POLITE}(?P<city>[a-z .'-]{{2,60}}?)\s+(?:ka|mein|me)\s+(?:mausam|weather|temperature)(?:\s+(?:kaisa hai|kya hai|batao|kaisa rahega))?{_TAIL}", re.I)),
     ("news", re.compile(rf"^{_POLITE}(?:(?:give|tell|show|get) me |what(?:'?s| is) |any )?(?:the )?(?:(?:latest|today'?s|top|recent)\s+)?(?:news|headlines|khabar|samachar)(?:\s+(?:about|on|of|for|regarding)\s+(?P<topic>.{{2,100}}?))?(?:\s+(?:batao|sunao|dikhao))?{_TAIL}", re.I)),
+    ("info_learned", re.compile(rf"^{_POLITE}(?:tumne kya (?:kya )?seekha(?: hai)?|kya seekha(?: hai)?|what (?:did|have) you "
+                                rf"learn(?:ed|t)?|what skills (?:did|have) you learn(?:ed|t)?|show (?:your |the )?learned "
+                                rf"skills|skills i taught you){_TAIL}", re.I)),
     ("info_reliability", re.compile(rf"^{_POLITE}(?:tum kitni reliable ho|reliability batao|how reliable are you|"
                                     rf"show (?:your |my )?reliability|kitna sahi kaam karti ho){_TAIL}", re.I)),
     ("info_perf", re.compile(rf"^{_POLITE}(?:what(?:'?s| is) (?:the |my )?)?(?:(?:cpu|gpu|processor|laptop|pc|computer)\s+"
@@ -497,7 +500,8 @@ def _single(goal, apps=None):
                              "info_theme": ("settings.theme_status", "Check the theme"),
                              "info_health": ("system.health", "Check battery, memory and disk"),
                              "info_perf": ("system.performance", "Check CPU, GPU, memory and temperature"),
-                             "info_reliability": ("ledger.summary", "Check how often each action really worked")}[kind]
+                             "info_reliability": ("ledger.summary", "Check how often each action really worked"),
+                             "info_learned": ("reflex.list", "List the request shapes learned as instant skills")}[kind]
             return _proposal(tool, {}, purpose, "", finish=False)
         if kind in {"net_check", "net_ip"}:
             return _proposal("net.check", {}, "Check the internet connection", "", finish=False)
@@ -754,6 +758,23 @@ def _say_reliability(out):
     return text
 
 
+def _say_learned(out):
+    """Learned instant skills (master plan S17) in plain words."""
+    def share(value):
+        return "–" if value is None else f"{round(value * 100)}%"
+    week = (f" Instant answers this week: {share(out.get('instant_this_week'))} "
+            f"(last week {share(out.get('instant_last_week'))}).")
+    skills = out.get("skills") or []
+    if not skills:
+        return ("Nothing learned yet: when you ask the same kind of thing twice in different words and it works, "
+                "I learn to do it instantly." + week)
+    active = [s for s in skills if s.get("enabled")]
+    text = f"I learned {len(skills)} skill{'' if len(skills) == 1 else 's'} ({len(active)} on): " + "; ".join(
+        f"\"{s['phrase']}\" ({s['passes']}/{s['hits']} worked)" if s.get("enabled") else f"\"{s['phrase']}\" (off)"
+        for s in skills[:5]) + "."
+    return text + week
+
+
 def _say_gpu(out):
     return "; ".join(f"{g['name']} with {round(int(g['vram_mib']) / 1024)} GB video memory ({int(g['vram_mib'])} MB, "
                      f"driver {g['driver_version']})" for g in out["gpus"]) + "."
@@ -914,7 +935,7 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
-QUICK_ANSWERS = {"ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
+QUICK_ANSWERS = {"reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,

@@ -16,6 +16,61 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S17 — Reflex Compiler (Chutku learns instant skills from verified model plans)
+
+Checked item by item against `docs/MASTER_PLAN.md` S17.
+
+- **`chutku/reflex.py` (new):**
+  - **Inputs:** experience rows that are not rated bad, not tainted and not purely rule-planned, where every step is R0/R1, not `message.*`, deletes, runs_code, modify, user_only, or a tool with sensitive arguments.
+  - **Shape and slots:** rows are grouped by skeleton. Within a group, the argument values that differ between examples become slots, and the rest of the wording becomes fixed words.
+    - **Deviation 1:** a value that is the same in every example stays a fixed word. The plan made every value found in the goal a slot, which would have generalised "youtube" or "brave" from two examples.
+  - **Template and regex:** `^…$`, case-insensitive, matched against the romanised goal with polite words removed (lexicon). App-name slots use `[\w .+&'-]`, number slots use digits.
+  - **Gates:**
+    1. leave-one-out (the phrase from the other examples must give back each example's exact plan);
+    2. no collision with `conversations.jsonl`/`experience.jsonl` goals done with other tools, or with `check_phrases.py` instant phrases;
+    3. tool restrictions;
+    4. at match time, schema and validator checks, and an `apps.launch` slot must resolve to an installed app.
+  - **Deviation 2:** screen, mouse, keyboard, input, uia and clipboard steps are also excluded, because they act on whatever is in front.
+  - **Deviation 3:** with fixed slots, leave-one-out checks that the regex re-extracts each example's values. Re-deriving the slots from one remaining example is impossible when there are only 2 examples.
+- **Storage:** `data/reflexes.json` (atomic writes, per-file lock). A recompile keeps hits, passes, fails and on/off state.
+- **Runtime:**
+  - A new session tier `ReflexPlanner` (label `reflex`, backend `reflex:<id>`), tried after the hand-written rules and before exact replay, first round only, with the same cheap guards.
+  - **Deviation 4:** it is a separate tier, not inside `QuickPlanner._single`, so the label is visible and chains or instant answers never pick up learned skills.
+- **Demotion (automatic):**
+  - any FAIL or unverified run;
+  - "galat kiya" on a request it would plan (`learning.rate_latest` → `on_bad_rating`);
+  - the earned-autonomy ledger saying one of its steps keeps failing (checked at match time).
+- **Compile triggers:** after each verified model-planned session, for that shape only (`reflex.after_session` in the dashboard worker). Nightly compiling comes with S20.
+- **Surfaces:**
+  - `chutku.cli reflex list|compile|enable|disable <id>`;
+  - a dashboard tab "Skills I learned" with on/off buttons (`GET/POST /api/reflexes`, token-checked);
+  - the tool `reflex.list` (R0, in PRIVATE_TOOLS), with the phrases "tumne kya seekha" / "what did you learn" and a fixed answer;
+  - the Today card line "Instant answers this week: X% (last week Y%)".
+- **Tests:** `tests/test_reflex.py` (14), covering:
+  - two rows → one skill, and a new request is filled;
+  - one wording or a single example teaches nothing;
+  - leave-one-out blocks a skill;
+  - a collision blocks a skill;
+  - messages, deletes, rule-planned and bad-rated rows are never compiled;
+  - an uninstalled app does not match;
+  - a recompile keeps state;
+  - a failure, "galat kiya" or a failing ledger switches a skill off;
+  - the session tier plans without the model, and a hand rule wins;
+  - `after_session` counting and compiling;
+  - the instant share;
+  - the phrase and answer.
+
+  **Full suite: 869 tests OK (168 s).** SECURITY.md counts: 151 tools, R0 58.
+- **Real path** (live Chutku after redeploy):
+  1. "tell me whether VLC exists on this laptop" and "… Steam …" → planned by the **local model**, 7.75 s and 7.70 s, both verified.
+  2. The skill `tell me whether {query} exists on this laptop` **compiled by itself** after the second session.
+  3. The new variant "… Spotify …" → **planner `reflex`, 2.62 s**, `apps.installed {"query": "Spotify"}`, answer "Spotify exists". This was cross-checked against `Get-StartApps`, which lists Spotify. The skill is now 1/1.
+  4. "tumne kya seekha" → 0.35 s, "I learned 1 skill (1 on)… Instant answers this week: 65%". An independent count of `conversations.jsonl` gives 60/92 = 0.652, which matches.
+- **Negative:** against the real skills, "close spotify", "tell me whether VLC exists on my phone" and an empty slot give **no match**.
+- **Limits:**
+  - Skills only come from requests the model planned with all steps verified. A wrong-but-verified plan can become a skill until the owner says "galat kiya" or switches it off.
+  - Skills never send messages, delete, change files, run code or act on the screen.
+
 ### 2026-10-06: S16 — Earned Autonomy (outcomes ledger, calibrated trust, add-only policy)
 
 Checked item by item against `docs/MASTER_PLAN.md` S16.

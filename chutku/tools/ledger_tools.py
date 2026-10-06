@@ -1,4 +1,5 @@
-"""Earned-autonomy tools (master plan S16): "reliability batao" and the owner-only relax switch."""
+"""Earned-autonomy tools (master plan S16): "reliability batao" and the owner-only relax switch; and the learned
+instant skills (S17): "tumne kya seekha"."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -35,6 +36,11 @@ def _relax(arguments, _context):
                       else Verification.FAIL)
 
 
+def _learned(_arguments, _context):
+    from chutku import reflex
+    return ToolResult(reflex.summary(_root()), Verification.PASS)
+
+
 def _validate_none(arguments):
     if arguments:
         raise ValueError("This takes no arguments.")
@@ -53,3 +59,7 @@ def register_ledger_tools(registry):
         "on the same place run without asking (on), or always ask again (off).", Risk.REVERSIBLE, _relax,
         _validate_switch, argument_schema=_SWITCH, reversibility="compensatable",
         success_predicate="preference_written", user_only=True))
+    registry.register(Tool("reflex.list", "What Chutku learned: request shapes she now plans instantly without the "
+        "model (learned from requests the model planned and that were verified), with how often each worked, and "
+        "the share of instant answers this week vs last week.", Risk.OBSERVATION, _learned, _validate_none,
+        argument_schema=_NONE, reversibility="not_applicable", success_predicate="reflexes_read"))

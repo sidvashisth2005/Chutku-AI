@@ -65,10 +65,29 @@ def main() -> None:
     gemini = subparsers.add_parser("gemini", help="Configure Gemini as the secondary planner (off unless cloud.gemini is granted)")
     gemini.add_argument("gemini_action", choices=("status", "set-key"))
     subparsers.add_parser("open", help="Open the running Chutku dashboard in your browser")
+    reflexes = subparsers.add_parser("reflex", help="Learned instant skills: list, compile, enable or disable")
+    reflexes.add_argument("reflex_action", choices=("list", "compile", "enable", "disable"))
+    reflexes.add_argument("reflex_id", nargs="?")
     namespace = parser.parse_args()
     if namespace.command == "open":
         from chutku.dashboard import open_running_dashboard
         print(open_running_dashboard())
+        return
+    if namespace.command == "reflex":
+        from chutku import reflex
+        from chutku.app import PROJECT_ROOT
+        if namespace.reflex_action == "compile":
+            with create_runtime() as runtime:
+                print(json.dumps(reflex.compile_all(PROJECT_ROOT, runtime.registry), indent=2, ensure_ascii=False))
+        elif namespace.reflex_action == "list":
+            print(json.dumps(reflex.summary(PROJECT_ROOT), indent=2, ensure_ascii=False))
+        else:
+            if not namespace.reflex_id:
+                raise SystemExit("Give the skill id (see: reflex list).")
+            changed = reflex.set_enabled(PROJECT_ROOT, namespace.reflex_id, namespace.reflex_action == "enable")
+            if changed is None:
+                raise SystemExit(f"No skill with id {namespace.reflex_id}.")
+            print(json.dumps({"id": changed["id"], "enabled": changed["enabled"]}))
         return
     if namespace.command == "autostart":
         from chutku.autostart import autostart

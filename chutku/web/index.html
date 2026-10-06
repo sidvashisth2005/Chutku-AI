@@ -12,6 +12,7 @@
     <button class="nav-item" data-tab="history"><span>↺</span> Activity</button>
     <button class="nav-item" data-tab="capabilities"><span>⊞</span> Capabilities</button>
     <button class="nav-item" data-tab="reliability"><span>◎</span> Reliability</button>
+    <button class="nav-item" data-tab="skills"><span>✦</span> Skills I learned</button>
     <button class="nav-item" data-tab="verification"><span>✓</span> Verification</button>
   </nav>
   <div class="sidebar-bottom"><span class="status-dot"></span> Runs on your computer<p>Local model first.<br>Every result verified.</p><div class="version">CHUTKU / WORKSPACE PREVIEW</div></div>
@@ -83,6 +84,7 @@ recall local
 forget project_goal
 unfinished writes</pre></div></section>
   <section id="reliability" class="view" hidden><div class="eyebrow">EARNED AUTONOMY</div><h1>How often each action really worked.</h1><p class="subtitle">Every step that changes something is checked after it runs. A kind of step that keeps failing asks you first, in every mode.</p><div id="reliability-table"></div></section>
+  <section id="skills" class="view" hidden><div class="eyebrow">LEARNED SKILLS</div><h1>Requests Chutku now does instantly.</h1><p class="subtitle">When you ask the same kind of thing twice in different words and the model's plan worked both times, Chutku learns the shape and skips the model next time. One failure switches a skill off; you can switch any skill off here.</p><div id="skills-table"></div></section>
   <section id="verification" class="view" hidden><div class="eyebrow">EVIDENCE BEFORE CLAIMS</div><h1>Built. Tested. Observed.</h1><p class="subtitle">Saved verification from this machine, with explicit limits. These results describe the tested scope.</p><div id="verification-results" class="capability-grid"></div><section class="panel"><h2>What remains</h2><p class="muted">Hindi/Hinglish speech accuracy, custom wake word, observation-driven replanning and the consented human voice corpus remain empirical work. The model proposes a plan; you review every step before it runs.</p><p class="footnote">The guard owns the dashboard and its subprocesses. Existing applications and Windows-brokered app launches may remain open. Emergency stop does not undo completed file changes.</p></section></section>
 </main>
 <dialog id="trace-dialog"><div class="dialog-head"><h2>Activity trace</h2><button id="close-trace" class="icon-button" aria-label="Close trace">×</button></div><p id="trace-id" class="muted break"></p><div id="trace-events"></div></dialog>

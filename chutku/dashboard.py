@@ -226,9 +226,10 @@ class DashboardServer(ThreadingHTTPServer):
                     try:
                         action(router, beat)
                         try:  # a fully verified plan becomes a worked example for similar requests
-                            from chutku import experience, learning
-                            experience.record(self.base, session, runtime)
+                            from chutku import experience, learning, reflex
+                            recorded = experience.record(self.base, session, runtime)
                             learning.after_session(self.base, session, runtime)   # failed wording -> what worked
+                            reflex.after_session(self.base, session, runtime, recorded)   # learned instant skills
                         except (OSError, ValueError, KeyError):
                             pass
                     finally:
@@ -718,7 +719,9 @@ class DashboardServer(ThreadingHTTPServer):
         session.silent = silent   # set before any work starts: a live conversation narrates its own results
         if self.planner_factory is None:
             from chutku.quick_intents import QuickPlanner
+            from chutku.reflex import ReflexPlanner
             session.quick = QuickPlanner()
+            session.reflex = ReflexPlanner(self.base)
         planner, fallback = self.planners()
         self.latest_session_id = session.id
 
@@ -886,6 +889,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "paused_reason": paused_explanation(self.server.base, short=True) if today["actions_paused"] else None})
                 elif parts.path == "/api/reliability":
                     response = (200, {"rows": runtime.ledger.table()})
+                elif parts.path == "/api/reflexes":
+                    from chutku import reflex
+                    response = (200, reflex.summary(self.server.base))
                 elif parts.path == "/api/mind":
                     from chutku.recall import mind_map
                     response = (200, mind_map(self.server.base))
@@ -968,7 +974,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         path = urlsplit(self.path).path
         if path in {"/api/chat", "/api/agent/confirm", "/api/agent/stop", "/api/voice/ask", "/api/preferences",
-                    "/api/suggestions"}:
+                    "/api/suggestions", "/api/reflexes"}:
             self._reply(*self._agent_post(path, data))
             return
         if not self.server.action_lock.acquire(blocking=False):
@@ -1165,6 +1171,13 @@ def _agent_post(self, path, data):
             if set(data) != {"id", "action"}:
                 raise ValueError("Give id and action.")
             return 200, suggest.respond(server.base, data["id"], data["action"])
+        if path == "/api/reflexes":   # the owner switches a learned skill on or off (Skills tab)
+            from chutku import reflex
+            if set(data) != {"id", "enabled"} or not isinstance(data["id"], str) or type(data["enabled"]) is not bool:
+                raise ValueError("Give id and enabled true/false.")
+            if reflex.set_enabled(server.base, data["id"], data["enabled"]) is None:
+                raise ValueError("No such skill.")
+            return 200, reflex.summary(server.base)
         if path == "/api/voice/ask":
             if set(data) - {"mode"}:
                 raise ValueError("Voice requests take only a mode.")
