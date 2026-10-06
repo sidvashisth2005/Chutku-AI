@@ -52,7 +52,7 @@
    - Python: `.venv\Scripts\python.exe`.
    - Tests: `.venv\Scripts\python.exe -m unittest discover -s tests`.
 9. **Benchmark conditions:** stop Chutku's own llama-server first (it holds VRAM), and run on AC power only (`BatteryStatus` 2 = AC).
-10. **Commit format:** `S<n>: <summary>`, blank line, then `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+10. **Commit format:** `S<n>: <summary>`. No co-author line (owner's decision, 2026-10-06).
 
 ### 0.4 Slice template
 1. Implement the slice items.
