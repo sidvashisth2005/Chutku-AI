@@ -89,5 +89,15 @@
       "path": "models/e5-small/tokenizer.json",
       "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
     }
+  },
+  "speaker": {
+    "name": "WeSpeaker ResNet34-LM (VoxCeleb2), ONNX",
+    "license": "CC-BY-4.0 (Wespeaker/wespeaker-voxceleb-resnet34-LM)",
+    "status": "Owner Voice Lock (master plan S19), 2026-10-06; hash = Hugging Face X-Linked-ETag",
+    "model": {
+      "source": "https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet34-LM/resolve/main/voxceleb_resnet34_LM.onnx",
+      "path": "models/speaker/voxceleb_resnet34_LM.onnx",
+      "sha256": "7bb2f06e9df17cdf1ef14ee8a15ab08ed28e8d0ef5054ee135741560df2ec068"
+    }
   }
 }

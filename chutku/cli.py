@@ -11,6 +11,51 @@ def _runtime(grant_id="sandbox") -> Runtime:
     return create_runtime(grant_id=grant_id)
 
 
+def _voice_command(namespace):
+    """Owner Voice Lock (master plan S19) from the terminal."""
+    from pathlib import Path
+    import wave
+    from chutku.app import PROJECT_ROOT
+    from chutku.core.action_control import ActionControl
+    from chutku.voice import recognition, speaker
+    if namespace.voice_action == "status":
+        enabled, threshold = speaker.settings(PROJECT_ROOT)
+        print(json.dumps({"voice_lock": enabled, "enrolled": speaker.load_voiceprint(PROJECT_ROOT) is not None,
+                          "model_ready": speaker.available(), "threshold": threshold}, indent=2))
+        return
+    if namespace.voice_action == "forget":
+        from chutku.core.preferences import Preferences
+        Preferences(PROJECT_ROOT).update({"voice_lock": False})
+        speaker.voiceprint_path(PROJECT_ROOT).unlink(missing_ok=True)
+        print("Voiceprint deleted and the voice lock is off.")
+        return
+    control = ActionControl(PROJECT_ROOT)
+    clips = []
+    for number, line in enumerate(speaker.ENROLL_LINES, 1):
+        for _attempt in range(2):
+            input(f"\n[{number}/{len(speaker.ENROLL_LINES)}] Press Enter, then read aloud:\n    {line}\n")
+            pcm = recognition.capture(control)["pcm"]
+            seconds = speaker.voiced_seconds(pcm)
+            if seconds >= 2.0:
+                print(f"    ok ({seconds:.1f} s of speech)")
+                clips.append(pcm)
+                break
+            print(f"    only {seconds:.1f} s of speech heard; once more, a little louder")
+    if namespace.voice_action == "record":
+        folder = Path(namespace.folder or r"D:\ChutkuScratch\voicelock\owner")
+        folder.mkdir(parents=True, exist_ok=True)
+        for index, pcm in enumerate(clips):
+            with wave.open(str(folder / f"owner-{index}.wav"), "wb") as stream:
+                stream.setnchannels(1)
+                stream.setsampwidth(2)
+                stream.setframerate(16000)
+                stream.writeframes(pcm)
+        print(f"Saved {len(clips)} clips to {folder} (for scripts/calibrate_voice_lock.py --owner).")
+        return
+    used = speaker.enroll(PROJECT_ROOT, clips)
+    print(f"Enrolled with {used} clips. Type 'voice lock on' in the dashboard chat to switch the lock on.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Chutku text-first runtime")
     parser.add_argument("--resource-grant", default="sandbox",
@@ -65,6 +110,9 @@ def main() -> None:
     gemini = subparsers.add_parser("gemini", help="Configure Gemini as the secondary planner (off unless cloud.gemini is granted)")
     gemini.add_argument("gemini_action", choices=("status", "set-key"))
     subparsers.add_parser("open", help="Open the running Chutku dashboard in your browser")
+    voice = subparsers.add_parser("voice", help="Owner voice lock: enroll your voice, record clips, status, forget")
+    voice.add_argument("voice_action", choices=("enroll", "record", "status", "forget"))
+    voice.add_argument("folder", nargs="?", help="record: where to save 16 kHz WAV clips")
     reflexes = subparsers.add_parser("reflex", help="Learned instant skills: list, compile, enable or disable")
     reflexes.add_argument("reflex_action", choices=("list", "compile", "enable", "disable"))
     reflexes.add_argument("reflex_id", nargs="?")
@@ -72,6 +120,9 @@ def main() -> None:
     if namespace.command == "open":
         from chutku.dashboard import open_running_dashboard
         print(open_running_dashboard())
+        return
+    if namespace.command == "voice":
+        _voice_command(namespace)
         return
     if namespace.command == "reflex":
         from chutku import reflex

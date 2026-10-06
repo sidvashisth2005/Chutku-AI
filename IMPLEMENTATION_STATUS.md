@@ -16,6 +16,57 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S19 — Owner Voice Lock (built and checked with the real model; the owner's enrollment is pending)
+
+Checked item by item against `docs/MASTER_PLAN.md` S19.
+
+- **Model:** WeSpeaker ResNet34-LM (VoxCeleb2) ONNX, 26.5 MB, CC-BY-4.0, in `models/speaker/`, CPU via onnxruntime. Its sha256 `7bb2f06e…` equals the Hugging Face X-Linked-ETag; it is pinned in `models/manifest.json` under `speaker`.
+- **`chutku/voice/speaker.py` (new):**
+  - Kaldi-compatible 80-band log-mel features in numpy: 25/10 ms frames, povey window, pre-emphasis, mean normalisation.
+  - Speech-only frames feed `embed()`, which returns an L2-normalised 256-number embedding.
+  - `enroll()` needs at least 6 clips with at least 2 s of speech, and writes `data/voiceprint.npy`.
+  - `is_owner()` and `verify_recent()` give None when the lock is off or nobody is enrolled, and False when there is too little speech (fail closed).
+  - The default threshold is 0.55 (preference `voice_lock_threshold`, validated 0.2–0.95).
+- **Where it applies:**
+  - Every capture path hands its utterance over: `recognition.capture` (Whisper requests and approvals), the wake listener (the woken segment), and Live (a 15 s in-memory ring, fed only while Chutku is not speaking).
+  - `DashboardServer.begin_session(origin="voice")` scores it once into `session.speaker_verified`. Scheduled tasks skip the check: they were checked when ordered.
+- **Policy:**
+  - When `speaker_verified is False`, every R1+ step returns CONFIRM in every mode, with the reason "This voice did not sound like the owner's…". R0 questions are still allowed.
+  - **Deviation:** instead of a new kernel parameter, it reuses the S15 `suspicious` channel (now able to carry its own reason text). That channel already threads through runtime, approvals and re-checks.
+  - A voice-lock request **cannot be approved by voice**: `_wait_for` leaves it on screen, and Live `_answer_approval` refuses.
+  - The switch `settings.voice_lock` is `user_only`: "voice lock on/off" is typed only, and it refuses "on" before enrollment. The dashboard `/api/preferences` also refuses to set `voice_lock` true without a voiceprint.
+- **Surfaces:**
+  - the dashboard **Voice lock** tab (8 prompted lines, one clip at a time, memory only, Finish, lock on/off);
+  - `chutku.cli voice enroll|record|status|forget`;
+  - the tools `voice.lock_status` (R0) and `settings.voice_lock`. 158 tools: R0 61, R1 43.
+- **Calibration:** `scripts/calibrate_voice_lock.py` renders 6 lines with every installed Windows voice. Model check, 1.8 s:
+  - same voice cosine mean 0.834 (min 0.76; the plan required > 0.6);
+  - different voices mean 0.175 (max 0.259);
+  - EER 0 on these.
+
+  With `--owner` clips it reports the owner EER and the FAR ≤ 1% threshold into `verification/voice-lock.json`. **That needs the owner's recordings.**
+- **Tests:** `tests/test_voice_lock.py` (11, fake embeddings), covering:
+  - off or not enrolled → no effect;
+  - owner vs stranger;
+  - too little speech → not the owner;
+  - the recent utterance is what gets scored;
+  - enrollment needs 6 clear clips;
+  - the feature layout;
+  - a stranger → CONFIRM for R1 in Owner mode while R0 is allowed;
+  - the switch is user_only and needs enrollment;
+  - Live voice approval is refused;
+  - the voiceprint is only read by local modules, never by `cloud_planner`/`live`/`internet`;
+  - threshold validation.
+
+  **Full suite: 903 tests OK (157 s).**
+- **Real path (the real model, without the owner's voice):**
+  - "Microsoft David" was enrolled as a stand-in owner from 6 rendered lines (0.69 s) in a separate state folder, and the lock was switched on.
+  - A held-out David line via `note_utterance`/`verify_recent` → owner, **score 0.905** (0.06 s) → `task.schedule` COMPLETED.
+  - The same line by "Microsoft Zira" → **score 0.163** → **WAITING_CONFIRMATION** with the voice-lock reason.
+  - The live Chutku after redeploy (lock off): `live_check.py` **12/12 correct, median 0.8 s**, so no change when off.
+- **Owner-only (not done):** enroll the real voice, run calibration with the owner's clips plus TV/YouTube impostors, then "voice lock on". The live microphone test from the plan (owner "Oye Chutku, volume 30" runs; a speaker playing the same asks) needs the owner present.
+- **Limit:** a recording of the owner passes. Windows voices are not people, so the real separation must be measured on the owner's clips.
+
 ### 2026-10-06: S18 — Causal Rewind (one undo for everything Chutku did in a window or task)
 
 Checked item by item against `docs/MASTER_PLAN.md` S18.

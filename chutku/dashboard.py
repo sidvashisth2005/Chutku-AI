@@ -130,6 +130,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.work_queue = []           # orders given while another runs: (session, action), oldest first
         self.queue_lock = threading.Lock()
         self.batch = []                # sessions of the current back-to-back run, for the summary
+        self.enroll_clips = []         # Owner Voice Lock enrollment in progress (memory only)
         super().__init__(("127.0.0.1", port), DashboardHandler)
         self.origin = f"http://127.0.0.1:{self.server_port}"
 
@@ -321,12 +322,68 @@ class DashboardServer(ThreadingHTTPServer):
             snapshot = session.snapshot()
             status = snapshot["status"]
             if status == "waiting_confirmation":
+                if snapshot.get("speaker_verified") is False:   # voice lock: not the owner's voice, screen only
+                    self._hud_set("confirm", message="Voice not recognised as the owner's: approve on screen.")
+                    return
                 if not self._approve_by_voice(session, snapshot):
                     return  # unclear twice: the HUD/page buttons still work
                 continue
             if status in {"done", "clarify", "failed", "stopped", "cancelled"}:
                 return
             time.sleep(0.3)
+
+    def voice_enroll(self, action):
+        """Owner Voice Lock enrollment from the dashboard: record one prompted line at a time (memory only)."""
+        from chutku.voice import speaker
+        if action == "reset":
+            self.enroll_clips = []
+        elif action == "clip":
+            if not self.action_lock.acquire(blocking=False):
+                raise ExecutionBusy("Another action is running. Wait for it to finish.")
+            wake = self.wake
+            if wake is not None:
+                wake.busy.set()   # the wake listener must not treat the line as a request
+            try:
+                from chutku.voice import recognition
+                pcm = recognition.capture(ActionControl(self.base))["pcm"]
+            finally:
+                self.action_lock.release()
+                if wake is not None:
+                    wake.busy.clear()
+            seconds = speaker.voiced_seconds(pcm)
+            if seconds >= 2.0:
+                self.enroll_clips.append(pcm)
+            result = {"heard_seconds": round(seconds, 1), "ok": seconds >= 2.0}
+        elif action == "finish":
+            used = speaker.enroll(self.base, self.enroll_clips)
+            self.enroll_clips = []
+            result = {"enrolled_with": used}
+        elif action in {"lock_on", "lock_off"}:
+            if action == "lock_on" and speaker.load_voiceprint(self.base) is None:
+                raise ValueError("Enroll your voice first.")
+            self.preferences.update({"voice_lock": action == "lock_on"})
+        else:
+            raise ValueError("Unknown action.")
+        enabled, threshold = speaker.settings(self.base)
+        status = {"voice_lock": enabled, "enrolled": speaker.load_voiceprint(self.base) is not None,
+                  "threshold": threshold, "clips": len(self.enroll_clips), "lines": speaker.ENROLL_LINES}
+        return status | (result if action in {"clip", "finish"} else {})
+
+    def _speaker_check(self):
+        """Owner Voice Lock (S19): True/False for the voice that started this request; None when the lock is off."""
+        try:
+            from chutku.voice import speaker
+            verified, score = speaker.verify_recent(self.base)
+        except Exception:
+            _log().exception("checking the voice failed")
+            try:
+                from chutku.voice import speaker
+                verified, score = (False if speaker.settings(self.base)[0] else None), None   # on: fail closed
+            except Exception:
+                verified, score = None, None
+        if verified is not None:
+            _log().info("voice lock: owner=%s score=%s", verified, score)
+        return verified
 
     def _approve_by_voice(self, session, snapshot):
         """Ask the pending step aloud, listen for haan/nahi, apply it. False when no clear answer was heard."""
@@ -690,7 +747,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.latest_session_id = session.id
         return session
 
-    def begin_session(self, goal, mode, origin, *, silent=False):
+    def begin_session(self, goal, mode, origin, *, silent=False, speaker_check=True):
         from chutku import control_intent
         control = control_intent.kind(goal)
         busy = self.action_lock.locked() or bool(self.queued_ids())
@@ -716,6 +773,8 @@ class DashboardServer(ThreadingHTTPServer):
         if examples:
             context["past_successes"] = examples
         session = self.agent_sessions.add(AgentSession(goal, mode=mode, origin=origin, context=context))
+        if origin == "voice" and speaker_check:   # a scheduled task was checked when it was ordered
+            session.speaker_verified = self._speaker_check()
         session.silent = silent   # set before any work starts: a live conversation narrates its own results
         if self.planner_factory is None:
             from chutku.quick_intents import QuickPlanner
@@ -974,7 +1033,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         path = urlsplit(self.path).path
         if path in {"/api/chat", "/api/agent/confirm", "/api/agent/stop", "/api/voice/ask", "/api/preferences",
-                    "/api/suggestions", "/api/reflexes"}:
+                    "/api/suggestions", "/api/reflexes", "/api/voice/enroll"}:
             self._reply(*self._agent_post(path, data))
             return
         if not self.server.action_lock.acquire(blocking=False):
@@ -1105,7 +1164,7 @@ INSTANT_TOOLS = frozenset({
     "filesystem.undo_last_write", "filesystem.undo_last_copy", "filesystem.undo_last_move",
     "filesystem.restore_last_recycled", "screen.undo_last_capture", "screen.displays",
     "voice.list_voices", "voice.recognition_status", "voice.audio_input_status", "voice.speak",
-    "settings.earned_autonomy",
+    "settings.earned_autonomy", "settings.voice_lock",
 })
 
 
@@ -1171,6 +1230,11 @@ def _agent_post(self, path, data):
             if set(data) != {"id", "action"}:
                 raise ValueError("Give id and action.")
             return 200, suggest.respond(server.base, data["id"], data["action"])
+        if path == "/api/voice/enroll":   # Owner Voice Lock tab: status, record a line, finish, lock on/off
+            if set(data) != {"action"} or data["action"] not in {"status", "reset", "clip", "finish", "lock_on",
+                                                                  "lock_off"}:
+                raise ValueError("Give an action: status, reset, clip, finish, lock_on or lock_off.")
+            return 200, server.voice_enroll(data["action"])
         if path == "/api/reflexes":   # the owner switches a learned skill on or off (Skills tab)
             from chutku import reflex
             if set(data) != {"id", "enabled"} or not isinstance(data["id"], str) or type(data["enabled"]) is not bool:
@@ -1186,6 +1250,10 @@ def _agent_post(self, path, data):
                 return 200, {"kind": "voice", "transcript": None, "message": message}
             return 200, {"kind": "agent", "transcript": transcript, "session": session.snapshot()}
         if path == "/api/preferences":
+            if data.get("voice_lock") is True:
+                from chutku.voice import speaker
+                if speaker.load_voiceprint(server.base) is None:
+                    raise ValueError("Enroll your voice first (Voice lock tab).")
             values = server.preferences.update(data)
             if "wake_word" in data:
                 server.apply_wake(values["wake_word"])

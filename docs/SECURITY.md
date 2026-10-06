@@ -26,12 +26,12 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (156 registered)
+### Risk levels and tools (158 registered)
 
 | Level | Count | Meaning |
 |---|---|---|
-| R0 observation | 60 | reads only |
-| R1 reversible | 42 | easily undone (open apps or pages, window and media control) |
+| R0 observation | 61 | reads only |
+| R1 reversible | 43 | easily undone (open apps or pages, window and media control) |
 | R2 data modification | 23 | changes data, with runtime undo where available |
 | R3 external side effect | 25 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, screen.click_risky, settings.theme_restore, settings.theme_set, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close |
 | R4 destructive / privileged | 6 | filesystem.delete_permanent, network.adapter_restore, network.adapter_set, power.cancel, power.schedule, process.terminate |
@@ -109,7 +109,10 @@ A test (`tests/test_taint_v2.py`) fails if any name in these lists is not a real
 
 - Same-user programs can read the screen and clipboard, or change local files and databases. Path checks are not hostile-process isolation (a time-of-check/time-of-use race exists).
 - In Owner mode, code builds (`code.build_project`) run model-written code without asking (the owner's choice). They write only to a new project folder, but the code itself runs with the owner's rights. A reduced-rights sandbox for builds and scripts is a parked item in `docs/MASTER_PLAN.md`.
-- Voice transcripts are untrusted and voice cannot approve R3+ steps unless the owner answers a direct yes/no question. Speaker verification is planned (master plan S19); until then, anyone near the microphone can give tasks in hands-free mode.
+- Voice transcripts are untrusted, and voice cannot approve R3+ steps unless the owner answers a direct yes/no question.
+- **Owner Voice Lock (S19)** is off until the owner enrolls and types "voice lock on". Then a voice that does not match the voiceprint (`data/voiceprint.npy`, local only) makes every R1+ step wait for an on-screen click, and that request cannot be approved by voice.
+  - It is a convenience filter, not authentication: a recording of the owner can pass.
+  - Until it is switched on, anyone near the microphone can give tasks in hands-free mode.
 - The injection tests exercise deterministic boundaries; they are not a statistical security guarantee.
 
 Report vulnerabilities privately to the project owner. Never put secrets or sensitive screenshots in logs or issues.

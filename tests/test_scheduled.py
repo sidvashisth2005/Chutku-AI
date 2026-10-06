@@ -108,7 +108,7 @@ class RunnerTests(unittest.TestCase):
         class Server:
             base = self.base
 
-            def begin_session(self, goal, mode, origin, silent=False):
+            def begin_session(self, goal, mode, origin, silent=False, speaker_check=True):
                 started.append((goal, mode, origin, silent))
                 return type("S", (), {"id": "sid"})()
 

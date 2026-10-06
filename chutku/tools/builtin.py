@@ -424,6 +424,8 @@ def register_builtin_tools(registry: ToolRegistry) -> None:
     register_ledger_tools(registry)
     from chutku.tools.schedule_tools import register_schedule_tools
     register_schedule_tools(registry)
+    from chutku.tools.voice_lock_tools import register_voice_lock_tools
+    register_voice_lock_tools(registry)
     from chutku.tools.free_input import register_free_input_tools
     register_free_input_tools(registry)
     from chutku.tools.net_check import register_net_check_tools

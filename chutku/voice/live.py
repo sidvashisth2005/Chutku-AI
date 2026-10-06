@@ -276,6 +276,9 @@ class LiveConversation(threading.Thread):
                         "mimeType": f"audio/pcm;rate={MIC_RATE}"}}}))
                     continue
                 LEVEL["rms"], LEVEL["at"] = _rms(chunk), time.monotonic()
+                if not self._speaking():   # Owner Voice Lock (S19): the owner's last seconds, memory only
+                    from chutku.voice import speaker
+                    speaker.feed(chunk)
                 # Noise gate: only clearly-louder-than-the-room audio reaches Google; everything else is sent as
                 # silence, so its speech detector never "hears" a fan, a keyboard or Chutku's own voice.
                 passed = self.gate.feed(chunk, speaking=self._speaking())
@@ -443,6 +446,9 @@ class LiveConversation(threading.Thread):
         snapshot = self._snapshot()
         if not snapshot or snapshot["status"] != "waiting_confirmation":
             return {"error": "Nothing is waiting for approval."}
+        if approve and snapshot.get("speaker_verified") is False:
+            # Voice lock (S19): a voice that is not the owner's cannot approve its own request by saying "haan".
+            return {"error": "This request did not come from the owner's voice; it can only be approved on screen."}
         heard = self.heard_since_question
         from chutku.voice.approval import decide
         if approve and not heard.strip():

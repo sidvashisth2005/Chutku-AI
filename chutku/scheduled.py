@@ -159,7 +159,8 @@ def watch(server, stop, tick=TICK_SECONDS):
                 continue   # paused by the owner: due tasks wait (one-off tasks run when resumed, if not too late)
             for job in take_due(server.base):
                 try:
-                    session = server.begin_session(job["goal"], job["mode"], job["origin"], silent=True)
+                    session = server.begin_session(job["goal"], job["mode"], job["origin"], silent=True,
+                                                   speaker_check=False)
                     note_run(server.base, job["id"], "started", session.id)
                     _announce(job)
                 except Exception:

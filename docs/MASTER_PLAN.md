@@ -676,7 +676,7 @@ In `AgentSession._after_step`, a FAIL/UNKNOWN sets `self.pending_feedback`:
   - Check this with an `os.listdir` diff and the volume read-back, and record the seconds.
 - **Negative:** edit one created file by hand first → it is reported as a conflict and left untouched (hash unchanged).
 
-## S19: N4 Owner Voice Lock (only the owner's voice gives tasks)
+## S19: N4 Owner Voice Lock (only the owner's voice gives tasks) — done 2026-10-06 (enrollment + calibration with the owner's voice pending)
 
 ### Model
 - WeSpeaker ResNet34 or SpeechBrain ECAPA, as ONNX (~20–26 MB), in `models/speaker/`, pinned in the manifest under `"speaker"`.

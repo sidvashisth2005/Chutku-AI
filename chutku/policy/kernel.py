@@ -114,8 +114,8 @@ class PolicyKernel:
             return Authorization(Decision.CONFIRM, risk, "Deleting always asks first.")
         if owner_question:  # a step-specific question (unknown recipient, file-changing keys) asks in every mode
             return Authorization(Decision.CONFIRM, risk, str(owner_question))
-        if suspicious and risk >= Risk.REVERSIBLE:
-            return Authorization(Decision.CONFIRM, risk, SUSPICIOUS_REASON)
+        if suspicious and risk >= Risk.REVERSIBLE:   # a text reason names a different doubt (e.g. a voice, S19)
+            return Authorization(Decision.CONFIRM, risk, suspicious if isinstance(suspicious, str) else SUSPICIOUS_REASON)
         if tainted and risk >= Risk.REVERSIBLE and tool.name.startswith(TAINT_SENSITIVE_R1):
             return Authorization(Decision.CONFIRM, risk, TAINT_R1_REASON)
         if risk >= Risk.REVERSIBLE and unreliable(reliability):

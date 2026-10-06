@@ -151,7 +151,8 @@ class PreferencesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             prefs = Preferences(Path(temp))
             self.assertEqual(prefs.load(), {"handsfree_mode": "owner", "wake_word": False, "conversation": True, "browser": "brave",
-                                        "heard_log": True, "offline_mode": False, "earned_autonomy_relax": False})
+                                        "heard_log": True, "offline_mode": False, "earned_autonomy_relax": False,
+                                        "voice_lock": False, "voice_lock_threshold": 0.55})
             for bad in ({"handsfree_mode": "yolo"}, {"wake_word": "yes"}, {"conversation": 1}, {"other": 1}, {}):
                 with self.assertRaises(ValueError):
                     prefs.update(bad)
@@ -159,7 +160,8 @@ class PreferencesTests(unittest.TestCase):
                                                               "offline_mode": False, "earned_autonomy_relax": False})
             self.assertEqual(Preferences(Path(temp)).load(), {"handsfree_mode": "review", "wake_word": True,
                                                               "conversation": False, "browser": "edge", "heard_log": True,
-                                                              "offline_mode": False, "earned_autonomy_relax": False})
+                                                              "offline_mode": False, "earned_autonomy_relax": False,
+                                                              "voice_lock": False, "voice_lock_threshold": 0.55})
             with self.assertRaises(ValueError):
                 prefs.update({"browser": "netscape"})
 

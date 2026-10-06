@@ -258,6 +258,8 @@ class WakeListener(threading.Thread):
             if text:
                 log_heard("wake", text, "wake" if woke else "ignored", level=level, confidence=heard.get("confidence"))
             if woke and not self.busy.is_set():
+                from chutku.voice import speaker
+                speaker.note_utterance(segment)   # Owner Voice Lock (S19): this voice is checked when the task starts
                 self.wakes += 1
                 self.busy.set()
                 threading.Thread(target=self._dispatch, args=(command,), daemon=True).start()

@@ -8,7 +8,7 @@ if(location.hash)history.replaceState(null,"",location.pathname);
 let sessionToken = tokenFromLink || "";
 try{sessionToken = sessionToken || sessionStorage.getItem("chutku-token") || "";}catch{}
 let state=null, busy=false;
-const labels={skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Command center",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
+const labels={voicelock:"Voice lock",skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Command center",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
 const MODE_HELP={
   review:"Review: every step waits for your click before it runs.",
   auto_safe:"Auto (safe): looking, opening apps/files/sites and other easily reversible steps run by themselves. File changes and anything risky wait for your click.",
@@ -27,7 +27,7 @@ async function api(path,data){
   if(!response.ok)throw new Error(payload.error||"The request failed.");
   return payload;
 }
-function switchTab(id){if(id==="mind")loadMind();if(id==="reliability")loadReliability();if(id==="skills")loadSkills();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
+function switchTab(id){if(id==="mind")loadMind();if(id==="reliability")loadReliability();if(id==="skills")loadSkills();if(id==="voicelock")loadVoiceLock();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
 document.querySelectorAll("[data-tab]").forEach(e=>e.addEventListener("click",()=>switchTab(e.dataset.tab)));
 
 // ---- autonomy selector (remembered per browser) ----
@@ -217,6 +217,24 @@ async function loadSkills(data){
       b.addEventListener("click",async()=>{try{await loadSkills(await api("/api/reflexes",{id:k.id,enabled:!k.enabled}));}catch(e){error(e.message);}});
       cell.append(b);tr.append(cell);table.append(tr);});
     box.append(table);
+  }catch(e){error(e.message);}
+}
+async function loadVoiceLock(action){
+  const box=$("voicelock-panel");
+  try{
+    if(action==="clip")box.prepend(node("p","muted","Listening… read the highlighted line now."));
+    const s=await api("/api/voice/enroll",{action:action||"status"});box.replaceChildren();
+    box.append(node("p","",`Lock: ${s.voice_lock?"ON":"off"} · Voice enrolled: ${s.enrolled?"yes":"no"} · Threshold ${s.threshold}`));
+    if(s.ok===false)box.append(node("p","muted",`Only ${s.heard_seconds} s of speech heard; read it again a little louder.`));
+    if(s.enrolled_with)box.append(node("p","",`Enrolled with ${s.enrolled_with} clips.`));
+    const list=node("ol");s.lines.forEach((l,i)=>{const li=node("li",i===s.clips?"current":"",l);if(i<s.clips)li.append(node("span","muted"," ✓"));list.append(li);});box.append(list);
+    const row=node("div","approval-actions");
+    const add=(label,act,cls)=>{const b=node("button",cls||"text-button",label);b.addEventListener("click",()=>loadVoiceLock(act));row.append(b);};
+    if(s.clips<s.lines.length)add(`Record line ${s.clips+1}`,"clip","primary");
+    if(s.clips>=6)add("Finish enrollment","finish","primary");
+    if(s.clips)add("Start over","reset");
+    if(s.enrolled)add(s.voice_lock?"Turn lock off":"Turn lock on",s.voice_lock?"lock_off":"lock_on");
+    box.append(row);
   }catch(e){error(e.message);}
 }
 async function loadMind(){try{renderMind(await api("/api/mind"));}catch(e){error(e.message);}}

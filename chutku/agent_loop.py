@@ -639,6 +639,10 @@ ANSWER_SCHEMA = {"type": "object", "properties": {"answer": {"type": "string", "
                  "required": ["answer"], "additionalProperties": False}
 
 
+VOICE_LOCK_REASON = ("This voice did not sound like the owner's (voice lock), so every change waits for a click on "
+                     "screen.")
+
+
 class AgentSession:
     def __init__(self, goal, *, mode, origin="text", context=None):
         if not isinstance(goal, str) or not goal.strip() or len(goal) > 2000:
@@ -664,6 +668,7 @@ class AgentSession:
         self.tainted = False
         self.exposed = False  # private data (files, clipboard, screen, memory) was read in this session
         self.suspicious = False  # read content contained instruction-like text (master plan S15)
+        self.speaker_verified = None   # Owner Voice Lock (S19): False = the voice did not sound like the owner
         self.feedback = None
         self.finish_pending = False
         self.nudged = False
@@ -723,7 +728,7 @@ class AgentSession:
                 "id": self.id, "goal": self.goal, "mode": self.mode, "origin": self.origin,
                 "status": self.status, "reply": self.reply, "declared_plan": self.declared_plan,
                 "steps": [{k: v for k, v in s.items() if k != "observation"} for s in self.steps],
-                "queued": self.queue, "tainted": self.tainted, "suspicious": self.suspicious, "rounds": self.rounds,
+                "queued": self.queue, "tainted": self.tainted, "suspicious": self.suspicious, "speaker_verified": self.speaker_verified, "rounds": self.rounds,
                 "planners": self.planners,
                 "pending": None if self.pending is None else {
                     "step": self.pending["step"], "approval": {
@@ -922,7 +927,8 @@ class AgentSession:
             tainted = self.tainted and not self._from_owner_words(step)
             result = target.run(step["tool"], step["arguments"], provenance=self.provenance,
                                 autonomy=self.mode, tainted=tainted, exposed=self.exposed,
-                                suspicious=self.suspicious)
+                                suspicious=self.suspicious or (VOICE_LOCK_REASON if self.speaker_verified is False
+                                                               else False))
             trust = target.reliability(target.registry.get(step["tool"]), step["arguments"])                 if hasattr(target, "reliability") and step["tool"] in {t.name for t in target.registry.list()} else None
             with self.lock:
                 if self.cancelled.is_set():   # stopped while this step ran: keep its record, run nothing more

@@ -169,6 +169,8 @@ def capture(control, *, threshold=0.01):
     control.check()
     voice_session.check_capture()
     pcm = b"".join(frames)
+    from chutku.voice import speaker
+    speaker.note_utterance(pcm)   # Owner Voice Lock (S19): memory only, scored when a voice task starts
     activity = analyze_pcm(frames)
     activity["captured_seconds"] = round(len(pcm) / 32000, 2)
     buffer = io.BytesIO()

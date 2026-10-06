@@ -50,6 +50,18 @@ Each sentence plays twice, as A then B, in random order. Press 1 or 2 for the on
 - **Her replies no longer repeat** or run into each other in the conversation log.
 - **Names come from your memory.** She writes your saved people's names exactly as saved ("remember UB is my mammi"); no names are built into the code.
 
+### Voice lock: only your voice gives tasks (since 2026-10-06, off until you set it up)
+
+1. **Enroll once.** Use the dashboard's **Voice lock** tab: read the 8 highlighted lines, then press **Finish enrollment**. Or run `.venv\Scripts\python.exe -m chutku.cli voice enroll` in a terminal. Do it somewhere quiet, in your normal voice.
+2. **Turn it on.** Type **"voice lock on"** in the chat (typed only: no voice and no agent can switch it), or use the button on the Voice lock tab. **"voice lock off"** turns it off again.
+
+What changes when it's on:
+- When a voice request doesn't sound like you (a friend, the TV, a video), Chutku still answers questions. Anything that changes something waits for a click on screen, and that request can't be approved by saying "haan".
+- Your requests work as before. The check takes about 0.1 second.
+- Your voiceprint (`data\voiceprint.npy`) never leaves this PC. `chutku.cli voice forget` deletes it and turns the lock off.
+- **Honest limit:** a recording of your voice can pass. This keeps other people and the TV out; it is not a password.
+- **Calibrating:** `chutku.cli voice record` saves your 8 lines as clips. Then `scripts\calibrate_voice_lock.py --owner D:\ChutkuScratch\voicelock\owner` measures how well your voice is told apart and suggests a threshold.
+
 ### Mute the mic without stopping Chutku
 When friends are talking or laughing around you, mute the mic: Chutku keeps talking and finishes her answer, but hears nothing from the room until you unmute.
 - **Ctrl+Alt+X** toggles mute from anywhere, with one hand. If another program ever takes it, Chutku uses the next free one (Ctrl+Alt+Z → Ctrl+Alt+M → Ctrl+Alt+Shift+Space); the panel and the dashboard show which key is active.

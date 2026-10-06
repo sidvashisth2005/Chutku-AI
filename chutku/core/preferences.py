@@ -7,7 +7,7 @@ from pathlib import Path
 import threading
 
 DEFAULTS = {"handsfree_mode": "owner", "wake_word": False, "conversation": True, "browser": "brave", "heard_log": True,
-            "offline_mode": False, "earned_autonomy_relax": False}
+            "offline_mode": False, "earned_autonomy_relax": False, "voice_lock": False, "voice_lock_threshold": 0.55}
 _MODES = {"review", "auto_safe", "auto_edits", "owner"}
 BROWSER_CHOICES = {"brave", "edge", "chrome", "firefox", "default"}  # owner's choice 2026-10-04: Brave
 
@@ -36,19 +36,27 @@ class Preferences:
                 values["offline_mode"] = raw["offline_mode"]
             if type(raw.get("earned_autonomy_relax")) is bool:
                 values["earned_autonomy_relax"] = raw["earned_autonomy_relax"]
+            if type(raw.get("voice_lock")) is bool:
+                values["voice_lock"] = raw["voice_lock"]
+            if isinstance(raw.get("voice_lock_threshold"), (int, float)) and 0.2 <= raw["voice_lock_threshold"] <= 0.95:
+                values["voice_lock_threshold"] = float(raw["voice_lock_threshold"])
             if raw.get("browser") in BROWSER_CHOICES:
                 values["browser"] = raw["browser"]
             return values
 
     def update(self, changes: dict) -> dict:
         if not isinstance(changes, dict) or not changes or set(changes) - set(DEFAULTS):
-            raise ValueError("Only handsfree_mode, wake_word, conversation, browser, heard_log, offline_mode and "
-                             "earned_autonomy_relax can be changed.")
+            raise ValueError("Only handsfree_mode, wake_word, conversation, browser, heard_log, offline_mode, "
+                             "earned_autonomy_relax, voice_lock and voice_lock_threshold can be changed.")
         if "browser" in changes and changes["browser"] not in BROWSER_CHOICES:
             raise ValueError("browser must be brave, edge, chrome, firefox or default.")
         if "handsfree_mode" in changes and changes["handsfree_mode"] not in _MODES:
             raise ValueError("handsfree_mode must be review, auto_safe, auto_edits or owner.")
-        for flag in ("wake_word", "conversation", "heard_log", "offline_mode", "earned_autonomy_relax"):
+        if "voice_lock_threshold" in changes and not (isinstance(changes["voice_lock_threshold"], (int, float))
+                                                      and not isinstance(changes["voice_lock_threshold"], bool)
+                                                      and 0.2 <= changes["voice_lock_threshold"] <= 0.95):
+            raise ValueError("voice_lock_threshold must be between 0.2 and 0.95.")
+        for flag in ("wake_word", "conversation", "heard_log", "offline_mode", "earned_autonomy_relax", "voice_lock"):
             if flag in changes and type(changes[flag]) is not bool:
                 raise ValueError(f"{flag} must be true or false.")
         from chutku.core.jsonstore import lock_for, write_json
