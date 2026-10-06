@@ -264,7 +264,7 @@ def _move(arguments, context):
 
 
 def _undo_copy(arguments, context):
-    record = context.journal.latest_completed("filesystem.copy", context.granted_root)
+    record = context.journal.chosen("filesystem.copy", context.granted_root, arguments.get("operation_id"))
     if record is None:
         return ToolResult({"error": "No completed copy is available to undo."}, Verification.FAIL)
     destination = sandbox_target(context.granted_root, record["before"]["destination"])
@@ -280,7 +280,7 @@ def _undo_copy(arguments, context):
 
 
 def _undo_move(arguments, context):
-    record = context.journal.latest_completed("filesystem.move", context.granted_root)
+    record = context.journal.chosen("filesystem.move", context.granted_root, arguments.get("operation_id"))
     if record is None:
         return ToolResult({"error": "No completed move is available to undo."}, Verification.FAIL)
     source = sandbox_target(context.granted_root, record["before"]["source"])
@@ -322,7 +322,7 @@ def _recycle(arguments, context):
 
 
 def _restore_recycled(arguments, context):
-    record = context.journal.latest_completed("filesystem.recycle", context.granted_root)
+    record = context.journal.chosen("filesystem.recycle", context.granted_root, arguments.get("operation_id"))
     if record is None:
         return ToolResult({"error": "No completed recycled file is available to restore."}, Verification.FAIL)
     root = context.granted_root

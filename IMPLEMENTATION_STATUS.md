@@ -16,6 +16,61 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S18 — Causal Rewind (one undo for everything Chutku did in a window or task)
+
+Checked item by item against `docs/MASTER_PLAN.md` S18.
+
+- **`chutku/rewind.py` (new): effects.**
+  - Each COMPLETED R1+ action-log entry becomes an effect with the resources it wrote. Kinds:
+    - journaled file ops (write, copy, move, recycle; via the operation journal);
+    - `files.organize` (undo record);
+    - settings (volume, brightness, theme);
+    - reminders and scheduled tasks;
+    - folders Chutku made.
+  - **Lineage:** a moved file keeps its identity at the new path, so later changes to it depend on the move.
+  - **Irreversible**, listed honestly: messages, web, typing, power.
+  - **Deviation 1:** `apps.launch` is listed "left open", not closed with `apps.quit`. Closing could lose the owner's work.
+- **Plan.**
+  - Scope: `since`, `minutes`, `today`, `task_id`, `last_task`.
+  - Later dependent effects are pulled in even outside the scope. The order is newest first, which is the reverse topological order of a linear log.
+  - Each effect gets a status:
+    - `ok`;
+    - `conflict`: the file content or identity, or the setting value, differs from what Chutku left;
+    - `blocked`: depends on a conflict;
+    - `done_before`: the journal shows it undone, or `data/rewound.json` has it;
+    - `irreversible` / `left_open`.
+- **Execute.** Each inverse is the existing undo code, run on exactly that operation:
+  - new `OperationJournal.get/chosen`;
+  - the undo tools take an optional `operation_id`;
+  - first the protected-zone check, the required-capability check, and an active **modify grant for the record's own root**. With no grant there is no undo (fail closed).
+  - A failure blocks the older changes to the same resource.
+  - **Deviation 2:** inverses run inside the one approved `rewind.run` step, the same pattern as `log.undo`, not as separate `runtime.run` calls. A nested run inside a tool would contend for the execution lock, and the plan wants one approval card.
+  - The action log now keeps `state_before/state_after` for setting changes and a `ref` id for reminders and scheduled tasks, so these can be put back.
+- **Tools:**
+  - `rewind.preview` (R0);
+  - `rewind.run` (R2, modify, so it asks in Owner mode). Its approval text (`step_question`) is the full preview list.
+  - 156 tools: R0 60, R2 23.
+- **Phrases:** "pichhle N minute ka sab wapas karo" / "undo everything from the last N minutes" (fixed to an absolute `since`, so approving later does not shift the window), "aaj jo kiya sab wapas karo", "last task undo karo", "pichhle N min ka kya kya wapas ho sakta hai" (preview). "undo that" still goes to `log.undo`.
+- **Tests:** `tests/test_rewind.py` (10), covering:
+  - a move and then a rename are undone newest first, and all 3 files are gone;
+  - an owner-edited file is a conflict and is kept;
+  - an edit after a move gives conflict + blocked;
+  - the scope pulls in a later dependent write and leaves an independent file;
+  - volume is restored while a message is irreversible;
+  - a brightness the owner changed again is not written;
+  - a revoked grant means nothing is touched;
+  - a second rewind gives done_before;
+  - a single CONFIRM carries the list, and preview changes nothing;
+  - the phrases.
+
+  **Full suite: 892 tests OK (180 s).**
+- **Real path** (live Chutku after redeploy, `D:\ChutkuScratch\rewind_demo`):
+  - Setup: 3 files written, `two.txt` moved to `moved_two.txt`, volume set.
+  - "pichhle 5 minute ka sab wapas karo" → the card listed 5 changes newest first. Approved → **"Undid 5 change(s)" in 0.9 s**. An independent `os.walk` + sha256 listing shows the folder equal to before (empty).
+  - The volume in that run was already 20 before the test, so a second check: "volume 35" (read back 35) → rewind → **read back {level 20}**, its real level before the change. The earlier five were shown "Already undone", not repeated.
+- **Negative:** Chutku wrote `keep.txt`, then the file was edited by hand. The rewind card said "conflict… your version is kept", and the result was "Undid 0; kept 1". **The file hash was unchanged** ("owner edited this by hand"). The demo files were removed afterwards.
+- **Limit:** only actions in the action log are covered. Changes made before 2026-10-06 have no saved setting values, so old volume/brightness changes show as irreversible.
+
 ### 2026-10-06: Scheduled tasks (owner request, outside the master plan): "30 min baad X", "har 15 min X", "12 baje X"
 
 **Cause.** In a live session the owner asked Chutku to send "continue" into the Claude chat every 15 minutes.

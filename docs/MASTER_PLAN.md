@@ -615,7 +615,7 @@ In `AgentSession._after_step`, a FAIL/UNKNOWN sets `self.pending_feedback`:
 - Real path: run 2 model-planned goals of the same shape through `/api/chat`, compile, then a 3rd new variant → the planner label is `reflex`, it completes, and the seconds are compared with the model round.
 - Negative: an "open spotify"-shaped reflex never matches "close spotify" (collision test on the real log).
 
-## S18: N3 Causal Rewind (one undo for everything Chutku did)
+## S18: N3 Causal Rewind (one undo for everything Chutku did) — done 2026-10-06
 
 ### `chutku/rewind.py` (new)
 **Effects.** Read the action log entries (COMPLETED, risk ≥ 1) in a time window. Map each to `Effect(seq, tool, resources_written, resources_read, inverse)`:

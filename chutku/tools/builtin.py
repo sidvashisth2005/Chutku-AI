@@ -295,7 +295,7 @@ def _write_text(arguments: dict[str, Any], context: ExecutionContext) -> ToolRes
 
 def _undo_last_write(arguments: dict[str, Any], context: ExecutionContext) -> ToolResult:
     _sandbox_root, requested_root = _sandbox_target(arguments, context)
-    record = context.journal.latest_completed("filesystem.write_text", context.granted_root)
+    record = context.journal.chosen("filesystem.write_text", context.granted_root, arguments.get("operation_id"))
     if record is None:
         return ToolResult({"error": "No completed write operation is available to undo."}, Verification.FAIL)
     target = record["target"].resolve()

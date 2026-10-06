@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import time
 from typing import Any
@@ -173,6 +174,9 @@ class Runtime:
 
         A message to someone Chutku does not know yet asks (once they are remembered, messages go straight out);
         keys or clicks that would save, delete or move files ask; typing into a command window asks."""
+        if tool.name == "rewind.run":   # the one approval card lists exactly what will be undone (S18)
+            from chutku.rewind import question
+            return question(self, arguments)
         command = command_window_question(tool, arguments)
         if command:
             return command
@@ -350,6 +354,12 @@ class Runtime:
                  "message": str(message)[:200] if message else None,
                  "operation_id": output.get("operation_id"), "undo_id": output.get("undo_id"),
                  "undo": UNDO_TOOLS.get(tool_name) if state == "COMPLETED" else None}
+        if state == "COMPLETED":   # what Causal Rewind (master plan S18) needs to put a setting back
+            before, after = output.get("before"), output.get("after")
+            if before is not None and after is not None and len(json.dumps([before, after], default=str)) <= 400:
+                entry["state_before"], entry["state_after"] = before, after
+            if tool_name in {"reminder.set", "task.schedule"} and isinstance(output.get("id"), str):
+                entry["ref"] = output["id"]
         try:
             self.action_log.append(entry)
         except (OSError, ValueError) as error:

@@ -32,4 +32,6 @@ def create_runtime(base: Path = PROJECT_ROOT, grant_id: str = "sandbox") -> Runt
                       MemoryStore(base / "data/memory.db"), resource_grants=grants,
                       resource_grant=grant, state_root=base, capability_grants=capability_grants)
     register_action_log_tools(registry, runtime)
+    from chutku.rewind import register_rewind_tools
+    register_rewind_tools(registry, runtime)
     return runtime

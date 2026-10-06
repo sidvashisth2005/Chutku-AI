@@ -233,8 +233,50 @@ def _done(reply):
     return {"status": "done", "reply": reply, "declared_plan": [], "next_steps": [], "finish": True}
 
 
+_REWIND_MINUTES = re.compile(
+    rf"^{_POLITE}(?:(?:pichh?le|pichh?li|last|past)\s+(?P<n>\d{{1,4}})\s*(?P<unit>minutes?|mins?|min|ghante|ghanta|"
+    rf"hours?|hrs?)\s+(?:ka|ki|ke|mein|me)?\s*(?:sab(?:\s+kuch)?|everything|saara kaam|jo bhi kiya)\s+"
+    rf"(?:wapas|vapas|undo)\s*(?:karo|kar do|kr do|krdo)?|undo everything (?:you did )?(?:in|from|for) the "
+    rf"(?:last|past) (?P<n2>\d{{1,4}})\s*(?P<unit2>minutes?|mins?|hours?|hrs?)){_TAIL}", re.I)
+_REWIND_TODAY = re.compile(rf"^{_POLITE}(?:aaj (?:jo (?:bhi )?kiya|ka) sab(?: kuch)? (?:wapas|vapas|undo)(?: karo| kar do)?|"
+                           rf"undo everything (?:you did )?today){_TAIL}", re.I)
+_REWIND_TASK = re.compile(rf"^{_POLITE}(?:last task (?:undo|wapas)(?: karo| kar do)?|(?:pichhla|pichla|last) (?:task|kaam) "
+                          rf"(?:poora |pura )?(?:wapas|vapas|undo)(?: karo| kar do)?|undo (?:the )?(?:whole )?last task)"
+                          rf"{_TAIL}", re.I)
+_REWIND_PREVIEW = re.compile(rf"^{_POLITE}(?:rewind preview|(?:pichh?le|last) (?P<n>\d{{1,4}}) (?:minutes?|mins?|min) "
+                             rf"(?:ka|mein|me) kya kya wapas ho sakta hai|what would (?:a )?rewind (?:of|for) (?:the )?last "
+                             rf"(?P<n2>\d{{1,4}}) (?:minutes?|mins?) undo){_TAIL}", re.I)
+
+
+def _rewind(text):
+    """"pichhle 5 minute ka sab wapas karo" / "aaj jo kiya sab wapas" / "last task undo karo" (Causal Rewind, S18)."""
+    from datetime import datetime, timedelta
+    found = _REWIND_PREVIEW.match(text)
+    if found:
+        minutes = int(found.group("n") or found.group("n2"))
+        return _proposal("rewind.preview", {"minutes": minutes}, f"Show what the last {minutes} minutes' rewind "
+                         "would undo", "", finish=False)
+    found = _REWIND_MINUTES.match(text)
+    if found:
+        n, unit = int(found.group("n") or found.group("n2")), (found.group("unit") or found.group("unit2")).casefold()
+        minutes = n * 60 if unit.startswith(("h", "g")) else n
+        if not 1 <= minutes <= 10080:
+            return None
+        since = (datetime.now() - timedelta(minutes=minutes)).replace(microsecond=0).isoformat()
+        return _proposal("rewind.run", {"since": since}, f"Undo everything from the last {n} {unit}",
+                         "", finish=False)
+    if _REWIND_TODAY.match(text):
+        return _proposal("rewind.run", {"today": True}, "Undo everything from today", "", finish=False)
+    if _REWIND_TASK.match(text):
+        return _proposal("rewind.run", {"last_task": True}, "Undo the whole last task", "", finish=False)
+    return None
+
+
 def _single(goal, apps=None):
     text = " ".join(goal.split())
+    rewind = _rewind(text)
+    if rewind is not None:
+        return rewind
     from chutku import control_intent
     control = control_intent.kind(text)
     if control == "undo":
@@ -792,6 +834,20 @@ def _say_reliability(out):
     return text
 
 
+def _say_rewind(out):
+    """rewind.preview / rewind.run in plain words."""
+    if "undone" not in out:
+        return out.get("summary") or "Nothing to undo."
+    text = out.get("summary") or ""
+    if out.get("skipped_conflict"):
+        text += " Kept as you changed them: " + "; ".join(s.rstrip(".") for s in out["skipped_conflict"][:3]) + "."
+    if out.get("irreversible"):
+        text += " Cannot be undone: " + "; ".join(out["irreversible"][:3]) + "."
+    if out.get("failed"):
+        text += " Failed: " + "; ".join(out["failed"][:3]) + "."
+    return text
+
+
 def _say_tasks(out):
     tasks = out.get("tasks") or []
     if not tasks:
@@ -976,7 +1032,7 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
-QUICK_ANSWERS = {"task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
+QUICK_ANSWERS = {"rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,

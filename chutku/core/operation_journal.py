@@ -60,6 +60,26 @@ class OperationJournal:
                     "before": json.loads(row[3]), "after": json.loads(row[4])}
         return None
 
+    def get(self, operation_id: int) -> dict[str, Any] | None:
+        """One record by id (any status), for undoing exactly that operation (Causal Rewind, master plan S18)."""
+        row = self._connection.execute(
+            """SELECT operation_id, task_id, operation, target, before_json, after_json, status FROM operations
+            WHERE operation_id = ?""", (operation_id,)).fetchone()
+        if row is None:
+            return None
+        return {"operation_id": row[0], "task_id": row[1], "operation": row[2], "target": Path(row[3]).resolve(),
+                "before": json.loads(row[4]), "after": json.loads(row[5]) if row[5] else None, "status": row[6]}
+
+    def chosen(self, operation: str, root: Path | None, operation_id: int | None = None) -> dict[str, Any] | None:
+        """The record an undo acts on: exactly ``operation_id`` when given (still completed, same kind), else the
+        latest completed one under ``root``."""
+        if operation_id is None:
+            return self.latest_completed(operation, root)
+        record = self.get(operation_id)
+        if record is None or record["operation"] != operation or record["status"] != "COMPLETED":
+            return None
+        return record
+
     def records(self, operation: str) -> list[dict[str, Any]]:
         """Every finished record of one operation, oldest first (status included)."""
         rows = self._connection.execute(

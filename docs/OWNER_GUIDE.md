@@ -241,6 +241,17 @@ Everything below is **instant**: matched by rules and done within about a second
 - "find my newest PDF in Downloads and open it"
 - "make a folder D:\Notes and write today's plan in it"
 
+### Undo everything at once (Causal Rewind, since 2026-10-06)
+
+- **"pichhle 10 minute ka sab wapas karo"** / "undo everything from the last 10 minutes", **"aaj jo kiya sab wapas karo"** / "undo everything today", **"last task undo karo"** / "undo the last task".
+  - One approval card lists exactly what will be undone, newest first.
+  - Changes undone: files written, copied, moved or recycled; folders tidied; empty folders made; volume, brightness and theme; reminders and scheduled tasks.
+  - Later changes that build on one of these are undone too, first. For example, a file Chutku wrote and later moved goes back in the right order.
+- **Your own edits are never overwritten.** If you changed a file or a setting after Chutku did, it is shown as "kept as you changed it" and left alone, together with anything that depends on it.
+- **Cannot be undone, and listed as such:** messages, web searches, typing and power actions. **Apps Chutku opened stay open**, because closing them could lose your work.
+- **"pichhle 15 min ka kya kya wapas ho sakta hai"** shows the list without changing anything.
+- "undo that" / "wapas karo" still undoes just the last single change.
+
 ### Tasks for later: once, at a time, or again and again (since 2026-10-06)
 
 Give the order once. Chutku saves it, keeps talking and working normally, does the task by herself when the time comes, then goes back to normal.

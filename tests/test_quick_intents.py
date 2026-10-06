@@ -42,6 +42,11 @@ class QuickIntentTests(unittest.TestCase):
         from chutku.quick_intents import QUICK_ANSWERS
         samples = {
             "system.get_time": {"local_time": "Friday, 02 October 2026, 11:00 AM"},
+            "rewind.preview": {"items": [], "summary": "Undo 2 change(s), newest first:\n✓ filesystem.move(...)",
+                               "can_undo": 2},
+            "rewind.run": {"undone": ["filesystem.move(source=a, destination=b)"], "skipped_conflict": [],
+                           "irreversible": ["message.send(app=whatsapp, to=UB)"], "left_open": [], "failed": [],
+                           "summary": "Undid 1 change(s); 1 cannot be undone."},
             "task.list": {"tasks": [{"id": "3fa2c1", "goal": "send hi to UB", "next_at": "2026-10-06T21:00:00",
                                      "every_minutes": None, "runs": 0, "last": None,
                                      "summary": "“send hi to UB” at 9:00 PM today"}], "count": 1},
