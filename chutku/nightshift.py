@@ -12,8 +12,9 @@
 5. Fine-tune readiness (approved plan, data-gated): with 300+ verified turns and no adapter in the last 7 days,
    data/nightshift/lora-ready.json is written. Training itself is S20b and needs the owner's go-ahead.
 
-It runs from Task Scheduler (``chutku.cli nightshift install``: daily 02:30, only after 10 idle minutes, only on AC
-power) and refuses to work on battery.
+It runs from Task Scheduler (``chutku.cli nightshift install``): from 04:00 every day, on mains power, Chutku waits
+until the PC has had no keyboard or mouse input for 30 minutes, then runs once that day. It refuses to work on
+battery and keeps the PC awake only while the jobs run.
 """
 from __future__ import annotations
 
@@ -26,6 +27,7 @@ REPORT_DIR = ("data", "nightshift")
 REPLAY_DAYS = 7
 MAX_GOALS = 1000   # every distinct goal of the week; the time box decides how many are checked (newest first)
 LORA_TURNS = 300
+IDLE_MINUTES = 30   # owner, 2026-10-06: after 04:00, once the PC has been unused for half an hour
 _INSTANT = {"quick", "reflex", "replay"}
 
 
@@ -189,6 +191,25 @@ def run_once(base, *, model=None, minutes=30, force=False):
         report["skipped"] = "on battery"
         return report
     deadline = time.monotonic() + minutes * 60
+    try:
+        keep_awake(True)   # only for these minutes; Windows' own sleep timer applies again afterwards
+    except (AttributeError, OSError):
+        pass
+    try:
+        _run_jobs(base, report, model, deadline, create_runtime)
+    finally:
+        try:
+            keep_awake(False)
+        except (AttributeError, OSError):
+            pass
+    report["finished"] = datetime.now().isoformat(timespec="seconds")
+    path = report_dir(base) / f"report-{datetime.now():%Y%m%d}.json"
+    path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    report["path"] = str(path)
+    return report
+
+
+def _run_jobs(base, report, model, deadline, create_runtime):
     with create_runtime(base) as runtime:
         from chutku import reflex
         _job(report, "learned_skills", lambda: _skills(base, runtime, reflex))
@@ -196,11 +217,6 @@ def run_once(base, *, model=None, minutes=30, force=False):
         _job(report, "regression_replay", lambda: regression_replay(base, runtime, model, deadline))
         _job(report, "maintenance", lambda: maintenance(base, runtime))
         _job(report, "fine_tune_readiness", lambda: lora_readiness(base))
-    report["finished"] = datetime.now().isoformat(timespec="seconds")
-    path = report_dir(base) / f"report-{datetime.now():%Y%m%d}.json"
-    path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    report["path"] = str(path)
-    return report
 
 
 def _skills(base, runtime, reflex):
@@ -238,19 +254,61 @@ def morning_line(base):
 _INSTALL = r'''
 $ErrorActionPreference = 'Stop'
 $r = [Console]::In.ReadToEnd() | ConvertFrom-Json
-$action = New-ScheduledTaskAction -Execute $r.python -Argument '-m chutku.cli nightshift run' -WorkingDirectory $r.root
-$trigger = New-ScheduledTaskTrigger -Daily -At 02:30
-$settings = New-ScheduledTaskSettingsSet -RunOnlyIfIdle -IdleDuration (New-TimeSpan -Minutes 10) -IdleWaitTimeout (New-TimeSpan -Hours 2) -DontStopOnIdleEnd -ExecutionTimeLimit (New-TimeSpan -Hours 1) -StartWhenAvailable
+$action = New-ScheduledTaskAction -Execute $r.python -Argument '-m chutku.cli nightshift run --when-idle' -WorkingDirectory $r.root
+$trigger = New-ScheduledTaskTrigger -Daily -At 04:00
+# Chutku itself waits for 30 minutes without keyboard or mouse (Windows' own idle condition is checked too coarsely).
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 23) -StartWhenAvailable -MultipleInstances IgnoreNew
 $settings.DisallowStartIfOnBatteries = $true
 $settings.StopIfGoingOnBatteries = $true
 Register-ScheduledTask -TaskPath '\Chutku\' -TaskName 'NightShift' -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
 $t = Get-ScheduledTask -TaskPath '\Chutku\' -TaskName 'NightShift'
-@{ state = [string]$t.State; at = ($t.Triggers | Select-Object -First 1).StartBoundary; ac_only = $t.Settings.DisallowStartIfOnBatteries; idle = $t.Settings.RunOnlyIfIdle } | ConvertTo-Json -Compress
+@{ state = [string]$t.State; at = ($t.Triggers | Select-Object -First 1).StartBoundary; ac_only = $t.Settings.DisallowStartIfOnBatteries; runs = $t.Actions[0].Arguments } | ConvertTo-Json -Compress
 '''
 
 
+def idle_seconds():
+    """Seconds since the last keyboard or mouse input in this Windows session."""
+    import ctypes
+
+    class LastInput(ctypes.Structure):
+        _fields_ = [("cbSize", ctypes.c_uint), ("dwTime", ctypes.c_uint)]
+    info = LastInput(ctypes.sizeof(LastInput), 0)
+    if not ctypes.windll.user32.GetLastInputInfo(ctypes.byref(info)):
+        return 0.0
+    return max(0.0, (ctypes.windll.kernel32.GetTickCount() - info.dwTime) / 1000.0)
+
+
+def ran_today(base, now=None):
+    report = latest_report(base)
+    today = (now or datetime.now()).strftime("%Y-%m-%d")
+    return bool(report and report.get("date") == today and report.get("finished"))
+
+
+def wait_for_idle(base, *, idle_needed=IDLE_MINUTES * 60, poll=60, until=None, now=time.time, idle=None,
+                  sleep=time.sleep, power=None):
+    """From 04:00 (the task's start), wait until the PC has had no input for ``idle_needed`` seconds while on mains
+    power, at most until ``until`` (the next 04:00). True when it is time to run, False when the day passed."""
+    idle, power = idle or idle_seconds, power or on_ac_power
+    until = until or (now() + 24 * 3600 - 60)
+    while now() < until:
+        if ran_today(base):
+            return False                          # once a day: a manual run today already counts
+        if power() is not False and idle() >= idle_needed:
+            return True
+        sleep(poll)
+    return False
+
+
+def keep_awake(on):
+    """Ask Windows not to sleep while the night's jobs run (only for those minutes)."""
+    import ctypes
+    ES_CONTINUOUS, ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
+    ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | (ES_SYSTEM_REQUIRED if on else 0))
+
+
 def install(root):
-    """Task Scheduler \\Chutku\\NightShift: daily 02:30, after 10 idle minutes, AC power only (normal rights)."""
+    """Task Scheduler \\Chutku\\NightShift: from 04:00 daily, on mains power; Chutku then waits for 30 minutes without
+    keyboard or mouse before it starts (owner's choice, 2026-10-06; it was a fixed 02:30 before)."""
     import sys
     from chutku.tools.everyday import _powershell
     python = Path(sys.executable).with_name("pythonw.exe")

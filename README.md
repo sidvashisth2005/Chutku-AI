@@ -18,7 +18,7 @@ chalao", "make D:\Notes and write today's plan"). Chutku then:
    edits* (≤R2 with runtime undo). R3+ actions (closing apps, sending, power…) always
    need your on-screen click; system folders are never modified.
 
-74 registered tools cover files on all local drives (system areas read-only), any
+160 registered tools (2026-10-06) cover files on all local drives (system areas read-only), any
 installed app, default-browser web search/URLs, window and media control, settings,
 UI Automation, Playwright, screen capture, clipboard and processes. Voice uses offline
 Whisper (English/Hindi/Hinglish, Romanized output). "Build me a calculator app" writes a
@@ -28,6 +28,23 @@ and leaves the app running. Gemini is optional: after you store a key and grant
 is the backup planner when the local model cannot decide. Gemini sees the goal, the tool
 list, step summaries and public results (web pages, system status, file names). File
 contents, clipboard, screen text and memory stay on the PC.
+
+### New since 2026-10-06 (master plan S0–S22, [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md))
+
+- **Owner mode** is the default autonomy level. It asks only before changing files, deleting, power/kill actions, messages
+  to unknown people, and running code or typing into a command window (those two ask in every level).
+- **Earned autonomy:** each checked step is counted per app/site/folder/contact; a kind of step that keeps failing
+  asks first. "reliability batao", Reliability tab.
+- **Learned instant skills:** request shapes the model planned well twice become instant ("tumne kya seekha").
+- **Causal Rewind:** "pichhle 10 minute ka sab wapas karo" undoes everything Chutku changed, newest first, never over
+  your own later edits.
+- **Scheduled tasks:** "30 min baad ...", "har 15 min ...", "raat 12 baje ..." run by themselves beside normal work.
+- **Owner Voice Lock** (off until you enroll): another voice can ask, but cannot change anything without a click.
+- **Night Shift:** after 4 am, once the PC has been unused for 30 minutes (plugged in), Chutku re-plans the week's requests without running them, learns
+  skills and tidies logs; the Today card shows the result.
+- **Timeline** (opt-in, titles only): "wo PDF jo kal shaam khola tha".
+- Hardening: injection lines removed from read content, taint/identity rules, fail-closed network/paths/logging,
+  stop that really stops, streaming answers, structured logs. 935 automated tests.
 
 See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for verified evidence and
 limits, and [docs/DESIGN.md](docs/DESIGN.md) for the design.

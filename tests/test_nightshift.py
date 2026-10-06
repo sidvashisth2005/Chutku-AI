@@ -100,6 +100,30 @@ class NightShiftTests(unittest.TestCase):
         self.assertFalse(report["jobs"]["maintenance"]["ok"])
         self.assertTrue(report["jobs"]["fine_tune_readiness"]["ok"])
 
+    def test_it_waits_for_30_unused_minutes_after_4am(self):
+        clock, waited = {"t": 0.0}, []
+
+        def sleep(seconds):
+            clock["t"] += seconds
+            waited.append(seconds)
+        # The owner uses the PC until 4:15, then sleeps: idle time counts up from then.
+        idle = lambda: max(0.0, clock["t"] - 15 * 60)
+        ready = nightshift.wait_for_idle(self.base, idle=idle, now=lambda: clock["t"], sleep=sleep,
+                                         power=lambda: True, until=24 * 3600, poll=60)
+        self.assertTrue(ready)
+        self.assertEqual(clock["t"], 45 * 60)          # 4:45 = 4:15 + 30 unused minutes, not a fixed time
+
+    def test_it_never_starts_on_battery_or_twice_a_day(self):
+        clock = {"t": 0.0}
+        tick = lambda s: clock.update(t=clock["t"] + s)
+        self.assertFalse(nightshift.wait_for_idle(self.base, idle=lambda: 9999, now=lambda: clock["t"], sleep=tick,
+                                                  power=lambda: False, until=3600, poll=60))
+        with patch.object(nightshift, "on_ac_power", return_value=True):
+            nightshift.run_once(self.base)
+        clock["t"] = 0.0
+        self.assertFalse(nightshift.wait_for_idle(self.base, idle=lambda: 9999, now=lambda: clock["t"], sleep=tick,
+                                                  power=lambda: True, until=3600, poll=60))   # already ran today
+
     def test_fine_tune_readiness_needs_300_verified_turns(self):
         self.conversations([turn(f"goal {i}", ["system.get_time"], age=10) for i in range(300)])
         nightshift.report_dir(self.base).mkdir(parents=True)

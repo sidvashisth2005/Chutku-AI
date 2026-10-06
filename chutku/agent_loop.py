@@ -331,8 +331,9 @@ _CLAIMS = [
 ]
 
 
-_NEGATED = re.compile(r"\b(?:nothing|no (?:files?|folders?|documents?|messages?)|not|never|nahi|nahin)\b[^.!?]{0,40}",
-                      re.I)
+# A denial covers its own clause only: "no files named draft, so I deleted report.txt" still claims the deletion.
+_NEGATED = re.compile(r"\b(?:nothing|no (?:files?|folders?|documents?|messages?)|not|never|nahi|nahin)\b"
+                      r"(?:(?![,;:]|\b(?:so|but|then|and|aur|phir|lekin|isliye)\b)[^.!?]){0,40}", re.I)
 _QUESTION = re.compile(r"^\s*(?:what|which|how|when|where|who|whose|why|is|are|am|does|did|was|were|tell me|"
                        r"show me|list|kya|kaun|kitne|kitna|kab|kahan|kaise)\b|\?\s*$", re.IGNORECASE)
 _ACTION_WORDS = re.compile(r"\b(?:open|close|launch|start|run|create|make|write|save|delete|remove|recycle|move|copy|"
@@ -641,6 +642,21 @@ ANSWER_SCHEMA = {"type": "object", "properties": {"answer": {"type": "string", "
                  "required": ["answer"], "additionalProperties": False}
 
 
+def _in_session(method):
+    """Mark every step this session runs with its id in the action log (Causal Rewind's "last task")."""
+    import functools
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        from chutku.runtime import SESSION
+        token = SESSION.set(self.id)
+        try:
+            return method(self, *args, **kwargs)
+        finally:
+            SESSION.reset(token)
+    return wrapper
+
+
 VOICE_LOCK_REASON = ("This voice did not sound like the owner's (voice lock), so every change waits for a click on "
                      "screen.")
 
@@ -812,6 +828,7 @@ class AgentSession:
             return False
         return True
 
+    @_in_session
     def advance(self, runtime, planner, *, fallback=None, on_update=None, heartbeat=None):
         """Run until done, a confirmation is needed, a clarification, or a bound is hit.
 
@@ -1190,6 +1207,7 @@ class AgentSession:
             if dropped:  # keep the observations, drop the unrequested changes
                 proposal["next_steps"], proposal["finish"] = kept, False
 
+    @_in_session
     def decide(self, runtime, *, approve):
         """Resolve the pending on-screen confirmation for exactly one step."""
         with self.lock:

@@ -57,9 +57,10 @@ def target_key(tool, arguments):
             return "site:" + ".".join(parts[-2:])
         return "site:" + str(arguments.get("site") or tool.split(".")[0]).casefold()
     if tool.startswith(("filesystem.", "files.")):
+        # The exact file (not its folder tree): "earned autonomy relax" must only ever cover the very target that
+        # earned it (code review 2026-10-06; the plan's two-part root would have covered all of C:\Users).
         raw = str(arguments.get("path") or arguments.get("source") or "")
-        parts = [p for p in re.split(r"[\\/]+", raw) if p][:2]
-        return "root:" + "\\".join(parts).casefold()
+        return "file:" + "\\".join(p for p in re.split(r"[\\/]+", raw) if p).casefold()
     if tool.startswith("message."):
         name = " ".join(str(arguments.get("to") or "").casefold().split())
         return "contact:" + hashlib.sha256(name.encode("utf-8")).hexdigest()[:12]

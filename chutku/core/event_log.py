@@ -77,21 +77,27 @@ class EventLog:
 
     def mark_interrupted(self) -> int:
         """Called with the execution lock held, only after the owned core stopped."""
+        # One grouped query (the latest task_state per task via MAX(id)) and one transaction for every write.
         rows = self._connection.execute("""
-            SELECT received.task_id,
-                   (SELECT payload_json FROM events state WHERE state.task_id = received.task_id
-                        AND state.event_type = 'task_state' ORDER BY state.id DESC LIMIT 1)
-            FROM (SELECT DISTINCT task_id FROM events WHERE event_type = 'task_received') AS received""").fetchall()
-        count = 0
+            SELECT received.task_id, latest.payload_json
+            FROM (SELECT DISTINCT task_id FROM events WHERE event_type = 'task_received') AS received
+            LEFT JOIN (SELECT task_id, MAX(id) AS id FROM events WHERE event_type = 'task_state' GROUP BY task_id) AS last
+                ON last.task_id = received.task_id
+            LEFT JOIN events AS latest ON latest.id = last.id""").fetchall()
+        now = datetime.now(UTC).isoformat()
+        writes = []
         for task_id, latest in rows:
             previous = json.loads(latest)["to"] if latest else "RECEIVED"
             if previous in {"COMPLETED", "FAILED", "DENIED", "WAITING_CONFIRMATION", "CLARIFYING"}:
                 continue
-            self.append(task_id, "runtime_error", {"type": "GuardInterrupted",
-                        "message": "Execution stopped. Effects may remain; inspect the operation journal before retrying."})
-            self.append(task_id, "task_state", {"from": previous, "to": "FAILED"})
-            count += 1
-        return count
+            writes.append((task_id, now, "runtime_error", json.dumps({"type": "GuardInterrupted",
+                           "message": "Execution stopped. Effects may remain; inspect the operation journal before "
+                                      "retrying."}, sort_keys=True)))
+            writes.append((task_id, now, "task_state", json.dumps({"from": previous, "to": "FAILED"}, sort_keys=True)))
+        with self._connection:
+            self._connection.executemany(
+                "INSERT INTO events (task_id, timestamp, event_type, payload_json) VALUES (?, ?, ?, ?)", writes)
+        return len(writes) // 2
 
     def archive_older_than(self, days: int = 90, archive: Path | None = None) -> int:
         """Move events older than `days` into a separate archive database (kept, never deleted)."""

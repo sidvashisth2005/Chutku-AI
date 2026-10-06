@@ -27,6 +27,15 @@ MIN_SECONDS = 1.0           # shorter speech is too little to judge: "not sure",
 RECENT_SECONDS = 20         # an utterance older than this is not the one that started the request
 RING_SECONDS = 15           # live conversation: the last seconds of raw microphone sound
 LIVE_WINDOW_SECONDS = 6
+# Learning the owner's voice over time (owner's request, 2026-10-06): a clearly recognised request nudges the
+# voiceprint a little; "That was me" on a rejected request nudges it more. The enrollment is kept as an anchor and
+# no update may move the voiceprint further from it than ANCHOR_MIN, so it cannot drift towards someone else.
+ADAPT_ABOVE = 0.65          # only requests recognised with a clear margin teach automatically
+AUTO_WEIGHT = 0.03
+CONFIRMED_WEIGHT = 0.15
+ANCHOR_MIN = 0.85
+CONFIRM_SECONDS = 15 * 60   # "That was me" is offered for a rejected request this long
+CONFIRM_MIN = 0.35          # "That was me" teaches only a voice at least this close to the enrollment (others: ~0.2)
 
 # What the owner reads during enrollment: Hinglish and English, like real requests (about 5 seconds each).
 ENROLL_LINES = [
@@ -43,6 +52,7 @@ ENROLL_LINES = [
 _session = None
 _session_lock = threading.Lock()
 _recent = {"pcm": None, "at": 0.0}
+last_rejected = {"embedding": None, "at": 0.0, "score": None}   # for "That was me" (memory only)
 _ring = deque()
 _ring_lock = threading.Lock()
 
@@ -157,10 +167,77 @@ def enroll(base, clips):
         raise ValueError(f"Only {len(good)} clear clips (6 needed, each at least 2 seconds of speech). Try again "
                          "somewhere quiet.")
     mean = np.mean(good, axis=0)
+    vector = (mean / np.linalg.norm(mean)).astype(np.float32)
     path = voiceprint_path(base)
     path.parent.mkdir(parents=True, exist_ok=True)
-    np.save(path, (mean / np.linalg.norm(mean)).astype(np.float32))
+    np.save(path, vector)
+    np.save(anchor_path(base), vector)   # the enrollment itself: what every later update is measured against
+    _write_stats(base, {"adapted": 0, "refused": 0})
     return len(good)
+
+
+def anchor_path(base):
+    return Path(base) / "data" / "voiceprint-enrolled.npy"
+
+
+def _stats_path(base):
+    return Path(base) / "data" / "voiceprint-learning.json"
+
+
+def _write_stats(base, stats):
+    import json
+    _stats_path(base).write_text(json.dumps(stats), encoding="utf-8")
+
+
+def learning_stats(base):
+    import json
+    try:
+        return json.loads(_stats_path(base).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"adapted": 0, "refused": 0}
+
+
+def adapt(base, embedding, weight):
+    """Move the voiceprint ``weight`` of the way towards this embedding of the owner's voice, unless the result would
+    be further than ANCHOR_MIN from the enrollment. Returns True when the voiceprint was updated."""
+    current, anchor = load_voiceprint(base), _load(anchor_path(base))
+    if current is None or embedding is None:
+        return False
+    anchor = current if anchor is None else anchor
+    mixed = (1 - weight) * current + weight * np.asarray(embedding, dtype=np.float32)
+    mixed = (mixed / np.linalg.norm(mixed)).astype(np.float32)
+    stats = learning_stats(base)
+    if cosine(mixed, anchor) < ANCHOR_MIN:
+        stats["refused"] = stats.get("refused", 0) + 1
+        _write_stats(base, stats)
+        return False
+    np.save(voiceprint_path(base), mixed)
+    stats["adapted"] = stats.get("adapted", 0) + 1
+    stats["similarity_to_enrollment"] = round(cosine(mixed, anchor), 3)
+    _write_stats(base, stats)
+    return True
+
+
+def that_was_me(base):
+    """The owner confirmed on screen that the last rejected request was their voice: learn from it."""
+    if last_rejected["embedding"] is None or time.monotonic() - last_rejected["at"] > CONFIRM_SECONDS:
+        raise ValueError("There is no recent rejected voice request to learn from.")
+    anchor = _load(anchor_path(base))
+    anchor = load_voiceprint(base) if anchor is None else anchor
+    if anchor is None or cosine(last_rejected["embedding"], anchor) < CONFIRM_MIN:
+        last_rejected["embedding"] = None
+        return False   # a clearly different voice is never learned, even after a mistaken click
+    learned = adapt(base, last_rejected["embedding"], CONFIRMED_WEIGHT)
+    last_rejected["embedding"] = None
+    return learned
+
+
+def _load(path):
+    try:
+        vector = np.load(path)
+        return vector if vector.shape == (256,) else None
+    except (OSError, ValueError):
+        return None
 
 
 def load_voiceprint(base):
@@ -185,14 +262,23 @@ def score(base, pcm):
 
 
 def is_owner(base, pcm):
-    """(True/False/None, score). None: the lock is off or nobody is enrolled (no change to anything)."""
+    """(True/False/None, score). None: the lock is off or nobody is enrolled (no change to anything).
+
+    A clearly recognised request teaches the voiceprint a little; a rejected one is kept briefly (memory only) so the
+    owner can say "That was me" on screen."""
     enabled, threshold = settings(base)
-    if not enabled or load_voiceprint(base) is None or not available():
+    print_ = load_voiceprint(base)
+    if not enabled or print_ is None or not available():
         return None, None
     try:
-        value = score(base, pcm)
+        vector = embed(pcm)
     except ValueError:
         return False, None   # too little speech to tell: not treated as the owner (fail closed)
+    value = cosine(vector, print_)
+    if value >= max(ADAPT_ABOVE, threshold + 0.1):
+        adapt(base, vector, AUTO_WEIGHT)
+    elif value < threshold:
+        last_rejected.update(embedding=vector, at=time.monotonic(), score=round(value, 3))
     return value >= threshold, round(value, 3)
 
 
@@ -218,15 +304,20 @@ def _live_window():
         return b"".join(data for at, data in _ring if at >= cutoff)
 
 
-def verify_recent(base):
-    """Score the utterance that started this voice request: (True/False/None, score)."""
+def verify_recent(base, source="local"):
+    """Score the utterance that started this voice request: (True/False/None, score).
+
+    ``source`` "live" scores the live conversation's last seconds; "local" scores the utterance a Whisper path just
+    handed over. Each local utterance is used once, so an older clip of the owner can never vouch for a new request."""
     enabled, _threshold = settings(base)
     if not enabled:
         return None, None
-    if _recent["pcm"] and time.monotonic() - _recent["at"] <= RECENT_SECONDS:
-        pcm = _recent["pcm"]
-    else:
+    pcm = None
+    if source == "live":
         pcm = _live_window()
+    elif _recent["pcm"] and time.monotonic() - _recent["at"] <= RECENT_SECONDS:
+        pcm = _recent["pcm"]
+    _recent["pcm"] = None   # consumed (or stale): never reused for another request
     if not pcm:
         return (False, None) if load_voiceprint(base) is not None else (None, None)
     return is_owner(base, pcm)

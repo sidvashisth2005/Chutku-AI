@@ -11,7 +11,7 @@ browsing, password managers, and any app the owner names in the ``timeline_priva
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path, PureWindowsPath
 import re
 import sqlite3
@@ -146,6 +146,9 @@ def window(when, now=None):
                             (r"shaam|sham|evening", (16, 21)), (r"raat|night", (20, 24))):
         if re.search(rf"\b(?:{words})\b", text):
             base = start.replace(hour=0)
+            if not re.search(r"\b(?:kal|yesterday|parso|aaj|today|this|day before)\b", text):
+                # "shaam" alone: the most recent evening (today's if it has begun, else yesterday's), not 14 days ago
+                base = day if now.hour >= h1 else day - timedelta(days=1)
             return base + timedelta(hours=h1), min(base + timedelta(hours=h2), now)
     return start, end
 
@@ -174,8 +177,8 @@ def search(base, query="", when=None, limit=8, runtime=None, now=None):
             finally:
                 connection.close()
     if runtime is not None:   # files Chutku opened for the owner are part of the story too
-        stamp = start.astimezone().isoformat(timespec="seconds")
-        for entry in runtime.action_log.recent(500):
+        utc = start.astimezone().astimezone(timezone.utc).isoformat(timespec="seconds")
+        for entry in runtime.action_log.recent(5000, utc):   # the whole window, not only the newest 500 entries
             if entry.get("tool") == "files.open" and entry.get("state") == "COMPLETED" and entry.get("paths"):
                 at = datetime.fromisoformat(entry["time"]).timestamp()
                 if start.timestamp() <= at <= end.timestamp():

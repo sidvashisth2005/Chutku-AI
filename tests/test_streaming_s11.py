@@ -140,7 +140,7 @@ class SilentLiveTests(unittest.TestCase):
         server = types.SimpleNamespace(preferences=types.SimpleNamespace(load=lambda: {"handsfree_mode": "owner"}),
                                        hud_state={})
         calls = {}
-        server.begin_session = lambda goal, mode, origin, silent=False: calls.update(silent=silent) or \
+        server.begin_session = lambda goal, mode, origin, silent=False, **_: calls.update(silent=silent) or \
             types.SimpleNamespace(id="s1")
         dashboard.DashboardServer.live_task(server, "open whatsapp")
         self.assertTrue(calls["silent"])

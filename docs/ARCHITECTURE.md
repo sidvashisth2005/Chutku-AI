@@ -58,6 +58,23 @@ risk or confirmation field cannot grant permission.
 | `dashboard.py`, `web/` | Local presentation and explicit review controls |
 | `evidence.py`, `scripts/verify_release.py` | Saved measurements and source-fingerprint freshness |
 
+### Added 2026-10-06 (master plan S1–S21)
+
+| Module | Responsibility |
+|---|---|
+| `agent_loop.py` | Agent sessions: quick tier → learned skills → exact replay → local/backup planner; untrusted-data wrapping and instruction removal; taint/exposure/suspicious flags; cancel; claim guards |
+| `quick_intents.py`, `intents/lexicon.py`, `*_intent.py` | Deterministic Hinglish/English rules with one shared vocabulary, and fixed instant answers |
+| `brain_service.py`, `local_vision.py`, `cloud_planner.py`, `profiles.py` | Local llama.cpp services (in-flight count, GPU hand-over, streaming), Gemini/8B backup |
+| `core/ledger.py`, `tools/ledger_tools.py` | Earned autonomy: outcome ledger, Wilson lower bound, add-only policy input |
+| `reflex.py` | Reflex compiler: learned instant skills with leave-one-out and collision gates, demotion |
+| `rewind.py` | Causal rewind: effects with lineage, dependency closure, conflict check, inverse execution |
+| `scheduled.py`, `tools/schedule_tools.py` | Scheduled and repeating tasks, run through the normal session path |
+| `voice/speaker.py`, `tools/voice_lock_tools.py` | Owner voice lock: WeSpeaker ONNX embedding, enrollment, verdict per voice request |
+| `nightshift.py` | Nightly jobs: skills, reliability, plan-only regression replay, maintenance, fine-tune readiness |
+| `timeline.py`, `tools/timeline_tools.py` | Opt-in window-title timeline with private masking and time-phrase search |
+| `core/log.py`, `core/launch.py`, `core/jsonstore.py`, `core/hashcache.py` | Redacted rotating log, owner-app launches outside the guard job, atomic JSON stores, hash cache |
+| `voice/live.py`, `voice/handsfree.py`, `voice/heard.py` | Gemini Live conversation, offline wake listener, local heard log |
+
 ## Foundation acceptance scope
 
 - Python 3.11+ and Windows; launch independent of the current shell directory.

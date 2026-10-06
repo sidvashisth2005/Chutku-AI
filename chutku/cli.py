@@ -23,6 +23,9 @@ def _nightshift_command(namespace):
         print(json.dumps(nightshift.latest_report(PROJECT_ROOT), indent=2, ensure_ascii=False))
         print(nightshift.morning_line(PROJECT_ROOT))
         return
+    if namespace.when_idle and not nightshift.wait_for_idle(PROJECT_ROOT):
+        print("No 30 idle minutes on mains power today (or it already ran): skipped.")
+        return
     if not namespace.force and nightshift.on_ac_power() is False:
         print("On battery: Night Shift skipped.")
         return
@@ -79,6 +82,8 @@ def _voice_command(namespace):
         from chutku.core.preferences import Preferences
         Preferences(PROJECT_ROOT).update({"voice_lock": False})
         speaker.voiceprint_path(PROJECT_ROOT).unlink(missing_ok=True)
+        speaker.anchor_path(PROJECT_ROOT).unlink(missing_ok=True)
+        (PROJECT_ROOT / "data" / "voiceprint-learning.json").unlink(missing_ok=True)
         print("Voiceprint deleted and the voice lock is off.")
         return
     control = ActionControl(PROJECT_ROOT)
@@ -166,6 +171,8 @@ def main() -> None:
     night.add_argument("night_action", choices=("run", "install", "report"))
     night.add_argument("--no-model", action="store_true", help="run: skip the model round of the regression replay")
     night.add_argument("--force", action="store_true", help="run: also on battery")
+    night.add_argument("--when-idle", action="store_true",
+                       help="run: wait until the PC has been unused for 30 minutes (the 04:00 task uses this)")
     voice = subparsers.add_parser("voice", help="Owner voice lock: enroll your voice, record clips, status, forget")
     voice.add_argument("voice_action", choices=("enroll", "record", "status", "forget"))
     voice.add_argument("folder", nargs="?", help="record: where to save 16 kHz WAV clips")

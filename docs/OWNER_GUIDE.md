@@ -59,6 +59,11 @@ What changes when it's on:
 - When a voice request doesn't sound like you (a friend, the TV, a video), Chutku still answers questions. Anything that changes something waits for a click on screen, and that request can't be approved by saying "haan".
 - Your requests work as before. The check takes about 0.1 second.
 - Your voiceprint (`data\voiceprint.npy`) never leaves this PC. `chutku.cli voice forget` deletes it and turns the lock off.
+- **It learns your voice over time:**
+  - Every request it clearly recognises as you moves your voiceprint 3% towards how you sound today, so a new mic or a slightly different voice keeps working.
+  - If it ever doesn't recognise you (a cold, a noisy room), the Voice lock tab shows **"That was me"** for 15 minutes; one click teaches it that recording (15%).
+  - A clearly different voice is never learned, even after a mistaken click. Your original enrollment is kept, and no update may move the voiceprint too far from it.
+  - The Voice lock tab shows how many times it has learned.
 - **Honest limit:** a recording of your voice can pass. This keeps other people and the TV out; it is not a password.
 - **Calibrating:** `chutku.cli voice record` saves your 8 lines as clips. Then `scripts\calibrate_voice_lock.py --owner D:\ChutkuScratch\voicelock\owner` measures how well your voice is told apart and suggests a threshold.
 
@@ -264,7 +269,7 @@ Everything below is **instant**: matched by rules and done within about a second
 
 ### Night Shift: Chutku improves while you sleep (since 2026-10-06)
 
-Every night at 02:30, Chutku does her homework, but only when the PC has been idle for 10 minutes and is plugged in. On battery she skips the night.
+Once a day, Chutku does her homework. From **4:00 am**, she waits until the PC has had **no keyboard or mouse use for 30 minutes** while plugged in, then starts. There is no fixed time: if you use the PC until 4:15 and then go to sleep, she starts at about 4:45. If that doesn't happen until later in the day, she starts then. On battery she waits, and she runs at most once a day. The PC is kept awake only while she works (about 10–15 minutes).
 - She learns new instant skills from the day's requests.
 - She checks which kinds of actions keep failing.
 - She **re-plans every request from the last 7 days without doing anything**, and compares the plan with what worked before.

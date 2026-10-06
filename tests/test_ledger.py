@@ -21,7 +21,7 @@ class MathTests(unittest.TestCase):
     def test_target_keys(self):
         self.assertEqual(target_key("apps.launch", {"name": "Spotify"}), "app:spotify")
         self.assertEqual(target_key("web.open", {"url": "https://www.youtube.com/x"}), "site:youtube.com")
-        self.assertEqual(target_key("filesystem.move", {"source": r"D:\Notes\a.txt"}), r"root:d:\notes")
+        self.assertEqual(target_key("filesystem.move", {"source": r"D:\Notes\a.txt"}), r"file:d:\notes\a.txt")   # the exact file
         self.assertTrue(target_key("message.send", {"to": "Mammi"}).startswith("contact:"))
         self.assertNotIn("mammi", target_key("message.send", {"to": "Mammi"}))   # names are hashed
         self.assertEqual(target_key("system.volume_set", {}), "tool")

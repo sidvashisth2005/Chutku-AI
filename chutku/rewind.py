@@ -40,7 +40,7 @@ class Effect:
     seq: int
     at: str
     tool: str
-    task_id: str
+    task_id: str                 # the agent session (or, without one, the single step) it belonged to
     entry: dict
     kind: str                    # journaled | organize | setting | ref | folder | left_open | irreversible
     what: str
@@ -95,8 +95,8 @@ def effects(runtime, since=None):
     out = []
     for entry in entries:
         tool, arguments = entry["tool"], entry.get("arguments") or {}
-        effect = Effect(entry["seq"], entry.get("time", ""), tool, entry.get("task_id") or "", entry, "irreversible",
-                        _describe(tool, arguments))
+        effect = Effect(entry["seq"], entry.get("time", ""), tool, entry.get("session") or entry.get("task_id") or "",
+                        entry, "irreversible", _describe(tool, arguments))
         if tool in JOURNALED and entry.get("operation_id"):
             record = runtime.journal.get(entry["operation_id"])
             if record is not None and record["after"] is not None:
@@ -151,10 +151,15 @@ def plan(runtime, scope, now=None):
     now = (now or datetime.now()).astimezone()
     start = _scope_start(scope, now)
     every = effects(runtime, start - timedelta(seconds=1))
+    # ``until`` = the moment the owner was shown the list: a change made later is never undone. When it touches the
+    # same thing as an approved change, it is shown as kept and blocks the older change.
+    until = datetime.fromisoformat(scope["until"]).astimezone().astimezone(timezone.utc).isoformat(timespec="seconds")         if scope.get("until") else None
+    later = [e for e in every if until is not None and e.at > until]
+    every = [e for e in every if until is None or e.at <= until]
     if scope.get("task_id") or scope.get("last_task"):
         task = scope.get("task_id") or next((e.task_id for e in reversed(every)
                                              if e.kind not in {"irreversible", "left_open"}), None)
-        chosen = [e for e in every if e.task_id == task]
+        chosen = [e for e in every if e.task_id == task]   # the whole agent session, not only its last step
     else:
         stamp = start.astimezone(timezone.utc).isoformat(timespec="seconds")
         chosen = [e for e in every if e.at >= stamp]
@@ -168,7 +173,15 @@ def plan(runtime, scope, now=None):
             touched |= effect.writes
     items = sorted((e for e in every if e.seq in selected), key=lambda e: -e.seq)
     _check(runtime, items)
-    return items
+    newer = [e for e in later if e.writes & touched]
+    for effect in newer:
+        effect.status, effect.why = "conflict", "Changed after this list was shown; kept as it is."
+    if newer:
+        blocked = set().union(*(e.writes for e in newer))
+        for item in items:
+            if item.status == "ok" and item.writes & blocked:
+                item.status, item.why = "blocked", "Something newer changed it after the list was shown; left alone."
+    return sorted(newer, key=lambda e: -e.seq) + items
 
 
 def _check(runtime, items):
@@ -312,6 +325,8 @@ def preview_text(items):
     shown = [i for i in items if i.status != "done_before"]   # undone earlier: only counted, not listed
     lines = [f"{'✓' if i.status == 'ok' else '✗'} {i.what}" + (f" — {i.why}" if i.status != "ok" else "")
              for i in shown[:12]]
+    if len(shown) > 12:
+        lines.append(f"(+{len(shown) - 12} more; 'pichhle ... ka kya kya wapas ho sakta hai' lists them all)")
     if counts.get("done_before"):
         lines.append(f"({counts['done_before']} already undone earlier)")
     head = (f"Undo {counts.get('ok', 0)} change(s), newest first"
@@ -417,10 +432,31 @@ def execute(runtime, items, context):
         if ok:
             report["undone"].append(item.what)
             _remember(runtime, item.seq)
+            _log_undo(runtime, item, context)
         else:
             report["failed"].append(f"{item.what}: {message}")
             blocked |= item.writes
     return report
+
+
+def _log_undo(runtime, item, context):
+    """Each change a rewind undid gets its own action-log line (what was reversed, by which undo)."""
+    if item.kind == "journaled":
+        name, arguments = JOURNALED[item.tool], {"operation_id": item.entry["operation_id"]}
+    elif item.kind == "organize":
+        name, arguments = "files.organize_undo", {"id": item.entry["undo_id"]}
+    elif item.kind == "ref":
+        name, arguments = REFS[item.tool][0], {"id": item.entry["ref"]}
+    elif item.kind == "setting":
+        name, arguments = "rewind.restore_setting", {"setting": SETTINGS[item.tool]}
+    else:
+        name, arguments = "rewind.remove_folder", {"path": item.entry["paths"][0]}
+    try:
+        runtime._log_action(name, dict(arguments, rewound_action=item.seq),
+                            {"state": "COMPLETED", "task_id": context.task_id, "output": {}},
+                            context.provenance or "user_stated", context.autonomy)
+    except Exception:
+        pass   # the rewind step itself is logged either way
 
 
 def _remember(runtime, seq):
@@ -437,7 +473,8 @@ _SCOPE = {"type": "object", "properties": {
     "minutes": {"type": "integer", "minimum": 1, "maximum": 10080},
     "since": {"type": "string", "minLength": 16, "maxLength": 32},
     "today": {"type": "boolean"}, "task_id": {"type": "string", "minLength": 4, "maxLength": 80},
-    "last_task": {"type": "boolean"}}, "additionalProperties": False}
+    "last_task": {"type": "boolean"},
+    "until": {"type": "string", "minLength": 16, "maxLength": 32}}, "additionalProperties": False}
 
 
 def _validate_scope(arguments):
@@ -445,11 +482,19 @@ def _validate_scope(arguments):
             [k for k in ("today", "last_task") if arguments.get(k) is True]
     if len(given) != 1 or set(arguments) - set(_SCOPE["properties"]):
         raise ValueError("Give exactly one of minutes, since, today, task_id or last_task.")
-    if "since" in arguments:
-        try:
-            datetime.fromisoformat(arguments["since"])
-        except ValueError as error:
-            raise ValueError("since must look like 2026-10-06T11:00:00.") from error
+    for key in ("since", "until"):
+        if key in arguments:
+            try:
+                datetime.fromisoformat(arguments[key])
+            except ValueError as error:
+                raise ValueError(f"{key} must look like 2026-10-06T11:00:00.") from error
+
+
+def _validate_run(arguments):
+    _validate_scope(arguments)
+    if "until" not in arguments:
+        raise ValueError("Give until: the current local time (YYYY-MM-DDTHH:MM:SS), so exactly what the owner "
+                         "approved is undone and nothing newer.")
 
 
 def question(runtime, arguments):
@@ -489,5 +534,6 @@ def register_rewind_tools(registry, runtime):
         success_predicate="rewind_plan_built"))
     registry.register(Tool("rewind.run", "Undo everything Chutku changed in a time window or task, newest first, "
         "including later changes that depend on it. Never overwrites a newer change by the owner. Asks once with the "
-        "full list.", Risk.DATA_MODIFICATION, run, _validate_scope, resource_access="modify", argument_schema=_SCOPE,
+        "full list. until = the current local time.", Risk.DATA_MODIFICATION, run, _validate_run,
+        resource_access="modify", argument_schema=_SCOPE,
         reversibility="journaled", success_predicate="every_ok_inverse_verified"))

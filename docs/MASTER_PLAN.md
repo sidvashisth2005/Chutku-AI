@@ -778,7 +778,7 @@ Tool `timeline.search` (R0, `output_untrusted`) uses `memory_index` embeddings (
 ---
 # Phase 4: Release
 
-## S22: Evidence, docs, reviews
+## S22: Evidence, docs, reviews — done 2026-10-07 (voice stage gate waits for the owner-only Stage 5 trials)
 - [ ] Regenerate the evidence after the last code edit:
   - `scripts/verify_release.py --model --hardware`;
   - `scripts/check_stages.py --through all`;

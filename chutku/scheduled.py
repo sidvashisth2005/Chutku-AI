@@ -105,7 +105,7 @@ def active(base):
 def take_due(base, now=None):
     """The tasks due now. Each is moved on first (next time, or finished), so a crash never runs it twice."""
     now = now or datetime.now()
-    due = []
+    due, changed = [], False
     with lock_for(_path(base)):
         jobs = load(base)
         for job in jobs:
@@ -115,6 +115,7 @@ def take_due(base, now=None):
             if at > now:
                 continue
             late = now - at
+            changed = True
             if job.get("every_minutes"):
                 step = timedelta(minutes=job["every_minutes"])
                 following = at + step
@@ -132,7 +133,7 @@ def take_due(base, now=None):
                 continue
             job["runs"] = job.get("runs", 0) + 1
             due.append(dict(job))
-        if due or any(j.get("history") and j["history"][-1].get("status") == "missed" for j in jobs):
+        if changed:   # only when a task moved on this tick (not every 5 s forever after one missed task)
             write_json(_path(base), jobs)
     return due
 

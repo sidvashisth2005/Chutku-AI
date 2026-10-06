@@ -1,6 +1,6 @@
 {
-  "project": "D:\\Project\\CHUTKU COPY\\Chutku",
-  "python": "D:\\Project\\CHUTKU COPY\\Chutku\\.venv\\Scripts\\python.exe",
+  "project": "D:\\Project\\Chutku",
+  "python": "D:\\Project\\Chutku\\.venv\\Scripts\\python.exe",
   "ready": true,
   "checks": [
     {
@@ -14,6 +14,12 @@
       "ready": true,
       "required": true,
       "detail": "win32"
+    },
+    {
+      "name": "Not elevated",
+      "ready": true,
+      "required": true,
+      "detail": "Normal user rights; Windows ACLs protect system folders"
     },
     {
       "name": "Project pyproject.toml",
@@ -55,7 +61,7 @@
       "name": "Granted root",
       "ready": true,
       "required": true,
-      "detail": "D:\\Project\\CHUTKU COPY\\Chutku\\sandbox"
+      "detail": "D:\\Project\\Chutku\\sandbox"
     },
     {
       "name": "Dashboard index.html",
@@ -100,6 +106,12 @@
       "detail": "SQLite quick_check passed"
     },
     {
+      "name": "Action log",
+      "ready": true,
+      "required": true,
+      "detail": "Hash chain intact (304 entries)"
+    },
+    {
       "name": "numpy",
       "ready": true,
       "required": false,
@@ -112,10 +124,64 @@
       "detail": "0.5.6"
     },
     {
+      "name": "faster-whisper",
+      "ready": true,
+      "required": false,
+      "detail": "1.2.1"
+    },
+    {
+      "name": "websockets",
+      "ready": true,
+      "required": false,
+      "detail": "15.0.1"
+    },
+    {
+      "name": "playwright",
+      "ready": true,
+      "required": false,
+      "detail": "1.63.0"
+    },
+    {
+      "name": "pypdf",
+      "ready": true,
+      "required": false,
+      "detail": "6.19.0"
+    },
+    {
+      "name": "tkinter",
+      "ready": true,
+      "required": false,
+      "detail": "HUD available"
+    },
+    {
       "name": "Local model artifacts",
       "ready": true,
       "required": false,
       "detail": "Presence only; integrity/inference require separate verification"
+    },
+    {
+      "name": "Offline speech (Whisper)",
+      "ready": true,
+      "required": false,
+      "detail": "Present (presence only; scripts/setup_all.py checks the hashes)"
+    },
+    {
+      "name": "Offline backup planner (8B)",
+      "ready": true,
+      "required": false,
+      "detail": "Present (presence only; scripts/setup_all.py checks the hashes)"
+    },
+    {
+      "name": "Local vision model",
+      "ready": true,
+      "required": false,
+      "detail": "Present (presence only; scripts/setup_all.py checks the hashes)"
+    },
+    {
+      "name": "GPU model runtime",
+      "ready": true,
+      "required": false,
+      "detail": "Present (presence only; scripts/setup_all.py checks the hashes)"
     }
   ],
   "actions_paused": false,

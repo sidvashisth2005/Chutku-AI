@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextvars import ContextVar
 import json
 from pathlib import Path
 import time
@@ -19,6 +20,10 @@ from chutku.core.task import Task, TaskState
 from chutku.core.paths import path_argument_names, protection_reason, sandbox_target
 from chutku.policy.kernel import Decision, PolicyKernel
 from chutku.tools.registry import ExecutionContext, ToolRegistry, Verification
+
+# The agent session a step belongs to (set by AgentSession while it works): the action log records it, so
+# "undo the whole last task" (Causal Rewind) finds every step of that request, not only the last one.
+SESSION = ContextVar("chutku_session", default=None)
 
 # How to reverse a completed action (used by log.undo; each undo tool reverses only the latest of its kind).
 UNDO_TOOLS = {
@@ -354,6 +359,8 @@ class Runtime:
                  "message": str(message)[:200] if message else None,
                  "operation_id": output.get("operation_id"), "undo_id": output.get("undo_id"),
                  "undo": UNDO_TOOLS.get(tool_name) if state == "COMPLETED" else None}
+        if SESSION.get():
+            entry["session"] = SESSION.get()
         if state == "COMPLETED":   # what Causal Rewind (master plan S18) needs to put a setting back
             before, after = output.get("before"), output.get("after")
             if before is not None and after is not None and len(json.dumps([before, after], default=str)) <= 400:

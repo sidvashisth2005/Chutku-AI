@@ -68,6 +68,20 @@ per-request autonomy levels · protected system zones · journaled undo with con
 with emergency stop · audit trail per step · prompt-injection taint rule · SSRF-safe web reading · image-only
 slide decks read via OCR · message delivery checked by reading the chat · golden-task benchmark with real checks.
 
+## Beyond Mark (2026-10-06, master plan)
+
+| Capability | Chutku | Status |
+|---|---|---|
+| Owner mode with fixed, owner-chosen asks; code execution always asks | `policy/kernel.py` | ✅ |
+| Earned autonomy (steps that keep failing ask first; reliability per action) | `core/ledger.py` | ✅ |
+| Learns its own instant skills from verified model plans | `reflex.py` | ✅ |
+| One undo for everything in a time window / task, never over the owner's edits | `rewind.py` | ✅ |
+| Scheduled and repeating tasks beside normal work | `scheduled.py` | ✅ |
+| Only the owner's voice can make changes (opt-in) | `voice/speaker.py` | ✅ (owner enrollment pending) |
+| Nightly self-check: re-plans the week's requests without running them | `nightshift.py` | ✅ |
+| "Which PDF did I open yesterday evening" (opt-in, titles only) | `timeline.py` | ✅ |
+| Prompt-injection lines removed before the model sees read content | `agent_loop._observation` | ✅ |
+
 ## Beyond Mark (2026-10-02)
 
 | Capability | Chutku | Status |

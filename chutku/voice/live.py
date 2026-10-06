@@ -480,11 +480,14 @@ class LiveConversation(threading.Thread):
         snapshot = self._snapshot()
         if not snapshot or snapshot["status"] != "waiting_confirmation":
             return
-        import re as _re
-        sound_only = _re.sub(r"[^a-z]", "", heard.casefold()) in {"hmm", "hm", "hmmm", "hnn", "hn", "hnnn", "hamm", "hum",
-                                                                  "humm"}
+        if snapshot.get("speaker_verified") is False:   # voice lock: not the owner's voice, screen only
+            self.inject("[Approval] This request did not come from the owner's voice; it can only be approved on "
+                        "screen.")
+            return
         spoke = self.gate.speech_seconds - self.speech_at_question >= 0.25
-        if decide(heard) is not True or (sound_only and not spoke):   # a breath read as "hmm" is never a yes
+        # Same rule as an immediate answer: a clear yes AND real speech the noise gate measured. A transcript alone
+        # (an echo of Chutku's own voice, the TV, a hallucinated "haan") is never a yes.
+        if decide(heard) is not True or not spoke:
             self._log_heard(heard, "approval refused: no clear spoken yes (late)")
             self.inject("[Approval] I did not hear a clear yes from the owner. Ask once more: haan ya na?")
             return

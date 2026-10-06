@@ -16,6 +16,70 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-07: S22 — Release: reviews, fixes, evidence, docs (master plan complete except owner-only items)
+
+Checked item by item against `docs/MASTER_PLAN.md` S22.
+
+- **Code review** (`/code-review` high, `11e59eb..HEAD`) found 10 problems. **All 10 are fixed**, with regression tests in `tests/test_review_fixes_s22.py`:
+  1. "undo the last task" undid only the last step. Steps now carry their agent session (`runtime.SESSION`), so the whole request is undone.
+  2. A rewind could undo more than the approval card showed. `rewind.run` now needs `until` (the moment of asking). Later changes are kept and block older ones; the card says "+N more" instead of cutting silently.
+  3. A late voice "yes" was accepted without real speech. Late approval now needs the same gated speech as an immediate one, and respects the voice lock.
+  4. An old clip of the owner could vouch for a new request. Each local utterance is used once, and Live requests score only live sound.
+  5. A denial hid a later claim ("no files…, so I deleted X"). A negation now covers only its own clause.
+  6. A slow web server could stretch a read past the deadline. Reads now use `read1`.
+  7. "earned autonomy relax" covered a two-level folder tree. The key is now the exact file.
+  8. One missed scheduled task rewrote `scheduled.json` every 5 s. It is now written only on change.
+  9. A speech thread could leak after an approval. It now ends after 120 s idle.
+  10. Timeline search ignored most of its window. It now reads the whole window, and "shaam" on its own means the most recent evening.
+  - Also from the review: every rewound change now gets its own action-log line.
+- **Found while re-verifying:** `mark_interrupted` made one commit per event, so the S4 timing test flaked under load (2.09 s). It is now one grouped query (as S4 specified) plus one transaction: **0.017 s for 1,000 tasks**, and the second run marks 0 (idempotent).
+- **Security review** (`/security-review`): **no high-confidence exploitable issues.** The four lower-confidence notes are recorded in `docs/AGENT_PROMPTS.md` (entry 8).
+- **Owner requests during S22:**
+  - **Night Shift timing.** It is no longer a fixed 02:30. From 04:00 it waits for **30 minutes without keyboard or mouse** (`GetLastInputInfo`) on mains power, then runs, at most once a day, keeping the PC awake only while it works.
+    - The task was re-registered (Start 04:00, AC only, `--when-idle`), confirmed with Get-ScheduledTask.
+    - A test reproduces "used until 4:15 → starts 4:45".
+    - The AC sleep timeout is 3 h, so the idle window always comes first.
+  - **Voice lock learns the owner's voice.**
+    - A clear pass (≥0.65) moves the voiceprint 3% toward that recording.
+    - "That was me" on a rejected request moves it 15%, but only if the recording is at least 0.35 similar to the enrollment.
+    - The enrollment is kept as an anchor, and no update may take the voiceprint below 0.85 similarity to it. 60 drifting clicks were refused (tested).
+  - **Custom voice:** `docs/VOICE_RECORDING_GUIDE.md` (script and setup for the owner's girlfriend, who consented). Training waits for her recordings.
+  - **Helper-agent prompts:** `docs/AGENT_PROMPTS.md`, now a standing rule in AGENTS.md.
+- **Evidence** (regenerated after the last code change, Chutku stopped so the GPU was free, on AC):
+  - **`verify_release.py --model --hardware`: passed.** 935 tests OK, core smoke 22/22, Windows hardware and voice 45/45, local model corpus 302/302.
+  - **`benchmark_agent.py`: passed**, median 0.5 s.
+  - **`eval_planner.py`: 29/40** first rounds right, median 4.0 s per round. The S14 baseline was 26/40.
+  - **`check_stages.py --through all`:**
+    - foundation, brain, access and **llm** pass. The llm stage needed `stage-llm-evaluation.json` (302/302) and `model-review-path.json` regenerated; their earlier copies dated from before this work.
+    - **voice is still blocked on the owner-only items** (one consented live microphone run, 200 human trials), the same as at S0.
+  - **`live_check.py` after redeploy: 12/12 correct, median 0.8 s.**
+- **Docs:**
+  - README (new section, 160 tools, 935 tests);
+  - ARCHITECTURE (table of the new modules);
+  - MARK_PARITY ("Beyond Mark 2026-10-06");
+  - SECURITY (counts, voice lock);
+  - OWNER_GUIDE (every new phrase and control).
+
+#### Master plan summary
+
+| Slice | Result | Evidence |
+|---|---|---|
+| S0 | Baseline, git | entry "S0 baseline" |
+| S1–S9 | Flaws fixed (code confirm, taint, fail-closed, guard, agent loop, models, intents, voice, efficiency) | entries S1–S9 |
+| S10 | Kokoro voice measured | waits for the owner's listening test |
+| S11, S13, S15 | Streaming, one lexicon, injection hardening | entries |
+| S12, S14 | Measured, kept off (gates not met) | entries |
+| S16–S21 | Earned autonomy, reflexes, rewind, voice lock, night shift, timeline | entries |
+| S22 | Reviews, fixes, evidence, docs | this entry |
+
+**Owner-only, still open:**
+- the Kokoro listening test;
+- voice enrollment and calibration;
+- the girlfriend's recordings for the custom voice;
+- the Stage 5 live run and 200 trials;
+- approving deletion of the unused models;
+- the first LoRA run (S20b, once there are 300 verified turns; 131 now).
+
 ### 2026-10-06: S21 — Episodic timeline (opt-in, window titles only)
 
 Checked item by item against `docs/MASTER_PLAN.md` S21.

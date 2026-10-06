@@ -1,6 +1,6 @@
 {
-  "timestamp_utc": "2026-10-01T08:50:15.424625+00:00",
-  "source_sha256": "66b6ec2a79932de9d3350b7705e5dfa5ea1e0ca433090a5ba9978f395e970689",
+  "timestamp_utc": "2026-10-06T21:11:51.977816+00:00",
+  "source_sha256": "167a8dd9084c2f866a1cc247d149acd6a0ed73b943017dcc0d422bfca845579c",
   "passed": true,
   "checks": [
     {
@@ -12,19 +12,19 @@
     {
       "title": "Automated regression and Windows guard tests",
       "passed": true,
-      "detail": "422 tests; 0 failures; 0 errors; 0 skipped. Includes real hung-core, child-process and action-deadline fault injection.",
+      "detail": "935 tests; 0 failures; 0 errors; 0 skipped. Includes real hung-core, child-process and action-deadline fault injection.",
       "artifact": "release-tests.txt"
     },
     {
       "title": "Core tool smoke",
       "passed": true,
-      "detail": "21/21 checks passed.",
+      "detail": "22/22 checks passed.",
       "artifact": "release-core.json"
     },
     {
       "title": "Windows hardware and voice",
       "passed": true,
-      "detail": "44/44 checks passed.",
+      "detail": "45/45 checks passed.",
       "artifact": "release-hardware.json"
     },
     {
@@ -34,6 +34,6 @@
       "artifact": "release-brain-acceptance.json"
     }
   ],
-  "elapsed_seconds": 197.89,
+  "elapsed_seconds": 238.5,
   "scope": "Current runtime and explicit checks only. No claim of full roadmap completion or human-speech accuracy."
 }

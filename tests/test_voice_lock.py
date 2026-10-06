@@ -2,6 +2,7 @@
 from pathlib import Path
 import re
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -92,6 +93,61 @@ class VerdictTests(Base):
         features = speaker.fbank(np.random.default_rng(3).normal(size=16000).astype(np.float32) * 0.1)
         self.assertEqual(features.shape, (98, 80))                      # 25 ms frames every 10 ms, 80 mel bands
         self.assertLess(float(np.abs(features.mean(axis=0)).max()), 1e-4)   # mean-normalised per band
+
+
+def toward(a, b, t):
+    """A unit vector at roughly cosine ``t`` from ``a``, in the direction of ``b`` (a synthetic voice)."""
+    side = b - np.dot(a, b) * a
+    side /= np.linalg.norm(side)
+    return (t * a + np.sqrt(1 - t * t) * side).astype(np.float32)
+
+
+class LearningTests(Base):
+    def setUp(self):
+        super().setUp()
+        speaker.last_rejected.update(embedding=None, at=0.0, score=None)
+        with patch.object(speaker, "embed", return_value=OWNER), patch.object(speaker, "voiced_seconds",
+                                                                              return_value=3.0):
+            speaker.enroll(self.base, [SPEECH] * 6)
+        self.lock()
+
+    def test_a_clearly_recognised_request_teaches_a_little(self):
+        clear = toward(OWNER, STRANGER, 0.80)            # e.g. the owner on a new mic: still clearly them
+        with patch.object(speaker, "embed", return_value=clear):
+            self.assertTrue(speaker.is_owner(self.base, SPEECH)[0])
+        updated = speaker.load_voiceprint(self.base)
+        self.assertGreater(speaker.cosine(updated, clear), 0.80)          # moved towards the new sound ...
+        self.assertGreater(speaker.cosine(updated, OWNER), 0.99)          # ... only a little (3%)
+        self.assertEqual(speaker.learning_stats(self.base)["adapted"], 1)
+
+    def test_a_borderline_pass_teaches_nothing(self):
+        with patch.object(speaker, "embed", return_value=toward(OWNER, STRANGER, 0.60)):
+            self.assertTrue(speaker.is_owner(self.base, SPEECH)[0])
+        self.assertAlmostEqual(speaker.cosine(speaker.load_voiceprint(self.base), OWNER), 1.0, places=5)
+
+    def test_that_was_me_learns_a_rejected_request_once(self):
+        cold = toward(OWNER, STRANGER, 0.45)              # the owner with a cold: rejected
+        with patch.object(speaker, "embed", return_value=cold):
+            self.assertFalse(speaker.is_owner(self.base, SPEECH)[0])
+        self.assertTrue(speaker.that_was_me(self.base))
+        with patch.object(speaker, "embed", return_value=cold):
+            self.assertGreater(speaker.is_owner(self.base, SPEECH)[1], 0.45)   # closer now
+        with self.assertRaises(ValueError):
+            speaker.that_was_me(self.base)                # used once
+
+    def test_a_mistaken_click_on_another_voice_teaches_nothing(self):
+        with patch.object(speaker, "embed", return_value=STRANGER):
+            self.assertFalse(speaker.is_owner(self.base, SPEECH)[0])
+        self.assertFalse(speaker.that_was_me(self.base))
+        self.assertAlmostEqual(speaker.cosine(speaker.load_voiceprint(self.base), OWNER), 1.0, places=5)
+
+    def test_it_can_never_drift_far_from_the_enrollment(self):
+        drifting = toward(OWNER, STRANGER, 0.40)
+        for _ in range(60):                                # sixty "That was me" clicks on a changed voice
+            speaker.last_rejected.update(embedding=drifting, at=time.monotonic(), score=0.4)
+            speaker.that_was_me(self.base)
+        self.assertGreaterEqual(speaker.cosine(speaker.load_voiceprint(self.base), OWNER), speaker.ANCHOR_MIN)
+        self.assertGreater(speaker.learning_stats(self.base)["refused"], 0)
 
 
 class PolicyTests(Base):

@@ -289,13 +289,17 @@ def _rewind(text):
         minutes = n * 60 if unit.startswith(("h", "g")) else n
         if not 1 <= minutes <= 10080:
             return None
-        since = (datetime.now() - timedelta(minutes=minutes)).replace(microsecond=0).isoformat()
-        return _proposal("rewind.run", {"since": since}, f"Undo everything from the last {n} {unit}",
+        now = datetime.now().replace(microsecond=0)
+        return _proposal("rewind.run", {"since": (now - timedelta(minutes=minutes)).isoformat(),
+                                        "until": now.isoformat()}, f"Undo everything from the last {n} {unit}",
                          "", finish=False)
+    until = datetime.now().replace(microsecond=0).isoformat()   # nothing newer than the list the owner approves
     if _REWIND_TODAY.match(text):
-        return _proposal("rewind.run", {"today": True}, "Undo everything from today", "", finish=False)
+        return _proposal("rewind.run", {"today": True, "until": until}, "Undo everything from today", "",
+                         finish=False)
     if _REWIND_TASK.match(text):
-        return _proposal("rewind.run", {"last_task": True}, "Undo the whole last task", "", finish=False)
+        return _proposal("rewind.run", {"last_task": True, "until": until}, "Undo the whole last task", "",
+                         finish=False)
     return None
 
 

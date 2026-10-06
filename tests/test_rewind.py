@@ -125,7 +125,7 @@ class RewindTests(unittest.TestCase):
 
     def test_the_tool_asks_once_with_the_full_list(self):
         self.run_tool("filesystem.write_text", {"path": "q.txt", "content": "x"})
-        arguments = {"since": self.start.isoformat()}
+        arguments = {"since": self.start.isoformat(), "until": datetime.now().replace(microsecond=0).isoformat()}
         tool = self.runtime.registry.get("rewind.run")
         question = self.runtime.step_question(tool, arguments)
         self.assertIn("Undo 1 change(s)", question)
@@ -139,8 +139,9 @@ class RewindTests(unittest.TestCase):
         self.assertEqual(quick_proposal("pichhle 5 minute ka sab wapas karo")["next_steps"][0]["tool"], "rewind.run")
         since = quick_proposal("undo everything from the last 10 minutes")["next_steps"][0]["arguments"]["since"]
         self.assertAlmostEqual((datetime.now() - datetime.fromisoformat(since)).total_seconds(), 600, delta=5)
-        self.assertEqual(quick_proposal("aaj jo kiya sab wapas karo")["next_steps"][0]["arguments"], {"today": True})
-        self.assertEqual(quick_proposal("last task undo karo")["next_steps"][0]["arguments"], {"last_task": True})
+        today = quick_proposal("aaj jo kiya sab wapas karo")["next_steps"][0]["arguments"]
+        self.assertEqual((today["today"], len(today["until"])), (True, 19))   # frozen at the moment of asking
+        self.assertTrue(quick_proposal("last task undo karo")["next_steps"][0]["arguments"]["last_task"])
         self.assertEqual(quick_proposal("undo that")["next_steps"][0]["tool"], "log.undo")
 
 

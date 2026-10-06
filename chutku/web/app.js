@@ -225,6 +225,8 @@ async function loadVoiceLock(action){
     if(action==="clip")box.prepend(node("p","muted","Listening… read the highlighted line now."));
     const s=await api("/api/voice/enroll",{action:action||"status"});box.replaceChildren();
     box.append(node("p","",`Lock: ${s.voice_lock?"ON":"off"} · Voice enrolled: ${s.enrolled?"yes":"no"} · Threshold ${s.threshold}`));
+    if(s.learning&&s.enrolled)box.append(node("p","muted",`Learned from your voice ${s.learning.adapted||0} times`+(s.learning.refused?` (${s.learning.refused} updates refused: too far from your enrollment)`:"")+"."));
+    if(s.learned!==undefined)box.append(node("p","",s.learned?"Thanks: Chutku learned that voice as yours.":"Not learned: that voice is too different from your enrollment. Re-enroll if your voice really changed."));
     if(s.ok===false)box.append(node("p","muted",`Only ${s.heard_seconds} s of speech heard; read it again a little louder.`));
     if(s.enrolled_with)box.append(node("p","",`Enrolled with ${s.enrolled_with} clips.`));
     const list=node("ol");s.lines.forEach((l,i)=>{const li=node("li",i===s.clips?"current":"",l);if(i<s.clips)li.append(node("span","muted"," ✓"));list.append(li);});box.append(list);
@@ -234,6 +236,7 @@ async function loadVoiceLock(action){
     if(s.clips>=6)add("Finish enrollment","finish","primary");
     if(s.clips)add("Start over","reset");
     if(s.enrolled)add(s.voice_lock?"Turn lock off":"Turn lock on",s.voice_lock?"lock_off":"lock_on");
+    if(s.rejected_waiting)add(`That was me (score ${s.rejected_score})`,"that_was_me","primary");
     box.append(row);
   }catch(e){error(e.message);}
 }

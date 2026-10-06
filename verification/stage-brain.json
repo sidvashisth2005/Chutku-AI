@@ -1,6 +1,6 @@
 {
-  "timestamp_utc": "2026-10-01T08:52:46.343933+00:00",
-  "source_sha256": "66b6ec2a79932de9d3350b7705e5dfa5ea1e0ca433090a5ba9978f395e970689",
+  "timestamp_utc": "2026-10-06T21:21:09.026956+00:00",
+  "source_sha256": "167a8dd9084c2f866a1cc247d149acd6a0ed73b943017dcc0d422bfca845579c",
   "stage": "brain",
   "passed": true,
   "checks": [
@@ -12,7 +12,7 @@
     {
       "title": "Closed intent vocabulary",
       "passed": true,
-      "detail": "40 routes have 40 unique labels."
+      "detail": "43 routes have 43 unique labels."
     },
     {
       "title": "Planner regression",

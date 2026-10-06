@@ -60,16 +60,22 @@ class SpeechQueue:
         import queue as _queue
         self.base, self.items, self.thread, self.spoken = base, _queue.Queue(), None, 0
 
+    IDLE_SECONDS = 120
+
     def say(self, text):
-        if self.thread is None:
+        if self.thread is None or not self.thread.is_alive():
             self.thread = threading.Thread(target=self._run, name="chutku-speech", daemon=True)
             self.thread.start()
         self.items.put(text)
 
     def _run(self):
+        import queue as _queue
         with create_runtime(self.base) as runtime:
             while True:
-                text = self.items.get()
+                try:
+                    text = self.items.get(timeout=self.IDLE_SECONDS)
+                except _queue.Empty:
+                    return   # nothing more to say (e.g. close() ran before an approved step spoke): free the runtime
                 if text is None:
                     return
                 try:
@@ -323,7 +329,8 @@ class DashboardServer(ThreadingHTTPServer):
             status = snapshot["status"]
             if status == "waiting_confirmation":
                 if snapshot.get("speaker_verified") is False:   # voice lock: not the owner's voice, screen only
-                    self._hud_set("confirm", message="Voice not recognised as the owner's: approve on screen.")
+                    self._hud_set("confirm", message="Voice not recognised as the owner's: approve on screen. "
+                                                     "If it was you, press 'That was me' in the Voice lock tab.")
                     return
                 if not self._approve_by_voice(session, snapshot):
                     return  # unclear twice: the HUD/page buttons still work
@@ -374,6 +381,8 @@ class DashboardServer(ThreadingHTTPServer):
             used = speaker.enroll(self.base, self.enroll_clips)
             self.enroll_clips = []
             result = {"enrolled_with": used}
+        elif action == "that_was_me":   # the owner's click: the last rejected voice request was really them
+            result = {"learned": speaker.that_was_me(self.base)}
         elif action in {"lock_on", "lock_off"}:
             if action == "lock_on" and speaker.load_voiceprint(self.base) is None:
                 raise ValueError("Enroll your voice first.")
@@ -381,15 +390,18 @@ class DashboardServer(ThreadingHTTPServer):
         else:
             raise ValueError("Unknown action.")
         enabled, threshold = speaker.settings(self.base)
+        pending = speaker.last_rejected["embedding"] is not None and             time.monotonic() - speaker.last_rejected["at"] <= speaker.CONFIRM_SECONDS
         status = {"voice_lock": enabled, "enrolled": speaker.load_voiceprint(self.base) is not None,
-                  "threshold": threshold, "clips": len(self.enroll_clips), "lines": speaker.ENROLL_LINES}
-        return status | (result if action in {"clip", "finish"} else {})
+                  "threshold": threshold, "clips": len(self.enroll_clips), "lines": speaker.ENROLL_LINES,
+                  "learning": speaker.learning_stats(self.base), "rejected_waiting": pending,
+                  "rejected_score": speaker.last_rejected["score"] if pending else None}
+        return status | (result if action in {"clip", "finish", "that_was_me"} else {})
 
-    def _speaker_check(self):
+    def _speaker_check(self, source="local"):
         """Owner Voice Lock (S19): True/False for the voice that started this request; None when the lock is off."""
         try:
             from chutku.voice import speaker
-            verified, score = speaker.verify_recent(self.base)
+            verified, score = speaker.verify_recent(self.base, source)
         except Exception:
             _log().exception("checking the voice failed")
             try:
@@ -588,7 +600,7 @@ class DashboardServer(ThreadingHTTPServer):
     def live_task(self, goal):
         """A task the conversation asked for: the normal agent path, narrated by the conversation."""
         mode = self.preferences.load()["handsfree_mode"]
-        session = self.begin_session(goal, mode, "voice", silent=True)
+        session = self.begin_session(goal, mode, "voice", silent=True, voice_source="live")
         self.hud_state["session_id"] = session.id
         return session
 
@@ -763,7 +775,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.latest_session_id = session.id
         return session
 
-    def begin_session(self, goal, mode, origin, *, silent=False, speaker_check=True):
+    def begin_session(self, goal, mode, origin, *, silent=False, speaker_check=True, voice_source="local"):
         from chutku import control_intent
         control = control_intent.kind(goal)
         busy = self.action_lock.locked() or bool(self.queued_ids())
@@ -790,7 +802,7 @@ class DashboardServer(ThreadingHTTPServer):
             context["past_successes"] = examples
         session = self.agent_sessions.add(AgentSession(goal, mode=mode, origin=origin, context=context))
         if origin == "voice" and speaker_check:   # a scheduled task was checked when it was ordered
-            session.speaker_verified = self._speaker_check()
+            session.speaker_verified = self._speaker_check(voice_source)
         session.silent = silent   # set before any work starts: a live conversation narrates its own results
         if self.planner_factory is None:
             from chutku.quick_intents import QuickPlanner
@@ -1252,8 +1264,8 @@ def _agent_post(self, path, data):
             return 200, server.run_nightshift()
         if path == "/api/voice/enroll":   # Owner Voice Lock tab: status, record a line, finish, lock on/off
             if set(data) != {"action"} or data["action"] not in {"status", "reset", "clip", "finish", "lock_on",
-                                                                  "lock_off"}:
-                raise ValueError("Give an action: status, reset, clip, finish, lock_on or lock_off.")
+                                                                  "lock_off", "that_was_me"}:
+                raise ValueError("Give an action: status, reset, clip, finish, lock_on, lock_off or that_was_me.")
             return 200, server.voice_enroll(data["action"])
         if path == "/api/reflexes":   # the owner switches a learned skill on or off (Skills tab)
             from chutku import reflex

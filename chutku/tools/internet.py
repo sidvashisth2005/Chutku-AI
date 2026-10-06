@@ -111,7 +111,9 @@ def _read_bounded(response, deadline):
     while size <= MAX_BYTES:
         if time.monotonic() > deadline:
             raise TimeoutError("The page took too long to download.")
-        chunk = response.read(min(65536, MAX_BYTES + 1 - size))
+        # read1: whatever has arrived (read(n) would wait for all n bytes and never reach the deadline check)
+        reader = getattr(response, "read1", response.read)
+        chunk = reader(min(65536, MAX_BYTES + 1 - size))
         if not chunk:
             break
         chunks.append(chunk)
