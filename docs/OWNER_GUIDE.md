@@ -78,6 +78,8 @@ Pick a level under the chat box. Each browser remembers its own choice; a new br
 - **Any step that comes right after Chutku read a web page or a message**, so a page cannot order Chutku to act.
   After reading outside text (a web page, a chat, your clipboard, an image, words on screen), Chutku also asks before **opening an app or a file, changing what it remembers, or switching offline mode off**, unless you named that app or file yourself in the request (since 2026-10-06).
 - **Changing a saved contact's number or WhatsApp name.** Messages to saved people go out without asking, so where they go is your choice. Adding a new person or a nickname does not ask.
+- **A kind of step that keeps failing** (earned autonomy, since 2026-10-06). Chutku checks every step that changes something, and counts how often it really worked for that app, site, folder or contact. After at least 2 recent failures with a low success rate, that kind of step asks first, in every level: *"This has worked 0 of the last 5 times (app:…); confirm it."* Ask **"reliability batao"** / **"tum kitni reliable ho"**, or open the **Reliability** tab, to see the numbers.
+  - **"earned autonomy relax on"** (only you can say it; off by default): file changes that can be undone and have worked 20 times in a row on the same folder stop asking. Deletes, and anything after Chutku read outside text, still ask. **"earned autonomy relax off"** turns it back off.
 
 Everything is still logged ("what did you do today"), the Stop / Pause buttons still work, and Windows system folders are never touched.
 
@@ -284,6 +286,7 @@ Rules:
 - **Activity tab:** every task with its full trace.
 - **Memory tab:** the notes you saved.
 - **Mind map tab:** everything you told Chutku, drawn as a map (see section 3).
+- **Reliability tab:** for each action and target (an app, site, folder or contact), how many times it ran, how many really worked, and the cautious success estimate. Each step in a task also shows a small chip like "12/13 ✓". When trust is low, the spoken reply starts with "Shayad ho gaya, ek baar check kar lo".
 
 ---
 

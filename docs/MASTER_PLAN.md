@@ -501,7 +501,7 @@ Each fix gets one test, in `tests/test_quick_intents.py` or `tests/test_real_ses
 ---
 # Phase 3: Novel flagship features
 
-## S16: N2 Earned Autonomy (predict → verify → calibrated trust)
+## S16: N2 Earned Autonomy (predict → verify → calibrated trust) — done 2026-10-06
 
 This slice comes first because N1 and N5 read its ledger.
 

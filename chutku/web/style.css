@@ -95,3 +95,6 @@
 @media(max-width:850px){.mind-wrap{grid-template-columns:1fr}}
 
 .badge.danger{background:#7f1d1d;color:#fff;border-color:#b91c1c}
+
+.step-trust{margin-left:8px;font-size:11px;opacity:.7}.step-trust.weak{color:var(--orange);opacity:1}
+table.reliability{width:100%;border-collapse:collapse}table.reliability th,table.reliability td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}table.reliability tr.weak td{color:var(--orange)}

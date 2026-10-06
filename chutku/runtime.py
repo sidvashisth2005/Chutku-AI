@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import time
 from typing import Any
 
 from chutku.core import elevation
@@ -81,8 +82,55 @@ class Runtime:
         self.action_control = ActionControl(control_root)
         self.approvals = ApprovalStore()
         self.action_log = ActionLog(control_root / "data" / "actions.log.jsonl")
+        self.control_root = control_root
+        self._ledger = None
+
+    @property
+    def ledger(self):
+        """Earned-autonomy outcomes (data/ledger.db), opened on first use."""
+        if self._ledger is None:
+            from chutku.core.ledger import Ledger
+            self._ledger = Ledger(self.control_root / "data" / "ledger.db")
+        return self._ledger
+
+    def reliability(self, tool, arguments):
+        from chutku.core.ledger import target_key
+        try:
+            return self.ledger.stats(tool.name, target_key(tool.name, arguments))
+        except Exception:   # the ledger informs; it never blocks
+            from chutku.core.log import get_logger
+            get_logger("ledger").exception("reading the ledger failed")
+            return None
+
+    def _relax(self):
+        try:
+            from chutku.core.preferences import Preferences
+            return Preferences(self.control_root).load().get("earned_autonomy_relax", False) is True
+        except (OSError, ValueError):
+            return False
+
+    def _record_outcome(self, tool_name, arguments, result, autonomy, seconds):
+        """Expected (the tool's success predicate) vs observed, for every finished step that changes something."""
+        try:
+            tool = self.registry.get(tool_name)
+            state = str(result.get("state"))
+            if tool.base_risk < 1 or state not in {"COMPLETED", "FAILED"}:
+                return
+            from chutku.core.ledger import target_key
+            verdict = "PASS" if state == "COMPLETED" else (
+                "UNKNOWN" if str(result.get("verification")) == "UNKNOWN" else "FAIL")
+            observed = state if verdict == "PASS" else (result.get("error") or result.get("reason") or
+                                                       (result.get("output") or {}).get("error") or state)
+            self.ledger.record(tool_name, target_key(tool_name, arguments), expected=tool.success_predicate,
+                               observed=observed, verdict=verdict, seconds=round(seconds, 3), autonomy=autonomy,
+                               session_id=result.get("task_id"))
+        except Exception:
+            from chutku.core.log import get_logger
+            get_logger("ledger").exception("recording an outcome failed")
 
     def close(self) -> None:
+        if self._ledger is not None:
+            self._ledger.close()
         self.event_log.close()
         self.journal.close()
         if self.memory is not None:
@@ -115,7 +163,10 @@ class Runtime:
                                      autonomy=autonomy, tainted=tainted, exposed=exposed,
                                      protected_reason=self.protected_target(tool, arguments),
                                      owner_question=self.step_question(tool, arguments) if autonomy is not None else None,
-                                     suspicious=suspicious)
+                                     suspicious=suspicious,
+                                     reliability=self.reliability(tool, arguments)
+                                     if autonomy is not None and tool.base_risk >= 1 else None,
+                                     relax=self._relax() if autonomy == "owner" else False)
 
     def step_question(self, tool, arguments):
         """A reason this exact agent step must be confirmed on screen, in every autonomy mode, or None.
@@ -214,9 +265,11 @@ class Runtime:
                 unlogged = self._log_not_ready(tool_name)
                 if unlogged is not None:
                     return unlogged
+                started = time.perf_counter()
                 result = self._run(tool_name, arguments, provenance=provenance, autonomy=autonomy, tainted=tainted,
                                    exposed=exposed, suspicious=suspicious)
                 self._log_action(tool_name, arguments, result, provenance, autonomy)
+                self._record_outcome(tool_name, arguments, result, autonomy, time.perf_counter() - started)
                 return result
         except ExecutionBusy as error:
             task = Task(command=tool_name)
@@ -269,6 +322,8 @@ class Runtime:
                                    exposed=pending.get("exposed"), suspicious=pending.get("suspicious", False))
             self._log_action(pending["tool"], pending["arguments"], result, pending["provenance"],
                              pending.get("autonomy"), approved=not cancel)
+            if not cancel:
+                self._record_outcome(pending["tool"], pending["arguments"], result, pending.get("autonomy"), 0.0)
             return result
 
     def _log_action(self, tool_name, arguments, result, provenance, autonomy, approved=False):

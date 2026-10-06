@@ -7,7 +7,7 @@ from pathlib import Path
 import threading
 
 DEFAULTS = {"handsfree_mode": "owner", "wake_word": False, "conversation": True, "browser": "brave", "heard_log": True,
-            "offline_mode": False}
+            "offline_mode": False, "earned_autonomy_relax": False}
 _MODES = {"review", "auto_safe", "auto_edits", "owner"}
 BROWSER_CHOICES = {"brave", "edge", "chrome", "firefox", "default"}  # owner's choice 2026-10-04: Brave
 
@@ -34,19 +34,21 @@ class Preferences:
                 values["heard_log"] = raw["heard_log"]
             if type(raw.get("offline_mode")) is bool:
                 values["offline_mode"] = raw["offline_mode"]
+            if type(raw.get("earned_autonomy_relax")) is bool:
+                values["earned_autonomy_relax"] = raw["earned_autonomy_relax"]
             if raw.get("browser") in BROWSER_CHOICES:
                 values["browser"] = raw["browser"]
             return values
 
     def update(self, changes: dict) -> dict:
         if not isinstance(changes, dict) or not changes or set(changes) - set(DEFAULTS):
-            raise ValueError("Only handsfree_mode, wake_word, conversation, browser, heard_log and offline_mode can be "
-                             "changed.")
+            raise ValueError("Only handsfree_mode, wake_word, conversation, browser, heard_log, offline_mode and "
+                             "earned_autonomy_relax can be changed.")
         if "browser" in changes and changes["browser"] not in BROWSER_CHOICES:
             raise ValueError("browser must be brave, edge, chrome, firefox or default.")
         if "handsfree_mode" in changes and changes["handsfree_mode"] not in _MODES:
             raise ValueError("handsfree_mode must be review, auto_safe, auto_edits or owner.")
-        for flag in ("wake_word", "conversation", "heard_log", "offline_mode"):
+        for flag in ("wake_word", "conversation", "heard_log", "offline_mode", "earned_autonomy_relax"):
             if flag in changes and type(changes[flag]) is not bool:
                 raise ValueError(f"{flag} must be true or false.")
         from chutku.core.jsonstore import lock_for, write_json

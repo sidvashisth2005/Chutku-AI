@@ -770,6 +770,18 @@ class AgentSession:
             self.finish_pending = False
         return state
 
+    def _note_trust(self, runtime, step, trust):
+        """The step's track record for the page chip ("12/13") and the voice's "shayad" wording."""
+        from chutku.core.ledger import unreliable
+        record = self.steps[-1]
+        try:
+            record["expected"] = runtime.registry.get(step["tool"]).success_predicate
+        except (KeyError, AttributeError):
+            pass
+        if trust is not None and trust.n:
+            record["trust"] = f"{trust.passes}/{trust.n}"
+            record["low_trust"] = unreliable(trust)
+
     def _after_step(self, state):
         """Return False when the loop must stop because of this step."""
         if state == "COMPLETED":
@@ -780,6 +792,11 @@ class AgentSession:
             return False
         self.failures += 1
         self.queue = []  # re-plan from the observed failure
+        last = self.steps[-1]
+        # Surprise feedback (master plan S16): what the step was expected to achieve vs what was observed.
+        self.surprise = (f"Step {last['tool']} expected {last.get('expected') or 'success'} but observed "
+                                 f"{state}: {(last.get('message') or 'unverified')[:160]}. Re-plan from what is "
+                                 "actually there.")
         if self.failures > self.limits["failures"]:
             self._finish("failed", "Stopped after repeated failed or unverified steps. Completed effects remain; "
                                    "inspect Activity or use undo.")
@@ -903,6 +920,7 @@ class AgentSession:
             result = target.run(step["tool"], step["arguments"], provenance=self.provenance,
                                 autonomy=self.mode, tainted=tainted, exposed=self.exposed,
                                 suspicious=self.suspicious)
+            trust = target.reliability(target.registry.get(step["tool"]), step["arguments"])                 if hasattr(target, "reliability") and step["tool"] in {t.name for t in target.registry.list()} else None
             with self.lock:
                 if self.cancelled.is_set():   # stopped while this step ran: keep its record, run nothing more
                     self._record(step, result)
@@ -914,7 +932,9 @@ class AgentSession:
                                     "grant_id": target.resource_grant.grant_id}
                     self.status = "waiting_confirmation"
                     break
-                if not self._after_step(self._record(step, result)):
+                state = self._record(step, result)
+                self._note_trust(target, step, trust)
+                if not self._after_step(state):
                     break
             notify()
         notify()
@@ -934,6 +954,9 @@ class AgentSession:
         replay = self._replay(runtime)
         if replay is not None:
             return replay
+        if getattr(self, "surprise", None) and not self.pending_feedback:
+            self.pending_feedback = self.surprise   # the model hears what was expected vs observed
+        self.surprise = None
         errors = []
         if self.pending_feedback:
             self.feedback, self.pending_feedback = self.pending_feedback, None

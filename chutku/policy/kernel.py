@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from chutku.core.ledger import unreliable
 from chutku.tools.registry import Risk, Tool
 
 
@@ -49,10 +50,18 @@ CREATE_ONLY_TOOLS = frozenset({"filesystem.create_directory", "files.zip", "file
                                "screen.capture"})
 
 
+def earned_file_change(tool, tainted, reliability, relax):
+    """The owner's opt-in "earned autonomy relax on": a file change that can be undone and has worked 20+ times
+    in a row (no failure in the last 20) on this exact target no longer asks. Never for deletes or after reading
+    outside content. Off unless the owner said so (master plan S16)."""
+    return (relax is True and not tainted and not tool.deletes and tool.reversibility in AUTO_EDIT_REVERSIBILITY
+            and reliability is not None and reliability.n >= 20 and reliability.recent_failures == 0)
+
+
 class PolicyKernel:
     """Small fail-closed policy kernel; expand rules before adding mutating tools."""
 
-    def authorize(self, tool: Tool, arguments: dict[str, Any], confirmed_on_screen: bool = False, *, provenance="user_stated", resource_access=None, capability_allowed=None, autonomy=None, tainted=False, protected_reason=None, exposed=None, owner_question=None, suspicious=False) -> Authorization:
+    def authorize(self, tool: Tool, arguments: dict[str, Any], confirmed_on_screen: bool = False, *, provenance="user_stated", resource_access=None, capability_allowed=None, autonomy=None, tainted=False, protected_reason=None, exposed=None, owner_question=None, suspicious=False, reliability=None, relax=False) -> Authorization:
         del arguments  # Risk is runtime-owned; caller-provided risk is deliberately ignored.
         risk = tool.base_risk
         if tool.resource_access is not None and (resource_access is None or tool.resource_access not in resource_access):
@@ -65,7 +74,8 @@ class PolicyKernel:
             return Authorization(Decision.DENY, risk, "Only you can ask for this directly; Chutku never chooses it by itself.")
         if provenance in DELEGATED_PROVENANCE:
             return self._delegated(tool, risk, confirmed_on_screen, autonomy, tainted,
-                                   tainted if exposed is None else exposed, owner_question, suspicious)
+                                   tainted if exposed is None else exposed, owner_question, suspicious,
+                                   reliability, relax)
         if autonomy is not None:
             return Authorization(Decision.DENY, risk, "An autonomy mode applies only to delegated agent steps.")
         if provenance not in {"user_stated", "external_untrusted", "microphone_untrusted", "tool_observed", "inferred",
@@ -85,7 +95,7 @@ class PolicyKernel:
 
     @staticmethod
     def _delegated(tool: Tool, risk: Risk, confirmed_on_screen: bool, autonomy, tainted, exposed,
-                   owner_question=None, suspicious=False) -> Authorization:
+                   owner_question=None, suspicious=False, reliability=None, relax=False) -> Authorization:
         """Agent-proposed step for a user-stated goal, bounded by the chosen mode."""
         try:
             mode = AutonomyMode(autonomy)
@@ -107,8 +117,12 @@ class PolicyKernel:
             return Authorization(Decision.CONFIRM, risk, SUSPICIOUS_REASON)
         if tainted and risk >= Risk.REVERSIBLE and tool.name.startswith(TAINT_SENSITIVE_R1):
             return Authorization(Decision.CONFIRM, risk, TAINT_R1_REASON)
+        if risk >= Risk.REVERSIBLE and unreliable(reliability):
+            # Earned autonomy (master plan S16): this kind of step keeps failing, so it asks, in every mode.
+            return Authorization(Decision.CONFIRM, risk, f"This has worked {reliability.passes} of the last "
+                                 f"{reliability.n} times ({reliability.key}); confirm it.")
         if mode == AutonomyMode.OWNER:
-            return PolicyKernel._owner(tool, risk, tainted, exposed, owner_question)
+            return PolicyKernel._owner(tool, risk, tainted, exposed, owner_question, reliability, relax)
         ceiling = _CEILING[mode]
         if ceiling is None or risk > ceiling:
             return Authorization(Decision.CONFIRM, risk, f"Mode '{mode.value}' requires on-screen confirmation for this step.")
@@ -124,12 +138,13 @@ class PolicyKernel:
         return Authorization(Decision.ALLOW, risk, f"Allowed automatically by mode '{mode.value}'.")
 
     @staticmethod
-    def _owner(tool: Tool, risk: Risk, tainted, exposed, owner_question) -> Authorization:
+    def _owner(tool: Tool, risk: Risk, tainted, exposed, owner_question, reliability=None,
+               relax=False) -> Authorization:
         """The owner's standing order (2026-10-04): do everything without asking, except file changes and deletions."""
         if risk >= Risk.DESTRUCTIVE_OR_PRIVILEGED:
             return Authorization(Decision.CONFIRM, risk, "Power, killing a program or turning the network off can lose "
                                  "unsaved work; this asks first.")
-        if tool.resource_access == "modify" and tool.name not in CREATE_ONLY_TOOLS:
+        if tool.resource_access == "modify" and tool.name not in CREATE_ONLY_TOOLS                 and not earned_file_change(tool, tainted, reliability, relax):
             return Authorization(Decision.CONFIRM, risk, "Changing files always asks first.")
         if owner_question:
             return Authorization(Decision.CONFIRM, risk, str(owner_question))

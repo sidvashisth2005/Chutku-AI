@@ -8,7 +8,7 @@ if(location.hash)history.replaceState(null,"",location.pathname);
 let sessionToken = tokenFromLink || "";
 try{sessionToken = sessionToken || sessionStorage.getItem("chutku-token") || "";}catch{}
 let state=null, busy=false;
-const labels={mind:"Mind map",home:"Command center",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
+const labels={reliability:"Reliability",mind:"Mind map",home:"Command center",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
 const MODE_HELP={
   review:"Review: every step waits for your click before it runs.",
   auto_safe:"Auto (safe): looking, opening apps/files/sites and other easily reversible steps run by themselves. File changes and anything risky wait for your click.",
@@ -27,7 +27,7 @@ async function api(path,data){
   if(!response.ok)throw new Error(payload.error||"The request failed.");
   return payload;
 }
-function switchTab(id){if(id==="mind")loadMind();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
+function switchTab(id){if(id==="mind")loadMind();if(id==="reliability")loadReliability();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
 document.querySelectorAll("[data-tab]").forEach(e=>e.addEventListener("click",()=>switchTab(e.dataset.tab)));
 
 // ---- autonomy selector (remembered per browser) ----
@@ -78,6 +78,7 @@ function renderSession(bubble,s){
     const list=node("div","steps-live");
     s.steps.forEach(step=>{const row=node("div","step "+step.state.toLowerCase());row.append(node("span","step-icon",STEP_ICON[step.state]||"·"),node("span","step-text",step.purpose+" — "+step.tool));
       if(step.message&&step.state!=="COMPLETED")row.append(node("span","step-msg",step.message));
+      if(step.trust)row.append(node("span","step-trust"+(step.low_trust?" weak":""),step.trust+" ✓"));
       if(step.task_id){const t=node("button","text-button","trace");t.addEventListener("click",()=>showTrace(step.task_id));row.append(t);}
       list.append(row);});
     bubble.append(list);
@@ -193,6 +194,16 @@ async function pollHandsfree(){
 const SVGNS="http://www.w3.org/2000/svg";
 function svg(tag,attrs,text){const e=document.createElementNS(SVGNS,tag);for(const [k,v] of Object.entries(attrs||{}))e.setAttribute(k,String(v));if(text!==undefined)e.textContent=text;return e;}
 function short(s,n){s=String(s||"");return s.length>n?s.slice(0,n-1)+"…":s;}
+async function loadReliability(){
+  try{
+    const {rows}=await api("/api/reliability");const box=$("reliability-table");box.replaceChildren();
+    if(!rows.length){box.append(node("p","muted","Nothing measured yet: steps that change something are counted as they run."));return;}
+    const table=node("table","reliability");const head=node("tr");["Action","On","Worked","Rate","Lower bound"].forEach(h=>head.append(node("th","",h)));table.append(head);
+    rows.forEach(r=>{const tr=node("tr",r.lower_bound!==null&&r.lower_bound<0.7&&r.trials-r.passes>=2?"weak":"");
+      [r.tool,r.target,`${r.passes}/${r.trials}`,Math.round(r.rate*100)+"%",r.lower_bound===null?"–":r.lower_bound.toFixed(2)].forEach(v=>tr.append(node("td","",String(v))));table.append(tr);});
+    box.append(table);
+  }catch(e){error(e.message);}
+}
 async function loadMind(){try{renderMind(await api("/api/mind"));}catch(e){error(e.message);}}
 function renderMind(m){
   const open=items=>(items||[]).map(i=>({label:i.text,detail:(i.done?"✓ done":"open")+" · #"+i.id+(i.added?" · added "+i.added:""),done:i.done}));

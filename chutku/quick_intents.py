@@ -48,6 +48,8 @@ PATTERNS = [
     ("weather", re.compile(rf"^{_POLITE}(?:(?:what(?:'?s| is) the |how(?:'s| is) the |tell me the |check the )?weather|mausam|temperature)(?:\s+(?:like\s+)?(?:in|at|of|for)\s+(?P<city>[a-z .'-]{{2,60}}?))?(?:\s+(?:today|now|right now|currently|at the moment|tomorrow|kaisa hai|kya hai|batao|kaisa rahega))*{_TAIL}", re.I)),
     ("weather", re.compile(rf"^{_POLITE}(?P<city>[a-z .'-]{{2,60}}?)\s+(?:ka|mein|me)\s+(?:mausam|weather|temperature)(?:\s+(?:kaisa hai|kya hai|batao|kaisa rahega))?{_TAIL}", re.I)),
     ("news", re.compile(rf"^{_POLITE}(?:(?:give|tell|show|get) me |what(?:'?s| is) |any )?(?:the )?(?:(?:latest|today'?s|top|recent)\s+)?(?:news|headlines|khabar|samachar)(?:\s+(?:about|on|of|for|regarding)\s+(?P<topic>.{{2,100}}?))?(?:\s+(?:batao|sunao|dikhao))?{_TAIL}", re.I)),
+    ("info_reliability", re.compile(rf"^{_POLITE}(?:tum kitni reliable ho|reliability batao|how reliable are you|"
+                                    rf"show (?:your |my )?reliability|kitna sahi kaam karti ho){_TAIL}", re.I)),
     ("info_perf", re.compile(rf"^{_POLITE}(?:what(?:'?s| is) (?:the |my )?)?(?:(?:cpu|gpu|processor|laptop|pc|computer)\s+"
                              rf"(?:temperature|temp|heat)|(?:temperature|temp)\s+(?:of|in)\s+(?:my |the )?(?:cpu|gpu|"
                              rf"processor|laptop|pc|computer))(?:\s+(?:kitna hai|kya hai|batao|now|right now))?{_TAIL}",
@@ -494,7 +496,8 @@ def _single(goal, apps=None):
                              "info_volume": ("system.volume_status", "Check the volume"),
                              "info_theme": ("settings.theme_status", "Check the theme"),
                              "info_health": ("system.health", "Check battery, memory and disk"),
-                             "info_perf": ("system.performance", "Check CPU, GPU, memory and temperature")}[kind]
+                             "info_perf": ("system.performance", "Check CPU, GPU, memory and temperature"),
+                             "info_reliability": ("ledger.summary", "Check how often each action really worked")}[kind]
             return _proposal(tool, {}, purpose, "", finish=False)
         if kind in {"net_check", "net_ip"}:
             return _proposal("net.check", {}, "Check the internet connection", "", finish=False)
@@ -735,6 +738,22 @@ def _say_message(out):
     return f"I pressed send in {out['app']} for {out['to']}, but couldn't see the message in the chat. Please check."
 
 
+def _say_reliability(out):
+    """Earned autonomy in plain words: how often checked actions worked, and what keeps failing."""
+    if not out.get("actions_measured"):
+        return "Nothing measured yet: every step that changes something is checked and counted as it runs."
+    count = out["actions_measured"]
+    text = (f"Of {count} checked action{'' if count == 1 else 's'}, {out['worked']} really worked "
+            f"({round(out['rate'] * 100)}%).")
+    weak = out.get("keeps_failing") or []
+    if weak:
+        text += " Keeps failing, so it asks you first: " + "; ".join(
+            f"{w['tool']} on {w['target']} ({w['passes']}/{w['trials']})" for w in weak[:3]) + "."
+    else:
+        text += " Nothing keeps failing right now."
+    return text
+
+
 def _say_gpu(out):
     return "; ".join(f"{g['name']} with {round(int(g['vram_mib']) / 1024)} GB video memory ({int(g['vram_mib'])} MB, "
                      f"driver {g['driver_version']})" for g in out["gpus"]) + "."
@@ -895,7 +914,7 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
-QUICK_ANSWERS = {"system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
+QUICK_ANSWERS = {"ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,

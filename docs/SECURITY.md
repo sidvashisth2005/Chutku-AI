@@ -26,12 +26,12 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (148 registered)
+### Risk levels and tools (150 registered)
 
 | Level | Count | Meaning |
 |---|---|---|
-| R0 observation | 56 | reads only |
-| R1 reversible | 39 | easily undone (open apps or pages, window and media control) |
+| R0 observation | 57 | reads only |
+| R1 reversible | 40 | easily undone (open apps or pages, window and media control) |
 | R2 data modification | 22 | changes data, with runtime undo where available |
 | R3 external side effect | 25 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, screen.click_risky, settings.theme_restore, settings.theme_set, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close |
 | R4 destructive / privileged | 6 | filesystem.delete_permanent, network.adapter_restore, network.adapter_set, power.cancel, power.schedule, process.terminate |
@@ -51,6 +51,7 @@ Every tool call goes through `Runtime.run`:
 - Changing a saved contact's phone or WhatsApp name.
 - Agent browser steps on local or private addresses.
 - Keys or clicks that would save, delete, move files, or click an "approve"-like button.
+- A kind of step that keeps failing (earned autonomy: at least 2 recent failures and a low success bound).
 - Any deletion (always to the Recycle Bin). Permanent delete is `user_only`, so the agent can never choose it.
 
 ## 2. Hard boundaries (no approval overrides them)

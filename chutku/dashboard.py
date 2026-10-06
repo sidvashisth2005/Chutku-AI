@@ -94,6 +94,8 @@ def speak_result(session, router):
         return  # already spoken sentence by sentence while it was written
     import re
     text = re.sub(r"\s*\[Verified:.*\]\s*$", "", snapshot["reply"]).strip() or "Done."
+    if any(step.get("low_trust") for step in snapshot["steps"]):   # this kind of step has been failing lately
+        text = "Shayad ho gaya, ek baar check kar lo. " + text
     try:
         router.default.run("voice.speak", {"text": text[:200]}, provenance="tool_observed")
     except Exception:
@@ -882,6 +884,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     response = (200, today | {
                         "interrupted": interrupted_task(self.server.base),
                         "paused_reason": paused_explanation(self.server.base, short=True) if today["actions_paused"] else None})
+                elif parts.path == "/api/reliability":
+                    response = (200, {"rows": runtime.ledger.table()})
                 elif parts.path == "/api/mind":
                     from chutku.recall import mind_map
                     response = (200, mind_map(self.server.base))
@@ -1095,6 +1099,7 @@ INSTANT_TOOLS = frozenset({
     "filesystem.undo_last_write", "filesystem.undo_last_copy", "filesystem.undo_last_move",
     "filesystem.restore_last_recycled", "screen.undo_last_capture", "screen.displays",
     "voice.list_voices", "voice.recognition_status", "voice.audio_input_status", "voice.speak",
+    "settings.earned_autonomy",
 })
 
 

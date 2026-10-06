@@ -49,6 +49,7 @@ class PlanningTests(unittest.TestCase):
             "check microphone level": ("CHECK_MICROPHONE_LEVEL", "voice.microphone_level_check"),
             "speech recognition status": ("CHECK_SPEECH_RECOGNITION", "voice.recognition_status"),
             "say hello": ("SPEAK_TEXT", "voice.speak"),
+            "earned autonomy relax on": ("SET_EARNED_AUTONOMY", "settings.earned_autonomy"),
             "list windows": ("LIST_WINDOWS", "windows.list"),
         }
         self.assertEqual(len(cases), len(INTENT_BY_TOOL))

@@ -42,6 +42,8 @@ class QuickIntentTests(unittest.TestCase):
         from chutku.quick_intents import QUICK_ANSWERS
         samples = {
             "system.get_time": {"local_time": "Friday, 02 October 2026, 11:00 AM"},
+            "ledger.summary": {"actions_measured": 10, "worked": 8, "rate": 0.8, "by_action": [],
+                               "keeps_failing": [{"tool": "apps.launch", "target": "app:x", "passes": 0, "trials": 5}]},
             "system.disk_space": {"drives": [{"drive": "C:\\", "free_gb": 9, "total_gb": 254, "free_percent": 3.6}],
                                   "advice": "Low space on C:\\. Ask me for the biggest files there, or empty the Recycle Bin."},
             "files.recent": {"files": [{"name": "a.txt", "modified": "2026-10-01 10:00"}], "days": 7, "searched": []},

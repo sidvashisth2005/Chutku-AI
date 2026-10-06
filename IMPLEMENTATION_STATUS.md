@@ -16,6 +16,53 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: S16 — Earned Autonomy (outcomes ledger, calibrated trust, add-only policy)
+
+Checked item by item against `docs/MASTER_PLAN.md` S16.
+
+- **Ledger** (`chutku/core/ledger.py`, new):
+  - `data/ledger.db`, table `outcomes` with the plan's columns, indexed on `(tool, target_key, id)`.
+  - `target_key` follows the plan's mapping; contact names are hashed.
+  - `stats()` gives the Wilson lower bound (z 1.96) over the last 50 rows, and `None` under 5 trials. `table()` is per tool and target.
+  - The database is opened per use, so no file stays locked (a Windows temp-cleanup failure showed the need).
+- **Hook:**
+  - `Runtime.run` records every finished R1+ step: expected = the tool's `success_predicate`; observed = state or error; verdict PASS/FAIL/UNKNOWN; seconds; autonomy; task id.
+  - Approved steps are recorded too.
+  - Any ledger error is logged and never blocks a step.
+- **Policy** (`PolicyKernel`, `reliability` and `relax` parameters):
+  - An R1+ step whose record is unreliable asks **in every delegated mode**: "This has worked {passes} of the last {n} times ({key}); confirm it."
+  - **Deviation 1:** besides lcb < 0.7, it also needs ≥2 failures (`MIN_FAILURES`). The plan's rule alone would ask after 5 *perfect* runs (Wilson bound 0.566), which would wrongly re-add asks to everything.
+  - **Relax** (preference `earned_autonomy_relax`, off by default) is set only through the new `user_only` tool `settings.earned_autonomy`. The phrase is "earned autonomy relax on/off".
+  - When relax is on, `earned_file_change` skips the Owner file-change ask only for an undoable tool with n ≥ 20, zero failures in the last 20, not tainted and not a delete.
+- **Surprise feedback:**
+  - A FAIL/UNKNOWN step sets "Step X expected … but observed …; re-plan from what is actually there."
+  - **Deviation 2:** it is handed to the model only when the model plans the next round (`self.surprise`). As `pending_feedback` it blocked the quick tier (caught by `test_audio_output`).
+- **Expectation field:**
+  - **Deviation 3:** the optional model `"expect"` field was not added. The plan's "simplest version" (`surprise = verdict != PASS`) is used; adding a field would lengthen every constrained 4B round for no measured gain.
+- **Surfaces:**
+  - The dashboard **Reliability** tab (`/api/reliability` → `ledger.table()`).
+  - A step trust chip ("12/13 ✓").
+  - Low trust adds a spoken "Shayad ho gaya, ek baar check kar lo" prefix.
+  - `ledger.summary` (R0), with the phrases "reliability batao" and "tum kitni reliable ho". It is answered deterministically by `quick_intents._say_reliability`. The first live run was model-worded and misleading ("reliability of Chutku is 0.0", 8.88 s), so a fixed answer replaced it.
+- **Tests:** `tests/test_ledger.py` (10), covering:
+  - Wilson math and the target keys;
+  - perfect records never ask;
+  - low trust asks in Owner while other targets are unaffected;
+  - under 5 trials there is no effect;
+  - relax is off by default, the agent cannot set it (DENY), and relax never skips deletes;
+  - runs are recorded;
+  - no locked file.
+
+  **Full suite: 855 tests OK (148 s).**
+- **Real path** (live Chutku):
+  1. **5 real FAILED `apps.launch` "Zzprobe Ledger App" → the 6th was WAITING_CONFIRMATION** with "This has worked 0 of the last 5 times (app:zzprobe ledger app); confirm it." The probe rows were then deleted from `data/ledger.db`.
+  2. After the redeploy, "reliability batao" on the empty ledger gave "Nothing measured yet…" in 0.83 s.
+  3. "open notepad" completed in 3.97 s. The ledger, read independently, showed 1 trial / 1 pass for `app:notepad`. "reliability batao" then answered **"Of 1 checked action, 1 really worked (100%). Nothing keeps failing right now." in 0.36 s**, which matches. The Notepad window was closed.
+- **Negative:** an agent-proposed `settings.earned_autonomy {"on": true}` → **DENY**. A user-stated one → ALLOW (`test_the_agent_can_never_switch_relax_on`).
+- **Limits:**
+  - The ledger counts only Chutku's own verification. A step that "passed" but did the wrong thing counts as a pass until the owner rates it.
+  - Relax stays off until the owner says "earned autonomy relax on".
+
 ### 2026-10-06: S15 — prompt-injection hardening (30 Hinglish attacks, zero unasked actions)
 
 Checked item by item against `docs/MASTER_PLAN.md` S15.

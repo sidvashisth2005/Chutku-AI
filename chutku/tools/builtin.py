@@ -420,6 +420,8 @@ def register_builtin_tools(registry: ToolRegistry) -> None:
     register_note_tools(registry)
     from chutku.tools.mind_tools import register_mind_tools
     register_mind_tools(registry)
+    from chutku.tools.ledger_tools import register_ledger_tools
+    register_ledger_tools(registry)
     from chutku.tools.free_input import register_free_input_tools
     register_free_input_tools(registry)
     from chutku.tools.net_check import register_net_check_tools
