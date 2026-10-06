@@ -241,6 +241,25 @@ Everything below is **instant**: matched by rules and done within about a second
 - "find my newest PDF in Downloads and open it"
 - "make a folder D:\Notes and write today's plan in it"
 
+### Tasks for later: once, at a time, or again and again (since 2026-10-06)
+
+Give the order once. Chutku saves it, keeps talking and working normally, does the task by herself when the time comes, then goes back to normal.
+
+| Say | What happens |
+|---|---|
+| "30 min baad UB ko hi bhej dena" / "send hi to UB in 2 hours" | once, after that long |
+| "raat 12 baje Rahul ko happy birthday bhejna" / "at 9 pm send good night to mammi" / "kal subah 8 baje news sunao" | once, at that time |
+| "har 15 min weather batao" / "har ghante paani peene ka bolo" / "check my internet every 30 minutes" | again and again until you cancel |
+| "scheduled tasks dikhao" / "what's scheduled" | the list, with each task's id |
+| "scheduled tasks band karo" / "cancel scheduled task 3fa2c1" | cancels all of them, or that one |
+
+- **Times:** "12 baje" with a birthday or wish means midnight; otherwise it means the next 12 o'clock. Bare 1–6 means evening, like everywhere else. Chutku always says back the exact time, so correct her if it's wrong.
+- **Same rules as when you said it.** The task runs later in the same autonomy level you used when giving the order. So in Owner mode, changing files, deleting and messaging someone new still ask, and the approval waits on screen. A web page or message can't plant a task: scheduling after Chutku read outside text asks first.
+- **Busy or paused:** if Chutku is busy at that moment, the task waits in line and runs right after. While actions are paused, nothing runs.
+- **Missed tasks:** a task that was due while Chutku was off runs once when she starts, if it is less than 6 hours late. A repeating task never runs several times to catch up.
+- **Notifications:** a Windows notification "Chutku: scheduled task" shows when one starts.
+- **Typing into another app on a timer** (for example "continue" into the Claude chat in VS Code) is **not reliable yet**. Chutku has to find the window and the right box each time, and if the focus is wrong the text lands somewhere else. For Claude specifically, use Claude Code's own `/loop 15m continue`.
+
 ---
 
 ## 4. Routines (one phrase, several actions)

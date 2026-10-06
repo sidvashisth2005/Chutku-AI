@@ -1336,6 +1336,9 @@ def serve(port: int = 8765, open_browser: bool = False, *, base=PROJECT_ROOT, he
             threading.Thread(target=suggest.watch, args=(base, threading.Event()), name="chutku-suggest",
                              daemon=True).start()
             threading.Thread(target=_warm_app_list, name="chutku-apps-warm", daemon=True).start()
+            from chutku import scheduled
+            threading.Thread(target=scheduled.watch, args=(server, threading.Event()), name="chutku-scheduled",
+                             daemon=True).start()   # "30 min baad ...", "har 15 min ...": runs beside normal work
             server.start_tray()
         _write_session_link(base, server.url)
         print("Chutku is ready. Open this local session link:", flush=True)

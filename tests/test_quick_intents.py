@@ -42,6 +42,9 @@ class QuickIntentTests(unittest.TestCase):
         from chutku.quick_intents import QUICK_ANSWERS
         samples = {
             "system.get_time": {"local_time": "Friday, 02 October 2026, 11:00 AM"},
+            "task.list": {"tasks": [{"id": "3fa2c1", "goal": "send hi to UB", "next_at": "2026-10-06T21:00:00",
+                                     "every_minutes": None, "runs": 0, "last": None,
+                                     "summary": "“send hi to UB” at 9:00 PM today"}], "count": 1},
             "reflex.list": {"skills": [{"id": "a", "phrase": "search {query} on youtube in brave", "examples": [],
                                         "hits": 3, "passes": 3, "fails": 0, "enabled": True, "disabled_reason": "",
                                         "tools": ["web.search"]}], "count": 1, "enabled": 1,

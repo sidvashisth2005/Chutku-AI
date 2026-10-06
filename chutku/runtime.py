@@ -403,7 +403,8 @@ class Runtime:
             self.action_control.check()
             self._transition(task, TaskState.EXECUTING)
             context = ExecutionContext(task.task_id, self.journal, self.granted_root, self.memory,
-                                       getattr(self, "capability_grants", None), approved=approved_task is not None)
+                                       getattr(self, "capability_grants", None), approved=approved_task is not None,
+                                       autonomy=autonomy, provenance=provenance)
             result = tool.execute(arguments, context)
             self.event_log.append(
                 task.task_id,

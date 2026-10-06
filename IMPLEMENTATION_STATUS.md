@@ -16,6 +16,51 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-06: Scheduled tasks (owner request, outside the master plan): "30 min baad X", "har 15 min X", "12 baje X"
+
+**Cause.** In a live session the owner asked Chutku to send "continue" into the Claude chat every 15 minutes.
+- Chutku had no way to run a task later: reminders only notify.
+- Gemini answered "no interval-based automation". Live voice said "set kar rahi hoon" without doing anything, and tried a Telegram message (denied twice).
+- The owner then asked for a general feature: give an order once, Chutku keeps working normally, and does the task at the time, once or repeatedly.
+
+**Fix.**
+- **`chutku/scheduled.py` (new):**
+  - Store `data/scheduled.json`: atomic, locked, at most 30 active tasks.
+  - Hinglish/English parser:
+    - every: "har 15 min X", "X every 30 minutes", "har ghante";
+    - after: "30 min baad X", "after 2 hours X", "X in 30 minutes";
+    - at: "raat 12 baje X", "at 9 pm X", "X at 9:30 pm", "kal subah 8 baje X";
+    - 12 + birthday/wish → midnight; bare 1–6 → evening;
+    - reminders and statements ("note that the meeting is at 5") are left alone.
+  - `take_due` moves each task on *before* it runs, so a crash never runs it twice. A repeating task never catches up on missed times. A one-off more than 6 h late is recorded as missed, not run.
+  - `watch()` runs as a dashboard thread (real install only). Every 5 s it starts due tasks through `server.begin_session(goal, mode, origin, silent=True)`, the normal path, so a busy Chutku queues the task after the current work. Nothing runs while paused. A Windows notification shows when a task starts.
+- **Tools (`chutku/tools/schedule_tools.py`):**
+  - `task.schedule` (R1). It stores the order's own autonomy mode and voice/text origin; `ExecutionContext` now carries `autonomy` and `provenance`. It is added to `TAINT_SENSITIVE_R1`, so after outside content it asks. A goal that contains its own time is refused.
+  - `task.list` (R0) and `task.cancel` (R1).
+  - 154 tools: R0 59, R1 42.
+- **Quick tier:** scheduling, listing and cancelling phrases are instant. A scheduling round finishes without a model answer even when the goal says "batao" (the telling happens later).
+- **Tests:** `tests/test_scheduled.py` (14), covering:
+  - the parser, including non-schedules;
+  - one-off, repeat without catch-up, missed, cancel;
+  - the runner keeps the order's mode and origin, and does nothing while paused;
+  - the tools through the runtime;
+  - delegated mode kept;
+  - a nested time and tainted planting are refused;
+  - the "batao" finish;
+  - the phrases.
+
+  **Full suite: 882 tests OK (165 s).** `check_phrases.py` 118/118.
+
+**Real path** (live Chutku after redeploy):
+- "1 min baad notepad kholo" → scheduled in 0.56 s, due 11:01:28. "time batao" right after answered in 0.55 s, so she was not blocked. **The task started at 11:01:29 and Notepad was open by 11:01:30** (window check). The job ended "ran", and the window was closed.
+- "har 1 min time batao" → ran at **11:02:45 and 11:03:45**. The logged replies "11:02 AM" and "11:03 AM" match.
+- "scheduled tasks dikhao" listed it in 0.35 s. "scheduled tasks band karo" cancelled it in 0.28 s. **No run in the next 75 s** (runs stayed at 2).
+- That first live repeat went to the model (8.3 s) because of "batao", with a misleading model reply. It was fixed and covered by a test.
+
+**Limit.** The original use case, typing "continue" into the Claude chat in VS Code every 15 min, now *schedules*, but the *typing itself* is model-planned each time.
+- A Review-mode preview shows Gemini planning windows.list → focus → type, unsure which window "Claude" is.
+- A wrong focus would type into the code editor. This is not shipped as reliable; the owner guide recommends Claude Code's `/loop 15m continue`.
+
 ### 2026-10-06: S17 — Reflex Compiler (Chutku learns instant skills from verified model plans)
 
 Checked item by item against `docs/MASTER_PLAN.md` S17.

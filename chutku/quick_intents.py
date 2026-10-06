@@ -255,6 +255,9 @@ def _single(goal, apps=None):
         return again
     if control in ("stop", "pause") and not re.fullmatch(r"\W*stop\W*", text, re.I):
         return _done("Nothing is running right now.")  # (the dashboard stops running work before this point)
+    scheduled = _scheduled(text)
+    if scheduled is not None:
+        return scheduled
     from chutku.message_intent import parse_send
     message = parse_send(text)
     if message is not None:
@@ -634,6 +637,37 @@ def _single(goal, apps=None):
     return _follow_up(text)
 
 
+_TASKS_LIST = re.compile(rf"^{_POLITE}(?:(?:show|list|what are) (?:my |the )?scheduled tasks|what(?:'?s| is) scheduled|"
+                         rf"scheduled tasks(?: dikhao| batao)?|kya kya schedule(?:d)? (?:hai|kiya hai)|"
+                         rf"schedule(?:d)? (?:kya hai|dikhao|batao)){_TAIL}", re.I)
+_TASKS_CANCEL = re.compile(rf"^{_POLITE}(?:cancel|stop|delete|remove|band karo|hatao)?\s*(?:all |sab |saare |sare )?"
+                           rf"(?:the |my )?scheduled tasks?(?: (?P<id>[0-9a-f]{{6}}))?\s*(?:cancel karo|band karo|hatao|"
+                           rf"cancel kar do|band kar do|rok do|ruk jao)?{_TAIL}", re.I)
+
+
+def _scheduled(text):
+    """"30 min baad X", "har 15 min X", "12 baje X": save the order; "scheduled tasks dikhao" / "... cancel karo"."""
+    if _TASKS_LIST.match(text):
+        return _proposal("task.list", {}, "List the scheduled tasks", "", finish=False)
+    cancel = _TASKS_CANCEL.match(text)
+    if cancel and re.search(r"cancel|stop|delete|remove|band|hatao|rok|ruk", text, re.I):
+        arguments = {"id": cancel.group("id")} if cancel.group("id") else {"all": True}
+        return _proposal("task.cancel", arguments, "Cancel scheduled tasks", "Cancelled the scheduled task"
+                         + ("." if cancel.group("id") else "s."))
+    from chutku import scheduled
+    found = scheduled.parse(text)
+    if found is None:
+        return None
+    from datetime import datetime
+    arguments = {"goal": found["goal"], "at": found["at"].strftime("%Y-%m-%dT%H:%M:%S")}
+    if found["every_minutes"]:
+        arguments["every_minutes"] = found["every_minutes"]
+    summary = scheduled.describe({"goal": found["goal"], "next_at": arguments["at"],
+                                  "every_minutes": found["every_minutes"]})
+    return _proposal("task.schedule", arguments, f"Schedule: {found['goal'][:80]}",
+                     f"Theek hai, yaad rakh liya: {summary}. Tab tak main normal kaam karti rahungi.")
+
+
 def _follow_up(text):
     """Last resort, only when nothing else matched: "hi bhej do" within 2 minutes of opening a chat."""
     from chutku.message_intent import parse_follow_up_send
@@ -756,6 +790,13 @@ def _say_reliability(out):
     else:
         text += " Nothing keeps failing right now."
     return text
+
+
+def _say_tasks(out):
+    tasks = out.get("tasks") or []
+    if not tasks:
+        return "Nothing is scheduled right now."
+    return f"{len(tasks)} scheduled: " + "; ".join(f"{t['summary']} (id {t['id']})" for t in tasks[:6]) + "."
 
 
 def _say_learned(out):
@@ -935,7 +976,7 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
-QUICK_ANSWERS = {"reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
+QUICK_ANSWERS = {"task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,

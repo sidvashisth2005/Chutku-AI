@@ -108,6 +108,8 @@ class ExecutionContext:
     memory: "MemoryStore | None" = None
     capability_grants: Any = None     # this runtime's PC capability grants (e.g. may Gemini be the backup?)
     approved: bool = False            # the owner confirmed this exact step on screen
+    autonomy: str | None = None       # the request's autonomy mode (a scheduled task later runs in the same mode)
+    provenance: str | None = None     # who asked: user_stated, delegated or delegated_microphone
 
     def granted(self, capability):
         if self.capability_grants is None:

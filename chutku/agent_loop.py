@@ -903,7 +903,8 @@ class AgentSession:
                                            and any(_risk(runtime, s["tool"]) > 0 for s in fresh)
                                            and len(proposal.get("declared_plan") or []) <= len(fresh)
                                            and not _IN_PROGRESS.search(proposal.get("reply") or "")
-                                           and not _TELL_ME.search(self.goal))
+                                           and (not _TELL_ME.search(self.goal)   # "har 1 min time batao": the
+                                                or all(s["tool"] == "task.schedule" for s in fresh)))   # telling is later
                     self.round_start = len(self.steps)
                     self.round_declared = len(proposal.get("declared_plan") or [])
                     self.round_planner = meta.get("planner") if isinstance(meta, dict) else None
