@@ -56,7 +56,7 @@ Status: ✅ done and verified on this PC · ⏳ not yet · ⛔ deliberately diff
 | Game install/update scheduling (Steam/Epic) | `games.install` opens Steam's install window by game name; `games.downloads` opens the download page; timed downloads use Steam's own download restrictions | ✅ (Epic install: library page only) |
 | Audio device picker | `audio.outputs` / `audio.set_output` ("switch audio to headphones"); Core Audio + IPolicyConfig via ctypes, read back, previous device returned | ✅ |
 | Holographic avatar, lip-sync, themes | — | ⛔ cosmetic; web UI instead (can revisit) |
-| Remote phone dashboard (LAN + QR) | — | ⛔ for now: exposes PC control to the network; needs pairing + TLS design first |
+| Remote phone dashboard (LAN + QR) | — | 🗓 planned (2026-10-07): P1–P4 phone app over Tailscale HTTPS with QR pairing + PIN (chat, voice, approvals, view-only screen); P5–P9 full tap/type control later. Spec: `docs/HERMES_PLAN.md` |
 | Drop-in Python plugins | — | ⛔ for now: loads arbitrary code; registry tools instead |
 | Dev agent (build whole projects via Gemini) | `code.build_project`: writes a new project, opens VS Code, compiles, runs its tests, launches it, repairs from real errors (Gemini Pro when enabled, else local) | ✅ (verified with the local coder; layout quality needs Gemini) |
 | Image description (what's in a photo) | `image.describe` via Gemini vision (needs cloud.gemini; image sent to Google) | ✅ |

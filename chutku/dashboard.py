@@ -79,7 +79,7 @@ class SpeechQueue:
                 if text is None:
                     return
                 try:
-                    runtime.run("voice.speak", {"text": text[:200]}, provenance="tool_observed")
+                    runtime.run("voice.speak", {"text": text[:1000]}, provenance="tool_observed")
                     self.spoken += 1
                 except Exception:
                     _log().exception("speaking a sentence failed")
@@ -103,7 +103,7 @@ def speak_result(session, router):
     if any(step.get("low_trust") for step in snapshot["steps"]):   # this kind of step has been failing lately
         text = "Shayad ho gaya, ek baar check kar lo. " + text
     try:
-        router.default.run("voice.speak", {"text": text[:200]}, provenance="tool_observed")
+        router.default.run("voice.speak", {"text": text[:1000]}, provenance="tool_observed")
     except Exception:
         _log().exception("spoken answer failed")  # the answer is still shown on screen
 
@@ -317,7 +317,7 @@ class DashboardServer(ThreadingHTTPServer):
     def _speak(self, text):
         try:
             with create_runtime(self.base) as runtime:
-                runtime.run("voice.speak", {"text": text[:200]}, provenance="tool_observed")
+                runtime.run("voice.speak", {"text": text[:1000]}, provenance="tool_observed")
         except Exception:
             _log().exception("speaking failed")
 
@@ -779,6 +779,9 @@ class DashboardServer(ThreadingHTTPServer):
         from chutku import control_intent
         control = control_intent.kind(goal)
         busy = self.action_lock.locked() or bool(self.queued_ids())
+        if control in ("stop", "pause"):
+            from chutku.voice import tts
+            tts.stop()   # "ruko" / "stop" also ends what Chutku is saying right now
         if control == "stop" and busy:
             count = self.stop_everything()
             return self._control_session(goal, mode, origin, f"Stopped ({count} task{'s' if count != 1 else ''}). "
@@ -1051,6 +1054,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._reply(409, {"error": "Could not change action control. Wait for the active action before resuming."})
             return
         # Capture cancellation remains reachable while listening owns the action lock.
+        if urlsplit(self.path).path == "/api/voice/stop_speaking":   # stop Chutku mid-sentence
+            from chutku.voice import tts
+            tts.stop()
+            self._reply(200, {"stopped": True})
+            return
         if urlsplit(self.path).path == "/api/voice/cancel":
             if data:
                 self._reply(400, {"error": "Voice cancellation takes no arguments."})
@@ -1436,6 +1444,8 @@ def serve(port: int = 8765, open_browser: bool = False, *, base=PROJECT_ROOT, he
             threading.Thread(target=suggest.watch, args=(base, threading.Event()), name="chutku-suggest",
                              daemon=True).start()
             threading.Thread(target=_warm_app_list, name="chutku-apps-warm", daemon=True).start()
+            from chutku.voice import tts
+            threading.Thread(target=tts.warm_up, name="chutku-tts-warm", daemon=True).start()   # neural voice ready
             from chutku import timeline
             threading.Thread(target=timeline.watch, args=(base, threading.Event()), name="chutku-timeline",
                              daemon=True).start()   # opt-in ("timeline on"): window titles only, 14 days

@@ -16,6 +16,48 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-07: S10 service — Kokoro is Chutku's voice (owner's listening test: 10 of 10)
+
+Checked item by item against `docs/MASTER_PLAN.md` S10 "Service".
+
+- **Decision:** `scripts/tts_ab.py --listen` (blind, randomised A/B) gave Kokoro `hf_alpha` **10, SAPI Zira 0** (`verification/tts-ab.json`). The plan's rule was to switch only if the owner prefers it.
+- **`chutku/voice/tts.py` (new):**
+  - Kokoro is loaded once. A warm-up at dashboard start takes about 2 s.
+  - Sentence split at `.!?` and the danda `।`; very long sentences are cut at commas.
+  - The next sentence is made while the current one plays (producer thread plus a 2-slot queue).
+  - `stop()` ends playback within about 0.1 s. One voice plays at a time.
+  - Devanagari text uses `lang="hi"`, everything else `en-us`, as in the A/B test.
+- **One switch point:** every speaking path (spoken answers, the streamed sentence queue, confirmations, voice approvals) already uses the `voice.speak` tool, so `voice.speak` now uses Kokoro.
+  - **SAPI is the never-silent fallback:** missing files, any Kokoro error (recorded as `kokoro_failed`), or the owner preference `voice_engine: "sapi"`.
+  - The SAPI fallback speaks long text in parts of at most 200 characters, because of its 12-second limit.
+  - The text limit went from 200 to **1000**. The dashboard's `[:200]` cuts were removed (now 1000).
+- **Reminders** (`remind.py`, a separate process) speak with Kokoro and fall back to SAPI; the toast is not shown twice.
+- **Barge-in:**
+  - "ruko" / "stop" / "pause" (control intents) call `tts.stop()`, and there is a new `POST /api/voice/stop_speaking` (token-checked like every POST).
+  - **Deviation:** the mute hotkey does not stop speech. The owner guide promises that mute "keeps talking but doesn't hear the room", so that stays.
+- **Gemini Live** still speaks with Google's voice: Kokoro covers everything Chutku says herself.
+- **Tests:** `tests/test_tts.py` (10), covering:
+  - danda and comma splitting;
+  - making the next sentence while one plays;
+  - stop within 0.3 s with a fake device;
+  - an error before the first sound is raised so the fallback runs;
+  - Kokoro is the default;
+  - missing files → SAPI (the plan's negative case);
+  - a Kokoro error → SAPI plus `kokoro_failed`;
+  - the owner's `sapi` choice is honoured;
+  - text over 200 characters is spoken whole.
+
+  **Tests never load the real model or play sound:** `tts.available()` is False inside test runs. Before that guard, 4 `test_speech` cases spoke through the real Kokoro instead of their fake SAPI failure; this was caught and fixed.
+
+  **Full suite: 945 tests OK (176 s).**
+- **Real path** (this PC, audible):
+  - `voice.speak` of 3 Hinglish sentences: engine kokoro, 3 sentences, first sound 2.34 s in a cold CLI process (this includes model load).
+  - Warm, as in the dashboard: model load plus warm-up 1.98 s once, then **first sound 0.34 s**.
+  - **Stop:** sent at 2.0 s into a long answer, silent at 2.20 s.
+  - Preference `sapi` → engine sapi (the fallback path works); set back to kokoro.
+  - After redeploy: `live_check.py` 12/12 (median 0.8 s).
+- **Limit:** Kokoro reads Roman Hinglish with English pronunciation (as in the test the owner listened to). A Hinglish-trained voice comes with the custom-voice plan (`docs/VOICE_RECORDING_GUIDE.md`).
+
 ### 2026-10-07: Unused files removed (owner's choice)
 
 - **Models:** `models/Qwen3-0.6B-Q8_0.gguf` (610 MB) and `models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf` (2.4 GB) went to the Recycle Bin. There were zero references in `chutku/`, `scripts/`, `tests/` and `models/manifest.json`, checked before deleting.

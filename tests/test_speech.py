@@ -34,7 +34,7 @@ class SpeechTests(unittest.TestCase):
 
     def test_speech_rejects_unbounded_text_and_extra_options(self):
         with patch("chutku.tools.speech.sapi") as backend:
-            for args in ({"text": "x" * 201}, {"text": ""}, {"text": "hello", "command": "evil"}, {"text": "hello", "voice_id": 1}):
+            for args in ({"text": "x" * 1001}, {"text": ""}, {"text": "hello", "command": "evil"}, {"text": "hello", "voice_id": 1}):
                 self.assertEqual(self.runtime.run("voice.speak", args)["state"], "FAILED")
             backend.assert_not_called()
 

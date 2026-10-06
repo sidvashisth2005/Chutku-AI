@@ -1,0 +1,49 @@
+{
+ "at": "2026-10-07 03:09",
+ "answers": 10,
+ "kokoro_preferred": 10,
+ "sapi_preferred": 0,
+ "switch": true,
+ "choices": [
+  {
+   "text": "Theek hai, main samajh gayi. Main shant ho jati hoon. Jab kuch kaam ho, toh bejhijhak batana.",
+   "preferred": "kokoro"
+  },
+  {
+   "text": "Kuch help chahiye, ya bas aise hi keh rahe ho? Bata dena, main kar dungi.",
+   "preferred": "kokoro"
+  },
+  {
+   "text": "Acha, main ruk jati hoon. Agar kuch aur kaam ho, toh batana.",
+   "preferred": "kokoro"
+  },
+  {
+   "text": "Haan haan, bol na, kya baat hai? Main sun rahi hoon. Kuch kaam hai ya bas aise hi baat karni hai?",
+   "preferred": "kokoro"
+  },
+  {
+   "text": "ओह, अच्छा, यह मामला है। देख, सबका अपना-अपना तरीका होता है। तू बता, वह किस चीज़ से ज़्यादा खुश होती है? कोई गिफ्ट, कोई स्पेशल डेट, या फिर बस प्यार से सॉरी बोलना? थोड़ा हिंट दे, फिर सोचते हैं कुछ बढ़िया सा।",
+   "preferred": "kokoro"
+  },
+  {
+   "text": "ठीक है, पूछ ले आराम से। और कुछ और दिमाग में आए, तो बेझिझक बताना, मिलकर सोचेंगे। ऑल दी बेस्ट!",
+   "preferred": "kokoro"
+  },
+  {
+   "text": "It's Tuesday, 06 October 2026, 02:24 AM.",
+   "preferred": "kokoro"
+  },
+  {
+   "text": "C: has 19.7 GB free of 254.2 GB (7.8%); D: has 94.5 GB free of 191.5 GB (49.4%). Low space on C:\\. Ask me for the biggest files there, or empty the Recycle Bin.",
+   "preferred": "kokoro"
+  },
+  {
+   "text": "2 to the power 10 (1024) is bigger than 10 cubed (1000).",
+   "preferred": "kokoro"
+  },
+  {
+   "text": "Your PC: battery 90% and charging, RAM 86% used (3.3 GB free), C: 19.7 GB free, D: 94.5 GB free. Low space on C:.",
+   "preferred": "kokoro"
+  }
+ ]
+}

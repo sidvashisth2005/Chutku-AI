@@ -63,7 +63,7 @@
     "status": "Hash-verified against Hugging Face X-Linked-ETag 2026-10-04; offline backup planner/coder."
   },
   "tts": {
-    "status": "spike 2026-10-06: measured, waiting for the owner's blind listening test (scripts/tts_ab.py --listen)",
+    "status": "In use since 2026-10-07: the owner's blind listening test preferred Kokoro hf_alpha 10/10 over SAPI Zira (verification/tts-ab.json).",
     "license": "Apache-2.0 (Kokoro-82M weights, hexgrad); MIT (kokoro-onnx packaging)",
     "model": {
       "source": "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx",
@@ -74,7 +74,8 @@
       "source": "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin",
       "path": "models/kokoro/voices-v1.0.bin",
       "sha256": "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d"
-    }
+    },
+    "voice": "hf_alpha"
   },
   "embed": {
     "name": "multilingual-e5-small (int8 ONNX)",

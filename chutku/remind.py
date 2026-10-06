@@ -16,6 +16,11 @@ from chutku.health import TOAST_SHOW, powershell_exe  # noqa: E402  (after the p
 _TOAST = r'''
 $ErrorActionPreference = 'Stop'
 $m = [Console]::In.ReadToEnd() | ConvertFrom-Json
+if ($m.toast -eq $false) {   # speak-only call (the neural voice failed): no second notification
+  Add-Type -AssemblyName System.Speech
+  (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('Reminder. ' + [string]$m.message)
+  exit 0
+}
 $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
 $null = [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime]
 $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
@@ -24,10 +29,22 @@ $texts = $xml.GetElementsByTagName('text')
 $texts.Item(0).AppendChild($xml.CreateTextNode('Chutku reminder')) | Out-Null
 $texts.Item(1).AppendChild($xml.CreateTextNode([string]$m.message)) | Out-Null
 ''' + TOAST_SHOW + r'''
-Add-Type -AssemblyName System.Speech
-$voice = New-Object System.Speech.Synthesis.SpeechSynthesizer
-$voice.Speak('Reminder. ' + [string]$m.message)
+if ($m.speak_sapi) {
+  Add-Type -AssemblyName System.Speech
+  $voice = New-Object System.Speech.Synthesis.SpeechSynthesizer
+  $voice.Speak('Reminder. ' + [string]$m.message)
+}
 '''
+
+
+def _neural_voice():
+    """Chutku's own voice (Kokoro) unless the owner chose the Windows voice or the model files are missing."""
+    try:
+        from chutku.core.preferences import Preferences
+        from chutku.voice import tts
+        return Preferences(ROOT).load().get("voice_engine", "kokoro") == "kokoro" and tts.available()
+    except Exception:
+        return False
 
 
 def main():
@@ -38,10 +55,20 @@ def main():
     entry = load(ROOT).get(reminder_id)
     if not entry or entry.get("fired"):
         return 0
+    neural = _neural_voice()
     encoded = base64.b64encode(_TOAST.encode("utf-16-le")).decode("ascii")
     subprocess.run([powershell_exe(), "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
-                   input=json.dumps({"message": entry["message"]}), text=True, encoding="utf-8", timeout=90,
-                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False)
+                   input=json.dumps({"message": entry["message"], "speak_sapi": not neural}), text=True,
+                   encoding="utf-8", timeout=90, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False)
+    if neural:
+        try:
+            from chutku.voice import tts
+            tts.speak("Reminder. " + entry["message"])
+        except Exception:   # never silent: the Windows voice says it instead
+            subprocess.run([powershell_exe(), "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
+                           input=json.dumps({"message": entry["message"], "speak_sapi": True, "toast": False}),
+                           text=True, encoding="utf-8", timeout=90,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False)
     with _lock:
         data = load(ROOT)
         if reminder_id in data:

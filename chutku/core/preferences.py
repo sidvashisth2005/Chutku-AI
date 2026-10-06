@@ -8,7 +8,7 @@ import threading
 
 DEFAULTS = {"handsfree_mode": "owner", "wake_word": False, "conversation": True, "browser": "brave", "heard_log": True,
             "offline_mode": False, "earned_autonomy_relax": False, "voice_lock": False, "voice_lock_threshold": 0.55,
-            "timeline": False, "timeline_private": []}
+            "timeline": False, "timeline_private": [], "voice_engine": "kokoro"}
 _MODES = {"review", "auto_safe", "auto_edits", "owner"}
 BROWSER_CHOICES = {"brave", "edge", "chrome", "firefox", "default"}  # owner's choice 2026-10-04: Brave
 
@@ -45,6 +45,8 @@ class Preferences:
                 values["timeline"] = raw["timeline"]
             if isinstance(raw.get("timeline_private"), list):
                 values["timeline_private"] = [str(v)[:80] for v in raw["timeline_private"][:50]]
+            if raw.get("voice_engine") in {"kokoro", "sapi"}:
+                values["voice_engine"] = raw["voice_engine"]
             if raw.get("browser") in BROWSER_CHOICES:
                 values["browser"] = raw["browser"]
             return values
@@ -52,8 +54,8 @@ class Preferences:
     def update(self, changes: dict) -> dict:
         if not isinstance(changes, dict) or not changes or set(changes) - set(DEFAULTS):
             raise ValueError("Only handsfree_mode, wake_word, conversation, browser, heard_log, offline_mode, "
-                             "earned_autonomy_relax, voice_lock, voice_lock_threshold, timeline and "
-                             "timeline_private can be changed.")
+                             "earned_autonomy_relax, voice_lock, voice_lock_threshold, timeline, "
+                             "timeline_private and voice_engine can be changed.")
         if "browser" in changes and changes["browser"] not in BROWSER_CHOICES:
             raise ValueError("browser must be brave, edge, chrome, firefox or default.")
         if "handsfree_mode" in changes and changes["handsfree_mode"] not in _MODES:
@@ -62,6 +64,8 @@ class Preferences:
                                                       and not isinstance(changes["voice_lock_threshold"], bool)
                                                       and 0.2 <= changes["voice_lock_threshold"] <= 0.95):
             raise ValueError("voice_lock_threshold must be between 0.2 and 0.95.")
+        if "voice_engine" in changes and changes["voice_engine"] not in {"kokoro", "sapi"}:
+            raise ValueError("voice_engine must be kokoro or sapi.")
         if "timeline_private" in changes and not (isinstance(changes["timeline_private"], list) and all(
                 isinstance(v, str) and 0 < len(v) <= 80 for v in changes["timeline_private"])
                                                   and len(changes["timeline_private"]) <= 50):

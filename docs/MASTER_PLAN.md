@@ -383,7 +383,7 @@ Each fix gets one test, in `tests/test_quick_intents.py` or `tests/test_real_ses
 ---
 # Phase 2: Upgrades (each has an A/B measurement)
 
-## S10: Neural female voice (Kokoro spike → service) — spike done 2026-10-06; service waits for the owner's listening test
+## S10: Neural female voice (Kokoro spike → service) — done 2026-10-07 (owner preferred Kokoro 10/10; service live)
 
 **Spike**
 1. Run `pip install kokoro-onnx` into `.venv`, then pin it and its dependencies in `requirements.lock`.
@@ -779,24 +779,71 @@ Tool `timeline.search` (R0, `output_untrusted`) uses `memory_index` embeddings (
 # Phase 4: Release
 
 ## S22: Evidence, docs, reviews — done 2026-10-07 (voice stage gate waits for the owner-only Stage 5 trials)
-- [ ] Regenerate the evidence after the last code edit:
+- [x] Regenerate the evidence after the last code edit:
   - `scripts/verify_release.py --model --hardware`;
   - `scripts/check_stages.py --through all`;
   - `scripts/benchmark_agent.py` (≥ 45/45);
   - `scripts/eval_planner.py`;
   - `scripts/live_check.py`.
   - Record all of them in the ledger.
-- [ ] Docs:
+- [x] Docs:
   - `README.md` (the tool count, the test count, the new features);
   - `docs/OWNER_GUIDE.md` (every new phrase and control: reflexes, rewind, voice lock, reliability, night shift, timeline, voice);
   - `docs/MARK_PARITY.md` "Beyond Mark" rows;
   - `docs/ARCHITECTURE.md` module table;
   - `docs/SECURITY.md` (S4 rewrite, updated).
-- [ ] Run `/code-review` and `/security-review` over `git diff <S0 commit>..HEAD`, fix the confirmed findings, and commit.
-- [ ] Final ledger entry: a summary table of every slice with its evidence pointer.
+- [x] Run `/code-review` and `/security-review` over `git diff <S0 commit>..HEAD`, fix the confirmed findings, and commit.
+- [x] Final ledger entry: a summary table of every slice with its evidence pointer.
+
 
 ---
+# Phase 3b: Hermes-inspired upgrades + remote phone access (planned 2026-10-07)
+Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, Hermes facts). Order is breadth-first; tick each box when its slice passes the AGENTS.md gate.
+
+- [ ] H1: Approval floors: hard block + owner "never" rules
+- [ ] H2: Pause switch (global emergency stop)
+- [ ] H3: Content scanner + bounded-memory meter
+- [ ] P1: Phone access: Tailscale HTTPS + QR pairing + phone PIN
+- [ ] P2: Phone app: chat, live progress, approvals (installable PWA)
+- [ ] P3: Phone voice: push-to-talk + spoken replies
+- [ ] P4: Live screen view (view-only) + keep-awake
+- [ ] H4: Fast chat-history search (FTS5)
+- [ ] H5: Step summaries instead of dropping
+- [ ] H6: `@file` / `@folder` / `@url` / clipboard-image references in typed chat
+- [ ] H7: Weekly insights
+- [ ] H8: Scheduled-task upgrades (continuity, silent tick, chaining, incidents)
+- [ ] H9: Brain resilience: fallback chain, error classes, per-request brain choice
+- [ ] H10: Proven lessons from mistakes
+- [ ] H11: Procedure skills (SKILL.md) with progressive disclosure
+- [ ] H12: Background review + learning inbox
+- [ ] H13: Curator: lifecycle for skills, reflexes and lessons
+- [ ] H14: For-each steps
+- [ ] H15: Task board + background research workers
+- [ ] H16: Telegram remote control with pairing + handoff
+- [ ] H17: Reply style presets
+- [ ] H18: Busy mode: queue / steer / side question
+- [ ] H19: Free neural voice online (Edge TTS) + sentence streaming
+- [ ] H20: Voice polish (phantom filter, exact stop, barge-in)
+- [ ] H21: Think harder / answer fast
+- [ ] H22: Second opinion ("pakka?")
+- [ ] H23: Blueprints + my shortcuts
+- [ ] H24: Standing goals
+- [ ] H25: Backup & restore
+- [ ] H26: Doctor that can repair
+- [ ] H27: Learn on request ("ye seekh lo")
+- [ ] H28: Learning journey view
+- [ ] H29: Conversation tools + context gauge
+- [ ] H30: Phase 3b release: evidence, docs, reviews
+
+**Planned, built only on the owner's word ("phone control banao"):**
+- [ ] P5: Tap and pointer control
+- [ ] P6: Keyboard (Hindi too) + shortcut bar
+- [ ] P7: Clipboard sync
+- [ ] P8: File transfer phone <-> laptop
+- [ ] P9: Point-and-ask
+---
 # Parked (needs a later owner decision)
+- **Hermes features not taken** (2026-10-07; reasons in `docs/HERMES_PLAN.md` section 3): smart/LLM approvals, yolo and "approve always", container backends (D5), execute_code, MCP client, plugins and hooks, Skills Hub installs, local API server/ACP, extra chat gateways, FAL image generation, external memory providers, mascot/skins, multi-profile agents, bot-to-bot peer, coding-agent tools (worktree, LSP, /init, /plan).
 - **Sandboxed code runner (D5 original choice):** run scripts and builds at reduced Windows privileges automatically, and ask only for full rights. It could not be specified in this session. Until it exists, S1's "always confirm" stays in force.
 - **Deleting unused models** (Qwen3-0.6B, Qwen3-4B-Instruct-2507; 3.1 GB on D:): owner approval needed.
 - **Earned-autonomy relax and the timeline:** both are off by default; the owner turns them on by phrase.

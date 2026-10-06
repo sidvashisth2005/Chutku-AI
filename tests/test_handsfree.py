@@ -153,7 +153,7 @@ class PreferencesTests(unittest.TestCase):
             self.assertEqual(prefs.load(), {"handsfree_mode": "owner", "wake_word": False, "conversation": True, "browser": "brave",
                                         "heard_log": True, "offline_mode": False, "earned_autonomy_relax": False,
                                         "voice_lock": False, "voice_lock_threshold": 0.55, "timeline": False,
-                                        "timeline_private": []})
+                                        "timeline_private": [], "voice_engine": "kokoro"})
             for bad in ({"handsfree_mode": "yolo"}, {"wake_word": "yes"}, {"conversation": 1}, {"other": 1}, {}):
                 with self.assertRaises(ValueError):
                     prefs.update(bad)
@@ -163,7 +163,7 @@ class PreferencesTests(unittest.TestCase):
                                                               "conversation": False, "browser": "edge", "heard_log": True,
                                                               "offline_mode": False, "earned_autonomy_relax": False,
                                                               "voice_lock": False, "voice_lock_threshold": 0.55, "timeline": False,
-                                        "timeline_private": []})
+                                        "timeline_private": [], "voice_engine": "kokoro"})
             with self.assertRaises(ValueError):
                 prefs.update({"browser": "netscape"})
 

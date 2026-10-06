@@ -36,12 +36,15 @@ All commands are run from `D:\Project\Chutku` using `.venv\Scripts\python.exe -m
 **Give several orders and walk away:** while one task runs, new orders (typed in the dashboard or the panel, or spoken with the wake phrase) wait in line, marked **queued**, and start by themselves one after another. Up to 10 can wait. Stop on a queued task removes it from the line. When a run of two or more tasks is over, a Windows notification lists them (✓ done / ✗ not done). Voice answers are spoken as each task finishes.
 
 
-### Try a more natural voice (your choice, 2026-10-06)
-Chutku can speak offline with a neural female voice (Kokoro) instead of Windows' Zira. Twenty of her real replies are already rendered. To choose, run this and listen:
+### Chutku's voice (Kokoro, since 2026-10-07)
 
-    .venv\Scripts\python.exe scripts\tts_ab.py --listen
-
-Each sentence plays twice, as A then B, in random order. Press 1 or 2 for the one you prefer (s skips, q stops). If you prefer Kokoro in most answers, Chutku switches her offline voice; if not, Zira stays. The files are in `D:\ChutkuScratch\tts_ab\`.
+You picked the new neural voice in the blind listening test (10 of 10 times over the old Windows voice), so it is now Chutku's voice for everything she says on this PC: spoken answers, reminders and confirmations.
+- She speaks sentence by sentence. The first words come about a third of a second after the answer is ready, and long answers are no longer cut at 200 characters.
+- **"ruko" / "stop"** stops her mid-sentence.
+- If the voice files are missing or the voice fails, the old Windows voice says it instead, so she is never silent.
+- To go back to the old Windows voice, run `.venv\Scripts\python.exe -c "from chutku.core.preferences import Preferences; from chutku.app import PROJECT_ROOT; Preferences(PROJECT_ROOT).update({'voice_engine': 'sapi'})"`. Use `'kokoro'` to switch back.
+- In a live conversation (Gemini Live), Google's own voice still speaks; Kokoro is the voice for everything Chutku says herself.
+- Later, Chutku's voice can become your own recorded voice: see `docs/VOICE_RECORDING_GUIDE.md`.
 
 ### Voice conversation fixes (2026-10-06)
 - **A quick "हां"** is no longer lost. If Chutku answers before your words are written down, she waits up to 2 seconds for them.
