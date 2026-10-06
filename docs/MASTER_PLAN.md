@@ -822,7 +822,7 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [ ] H16: Telegram remote control with pairing + handoff
 - [ ] H17: Reply style presets
 - [ ] H18: Busy mode: queue / steer / side question
-- [ ] H19: Free neural voice online (Edge TTS) + sentence streaming
+- [ ] H19: Sentence-by-sentence speech for Kokoro
 - [ ] H20: Voice polish (phantom filter, exact stop, barge-in)
 - [ ] H21: Think harder / answer fast
 - [ ] H22: Second opinion ("pakka?")

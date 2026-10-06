@@ -97,7 +97,7 @@ Hermes is **never installed or run**. The reasons:
 | H16 | Telegram remote control with pairing | Reach | L |
 | H17 | Reply style presets (female persona kept) | Persona | S |
 | H18 | Busy mode: queue / steer / side question | Voice/Chat | M |
-| H19 | Free neural voice online (Edge TTS) + sentence streaming | Voice | M |
+| H19 | Sentence-by-sentence speech for Kokoro | Voice | S |
 | H20 | Voice polish (phantom filter, exact stop, barge-in) | Voice | S |
 | H21 | Think harder / answer fast | Brain | S |
 | H22 | Second opinion ("pakka?") + ask-both | Brain | S |
@@ -329,7 +329,7 @@ A flagged write is refused: "Isme chhupe hue instructions/characters hain, isliy
 #### P3: Phone voice: push-to-talk + spoken replies
 - **Mic:** a hold-to-talk button. `MediaRecorder` (webm/opus) sends ≤ 30 s of audio by `POST` to the laptop. It is decoded in memory (PyAV, already a faster-whisper dependency) → local Whisper → the S8 wrong-language guard → H20 phantom filter → `begin_session(origin="phone_voice")`. Audio is never written to disk.
 - If the owner has enrolled, the S19 voice lock scores the clip. Then the normal voice-lock policy applies: a non-owner voice → R1+ asks, and the PIN is required as usual.
-- **Spoken replies:** played on the phone with the browser's own `speechSynthesis`, preferring a female `hi-IN` / `en-IN` voice, with a toggle. When H19 is chosen, it can stream Edge audio instead. The laptop stays silent during remote voice (the toggle "laptop pe bhi bolo").
+- **Spoken replies:** Kokoro audio made on the laptop is streamed to the phone sentence by sentence (H19). If that fails, the browser's own `speechSynthesis` speaks, preferring a female `hi-IN` / `en-IN` voice. The laptop stays silent during remote voice (the toggle "laptop pe bhi bolo").
 - **Tests:** an oversize clip → refused; audio never touches disk (temp-dir watch); phantom audio → no task; the voice-lock path is applied; the wrong-language guard is applied.
 - **Real path:** hold and say "Oye Chutku, aaj ka weather batao" from the phone on mobile data → the transcript is correct (compare with what was said), the reply is spoken on the phone, and seconds are recorded from release to first audio.
 
@@ -850,19 +850,16 @@ This is a second remote path next to the phone app (P1–P4). It works without T
 
 ---
 
-### H19: Free neural voice when online (Edge TTS) + sentence streaming
-**From Hermes:** TTS providers, with **Edge TTS** (free, no key) as the default; replies spoken sentence by sentence as text is generated.
+### H19: Sentence-by-sentence speech for Kokoro (Edge TTS dropped)
+**From Hermes:** replies are spoken sentence by sentence as the text is generated. Hermes's free Edge TTS was planned here, but on 2026-10-07 **Kokoro became Chutku's voice** (won the owner's blind listening test 10/10, S10 service done). So no online voice is added, and no reply text goes to Microsoft.
 
-- New `chutku/voice/edge_voice.py` using the `edge-tts` package. Check its license before adding and record it in `THIRD_PARTY_LICENSES.md`.
-  - Voices: `hi-IN-SwaraNeural` (female, Hindi) and `en-IN-NeerjaNeural` (female, Indian English), picked per sentence by script detection (Devanagari or Roman-Hindi → Swara).
-  - Output: MP3 → played from memory.
-- **Privacy and fail-closed:** the reply text goes to Microsoft. It is used only when cloud is allowed and offline mode is off. Any error or a 3-second timeout → the SAPI or Kokoro fallback for that sentence. It never blocks a reply.
-- **Sentence streaming:** S11 already streams first words. Each completed sentence is synthesized while the next is generated, so the first audio comes about 1 sentence after the first text.
-- **Owner decision D4 stays:** Edge joins the existing blind listening test (`scripts/tts_ab.py`) as a third voice next to SAPI and Kokoro. It becomes the online default only if the owner picks it. The "custom voice" recordings task stays separate.
-- **Tests:** offline mode → never called (spy); a timeout falls back; the script picks the voice; there is no audio file on disk.
-- **Real path:** speak one Hinglish reply online → time to first audio (ms) against SAPI; the listening-test sheet gets a new row.
-- **Negative:** offline mode on → SAPI speaks, and the network spy shows 0 calls.
-
+- **Sentence streaming:** S11 already streams the first words. Each completed sentence goes to the Kokoro service while the next is being generated, and the sentences play back in order without gaps. The first audio comes about one sentence after the first text, instead of after the whole reply.
+- Sentence splitting handles Hinglish and Devanagari punctuation (`।`, `?`, `!`, `.`), keeps short fragments joined (minimum about 20 characters), and never splits numbers, times or URLs.
+- **Fail closed:** a Kokoro error or a 3-second stall on one sentence → SAPI speaks that sentence, and the next one tries Kokoro again. It never blocks or drops a reply.
+- Barge-in (H20) stops the queue at once.
+- **Tests:** splitting fixtures (Hinglish, Devanagari, numbers, URLs); in-order playback with fake synth delays; a failed sentence falls back alone; barge-in clears the queue; no audio file on disk.
+- **Real path:** a 4-sentence Hinglish reply → time to first audio (ms) against whole-reply synthesis. Independent check: the sentences heard in order match the reply text.
+- **Negative:** make the Kokoro service fail on sentence 2 → sentence 2 is spoken by SAPI, sentences 1, 3 and 4 by Kokoro, and nothing is skipped.
 ---
 
 ### H20: Voice polish from Hermes
@@ -876,7 +873,7 @@ This is a second remote path next to the phone app (P1–P4). It works without T
 - **Phantom filter:** `voice/heard.py` drops whole transcripts that match a list of known Whisper phantoms: "Thank you for watching", "Please subscribe", "धन्यवाद" alone, "Subtitles by…", "♪", ".", and others. Log `ignored=phantom` in `heard.jsonl`. Start the list from the real `heard.jsonl` entries the owner never meant.
 - **Exact stop:** in hands-free conversation mode, an utterance that is exactly "bas", "stop", "chup", "band karo" or "that's all" (case-insensitive, punctuation ignored) ends the mode. It is not a task.
 - **Silent cycles:** 3 empty listens in a row end conversation mode with a soft chime.
-- **Barge-in on the Whisper path:** while SAPI or Edge speaks, keep a room-noise baseline. Speech above baseline × 3 for ≥ 0.3 s stops playback and starts listening. Live already does this.
+- **Barge-in on the Whisper path:** while Kokoro or SAPI speaks, keep a room-noise baseline. Speech above baseline × 3 for ≥ 0.3 s stops playback and starts listening. Live already does this.
 - **Tests:** phantom lines are dropped while real short commands ("haan", "volume 30") pass; exact stop vs "stop the music" (that one is a task); the silent-cycle count; the barge-in threshold on recorded fixture audio.
 - **Real path:** play 60 s of room or YouTube noise near the mic in conversation mode → 0 tasks started, and the phantom entries are logged. Then say "bas" → the mode ends.
 
@@ -1053,7 +1050,6 @@ This repeats S22 for the H slices.
   - H12 writes that skip the inbox;
   - H18 steers that try to remove an ask;
   - H25 secrets in backups and restore tampering;
-  - H19 cloud calls in offline mode;
   - **P1–P4 remote:** Host / Tailscale-header / credential / PIN checks, Funnel kill, CSRF, approval replay, the never-remotely list, a stream without the PIN, and that the main dashboard is still `127.0.0.1`-only;
   - **P5–P9, when built:** arming only at the laptop, the step-up PIN for command windows, local-input takeover, the kill hotkey, text redaction in logs, and file-transfer path escapes.
 - [ ] Final ledger entry: a table of H1–H30 with the evidence pointer for each.
@@ -1092,10 +1088,10 @@ Record these under "Parked" in `MASTER_PLAN.md`.
 **New modules**
 - `chutku/policy/hardline.py`, `pause.py`, `scan.py`, `history_index.py`, `insights.py`, `brain_errors.py`, `lessons.py`, `skills.py`, `review.py`, `gateway/telegram.py`.
 - Remote: `chutku/remote/server.py` (phone API), `remote/pairing.py` (QR, device credentials, PIN), `remote/tailscale.py` (status, serve, Funnel check), `remote/stream.py` (frames), and later `remote/control.py` (SendInput, DPI mapping, rule checks, P5–P7), `remote/files.py` (P8), `remote/point.py` (P9); `chutku/web/phone/` (PWA). Tests: `test_remote_access.py`, `test_remote_app.py`, `test_remote_voice.py`, `test_remote_stream.py`, and later `test_remote_control.py`, `test_remote_keyboard.py`, `test_remote_clipboard.py`, `test_remote_files.py`, `test_point_and_ask.py`.
-- Also: `board.py`, `busy.py`, `voice/edge_voice.py`, `blueprints.py`, `goals.py`, `backup.py`; the H22 answer check goes in `ensemble.py`, H26 in `doctor.py`, and H29 in `recall.py`, `history_index.py` and `dashboard.py`.
+- Also: `board.py`, `busy.py`, `blueprints.py`, `goals.py`, `backup.py`; the H22 answer check goes in `ensemble.py`, H26 in `doctor.py`, and H29 in `recall.py`, `history_index.py` and `dashboard.py`.
 - The curator goes in `nightshift.py`, `@`-refs in `dashboard.py` with a helper `refs.py`, and for-each in `runtime.py` / `agent_execution.py`.
 
-**New tests:** `tests/test_hardline.py`, `test_pause.py`, `test_scan.py`, `test_history_index.py`, `test_steps_summary.py`, `test_refs.py`, `test_insights.py`, `test_scheduled_plus.py`, `test_brain_errors.py`, `test_lessons.py`, `test_skills.py`, `test_review.py`, `test_curator.py`, `test_for_each.py`, `test_board.py`, `test_delegate.py`, `test_telegram_gateway.py`, `test_styles.py`, `test_busy.py`, `test_edge_voice.py`, `test_voice_polish.py`, `test_think.py`, `test_second_opinion.py`, `test_blueprints.py`, `test_goals.py`, `test_backup.py`, `test_doctor_fix.py`, `test_learn.py`, `test_journey.py`, `test_forget.py`.
+**New tests:** `tests/test_hardline.py`, `test_pause.py`, `test_scan.py`, `test_history_index.py`, `test_steps_summary.py`, `test_refs.py`, `test_insights.py`, `test_scheduled_plus.py`, `test_brain_errors.py`, `test_lessons.py`, `test_skills.py`, `test_review.py`, `test_curator.py`, `test_for_each.py`, `test_board.py`, `test_delegate.py`, `test_telegram_gateway.py`, `test_styles.py`, `test_busy.py`, `test_sentence_speech.py`, `test_voice_polish.py`, `test_think.py`, `test_second_opinion.py`, `test_blueprints.py`, `test_goals.py`, `test_backup.py`, `test_doctor_fix.py`, `test_learn.py`, `test_journey.py`, `test_forget.py`.
 
 **Edited**
 - `policy/kernel.py` (floors, `origin`), `agent_loop.py` (context: lessons, skills, previous_run; `_steps_view`; for-each proposals), `runtime.py`, `learning.py`, `mind.py`, `tools/mind_tools.py`, `notes.py`, `reflex.py`, `recall.py`, `scheduled.py`, `nightshift.py`, `cloud_planner.py`, `brain.py`, `gemini.py`, `profiles.py`, `persona.py`, `quick_intents.py` + `intents/lexicon.py`, `dashboard.py` + `web/` (inbox, insights, lessons, pause badge, phone pairing), `tray.py`, `hud.py`, `cli.py`, `tools/registry.py` registrations.
@@ -1106,7 +1102,6 @@ Record these under "Parked" in `MASTER_PLAN.md`.
 ## 5. Owner inputs needed (everything else is decided)
 - **P1 Tailscale:** install it on the laptop and the phone and sign in with the same account (Chutku shows the steps). Choose the phone PIN at pairing. For lid-closed use, set "When I close the lid: Do nothing (plugged in)" yourself. For the P1–P4 real paths, test with the phone on mobile data.
 - **P5–P9:** say "phone control banao" when you want full control built. It is fully specified but not in the build order.
-0. **H19 Edge voice:** your choice in the blind listening test (SAPI / Kokoro / Edge Swara). Nothing switches without it.
 1. **Telegram bot token** from BotFather (H16). H16 is built and tested with fakes; the real path waits for the token.
 2. **Extra Gemini keys** (optional, H9 pool). It works with one.
 3. **Default for the review model** (H12): "local when idle" is planned. Say if you want Gemini.
@@ -1117,7 +1112,7 @@ Record these under "Parked" in `MASTER_PLAN.md`.
 ## 6. Verification (per slice and at the end)
 - Full suite: `.venv\Scripts\python.exe -m unittest discover -s tests`, all green after every slice.
 - Each slice's **Real path** through `/api/chat` on the running dashboard, with seconds and an independent check, plus its **Negative**. Both go in `IMPLEMENTATION_STATUS.md` (`### 2026-MM-DD: H<n> <title>`: cause → fix → tests → evidence → limits).
-- Gates: H4 (`eval_memory.py`), H10 (`eval_planner.py`), H14 (planning rounds and seconds), H21 (`eval_planner.py` think on/off), H19 (owner listening test). A missed gate ships the feature off by default, with the numbers recorded.
+- Gates: H4 (`eval_memory.py`), H10 (`eval_planner.py`), H14 (planning rounds and seconds), H21 (`eval_planner.py` think on/off). A missed gate ships the feature off by default, with the numbers recorded.
 - `scripts/check_phrases.py` stays all-instant. `scripts/benchmark_agent.py` ≥ 45/45 at H30. The S15 injection corpus still gives zero unapproved R1+.
 - H30 `/code-review` + `/security-review` cover `git diff 380d02f..HEAD`, with special attention on H1 bypasses, H6 path escapes, H14 taint propagation and H16 auth.
 
