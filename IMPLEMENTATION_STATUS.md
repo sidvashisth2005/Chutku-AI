@@ -16,6 +16,14 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-07: Unused files removed (owner's choice)
+
+- **Models:** `models/Qwen3-0.6B-Q8_0.gguf` (610 MB) and `models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf` (2.4 GB) went to the Recycle Bin. There were zero references in `chutku/`, `scripts/`, `tests/` and `models/manifest.json`, checked before deleting.
+- **Test leftovers:** 24 items in `D:\ChutkuScratch` (screenshots, OCR strips, voice-lock test clips, S1/S15 probe files) and 69 helper scripts in %TEMP%. `D:\ChutkuScratch	ts_ab` is kept for the Kokoro listening test.
+- **Desktop:** `clean_c_admin.ps1` was recycled.
+- **Git:** the local `backup-before-rewrite` branch and `refs/original` were deleted, and the reflog was expired and pruned. No commit in the repository contains a co-author line now. `main` equals `origin/main`.
+- **Space:** the files are in the Recycle Bin. Empty it to actually free about 3 GB on D:.
+
 ### 2026-10-07: S22 — Release: reviews, fixes, evidence, docs (master plan complete except owner-only items)
 
 Checked item by item against `docs/MASTER_PLAN.md` S22.
