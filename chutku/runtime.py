@@ -172,7 +172,14 @@ class Runtime:
                                      suspicious=suspicious,
                                      reliability=self.reliability(tool, arguments)
                                      if autonomy is not None and tool.base_risk >= 1 else None,
-                                     relax=self._relax() if autonomy == "owner" else False)
+                                     relax=self._relax() if autonomy == "owner" else False,
+                                     floor_reason=self.floor_reason(tool, arguments))
+
+    def floor_reason(self, tool, arguments):
+        """The owner's never-rules (Phase 3b H1); False when the step passes them."""
+        from chutku.policy import never_rules
+        return never_rules.floor_reason(tool, arguments, granted_root=self.granted_root,
+                                     base=getattr(self, "control_root", None)) or False
 
     def step_question(self, tool, arguments):
         """A reason this exact agent step must be confirmed on screen, in every autonomy mode, or None.

@@ -800,7 +800,7 @@ Tool `timeline.search` (R0, `output_untrusted`) uses `memory_index` embeddings (
 # Phase 3b: Hermes-inspired upgrades + remote phone access (planned 2026-10-07)
 Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, Hermes facts). Order is breadth-first; tick each box when its slice passes the AGENTS.md gate.
 
-- [ ] H1: Approval floors: hard block + owner "never" rules
+- [x] H1: owner "never" rules — done 2026-10-07 (reduced: the built-in blocked-command list is parked, see HERMES_PLAN H1)
 - [ ] H2: Pause switch (global emergency stop)
 - [ ] H3: Content scanner + bounded-memory meter
 - [ ] P1: Phone access: Tailscale HTTPS + QR pairing + phone PIN
@@ -822,7 +822,7 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [ ] H16: Telegram remote control with pairing + handoff
 - [ ] H17: Reply style presets
 - [ ] H18: Busy mode: queue / steer / side question
-- [ ] H19: Sentence-by-sentence speech for Kokoro
+- [ ] H19: Sentence-by-sentence speech for Kokoro (mostly already done by the S10 Kokoro service: verify, then add only what is missing)
 - [ ] H20: Voice polish (phantom filter, exact stop, barge-in)
 - [ ] H21: Think harder / answer fast
 - [ ] H22: Second opinion ("pakka?")

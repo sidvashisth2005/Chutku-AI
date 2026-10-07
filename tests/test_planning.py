@@ -52,6 +52,9 @@ class PlanningTests(unittest.TestCase):
             "earned autonomy relax on": ("SET_EARNED_AUTONOMY", "settings.earned_autonomy"),
             "voice lock on": ("SET_VOICE_LOCK", "settings.voice_lock"),
             "timeline on": ("SET_TIMELINE", "settings.timeline"),
+            r"never touch D:\Exams": ("ADD_NEVER_RULE", "never.add"),
+            "never rules": ("LIST_NEVER_RULES", "never.list"),
+            "remove never rule a1b2c3": ("REMOVE_NEVER_RULE", "never.remove"),
             "list windows": ("LIST_WINDOWS", "windows.list"),
         }
         self.assertEqual(len(cases), len(INTENT_BY_TOOL))

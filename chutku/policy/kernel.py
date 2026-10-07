@@ -62,9 +62,13 @@ def earned_file_change(tool, tainted, reliability, relax):
 class PolicyKernel:
     """Small fail-closed policy kernel; expand rules before adding mutating tools."""
 
-    def authorize(self, tool: Tool, arguments: dict[str, Any], confirmed_on_screen: bool = False, *, provenance="user_stated", resource_access=None, capability_allowed=None, autonomy=None, tainted=False, protected_reason=None, exposed=None, owner_question=None, suspicious=False, reliability=None, relax=False) -> Authorization:
-        del arguments  # Risk is runtime-owned; caller-provided risk is deliberately ignored.
+    def authorize(self, tool: Tool, arguments: dict[str, Any], confirmed_on_screen: bool = False, *, provenance="user_stated", resource_access=None, capability_allowed=None, autonomy=None, tainted=False, protected_reason=None, exposed=None, owner_question=None, suspicious=False, reliability=None, relax=False, floor_reason=None) -> Authorization:
         risk = tool.base_risk
+        # The owner's never-rules (Phase 3b H1) come first: no mode, approval or grant overrides them. The runtime
+        # checks them (it knows the granted folder and data/never_rules.json) and passes the refusal text, or False.
+        if floor_reason:
+            return Authorization(Decision.DENY, risk, str(floor_reason))
+        del arguments  # Risk is runtime-owned; caller-provided risk is deliberately ignored.
         if tool.resource_access is not None and (resource_access is None or tool.resource_access not in resource_access):
             return Authorization(Decision.DENY, risk, "The selected resource grant does not allow this operation.")
         if tool.required_capability is not None and capability_allowed is not True:

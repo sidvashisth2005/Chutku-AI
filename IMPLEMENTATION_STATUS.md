@@ -16,6 +16,50 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-07: H1 (reduced) — the owner's "never" rules
+
+Checked against `docs/HERMES_PLAN.md` H1.
+- **Built:** the owner's own never-rules.
+- **Not built (parked):**
+  - the built-in list of always-blocked system commands;
+  - its decoding of disguised command forms;
+  - the re-check inside `code.run_python` and the scan of generated code in the builder.
+  - Writing their tests requires a catalogue of destructive commands and disguise tricks, and a safety filter stopped that twice in this session. The partial files were deleted, and nothing of that part is in the code.
+  - Code still always asks before it runs (S1), and the parked part is recorded in the plan.
+- **What exists now:**
+  - `chutku/policy/never_rules.py` keeps `data/never_rules.json` with three kinds of rule:
+    - **path:** the folder or file and everything inside it, for any path-like argument, including relative paths under the granted root;
+    - **tool:** a name or fnmatch pattern;
+    - **command:** words that a code tool's arguments or `code.run_python` script text must not contain.
+  - `Runtime.authorize` computes the rule result and passes it to `PolicyKernel.authorize(..., floor_reason=)`. The kernel checks it **first** and returns DENY in every mode, with or without an on-screen approval. A rule added after an approval card was shown still wins when the card is approved, because approval re-authorizes.
+  - An unreadable or malformed rules file refuses every R1+ step except the `never.*` tools themselves (fail closed).
+  - Tools in `chutku/tools/never_tools.py`, all `user_only` so the agent can never choose them:
+    - `never.add` (R1, instant);
+    - `never.list` (R0);
+    - `never.remove` (R2, `deletes=True`, so it asks in every mode).
+  - The never tools are exempt from tool rules, so a `never.*` rule can't lock the owner out.
+  - Catalog phrases: "never touch <path>", "<path> ko kabhi mat chhoona/chhedna/badalna", "kabhi bhi <path> ko mat …", "never use tool X", "never run a command containing X", "never rules", "mere never rules dikhao", "remove never rule <id>", "never rule <id> hatao".
+- **Tests:** `tests/test_never_rules.py` (9):
+  - a path rule refuses write, read and list (absolute, relative and upper-case) in all 4 modes, with no approval card, and the file is unchanged;
+  - a sibling folder with the same prefix is not caught;
+  - a rule added before approving a pending code run turns the approval into DENIED;
+  - a command rule reads the script text;
+  - tool rules work, and the `never.*` tools are exempt;
+  - a corrupt rules file refuses changes but still allows reads;
+  - add is instant; remove asks in owner and auto_edits mode, the agent can do neither, and remove completes after approval;
+  - duplicates are folded and a relative path rule is refused;
+  - 8 phrases route correctly.
+  - Also updated: `tests/test_planning.py` (3 new catalog intents) and `docs/SECURITY.md` counts (164 registered: R0 64, R1 45, R2 24).
+- **Results:**
+  - full suite: 969 tests OK (210.8 s);
+  - `check_phrases.py`: 126/126.
+- **Real path** (live dashboard after restart, `D:\ChutkuScratch\exams\paper.txt` containing "original"):
+  - "D:\ChutkuScratch\exams ko kabhi mat chhoona" → rule `fc351f` saved in 0.2 s.
+  - "write the text 'changed' into the file D:\ChutkuScratch\exams\paper.txt" → local plan `filesystem.write_text` → **DENIED**: "Ye main kabhi nahi karungi: aapka niyam: D:\ChutkuScratch\exams ko kabhi nahi chhoona". No approval card was shown. File SHA-256 `67D0FFA2…2338` before and after; 1 refusal line in `data/actions.log.jsonl`.
+  - "mere never rules dikhao" → lists the rule in 0.1 s.
+  - "remove never rule fc351f" → WAITING_CONFIRMATION, "Deleting always asks first".
+  - The test rule was then removed directly.
+
 ### 2026-10-07: Two regressions the Night Shift found, fixed with instant rules
 
 - **Found by:** the regression replay in `data/nightshift/report-20261007.json`. The model's new plans no longer matched what had worked before:

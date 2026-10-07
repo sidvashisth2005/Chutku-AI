@@ -116,6 +116,8 @@ Hermes is **never installed or run**. The reasons:
 ## 2. Slices
 
 ### H1: Approval floors: hard block + owner "never" rules
+> **Status 2026-10-07:** built in reduced form. The owner's never-rules (path / tool / command) are done in `chutku/policy/never_rules.py` (see IMPLEMENTATION_STATUS). The built-in hardline command list, the disguised-command decoding, and the re-checks in `code.run_python` and the builder are **parked**: their tests need a catalogue of destructive commands and disguise tricks, and a safety filter stopped writing them. Code still always asks before it runs (S1).
+
 **From Hermes:** `approval_floors.py`. Some decisions never reach a prompt: hardline blocks, a sudo-stdin guard and user deny rules, all checked before any bypass mode. Commands are normalized before matching.
 
 **New `chutku/policy/hardline.py`**

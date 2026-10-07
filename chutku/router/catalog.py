@@ -52,6 +52,9 @@ INTENT_BY_TOOL = {
     "settings.earned_autonomy": "SET_EARNED_AUTONOMY",
     "settings.voice_lock": "SET_VOICE_LOCK",
     "settings.timeline": "SET_TIMELINE",
+    "never.add": "ADD_NEVER_RULE",
+    "never.list": "LIST_NEVER_RULES",
+    "never.remove": "REMOVE_NEVER_RULE",
     "windows.list": "LIST_WINDOWS",
 }
 
@@ -68,6 +71,39 @@ class RoutedCommand:
             return INTENT_BY_TOOL[self.tool_name]
         except KeyError as error:
             raise ValueError("The matched command has no registered intent label.") from error
+
+
+_PATH = r"(?P<path>(?:[a-zA-Z]:[\\/]|\\\\|~)[^\n]*?)"
+_NEVER_PATH = [
+    re.compile(r"^(?:never|don't ever|do not ever) (?:touch|change|edit|modify|delete|use|open)\s+" + _PATH + r"\s*$",
+               re.IGNORECASE),
+    re.compile(r"^" + _PATH + r"\s+(?:ko|mein|me|ke andar)?\s*(?:kabhi(?: bhi)?)\s+(?:mat|na|nahi)\s+"
+               r"(?:chhoona|chhuna|chhona|chhedna|chedna|badalna|chhuo|chhedo|badlo|chhoo)\s*$", re.IGNORECASE),
+    re.compile(r"^(?:kabhi(?: bhi)?)\s+" + _PATH + r"\s+(?:ko\s+)?(?:mat|na|nahi)\s+"
+               r"(?:chhoona|chhuna|chhona|chhedna|chedna|badalna|chhuo|chhedo|badlo|chhoo)\s*$", re.IGNORECASE),
+]
+_NEVER_COMMAND = re.compile(r"^never (?:run|execute) (?:a |any )?(?:command|script|code) (?:with|containing) (?P<what>.+)$",
+                            re.IGNORECASE)
+_NEVER_TOOL = re.compile(r"^never use (?:the )?tool (?P<what>[a-z][a-z0-9_.*]{1,80})$", re.IGNORECASE)
+_NEVER_LIST = re.compile(r"^(?:(?:show |list )?(?:my )?never[- ]rules|never rules dikhao|mere never rules(?: dikhao)?|"
+                         r"kya kya kabhi nahi karna hai)$", re.IGNORECASE)
+_NEVER_REMOVE = re.compile(r"^(?:remove never[- ]rule|never[- ]rule hatao|never rule (?P<id2>[0-9a-f]{6}) hatao)"
+                           r"(?:\s+(?P<id>[0-9a-f]{6}))?$", re.IGNORECASE)
+
+
+def _never_rule(text):
+    for pattern in _NEVER_PATH:
+        if match := pattern.fullmatch(text):
+            return RoutedCommand("never.add", {"kind": "path", "pattern": match["path"].strip().rstrip(".")})
+    if match := _NEVER_COMMAND.fullmatch(text):
+        return RoutedCommand("never.add", {"kind": "command", "pattern": match["what"].strip()})
+    if match := _NEVER_TOOL.fullmatch(text):
+        return RoutedCommand("never.add", {"kind": "tool", "pattern": match["what"]})
+    if _NEVER_LIST.fullmatch(text):
+        return RoutedCommand("never.list", {})
+    if (match := _NEVER_REMOVE.fullmatch(text)) and (match["id"] or match["id2"]):
+        return RoutedCommand("never.remove", {"id": (match["id"] or match["id2"]).casefold()})
+    return None
 
 
 class CommandCatalog:
@@ -99,6 +135,9 @@ class CommandCatalog:
         if match := re.fullmatch(r"timeline (on|off)", normalized, re.IGNORECASE):
             # Owner-only switch (master plan S21): typed by the owner, never by voice or the agent.
             return RoutedCommand("settings.timeline", {"on": match[1].casefold() == "on"})
+        if routed := _never_rule(normalized):
+            # The owner's never-rules (Phase 3b H1): typed by the owner; removing one always asks.
+            return routed
         if normalized.casefold() == "listen for a command":
             return RoutedCommand("voice.listen_command", {})
         if normalized.casefold() == "speech recognition status":
