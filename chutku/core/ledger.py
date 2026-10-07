@@ -103,9 +103,11 @@ class Ledger:
 
     def stats(self, tool, key):
         with self._connect() as connection:
+            # Only checked outcomes count: a result that could not be verified (UNKNOWN) is neither a pass nor a
+            # failure (owner, 2026-10-08: an unverifiable Spotify search made every later try ask).
             rows = [v for (v,) in connection.execute(
-                "SELECT verdict FROM outcomes WHERE tool = ? AND target_key = ? ORDER BY id DESC LIMIT ?",
-                (tool, key, WINDOW))]
+                "SELECT verdict FROM outcomes WHERE tool = ? AND target_key = ? AND verdict != 'UNKNOWN' "
+                "ORDER BY id DESC LIMIT ?", (tool, key, WINDOW))]
         n, passes = len(rows), sum(1 for v in rows if v == "PASS")
         return Reliability(n, passes, wilson_lower(passes, n) if n >= MIN_TRIALS else None, key,
                            sum(1 for v in rows[:20] if v != "PASS"))

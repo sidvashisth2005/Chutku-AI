@@ -16,6 +16,28 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-08: Fewer approvals; failed steps are never repeated (owner order)
+
+- **Cause:** the owner's Spotify request on 2026-10-07 20:47–20:49 asked 4 times. `spotify.search` can never verify its result (UNKNOWN), every UNKNOWN counted as a failure in the S16 ledger, and the reliability rule then asked before every try ("worked 0 of the last 7 times"). The planner also proposed the same failed search again and again.
+- **Owner order (2026-10-08):** "normal generic tasks must not ask for approvals all the time … valuable tasks which might be causing some harm must be asked … repeated tasks if failed must be replanned". It explicitly removes these owner-mode asks, which updates MASTER_PLAN §0.3.4 for them only.
+- **Changes:**
+  - `core/ledger.py` `stats`: UNKNOWN outcomes are neither pass nor fail.
+  - `policy/kernel.py`:
+    - the reliability ask now applies only to R2+ steps;
+    - in owner mode, `apps.launch` and `files.open` after reading outside content no longer ask (`OWNER_TAINT_FREE_R1`).
+    - Still asking: remembering, scheduling and offline-mode changes after outside content; R2+ after outside content; everything after a page that gave orders; private data plus network; file changes; deletes; R4; running code; unknown recipients; rewind.
+  - `agent_loop.py`:
+    - A proposed step identical (tool + arguments) to one that failed, was refused or could not be confirmed in this request is dropped. The planner is told once to try another way (e.g. `screen.understand` then `screen.click`); if it repeats it again, the request ends honestly ("I tried … and it did not work … I have not done it").
+    - An exact step the owner approved is not asked again in the same request, nor in a new request within 10 minutes. This applies per Chutku data folder; R4 and delete tools are excluded and always ask.
+- **Tests:**
+  - new `tests/test_fewer_asks.py` (4): a re-sent request runs without a second ask while a different step still asks; approval memory expires after 10 minutes, is per data folder and never covers R4; a cancelled step is not remembered; a failed step is replanned another way with the feedback shown.
+  - updated: `test_taint_v2` (owner-mode `apps.launch`/`files.open` allowed after outside content; `mind.person`, `settings.offline_mode`, `task.schedule` still ask), `test_ledger` (R1 failing no longer asks; R2 failing still asks; UNKNOWN is not counted), `test_agent_loop` (an unverified step is not repeated).
+- **Results:**
+  - full suite: 1019 tests OK (233.9 s);
+  - `check_phrases.py`: 130/130.
+- **Real path** (live dashboard after restart): "open spotify" → done in 5.4 s. "play Afterparty playlist in spotify" → **0 approval prompts** (the same request asked 4 times on 2026-10-07). `spotify.search` ran once (unverified), the planner tried `apps.launch`, then proposed the search again; it was refused, and the request ended in 108.6 s with an honest failure.
+- **Limit:** playing a named playlist is still impossible. There is no Spotify "play" tool, and the planner did not use the suggested screen-click path. That is the next fix.
+
 ### 2026-10-07: H7 — weekly insights ("is hafte kya kiya")
 
 Checked against `docs/HERMES_PLAN.md` H7.

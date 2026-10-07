@@ -53,13 +53,30 @@ class PolicyTests(unittest.TestCase):
         return self.runtime.authorize(self.runtime.registry.get(name), arguments, provenance=provenance,
                                       autonomy=mode if provenance == "delegated" else None).decision
 
-    def test_a_step_that_keeps_failing_asks_in_owner_mode(self):
+    def test_an_easy_to_undo_step_that_keeps_failing_no_longer_asks(self):
+        # Owner order 2026-10-08: only data-changing steps ask for keeping failing.
         args = {"name": "Spotify"}
         with patch.object(self.runtime, "current_capability"):
-            self.assertEqual(self.decide("apps.launch", args), Decision.ALLOW)
             self.record("apps.launch", args, ["FAIL", "FAIL", "FAIL", "PASS", "PASS"])
-            self.assertEqual(self.decide("apps.launch", args), Decision.CONFIRM)
-            self.assertEqual(self.decide("apps.launch", {"name": "Notepad"}), Decision.ALLOW)   # other targets unaffected
+            self.assertEqual(self.decide("apps.launch", args), Decision.ALLOW)
+
+    def test_a_data_changing_step_that_keeps_failing_still_asks(self):
+        from chutku.core.ledger import Reliability
+        from chutku.policy.kernel import PolicyKernel
+        from chutku.tools.registry import Risk, Tool, ToolResult, Verification
+        tool = Tool("test.change", "x", Risk.DATA_MODIFICATION, lambda a, c: ToolResult({}, Verification.PASS),
+                    reversibility="journaled")
+        failing = Reliability(10, 2, 0.05, "tool", 8)
+        decide = PolicyKernel().authorize(tool, {}, provenance="delegated", autonomy="owner", tainted=False,
+                                          exposed=False, reliability=failing)
+        self.assertEqual(decide.decision, Decision.CONFIRM)
+        self.assertIn("worked 2 of the last 10", decide.reason)
+
+    def test_unverifiable_results_are_neither_pass_nor_fail(self):
+        args = {"query": "Afterparty"}
+        self.record("spotify.search", args, ["UNKNOWN"] * 7)
+        stats = self.runtime.reliability(self.runtime.registry.get("spotify.search"), args)
+        self.assertEqual(stats.n, 0)
 
     def test_fewer_than_five_trials_change_nothing(self):
         args = {"name": "Spotify"}

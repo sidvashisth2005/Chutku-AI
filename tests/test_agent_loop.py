@@ -294,7 +294,8 @@ class AgentLoopTests(unittest.TestCase):
         planner = ScriptedPlanner(*[proposal(steps=[step("test.flaky")]) for _ in range(5)])
         snap = AgentSession("x", mode="auto_safe").advance(self.runtime, planner)
         self.assertEqual(snap["status"], "failed")
-        self.assertEqual(len(snap["steps"]), 3)
+        self.assertEqual(len(snap["steps"]), 1)   # owner order 2026-10-08: an unverified step is never repeated
+        self.assertIn("did not work", snap["reply"])
 
     def test_step_limit(self):
         planner = ScriptedPlanner(*[proposal(steps=[step("system.get_time", purpose=str(i)),

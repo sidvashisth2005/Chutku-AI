@@ -49,8 +49,10 @@ class TaintV2Tests(unittest.TestCase):
             self.assertTrue(session.tainted, name)
 
     def test_tainted_r1_steps_that_start_or_remember_things_ask(self):
-        for name in ("apps.launch", "files.open", "mind.person", "settings.offline_mode"):
+        for name in ("mind.person", "settings.offline_mode", "task.schedule"):   # a page must never plant these
             self.assertEqual(self.decide(name, tainted=True), Decision.CONFIRM, name)
+        for name in ("apps.launch", "files.open"):   # owner order 2026-10-08: opening needs no ask in owner mode
+            self.assertEqual(self.decide(name, tainted=True), Decision.ALLOW, name)
         for mode in ("auto_safe", "auto_edits"):
             self.assertEqual(self.decide("apps.launch", tainted=True, mode=mode), Decision.CONFIRM, mode)
         self.assertEqual(self.decide("apps.launch"), Decision.ALLOW)                 # untainted: unchanged

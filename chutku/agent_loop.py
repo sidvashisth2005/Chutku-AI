@@ -456,6 +456,35 @@ _INSTRUCTION_LINE = _InstructionLines()
 REMOVED_LINE = "[removed instruction-like line]"
 
 
+def _signature(step):
+    """One step's identity: its tool and exact arguments."""
+    return step["tool"], json.dumps(step.get("arguments") or {}, sort_keys=True, default=str)
+
+
+APPROVAL_MEMORY_SECONDS = 600
+_RECENT_APPROVALS = {}            # (Chutku data folder, signature) -> when the owner approved it (this process only)
+_APPROVALS_LOCK = threading.Lock()
+
+
+def remember_approval(root, step, now=None):
+    """The owner approved this exact step: for 10 minutes a new request with the same step does not ask again
+    (owner, 2026-10-08: the voice side re-sent one task and every copy asked)."""
+    if root is None:
+        return
+    with _APPROVALS_LOCK:
+        _RECENT_APPROVALS[(str(root), _signature(step))] = now or time.time()
+
+
+def recent_approvals(root, now=None):
+    """Signatures approved for this Chutku data folder in the last 10 minutes."""
+    now = now or time.time()
+    with _APPROVALS_LOCK:
+        for key, at in list(_RECENT_APPROVALS.items()):
+            if now - at > APPROVAL_MEMORY_SECONDS:
+                del _RECENT_APPROVALS[key]
+        return {signature for (where, signature) in _RECENT_APPROVALS if where == str(root)}
+
+
 def _summarize_steps(numbered):
     """"steps 1-6: files.find ✓, filesystem.move ✓×4, web.read ✗ (FAILED)": tool names and outcomes only."""
     groups = []
@@ -704,6 +733,8 @@ class AgentSession:
         self.tainted = False
         self.exposed = False  # private data (files, clipboard, screen, memory) was read in this session
         self.suspicious = False  # read content contained instruction-like text (master plan S15)
+        self.approved_calls = set()   # exact steps the owner approved in this request: not asked twice (2026-10-08)
+        self.retry_nudged = False     # told the planner once not to repeat a failed step
         self.speaker_verified = None   # Owner Voice Lock (S19): False = the voice did not sound like the owner
         self.feedback = None
         self.finish_pending = False
@@ -929,9 +960,29 @@ class AgentSession:
                         break
                     done_calls = {(s["tool"], json.dumps(s["arguments"], sort_keys=True))
                                   for s in self.steps if s["state"] == "COMPLETED"}
+                    # A step that failed, was refused or could not be confirmed is never proposed again in the same
+                    # way (owner, 2026-10-08: the Spotify search asked 4 times): the planner must try another way.
+                    failed_calls = {_signature(s) for s in self.steps
+                                    if s["state"] not in {"COMPLETED", "WAITING_CONFIRMATION"}
+                                    or s.get("verification") == "UNKNOWN"}
+                    retried = [s for s in proposal["next_steps"] if _signature(s) in failed_calls]
                     fresh = [s for s in proposal["next_steps"]
-                             if s["tool"] in REPEATABLE_TOOLS
-                             or (s["tool"], json.dumps(s["arguments"], sort_keys=True)) not in done_calls]
+                             if _signature(s) not in failed_calls
+                             and (s["tool"] in REPEATABLE_TOOLS
+                                  or (s["tool"], json.dumps(s["arguments"], sort_keys=True)) not in done_calls)]
+                    if retried and not fresh:
+                        if not self.retry_nudged:
+                            self.retry_nudged = True
+                            names = ", ".join(sorted({s["tool"] for s in retried}))
+                            self.pending_feedback = (f"{names} with the same arguments already failed or could not "
+                                                     "be confirmed in STEPS; do not repeat it. Try a different way "
+                                                     "(e.g. screen.understand then screen.click on what the owner "
+                                                     "named), or reply status=done saying honestly what did not "
+                                                     "work.")
+                            continue
+                        self._finish("failed", f"I tried {', '.join(sorted({s['tool'] for s in retried}))} and it "
+                                     "did not work, and I found no other way. I have not done it.")
+                        break
                     if not fresh:
                         only_observed = all(_risk(runtime, s["tool"]) == 0 for s in self.steps)
                         if (self.steps and only_observed and not self.nudged and _ACTION_WORDS.search(self.goal)
@@ -985,6 +1036,11 @@ class AgentSession:
                     if self.status != "cancelled":
                         self._finish("cancelled", "Cancelled. Completed steps remain; use undo where available.")
                     break
+                if str(result.get("state")) == "WAITING_CONFIRMATION" and (
+                        _signature(step) in self.approved_calls
+                        or _signature(step) in recent_approvals(getattr(target, "control_root", None))):
+                    # The owner already approved this exact step in this request (owner, 2026-10-08): no second ask.
+                    result = target.approve(result["approval"]["token"])
                 if str(result.get("state")) == "WAITING_CONFIRMATION":
                     self.pending = {"approval": {**result["approval"], "reason": result.get("reason")}, "step": step,
                                     "grant_id": target.resource_grant.grant_id}
@@ -1247,6 +1303,16 @@ class AgentSession:
         result = RuntimeRouter.wrap(runtime).for_grant(pending.get("grant_id")).approve(
             pending["approval"]["token"], cancel=approve is not True)
         with self.lock:
+            if approve is True:
+                self.approved_calls.add(_signature(pending["step"]))
+                try:
+                    tool = RuntimeRouter.wrap(runtime).default.registry.get(pending["step"]["tool"])
+                    lasting = int(tool.base_risk) < 4 and not tool.deletes   # power/kill and deletes always ask
+                except (KeyError, AttributeError):
+                    lasting = False
+                if lasting:
+                    remember_approval(getattr(RuntimeRouter.wrap(runtime).default, "control_root", None),
+                                      pending["step"])
             state = self._record(pending["step"], result)
             if approve is not True:
                 self._finish("cancelled", "You cancelled that step. Nothing further ran.")

@@ -45,7 +45,8 @@ TAINT_SENSITIVE_R1 = ("apps.launch", "files.open", "mind.", "memory.remember", "
 # Content Chutku read contained instruction-like text (a page or message trying to steer her, master plan S15):
 # from then on every step that changes anything waits for the owner, in every mode.
 SUSPICIOUS_REASON = "What Chutku read tried to give her instructions; every change now waits for your click."
-TAINT_R1_REASON = "This step follows content read from outside; confirm it."
+OWNER_TAINT_FREE_R1 = frozenset({"apps.launch", "files.open"})   # owner order 2026-10-08
+TAINT_R1_REASON ="This step follows content read from outside; confirm it."
 RUNS_CODE_REASON ="Running code or a program with arguments always asks first."
 CREATE_ONLY_TOOLS = frozenset({"filesystem.create_directory", "files.zip", "files.unzip", "code.build_project",
                                "screen.capture"})
@@ -120,9 +121,15 @@ class PolicyKernel:
             return Authorization(Decision.CONFIRM, risk, str(owner_question))
         if suspicious and risk >= Risk.REVERSIBLE:   # a text reason names a different doubt (e.g. a voice, S19)
             return Authorization(Decision.CONFIRM, risk, suspicious if isinstance(suspicious, str) else SUSPICIOUS_REASON)
-        if tainted and risk >= Risk.REVERSIBLE and tool.name.startswith(TAINT_SENSITIVE_R1):
+        if tainted and risk >= Risk.REVERSIBLE and tool.name.startswith(TAINT_SENSITIVE_R1) and not (
+                mode == AutonomyMode.OWNER and tool.name in OWNER_TAINT_FREE_R1):
+            # Owner order 2026-10-08: in owner mode opening an app or a file after reading a page or message no longer
+            # asks. Remembering, scheduling and offline-mode changes still do (a page must not plant them), and so
+            # does R2+ after outside content and anything after a page that tried to give orders.
             return Authorization(Decision.CONFIRM, risk, TAINT_R1_REASON)
-        if risk >= Risk.REVERSIBLE and unreliable(reliability):
+        if risk >= Risk.DATA_MODIFICATION and unreliable(reliability):
+            # Owner order 2026-10-08: only steps that change data ask for keeping failing; an easy-to-undo step that
+            # keeps failing is not re-asked (the agent stops repeating it instead).
             # Earned autonomy (master plan S16): this kind of step keeps failing, so it asks, in every mode.
             return Authorization(Decision.CONFIRM, risk, f"This has worked {reliability.passes} of the last "
                                  f"{reliability.n} times ({reliability.key}); confirm it.")
