@@ -16,6 +16,46 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-07: H4 — fast chat-history search (SQLite FTS5)
+
+Checked against `docs/HERMES_PLAN.md` H4.
+- **Built:**
+  - `chutku/history_index.py`:
+    - `data/history.db` is an FTS5 table over `said`, `reply` and their `translit.roman` forms, with `unicode61 remove_diacritics 2` and prefix indexes.
+    - It syncs incrementally by byte offset; an unfinished last line waits, and a shorter file means a full rebuild.
+    - Hidden rows (`hidden: true`, for H29) are skipped.
+    - Search uses topic words only (stop words dropped); each word is quoted, so typed FTS operators are plain text. All words first, then any word; ranked by bm25, then newest. Optional days limit.
+  - Tool `history.search` (R0), listed in `TAINTING_TOOLS` (old replies can quote pages) and `PRIVATE_TOOLS`; instant answer `_say_history`.
+  - Quick phrases (`_history_topic`, checked before the older day-summary phrase): "what did I say about X [yesterday]", "[kal|pichhle hafte] X ke baare mein kya/kab baat hui [thi]" (also the Roman form of Devanagari, "men"), "X wali baat dhoondo", "search my chats for X", "history mein X dhoondo". A question with no topic word left ("what did we talk about yesterday") keeps the day summary.
+- **Gate** (`scripts/eval_memory.py`, new FTS5 arm, 130 real requests / 88 queries):
+
+  | Method | recall@3 | MRR |
+  |---|---|---|
+  | FTS5 | 0.807 | 0.764 |
+  | Jaccard | 0.886 | 0.782 |
+  | Hybrid | 0.898 | 0.782 |
+
+  FTS5 p95 query time: 0.16 ms. **Gate not met**, so `recall.earlier` and `about_you` keep word overlap. Only the new topic search uses FTS5.
+- **Tests:** `tests/test_history_index.py` (10):
+  - incremental sync and partial lines;
+  - a rewritten log is re-indexed;
+  - Devanagari ↔ Roman;
+  - 5 operator and injection strings cause no syntax errors;
+  - hidden rows and the days limit;
+  - all-words-then-any;
+  - 6 topic phrasings route to the tool, and 2 day-summary phrasings keep their meaning;
+  - answer text;
+  - the tool is R0, tainting and private.
+  - Also: a `test_quick_intents` sample, 2 phrase cases, and `docs/SECURITY.md` counts (168, R0 66).
+- **Results:**
+  - full suite: 993 tests OK (167.6 s);
+  - `check_phrases.py`: 128/128;
+  - indexing the real log took 65 ms for 407 turns, and queries 10–16 ms.
+- **Real path** (live dashboard after restart):
+  - "gulabi top wali baat dhoondo" → 0.8 s, quick tier: "Wed 07 Oct 2026, 03:35 AM: you said 'Yeah, I spotted a new gulabi top.' …". Independent read of `conversations.jsonl`: that line's timestamp is Wed 07 Oct 2026, 03:35 AM.
+  - "मम्मी के बारे में क्या बात हुई" → 0.4 s, 3 turns including the Devanagari one from 06 Oct 23:52.
+  - "what did we talk about yesterday" → the unchanged day summary (238 things on 06 Oct).
+
 ### 2026-10-07: H3 — saved text is checked; memory meter
 
 Checked against `docs/HERMES_PLAN.md` H3.

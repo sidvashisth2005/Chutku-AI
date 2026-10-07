@@ -30,6 +30,8 @@ CASES = [
     # regressions the Night Shift found on 2026-10-07
     ("Ita lag kar rahe.", "system.performance"), ("laptop slow hai", "system.performance"),
     ("इतना लैग कर रहा है", "system.performance"), ("Calculator download.", "apps.launch"),
+    # past chats by topic (Phase 3b H4)
+    ("gulabi top wali baat dhoondo", "history.search"), ("pichhle hafte DBMS ke baare mein kya baat hui", "history.search"),
     # apps and media
     ("open spotify", "apps.launch"), ("spotify kholo", "apps.launch"), ("open whatsapp", "apps.launch"),
     ("close spotify", "apps.quit"), ("play lofi hip hop on youtube", "youtube.play"),

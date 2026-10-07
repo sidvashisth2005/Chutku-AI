@@ -257,6 +257,36 @@ HISTORY = re.compile(
     re.I)
 
 
+_HISTORY_WHEN = r"(?P<when>kal|aaj|today|yesterday|pichh?le hafte|is hafte|last week|this week)"
+_HISTORY_TOPIC = [
+    re.compile(rf"^{_POLITE}what did (?:i|we) (?:say|talk|discuss|chat|tell you)\s+(?:about|regarding|on)\s+(?P<q>.+?)"
+               rf"(?:\s+{_HISTORY_WHEN})?{_TAIL}", re.I),
+    re.compile(rf"^{_POLITE}(?:{_HISTORY_WHEN}\s+)?(?:humne\s+|maine\s+)?(?P<q>.+?)\s+ke\s+baa?re\s+(?:mein|men|me)\s+"
+               rf"(?:kya|kab)\s+(?:kya\s+)?(?:baat|baatein)\s+(?:hui|huyi|ki|kari)(?:\s+th[ai])?{_TAIL}", re.I),
+    re.compile(rf"^{_POLITE}(?P<q>.+?)\s+(?:wali|waali|vali)\s+baat\s+(?:dhoondo|dhundo|dikhao|batao){_TAIL}", re.I),
+    re.compile(rf"^{_POLITE}(?:search|find)\s+(?:in\s+)?(?:my |our )?(?:chats?|conversations?|chat history|history)\s+"
+               rf"for\s+(?P<q>.+?){_TAIL}", re.I),
+    re.compile(rf"^{_POLITE}(?:chat history|history|purani baaton)\s+(?:mein|me)\s+(?P<q>.+?)\s+(?:dhoondo|dhundo|"
+               rf"search karo|dekho){_TAIL}", re.I),
+]
+_HISTORY_DAYS = {"kal": 2, "yesterday": 2, "aaj": 1, "today": 1}
+
+
+def _history_topic(text):
+    """{"query": topic, "days"?: n} when the owner asks what was said about a topic, else None."""
+    for pattern in _HISTORY_TOPIC:
+        found = pattern.match(text)
+        if found:
+            query = " ".join(found.group("q").split()).strip(" ?.!'\"")
+            from chutku.history_index import terms
+            if not query or len(query) > 120 or not terms(query):
+                return None   # no topic word left ("what did we talk about"): the day summary answers that
+            when = (found.groupdict().get("when") or "").casefold()
+            days = _HISTORY_DAYS.get(when, 7 if "hafte" in when or "week" in when else None)
+            return {"query": query} | ({"days": days} if days else {})
+    return None
+
+
 def _done(reply):
     return {"status": "done", "reply": reply, "declared_plan": [], "next_steps": [], "finish": True}
 
@@ -398,6 +428,9 @@ def _single(goal, apps=None):
                          "Offline mode is off: Gemini is back as my backup when the internet works.")
     if MIND_MAP.search(text):
         return _proposal("mind.map", {}, "Open your mind map", "Opened your mind map.")
+    topic = _history_topic(text)
+    if topic is not None:   # a topic search ("DBMS ke baare mein kya baat hui"), Phase 3b H4
+        return _proposal("history.search", topic, f"Search past chats for {topic['query']}", "", finish=False)
     if HISTORY.search(text):
         from chutku import recall
         day = recall.day_from_words(text)
@@ -951,6 +984,17 @@ def _say_tasks(out):
     return f"{len(tasks)} scheduled: " + "; ".join(f"{t['summary']} (id {t['id']})" for t in tasks[:6]) + "."
 
 
+def _say_history(out):
+    """Past chats about a topic (Phase 3b H4)."""
+    found = out.get("matches") or []
+    topic = " ".join(out.get("terms") or []) or out.get("query", "")
+    if not found:
+        return f"I found nothing about “{topic}” in our past chats."
+    lines = [f"{m['date']}: you said “{m['said'][:90]}”" + (f", I said “{m['reply'][:90]}”" if m.get("reply") else "")
+             for m in found[:3]]
+    return f"About “{topic}” ({len(found)} found): " + "; ".join(lines) + "."
+
+
 def _say_background(out):
     if not out.get("paused"):
         return "Background work is running normally (scheduled tasks and the Night Shift)."
@@ -1187,7 +1231,7 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
-QUICK_ANSWERS = {"background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
+QUICK_ANSWERS = {"history.search": _say_history, "background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,

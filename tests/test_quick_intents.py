@@ -53,6 +53,9 @@ class QuickIntentTests(unittest.TestCase):
             "task.list": {"tasks": [{"id": "3fa2c1", "goal": "send hi to UB", "next_at": "2026-10-06T21:00:00",
                                      "every_minutes": None, "runs": 0, "last": None,
                                      "summary": "“send hi to UB” at 9:00 PM today"}], "count": 1},
+            "history.search": {"query": "gulabi top", "terms": ["gulabi", "top"], "matches": [
+                {"date": "Wed 07 Oct 2026, 08:10 AM", "origin": "voice", "said": "I spotted a new gulabi top",
+                 "reply": "Wow!"}]},
             "background.status": {"paused": True, "since": "2026-10-07T15:00:00"},
             "system.performance": {"cpu_percent": 8.9, "memory": {"used_percent": 77, "used_gib": 18.3,
                                                                     "total_gib": 23.7},

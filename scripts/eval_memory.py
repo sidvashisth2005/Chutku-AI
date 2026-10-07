@@ -65,15 +65,40 @@ def main():
         cosine = vectors @ queries[i]
         scores = [(len(a & b) / len(a | b) if a | b else 0) + HYBRID_WEIGHT * float(cosine[j]) for j, b in enumerate(words)]
         hybrid.append(sorted(range(len(goals)), key=lambda j: -scores[j]))
+    fts, fts_ms = fts_rankings(goals)
     result = {"examples": len(rows), "jaccard": score(jaccard, labels), "embeddings": score(embedded, labels),
-              "hybrid": score(hybrid, labels), "embed_seconds": round(seconds, 2)}
+              "hybrid": score(hybrid, labels), "fts5": score(fts, labels), "embed_seconds": round(seconds, 2),
+              "fts5_query_ms_p95": fts_ms}
     print(json.dumps(result, indent=1))
-    best = max(("jaccard", "embeddings", "hybrid"), key=lambda k: (result[k]["recall_at_3"], result[k]["mrr"]))
+    best = max(("jaccard", "embeddings", "hybrid", "fts5"), key=lambda k: (result[k]["recall_at_3"], result[k]["mrr"]))
     print(f"Best: {best}.")
     return result
 
 
 HYBRID_WEIGHT = 0.3
+
+
+def fts_rankings(goals):
+    """The history search's own ranking (Phase 3b H4): SQLite FTS5 + bm25 over the same requests, any topic word."""
+    import sqlite3
+    from chutku.history_index import terms
+    from chutku.translit import roman
+    db = sqlite3.connect(":memory:")
+    db.execute("CREATE VIRTUAL TABLE t USING fts5(said, said_roman, tokenize='unicode61 remove_diacritics 2', "
+               "prefix='2 3')")
+    db.executemany("INSERT INTO t(rowid, said, said_roman) VALUES (?,?,?)",
+                   [(i, g, roman(g)) for i, g in enumerate(goals)])
+    rankings, times = [], []
+    for goal in goals:
+        started = time.perf_counter()
+        wanted = terms(goal)
+        found = [] if not wanted else [r[0] for r in db.execute(
+            "SELECT rowid FROM t WHERE t MATCH ? ORDER BY bm25(t)",
+            (" OR ".join(f'{{said said_roman}} : "{w}"*' for w in wanted),)).fetchall()]
+        times.append((time.perf_counter() - started) * 1000)
+        rankings.append(found + [j for j in range(len(goals)) if j not in set(found)])
+    times.sort()
+    return rankings, round(times[int(len(times) * 0.95)], 2)
 
 
 if __name__ == "__main__":

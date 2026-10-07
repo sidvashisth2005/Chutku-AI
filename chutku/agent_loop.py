@@ -77,6 +77,7 @@ TAINTING_TOOLS = frozenset({
     "filesystem.read_text", "filesystem.search", "browser.inspect", "browser.workflow",
     "uia.inspect", "clipboard.read_text", "windows.list", "screen.capture", "web.read", "web.results", "web.news",
     "timeline.search",   # window titles are outside text
+    "history.search",    # past replies can quote web pages and messages
     "file.extract_text", "screen.read_text", "code.run_python", "screen.understand", "log.recent",
     "message.read_chat", "image.describe", "screen.click",
 })
@@ -89,6 +90,7 @@ PRIVATE_TOOLS = frozenset({
     "filesystem.list", "filesystem.largest", "files.find", "files.recent",   # names of the owner's files
     "reflex.list", "nightshift.report",   # the owner's past requests
     "timeline.search",   # what the owner had open
+    "history.search",    # what the owner said before
 })
 # On-screen actions may legitimately repeat with identical arguments (press "5" twice, look again after a
 # click); other completed steps are never re-run. Step and round limits still bound any loop.

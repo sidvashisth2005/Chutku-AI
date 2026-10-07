@@ -807,7 +807,7 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [ ] P2: Phone app: chat, live progress, approvals (installable PWA)
 - [ ] P3: Phone voice: push-to-talk + spoken replies
 - [ ] P4: Live screen view (view-only) + keep-awake
-- [ ] H4: Fast chat-history search (FTS5)
+- [x] H4: Fast chat-history search (FTS5) — done 2026-10-07 (gate not met for recall.earlier: word overlap kept there)
 - [ ] H5: Step summaries instead of dropping
 - [ ] H6: `@file` / `@folder` / `@url` / clipboard-image references in typed chat
 - [ ] H7: Weekly insights
