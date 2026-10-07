@@ -110,6 +110,8 @@ CASES = [
     ("biggest-download", "what is the biggest file in my Downloads folder", biggest_download),
     ("desktop-count", "mere desktop pe kitni files hain", desktop_count),
     ("ram", "how much RAM am I using right now", ram_check),
+    ("slow-pc", "Ita lag kar rahe.", ram_check),   # night report 2026-10-07: must check what is using the PC
+    ("slow-pc-hi", "इतना लैग कर रहा है", ram_check),
     ("gpu", "which graphics card do I have", lambda r: ("3050" in r, "NVIDIA GeForce RTX 3050")),
     ("displays", "how many displays are connected", monitors),
     ("knowledge", "what is the capital of France? one word", lambda r: ("paris" in r.casefold(), "Paris")),

@@ -27,6 +27,9 @@ CASES = [
     # Night Shift report (owner, 2026-10-07: asked by voice and got a made-up answer)
     ("Have you prepared the night report, bhai?", "nightshift.report"), ("raat ko kya kiya", "nightshift.report"),
     ("नाइट शिफ्ट रिपोर्ट", "nightshift.report"), ("night shift ka report batao", "nightshift.report"),
+    # regressions the Night Shift found on 2026-10-07
+    ("Ita lag kar rahe.", "system.performance"), ("laptop slow hai", "system.performance"),
+    ("इतना लैग कर रहा है", "system.performance"), ("Calculator download.", "apps.launch"),
     # apps and media
     ("open spotify", "apps.launch"), ("spotify kholo", "apps.launch"), ("open whatsapp", "apps.launch"),
     ("close spotify", "apps.quit"), ("play lofi hip hop on youtube", "youtube.play"),

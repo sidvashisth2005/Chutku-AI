@@ -16,6 +16,30 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-07: Two regressions the Night Shift found, fixed with instant rules
+
+- **Found by:** the regression replay in `data/nightshift/report-20261007.json`. The model's new plans no longer matched what had worked before:
+  - "Ita lag kar rahe." used to run `system.health` + `system.performance`, but the new plan was empty ("fails now");
+  - "Calculator download." used to open Calculator, but the new plan was `games.downloads` (the Steam downloads page).
+  - Both phrases had no quick-tier rule, so they depended on the model.
+- **Fix** (`chutku/quick_intents.py`):
+  - `slow_pc`: speed complaints in English, Hinglish and Romanized Devanagari ("itna lag kar raha hai", "laptop slow hai", "pc hang ho raha hai", "why is my pc so laggy", "इतना लैग कर रहा है") go to `system.performance`. "lag" must be followed by kar/ho, so "accha lag raha hai" and "bhook lag rahi hai" don't match; a bare "slow" doesn't either.
+  - New instant answer `_say_perf`: CPU, RAM, GPU load and temperature; the top 3 memory users (repeated process names added up, `llama-server` named as "my local brain"); a hint when RAM, CPU or GPU is near its limit. Before this, the local model wrote the answer.
+  - `download_app`: "<app> download / install (karo)" for an installed app opens it and says it is already installed. Unknown apps and phrases naming steam/epic/game/on/from go to the model as before, so "install hollow knight on steam" still reaches `games.install`.
+- **Tests:** `tests/test_night_regressions.py` (7):
+  - 13 complaint phrasings, and 7 that must not match;
+  - the performance answer's exact facts, and the full-RAM/busy-CPU hints;
+  - download → open for installed apps, never `games.downloads`;
+  - unknown or non-app downloads go to the model.
+  - `test_quick_intents` sample list updated; 4 new cases in `scripts/check_phrases.py`.
+- **Results:**
+  - full suite: 960 tests OK (164.7 s);
+  - `check_phrases.py`: 126/126 instant. The first run caught my own break of "install hollow knight on steam"; fixed before commit.
+- **Real path** (live dashboard after restart):
+  - `live_check.py --only slow-pc slow-pc-hi`: "Ita lag kar rahe." → PASS in 2.6 s, quick tier only, "RAM 70% used (16.6 of 23.7 GB)" against an independent `GlobalMemoryStatusEx` reading of 70% / 16.6 GiB. "इतना लैग कर रहा है" → PASS in 1.5 s. Before the instant answer the same request took 25.1 s and 10.5 s through the local model.
+  - "Calculator download." → done in 1.1 s, quick tier, `apps.launch`, "Calculator is already installed, so I opened it." Independent check: `CalculatorApp.exe` was not running before and was running after (closed again after the check).
+- **Limits:** these are rules, not a model fix. Other phrasings the model now plans differently will show up in the next night reports.
+
 ### 2026-10-07: Night Shift report on request ("night report?" got a made-up answer)
 
 - **Cause:** the owner asked by voice in the morning (Gemini Live): "Have you prepared the night report?", then "हम लोगों का एक फीचर था ना नाइट शिफ्ट…". The Night Shift had run (04:09–04:23, all 5 jobs ok, `data/nightshift/report-20261007.json`). But no phrase or tool reached the report, and the Live context did not mention it. So Gemini guessed three different answers ("main report nahi banati", "haan yaad aaya", "feature ready nahi hai"), all of them invented (`data/conversations.jsonl`, 2026-10-07 morning).

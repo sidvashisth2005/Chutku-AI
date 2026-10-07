@@ -59,6 +59,20 @@ PATTERNS = [
                               rf"(?: tumne)?|(?:tumane |tumne )?(?:kal )?raat (?:ko|mein|me) kya (?:kiya|seekha)|raat ki {_REPORT}|"
                               rf"what did you do (?:last night|at night|overnight)|{_NIGHT} {_REPORT})"
                               rf"(?:\s+(?:batao|bataao|dikhao|dikhaao|sunao|sunaao|do|please))?{_TAIL}", re.I)),
+    # "itna lag kar raha hai" / "laptop slow hai": a complaint about speed -> what is using the PC (night report
+    # 2026-10-07: the model stopped planning this). "lag" needs kar/ho, so "accha lag raha hai" (feels good) is not it.
+    ("slow_pc", re.compile(rf"^{_POLITE}(?:why is\s+)?(?:(?:mera|meri|my|the|ye|yeh|this)\s+)?"
+                           rf"(?:(?:laptop|laipatop|laiptop|pc|pisi|computer|kanpyutar|kampyutar|system)\s+)?"
+                           rf"(?:(?:is\s+)?(?:bahut|itna|itana|ita|itni|kitna|kaafi|bohot|bht|very|so|too|really)\s+)?"
+                           rf"(?:(?:lag|laig|laag)(?:gy|ging)?\s+(?:kar|ho)\s+(?:raha|rahi|rahe|rha|rhe|rhi)|lag(?:gy|ging)|"
+                           rf"(?:slow|slo)(?:\s+(?:chal|ho)\s+(?:raha|rahi|rahe|rha|gaya|gya))?|"
+                           rf"(?:hang|haing)\s+(?:ho|kar)\s+(?:raha|rahi|rahe|rha|gaya|gya)|atak\s+(?:raha|rahi|rahe|rha|gaya))"
+                           rf"(?:\s+(?:hai|he|h|hain|kyun|kyu|why))*{_TAIL}", re.I)),
+    # "<app> download" for an app that is already installed: open it and say so (night report 2026-10-07).
+    ("download_app", re.compile(rf"^{_POLITE}(?!.*\b(?:steam|epic|game|on|from|in|se|pe|par|mein)\b)"
+                                rf"(?:(?:download|install)\s+(?P<name>[\w .+&'-]{{2,40}}?)|"
+                                rf"(?P<name2>[\w .+&'-]{{2,40}}?)\s+(?:download|install)(?:\s+(?:karo|kar do|kardo|"
+                                rf"karna|kar))?){_TAIL}", re.I)),
     ("info_reliability", re.compile(rf"^{_POLITE}(?:tum kitni reliable ho|reliability batao|how reliable are you|"
                                     rf"show (?:your |my )?reliability|kitna sahi kaam karti ho){_TAIL}", re.I)),
     ("info_perf", re.compile(rf"^{_POLITE}(?:what(?:'?s| is) (?:the |my )?)?(?:(?:cpu|gpu|processor|laptop|pc|computer)\s+"
@@ -580,6 +594,20 @@ def _single(goal, apps=None):
             mode = next(match.group(g) for g in ("m1", "m2", "m3", "m4") if match.group(g)).casefold()
             return _proposal("settings.theme_set", {"mode": mode}, f"Switch Windows to {mode} mode",
                              f"Switched to {mode} mode.")
+        if kind == "slow_pc":
+            if len(match.group(0).split()) < 2:
+                return None   # a bare "slow" / "lagging" is not clearly about the PC
+            return _proposal("system.performance", {}, "Check what is slowing the PC: CPU, memory, temperature, "
+                             "top programs", "", finish=False)
+        if kind == "download_app":
+            wanted = (match.group("name") or match.group("name2") or "").strip(" '\"")
+            from chutku.tools.everyday import resolve_app
+            try:
+                app = resolve_app({"name": wanted}, apps if apps is not None else _installed_apps())
+            except (ValueError, OSError):
+                return None   # not installed (or unclear): the model decides how to get it
+            return _proposal("apps.launch", {"name": app["name"]}, f"Open {app['name']} (already installed)",
+                             f"{app['name']} is already installed, so I opened it.")
         if kind.startswith("info_"):
             tool, purpose = {"info_gpu": ("system.gpu_status", "Check the GPU"),
                              "info_windows": ("system.environment", "Check the Windows version"),
@@ -989,6 +1017,37 @@ def _say_health(out):
     return ("Your PC: " + ", ".join(parts) + "." + (f" Low space on {', '.join(low)}." if low else ""))
 
 
+def _say_perf(out):
+    """CPU, RAM, GPU and what uses the most memory: the instant answer to "laptop lag kar raha hai"."""
+    parts = []
+    if out.get("cpu_percent") is not None:
+        parts.append(f"CPU {round(out['cpu_percent'])}%")
+    memory = out.get("memory") or {}
+    if memory:
+        parts.append(f"RAM {memory['used_percent']}% used ({memory['used_gib']} of {memory['total_gib']} GB)")
+    gpu = out.get("gpu") or {}
+    if gpu.get("utilization_percent") is not None:
+        parts.append(f"GPU {gpu['utilization_percent']}%" + (f" at {gpu['temperature_c']}°C" if gpu.get(
+            "temperature_c") is not None else ""))
+    text = "Your PC: " + ", ".join(parts) + "." if parts else "I could not read the PC's load."
+    totals = {}
+    for process in out.get("top_memory_processes") or []:   # several "Code" windows are one app
+        totals[process["name"]] = totals.get(process["name"], 0) + process["memory_mib"]
+    if totals:
+        label = {"llama-server": "my local brain (llama-server)", "MsMpEng": "Windows Defender", "Code": "VS Code"}
+        top = sorted(totals.items(), key=lambda item: -item[1])[:3]
+        text += " Using the most memory: " + ", ".join(
+            f"{label.get(name, name)} {mib / 1024:.1f} GB" for name, mib in top) + "."
+    hints = []
+    if memory.get("used_percent", 0) >= 85:
+        hints.append("RAM is almost full; closing one of those apps would help most")
+    if (out.get("cpu_percent") or 0) >= 85:
+        hints.append("the CPU is very busy right now")
+    if gpu.get("temperature_c") and gpu["temperature_c"] >= 85:
+        hints.append("the GPU is hot")
+    return text + (" " + "; ".join(hints).capitalize() + "." if hints else "")
+
+
 def _describe_person(person):
     extra = [f"aka {', '.join(person['aliases'])}" if person.get("aliases") else "",
              person.get("relation") or "", f"WhatsApp chat “{person['whatsapp']}”" if person.get("whatsapp") else "",
@@ -1116,7 +1175,7 @@ QUICK_ANSWERS = {"nightshift.report": _say_night, "timeline.search": _say_timeli
                  "net.check": _say_net, "net.ping": _say_ping,
                  "message.send": _say_message, "system.gpu_status": _say_gpu,
                  "system.environment": _say_environment, "system.volume_status": _say_volume,
-                 "settings.theme_status": _say_theme, "system.health": _say_health,
+                 "settings.theme_status": _say_theme, "system.health": _say_health, "system.performance": _say_perf,
                  "screen.displays": _say_displays, "display.brightness_status": _say_brightness,
                  "apps.installed": _say_installed, "games.list": _say_games,
                  "mind.who": _say_who, "mind.show": _say_mind, "windows.list": _say_windows,
