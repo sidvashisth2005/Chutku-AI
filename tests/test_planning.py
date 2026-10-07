@@ -54,6 +54,9 @@ class PlanningTests(unittest.TestCase):
             "timeline on": ("SET_TIMELINE", "settings.timeline"),
             r"never touch D:\Exams": ("ADD_NEVER_RULE", "never.add"),
             "never rules": ("LIST_NEVER_RULES", "never.list"),
+            "background kaam roko": ("PAUSE_BACKGROUND", "background.pause"),
+            "resume background work": ("RESUME_BACKGROUND", "background.resume"),
+            "is background paused?": ("CHECK_BACKGROUND_PAUSE", "background.status"),
             "remove never rule a1b2c3": ("REMOVE_NEVER_RULE", "never.remove"),
             "list windows": ("LIST_WINDOWS", "windows.list"),
         }

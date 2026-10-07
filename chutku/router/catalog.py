@@ -55,6 +55,9 @@ INTENT_BY_TOOL = {
     "never.add": "ADD_NEVER_RULE",
     "never.list": "LIST_NEVER_RULES",
     "never.remove": "REMOVE_NEVER_RULE",
+    "background.pause": "PAUSE_BACKGROUND",
+    "background.resume": "RESUME_BACKGROUND",
+    "background.status": "CHECK_BACKGROUND_PAUSE",
     "windows.list": "LIST_WINDOWS",
 }
 
@@ -89,6 +92,27 @@ _NEVER_LIST = re.compile(r"^(?:(?:show |list )?(?:my )?never[- ]rules|never rule
                          r"kya kya kabhi nahi karna hai)$", re.IGNORECASE)
 _NEVER_REMOVE = re.compile(r"^(?:remove never[- ]rule|never[- ]rule hatao|never rule (?P<id2>[0-9a-f]{6}) hatao)"
                            r"(?:\s+(?P<id>[0-9a-f]{6}))?$", re.IGNORECASE)
+
+
+_BG = r"(?:background(?: ka| ke)?(?: kaam| work| jobs| tasks)?)"   # not "scheduled tasks roko": that cancels them
+_BG_PAUSE = re.compile(rf"^(?:pause (?:the |my |all )?{_BG}|{_BG} (?:pause karo|pause kar do|roko|rok do|band karo|"
+                       rf"band kar do|ruk jao)|stop {_BG})$", re.IGNORECASE)
+_BG_RESUME = re.compile(rf"^(?:resume (?:the |my |all )?{_BG}|{_BG} (?:resume karo|resume kar do|shuru karo|"
+                        rf"shuru kar do|chalu karo|chalu kar do|wapas chalao))$", re.IGNORECASE)
+_BG_STATUS = re.compile(rf"^(?:is (?:the )?{_BG} paused\??|{_BG} (?:status|paused hai\??|ruka hai\??|ruka hua hai\??))$",
+                        re.IGNORECASE)
+
+
+def background_route(text):
+    """Background pause phrases (Phase 3b H2); None when the text is not one."""
+    text = text.strip().rstrip(".!")
+    if _BG_PAUSE.fullmatch(text):
+        return RoutedCommand("background.pause", {})
+    if _BG_RESUME.fullmatch(text):
+        return RoutedCommand("background.resume", {})
+    if _BG_STATUS.fullmatch(text):
+        return RoutedCommand("background.status", {})
+    return None
 
 
 def _never_rule(text):
@@ -135,6 +159,9 @@ class CommandCatalog:
         if match := re.fullmatch(r"timeline (on|off)", normalized, re.IGNORECASE):
             # Owner-only switch (master plan S21): typed by the owner, never by voice or the agent.
             return RoutedCommand("settings.timeline", {"on": match[1].casefold() == "on"})
+        if routed := background_route(normalized):
+            # Background pause (Phase 3b H2): resuming is typed by the owner only.
+            return routed
         if routed := _never_rule(normalized):
             # The owner's never-rules (Phase 3b H1): typed by the owner; removing one always asks.
             return routed

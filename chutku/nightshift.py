@@ -190,6 +190,10 @@ def run_once(base, *, model=None, minutes=30, force=False):
     if not force and on_ac_power() is False:
         report["skipped"] = "on battery"
         return report
+    from chutku import pause
+    if not force and pause.engaged(base):   # "background kaam roko" (Phase 3b H2)
+        report["skipped"] = "background work is paused"
+        return report
     deadline = time.monotonic() + minutes * 60
     try:
         keep_awake(True)   # only for these minutes; Windows' own sleep timer applies again afterwards

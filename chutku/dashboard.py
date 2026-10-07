@@ -1202,6 +1202,7 @@ INSTANT_TOOLS = frozenset({
     "voice.list_voices", "voice.recognition_status", "voice.audio_input_status", "voice.speak",
     "settings.earned_autonomy", "settings.voice_lock", "settings.timeline",
     "never.add", "never.list", "never.remove",
+    "background.pause", "background.resume", "background.status",
 })
 
 

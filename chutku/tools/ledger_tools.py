@@ -46,6 +46,23 @@ def _night_report(_arguments, _context):
     return ToolResult(nightshift.report_summary(_root()), Verification.PASS)
 
 
+def _background_pause(_arguments, _context):
+    from chutku import pause
+    state = pause.engage(_root(), "owner asked")
+    return ToolResult(state, Verification.PASS if state["paused"] else Verification.FAIL)
+
+
+def _background_resume(_arguments, _context):
+    from chutku import pause
+    state = pause.release(_root())
+    return ToolResult(state, Verification.PASS if not state["paused"] else Verification.FAIL)
+
+
+def _background_status(_arguments, _context):
+    from chutku import pause
+    return ToolResult(pause.info(_root()), Verification.PASS)
+
+
 def _validate_none(arguments):
     if arguments:
         raise ValueError("This takes no arguments.")
@@ -64,6 +81,15 @@ def register_ledger_tools(registry):
         "on the same place run without asking (on), or always ask again (off).", Risk.REVERSIBLE, _relax,
         _validate_switch, argument_schema=_SWITCH, reversibility="compensatable",
         success_predicate="preference_written", user_only=True))
+    registry.register(Tool("background.pause", "Pause Chutku's background work (scheduled tasks, Night Shift) until "
+        "the owner resumes it; the owner's own requests still work.", Risk.REVERSIBLE, _background_pause,
+        _validate_none, argument_schema=_NONE, reversibility="compensatable", success_predicate="pause_file_written"))
+    registry.register(Tool("background.resume", "Owner only: resume Chutku's paused background work.",
+        Risk.REVERSIBLE, _background_resume, _validate_none, argument_schema=_NONE, reversibility="compensatable",
+        success_predicate="pause_file_removed", user_only=True))
+    registry.register(Tool("background.status", "Is Chutku's background work (scheduled tasks, Night Shift) paused?",
+        Risk.OBSERVATION, _background_status, _validate_none, argument_schema=_NONE,
+        reversibility="not_applicable", success_predicate="pause_state_read"))
     registry.register(Tool("nightshift.report", "Last night's Night Shift report: when it ran, new instant skills, "
         "past requests re-checked (same / changed / now failing), actions that keep failing, fine-tune readiness.",
         Risk.OBSERVATION, _night_report, _validate_none, argument_schema=_NONE, reversibility="not_applicable",

@@ -156,7 +156,8 @@ def watch(server, stop, tick=TICK_SECONDS):
     log = get_logger("scheduled")
     while not stop.wait(tick):
         try:
-            if ActionControl(server.base).paused:
+            from chutku import pause
+            if ActionControl(server.base).paused or pause.engaged(server.base):
                 continue   # paused by the owner: due tasks wait (one-off tasks run when resumed, if not too late)
             for job in take_due(server.base):
                 try:

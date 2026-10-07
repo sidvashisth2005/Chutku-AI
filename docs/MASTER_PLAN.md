@@ -801,7 +801,7 @@ Tool `timeline.search` (R0, `output_untrusted`) uses `memory_index` embeddings (
 Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, Hermes facts). Order is breadth-first; tick each box when its slice passes the AGENTS.md gate.
 
 - [x] H1: owner "never" rules — done 2026-10-07 (reduced: the built-in blocked-command list is parked, see HERMES_PLAN H1)
-- [ ] H2: Pause switch (global emergency stop)
+- [x] H2: Pause switch for background work — done 2026-10-07 (tray item and HUD badge not built)
 - [ ] H3: Content scanner + bounded-memory meter
 - [ ] P1: Phone access: Tailscale HTTPS + QR pairing + phone PIN
 - [ ] P2: Phone app: chat, live progress, approvals (installable PWA)

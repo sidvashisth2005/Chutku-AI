@@ -59,6 +59,12 @@ PATTERNS = [
                               rf"(?: tumne)?|(?:tumane |tumne )?(?:kal )?raat (?:ko|mein|me) kya (?:kiya|seekha)|raat ki {_REPORT}|"
                               rf"what did you do (?:last night|at night|overnight)|{_NIGHT} {_REPORT})"
                               rf"(?:\s+(?:batao|bataao|dikhao|dikhaao|sunao|sunaao|do|please))?{_TAIL}", re.I)),
+    # Background pause by voice too (Phase 3b H2); resuming is typed only (catalog).
+    ("bg_pause", re.compile(rf"^{_POLITE}(?:pause (?:the |my |all )?background(?: work| kaam| tasks| jobs)?|background"
+                            rf"(?: ka| ke)?(?: kaam| work| tasks| jobs)? (?:pause karo|pause kar do|roko|rok do|band karo|"
+                            rf"band kar do))(?:\s+please)?{_TAIL}", re.I)),
+    ("bg_status", re.compile(rf"^{_POLITE}(?:is (?:the )?background(?: work| kaam)? paused|background(?: kaam| work)? "
+                             rf"(?:status|paused hai|ruka hai|ruka hua hai)){_TAIL}", re.I)),
     # "itna lag kar raha hai" / "laptop slow hai": a complaint about speed -> what is using the PC (night report
     # 2026-10-07: the model stopped planning this). "lag" needs kar/ho, so "accha lag raha hai" (feels good) is not it.
     ("slow_pc", re.compile(rf"^{_POLITE}(?:why is\s+)?(?:(?:mera|meri|my|the|ye|yeh|this)\s+)?"
@@ -594,6 +600,11 @@ def _single(goal, apps=None):
             mode = next(match.group(g) for g in ("m1", "m2", "m3", "m4") if match.group(g)).casefold()
             return _proposal("settings.theme_set", {"mode": mode}, f"Switch Windows to {mode} mode",
                              f"Switched to {mode} mode.")
+        if kind == "bg_pause":
+            return _proposal("background.pause", {}, "Pause background work", "Background work is paused: "
+                             "scheduled tasks and the Night Shift wait until you type \"resume background work\".")
+        if kind == "bg_status":
+            return _proposal("background.status", {}, "Check whether background work is paused", "", finish=False)
         if kind == "slow_pc":
             if len(match.group(0).split()) < 2:
                 return None   # a bare "slow" / "lagging" is not clearly about the PC
@@ -940,6 +951,14 @@ def _say_tasks(out):
     return f"{len(tasks)} scheduled: " + "; ".join(f"{t['summary']} (id {t['id']})" for t in tasks[:6]) + "."
 
 
+def _say_background(out):
+    if not out.get("paused"):
+        return "Background work is running normally (scheduled tasks and the Night Shift)."
+    since = f" since {str(out['since'])[:16].replace('T', ' ')}" if out.get("since") else ""
+    return (f"Background work is paused{since}: scheduled tasks and the Night Shift are waiting. "
+            "Type \"resume background work\" to start them again.")
+
+
 def _say_night(out):
     """Last night's Night Shift report in plain words."""
     if not out.get("ran"):
@@ -1166,7 +1185,7 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
-QUICK_ANSWERS = {"nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
+QUICK_ANSWERS = {"background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,

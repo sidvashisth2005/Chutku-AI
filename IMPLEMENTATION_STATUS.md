@@ -16,6 +16,43 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-07: H2 — pause Chutku's background work
+
+Checked against `docs/HERMES_PLAN.md` H2.
+- **Built:**
+  - `chutku/pause.py`: the sentinel file `data/background.paused`.
+    - It fails safe, as Hermes's ESTOP does: an empty or damaged file counts as paused, and so does any `os.stat` error other than not-found.
+    - `engage`, `release` and `info`.
+  - `scheduled.watch` holds due tasks while paused; they stay due and nothing is consumed.
+  - `nightshift.run_once` skips with `skipped: "background work is paused"` and writes no report (`--force` still runs).
+  - Tools:
+    - `background.pause` (R1): anyone, voice included, may pause, because pausing only restricts;
+    - `background.resume` (R1, `user_only`): only typed by the owner;
+    - `background.status` (R0), with the instant answer `_say_background`.
+  - Phrases:
+    - catalog: "background kaam roko", "pause background work", "resume background work", "background kaam shuru karo", "is background paused?";
+    - quick tier for voice: pause and status only;
+    - "scheduled tasks roko" keeps its old meaning (cancel), and "pause" / "stop" keep controlling media.
+  - Different from "pause everything" (`core/action_control.py`), which stops every action, the owner's too.
+- **Not built** from the plan: the tray item and the HUD/dashboard "Paused" badge. Status is shown by asking. Background review (H12), the research helper (H15) and Telegram (H16) don't exist yet; they will check `pause.engaged` when built.
+- **Tests:** `tests/test_pause.py` (6):
+  - fail-safe states (empty file, damaged file, stat PermissionError);
+  - engage/release;
+  - the watcher holds a due task, then starts it after release;
+  - the night shift skips without running jobs;
+  - an agent can pause, but only a typed request resumes; the owner's own `system.get_time` still runs while paused;
+  - phrases and look-alikes.
+  - Also updated: 3 catalog intents in `tests/test_planning.py`, a quick-answer sample, and `docs/SECURITY.md` counts (167: R0 65, R1 47).
+- **Results:**
+  - full suite: 975 tests OK (220.3 s);
+  - `check_phrases.py`: 126/126.
+- **Real path** (live dashboard after restart):
+  - "background kaam roko" → paused in 0.2 s; the file exists.
+  - "1 minute baad aaj kya date hai" → scheduled for 15:24:12.
+  - At 15:24:52, 40 s past due, the job still showed `runs: 0, active: true` (independent read of `data/scheduled.json`).
+  - "is background paused?" → paused since 15:23:12.
+  - Typed "resume background work" → the job ran 6 s later (`history: started 15:24:58`, `runs: 1`), and the pause file is gone.
+
 ### 2026-10-07: H1 (reduced) — the owner's "never" rules
 
 Checked against `docs/HERMES_PLAN.md` H1.
