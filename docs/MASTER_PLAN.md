@@ -802,7 +802,7 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 
 - [x] H1: owner "never" rules — done 2026-10-07 (reduced: the built-in blocked-command list is parked, see HERMES_PLAN H1)
 - [x] H2: Pause switch for background work — done 2026-10-07 (tray item and HUD badge not built)
-- [ ] H3: Content scanner + bounded-memory meter
+- [x] H3: Content scanner + memory meter — done 2026-10-07 (exfiltration patterns, doc/reflex scan and dashboard panel not built)
 - [ ] P1: Phone access: Tailscale HTTPS + QR pairing + phone PIN
 - [ ] P2: Phone app: chat, live progress, approvals (installable PWA)
 - [ ] P3: Phone voice: push-to-talk + spoken replies

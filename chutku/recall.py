@@ -224,6 +224,21 @@ def about_you(goal, *, budget=1200, base=None, notes=None, include_earlier=True,
     return _fit(view, budget)
 
 
+def memory_usage(base=None, budget=None):
+    """How much of what the owner told Chutku fits in one prompt (Phase 3b H3; Hermes shows "[67% — 1,474/2,200]").
+    Each request sends only the most relevant part, up to `budget` characters (the local model's profile)."""
+    if budget is None:
+        from chutku.profiles import QWEN
+        budget = QWEN.about_you_chars
+    full = about_you("", budget=10 ** 9, base=base, include_earlier=False)
+    chars = len(json.dumps(full, ensure_ascii=False))
+    return {"chars": chars, "budget": budget, "percent": round(100 * chars / budget) if budget else None,
+            "all_fits": chars <= budget,
+            "summary": f"Yaad: {chars}/{budget} characters ({round(100 * chars / budget)}%) — "
+                       + ("sab ek baar mein prompt mein jaata hai." if chars <= budget else
+                          "har request ke saath sirf sabse kaam ki baatein jaati hain.")}
+
+
 def _fit(view, budget):
     """Drop the least relevant tail of each part until the JSON fits (each list is already ordered best-first)."""
     def size():

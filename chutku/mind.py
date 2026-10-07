@@ -134,6 +134,8 @@ class Mind:
         phone = re.sub(r"[ -]", "", str(phone or ""))
         if phone and not re.fullmatch(r"\+?\d{8,15}", phone):
             raise ValueError("A phone number is 8-15 digits, optionally starting with +.")
+        from chutku import scan   # saved text is read back into her prompt: no hidden characters or orders (H3)
+        scan.check(name, relation, whatsapp, note, *[str(a) for a in aliases])
 
         def edit(data):
             person = next((p for p in data["people"] if norm(p["name"]) == norm(name)), None)
@@ -162,6 +164,8 @@ class Mind:
         key, value = norm(key), " ".join(str(value).split())
         if not key or not value or len(key) > 60 or len(value) > 500:
             raise ValueError("Give a short name and a value.")
+        from chutku import scan
+        scan.check(key, value)
         return self._change(lambda data: data["facts"].__setitem__(key, value) or {key: value})
 
     def add(self, list_name, text):
@@ -169,9 +173,13 @@ class Mind:
         text = " ".join(str(text).split())
         if list_name not in LISTS or not text or len(text) > 500:
             raise ValueError(f"Lists are: {', '.join(LISTS)}.")
+        from chutku import scan
+        scan.check(text, instructions=False)   # a to-do is the owner's own order
 
         def edit(data):
             items = data["lists"][list_name]
+            if any(norm(i["text"]) == norm(text) and not i.get("done") for i in items):
+                raise ValueError(f"Ye pehle se {list_name} mein hai.")
             item = {"id": max((i["id"] for i in items), default=0) + 1, "text": text, "done": False,
                     "added": date.today().isoformat()}
             items.append(item)

@@ -16,6 +16,42 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-07: H3 — saved text is checked; memory meter
+
+Checked against `docs/HERMES_PLAN.md` H3.
+- **Built:**
+  - `chutku/scan.py`:
+    - `hidden_characters` covers zero-width, bidi and tag characters, plus ZWJ/ZWNJ except between Devanagari letters;
+    - `threats` is hidden characters plus the S15 instruction-line test (`agent_loop._INSTRUCTION_LINE`, one definition);
+    - `check(*texts, instructions=True)` raises ValueError.
+  - Applied in:
+    - `Mind.remember_person` (name, relation, WhatsApp name, note, aliases) and `Mind.set_fact`: full scan;
+    - `MemoryStore.save` (memory.remember): full scan;
+    - `Mind.add`, `notes._add` and `scheduled.add`: hidden characters only, because the owner's to-dos and tasks are orders by nature. `Mind.add` and `notes._add` also refuse an exact duplicate of an open item.
+  - Memory meter: `recall.memory_usage(base, budget)` measures the full owner view (people, facts, open items, habits) against the local profile's `about_you_chars` (600). `mind.show` (all) carries it, and the instant answer appends it.
+- **Not built** from the plan:
+  - exfiltration-shape patterns;
+  - scanning reflex templates and the docs the planner reads;
+  - the dashboard memory panel and the Today suggestion at 90%.
+  - Lessons and skills (H10/H11) will call `scan.check` when they are built.
+- **Tests:** `tests/test_scan.py` (8):
+  - hidden characters, including the Devanagari joiner exception;
+  - threat cases (Hinglish and Hindi facts pass);
+  - facts and people refuse hidden text and orders, and `mind.json` is byte-identical afterwards;
+  - lists allow an imperative to-do but refuse hidden characters and duplicates;
+  - memory.db refuses an order and keeps the old value;
+  - a scheduled goal refuses hidden characters;
+  - the note tool refuses duplicates and hidden text;
+  - the meter's numbers equal an independent JSON size, and its line appears in the instant answer.
+- **Results:**
+  - full suite: 983 tests OK (220.7 s);
+  - `check_phrases.py`: 126/126.
+- **Real path** (live dashboard after restart):
+  - "remember h3check = blue" → saved (memory.db value `blue`).
+  - "remember h3check = gr<U+200B>een" → FAILED, "Save nahi kiya: hidden characters U+200B."; memory.db still `blue` (independent SQLite read).
+  - "what do you remember about me" → "People: UB (aka mammi). Yaad: 368/600 characters (61%) …" in 0.8 s, equal to an independent `memory_usage` call.
+  - The test key was then removed.
+
 ### 2026-10-07: H2 — pause Chutku's background work
 
 Checked against `docs/HERMES_PLAN.md` H2.

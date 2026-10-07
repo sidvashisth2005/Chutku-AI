@@ -68,6 +68,8 @@ def add(base, goal, first_at, *, every_minutes=None, mode="owner", origin="text"
         raise ValueError(f"Describe the task in 1 to {MAX_GOAL} characters.")
     if mode not in MODES or origin not in {"text", "voice"}:
         raise ValueError("Unknown mode or origin.")
+    from chutku import scan   # the goal runs later by itself: no hidden characters (Phase 3b H3)
+    scan.check(goal, instructions=False)
     if every_minutes is not None and not (type(every_minutes) is int and 1 <= every_minutes <= 7 * 24 * 60):
         raise ValueError("Repeat every 1 minute to 7 days.")
     if not datetime.now() - timedelta(minutes=1) <= first_at <= datetime.now() + timedelta(days=366):

@@ -1093,6 +1093,8 @@ def _say_mind(out):
             continue
         shown = "; ".join(f"{i['id']}. {i['text']}" + (" (done)" if i.get("done") else "") for i in items[:15])
         parts.append(f"{name.capitalize()}: {shown}.")
+    if parts and out.get("memory_meter"):
+        parts.append(out["memory_meter"])   # how much of it fits in one prompt (Phase 3b H3)
     return " ".join(parts) or "I don't know anything about you yet. Tell me: “UB is my gf”, “my home is in Pune”, " \
                               "“add assignment: DBMS report by Friday”."
 

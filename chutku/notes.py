@@ -51,8 +51,15 @@ def visible(items=None, now=None):
 
 def _add(arguments, context):
     text = " ".join(arguments["text"].split())
+    from chutku import scan
+    try:
+        scan.check(text, instructions=False)   # hidden characters only: a note is the owner's own words (H3)
+    except ValueError as error:
+        return ToolResult({"error": str(error)}, Verification.FAIL)
     with _lock:
         items = load()
+        if any(" ".join(i["text"].split()).casefold() == text.casefold() and not i.get("done") for i in items):
+            return ToolResult({"error": "Ye pehle se list mein hai.", "duplicate": True}, Verification.FAIL)
         if sum(not i.get("done") for i in items) >= MAX_ITEMS:
             return ToolResult({"error": f"The list already has {MAX_ITEMS} open items."}, Verification.FAIL)
         number = max((i["id"] for i in items), default=0) + 1

@@ -27,6 +27,8 @@ class MemoryStore:
         self.validate_key(key)
         if not isinstance(value, str) or not value.strip() or len(value) > 2000:
             raise ValueError("Memory value must contain 1 to 2000 characters.")
+        from chutku import scan   # saved notes go back into her prompt as facts (Phase 3b H3)
+        scan.check(value)
         key = key.casefold()
         exists = self.connection.execute("SELECT 1 FROM memories WHERE key=?", (key,)).fetchone()
         if not exists and self.connection.execute("SELECT count(*) FROM memories").fetchone()[0] >= 500:

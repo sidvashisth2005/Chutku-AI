@@ -52,6 +52,12 @@ def _show(arguments, _context):
     elif part != "all":
         name = mind.LIST_WORDS.get(mind.norm(part), part)
         data = {"lists": {name: mind.default().load()["lists"].get(name, [])}}
+    if part == "all":   # the memory meter (Phase 3b H3)
+        from chutku.recall import memory_usage
+        try:
+            data["memory_meter"] = memory_usage(mind.PROJECT_ROOT)["summary"]
+        except (OSError, ValueError):
+            pass
     return ToolResult({"part": part, **data}, Verification.PASS, {"part": part, "content": "[REDACTED]"})
 
 
