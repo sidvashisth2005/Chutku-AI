@@ -251,6 +251,33 @@ def morning_line(base):
     return f"Raat ko ({report['date']}): " + ", ".join(parts) + "."
 
 
+def report_summary(base):
+    """Last night's report for the owner ("night report", "raat ko kya kiya"): what ran, when, and what it found.
+    Only plain facts from the saved report; the goals listed are the owner's own past requests."""
+    report = latest_report(base)
+    if not report:
+        return {"ran": False, "summary": "Night Shift has not run yet: it runs at 4 AM after 30 minutes without "
+                                         "keyboard or mouse, on charger."}
+    if report.get("skipped"):
+        return {"ran": False, "date": report.get("date"), "summary": f"Night Shift skipped ({report['skipped']})."}
+    jobs = report.get("jobs", {})
+    replay = jobs.get("regression_replay") or {}
+    rows = replay.get("rows") or []
+
+    def goals(verdict):
+        return [row["goal"][:80] for row in rows if row.get("verdict") == verdict][:5]
+    failed_jobs = [name for name, job in jobs.items() if isinstance(job, dict) and not job.get("ok", True)]
+    tune = jobs.get("fine_tune_readiness") or {}
+    return {"ran": True, "date": report.get("date"), "started": report.get("started"),
+            "finished": report.get("finished"), "summary": morning_line(base),
+            "new_skills": (jobs.get("learned_skills") or {}).get("new_skills", 0),
+            "requests_rechecked": replay.get("distinct_goals", 0), "counts": replay.get("counts", {}),
+            "fails_now": goals("fails now"), "changed": goals("changed"),
+            "keeps_failing": (jobs.get("reliability") or {}).get("keeps_failing", [])[:5],
+            "fine_tune": f"{tune.get('verified_turns', 0)}/{tune.get('needed', 300)} verified turns",
+            "jobs_failed": failed_jobs}
+
+
 _INSTALL = r'''
 $ErrorActionPreference = 'Stop'
 $r = [Console]::In.ReadToEnd() | ConvertFrom-Json

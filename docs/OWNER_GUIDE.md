@@ -281,6 +281,7 @@ Once a day, Chutku does her homework. From **4:00 am**, she waits until the PC h
 The **Today** card then shows a line like *"Raat ko: 1 naye skills, 4 badle hue plans, 3 ab fail, 16 same."*
 
 - Run it by hand: `.venv\Scripts\python.exe -m chutku.cli nightshift run`. While Chutku is running, the work happens inside her, so only one model uses the graphics card.
+- **Ask her (since 2026-10-07):** "night report", "night shift report", "raat ko kya kiya", "kal raat kya kiya", "what did you do last night", or in Hindi script "नाइट शिफ्ट रिपोर्ट". She answers instantly from the saved report: when it ran, new skills, how many of your past requests she re-checked (same / changed / now failing), what keeps failing, and fine-tune progress. The voice conversation also knows last night's result, so it no longer guesses.
 - `chutku.cli nightshift report` prints the last report. The full report is in `data\nightshift\report-YYYYMMDD.json`, including which requests are planned differently now.
 - The task is `\Chutku\NightShift` in Task Scheduler; `chutku.cli nightshift install` sets it up again.
 - When there are 300 verified requests, she also writes `data\nightshift\lora-ready.json`. That means enough data for the planned weekly fine-tune, which still needs your yes the first time.

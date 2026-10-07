@@ -87,7 +87,7 @@ PRIVATE_TOOLS = frozenset({
     "screen.read_text", "screen.understand", "screen.capture", "uia.inspect", "windows.list", "memory.search",
     "code.run_python", "log.recent", "message.read_chat",
     "filesystem.list", "filesystem.largest", "files.find", "files.recent",   # names of the owner's files
-    "reflex.list",   # the owner's past requests
+    "reflex.list", "nightshift.report",   # the owner's past requests
     "timeline.search",   # what the owner had open
 })
 # On-screen actions may legitimately repeat with identical arguments (press "5" twice, look again after a

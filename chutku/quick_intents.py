@@ -20,6 +20,7 @@ _SITES = {"youtube": "youtube", "yt": "youtube", "google": "google", "bing": "bi
           "amazon": "amazon", "flipkart": "flipkart"}
 _SITE = r"(?P<site>youtube|yt|google maps|google|bing|duckduckgo|wikipedia|wiki|maps|github|amazon|flipkart)"
 from chutku.intents.lexicon import DOMAIN as _DOMAIN
+_NIGHT, _SHIFT, _REPORT = r"(?:night|naait|nait)", r"(?:shift|shipht|shipt)", r"(?:report|riport|ripot)"
 
 _UNIT = r"(?P<unit>minutes?|mins?|min|hours?|hrs?|hr|ghante?|minute)"
 _CLOSE = r"(?:close|quit|exit|band karo|band kar do|band|bund karo)"
@@ -51,6 +52,13 @@ PATTERNS = [
     ("info_learned", re.compile(rf"^{_POLITE}(?:tumne kya (?:kya )?seekha(?: hai)?|kya seekha(?: hai)?|what (?:did|have) you "
                                 rf"learn(?:ed|t)?|what skills (?:did|have) you learn(?:ed|t)?|show (?:your |the )?learned "
                                 rf"skills|skills i taught you){_TAIL}", re.I)),
+    # Night Shift report. Spellings like "naait shipht riport" are what Devanagari voice text becomes in Roman letters.
+    ("info_night", re.compile(rf"^{_POLITE}(?:(?:have you |did you )?(?:prepared? |made |make )?(?:the |my |your |last )?"
+                              rf"(?:{_NIGHT} ?{_SHIFT}|{_NIGHT})(?: {_REPORT}| ki {_REPORT}| ka {_REPORT})?(?: ready| bana(?:ya|i))?|"
+                              rf"(?:{_NIGHT} ?{_SHIFT}|raat|kal raat)(?: ko| mein| me| ne)? (?:kya|kya kya) (?:kiya|hua|seekha)"
+                              rf"(?: tumne)?|(?:tumane |tumne )?(?:kal )?raat (?:ko|mein|me) kya (?:kiya|seekha)|raat ki {_REPORT}|"
+                              rf"what did you do (?:last night|at night|overnight)|{_NIGHT} {_REPORT})"
+                              rf"(?:\s+(?:batao|bataao|dikhao|dikhaao|sunao|sunaao|do|please))?{_TAIL}", re.I)),
     ("info_reliability", re.compile(rf"^{_POLITE}(?:tum kitni reliable ho|reliability batao|how reliable are you|"
                                     rf"show (?:your |my )?reliability|kitna sahi kaam karti ho){_TAIL}", re.I)),
     ("info_perf", re.compile(rf"^{_POLITE}(?:what(?:'?s| is) (?:the |my )?)?(?:(?:cpu|gpu|processor|laptop|pc|computer)\s+"
@@ -580,7 +588,8 @@ def _single(goal, apps=None):
                              "info_health": ("system.health", "Check battery, memory and disk"),
                              "info_perf": ("system.performance", "Check CPU, GPU, memory and temperature"),
                              "info_reliability": ("ledger.summary", "Check how often each action really worked"),
-                             "info_learned": ("reflex.list", "List the request shapes learned as instant skills")}[kind]
+                             "info_learned": ("reflex.list", "List the request shapes learned as instant skills"),
+                             "info_night": ("nightshift.report", "Read last night's Night Shift report")}[kind]
             return _proposal(tool, {}, purpose, "", finish=False)
         if kind in {"net_check", "net_ip"}:
             return _proposal("net.check", {}, "Check the internet connection", "", finish=False)
@@ -903,6 +912,24 @@ def _say_tasks(out):
     return f"{len(tasks)} scheduled: " + "; ".join(f"{t['summary']} (id {t['id']})" for t in tasks[:6]) + "."
 
 
+def _say_night(out):
+    """Last night's Night Shift report in plain words."""
+    if not out.get("ran"):
+        return out.get("summary") or "Night Shift has not run yet."
+    counts = out.get("counts") or {}
+    text = (f"Night Shift ran on {out.get('date')} ({str(out.get('started', ''))[11:16]}–"
+            f"{str(out.get('finished', ''))[11:16]}): {out.get('new_skills', 0)} new instant skills; re-checked "
+            f"{out.get('requests_rechecked', 0)} of your past requests: {counts.get('same', 0)} same, "
+            f"{counts.get('changed', 0)} changed, {counts.get('fails now', 0)} now failing.")
+    if out.get("fails_now"):
+        text += " Now failing: " + "; ".join(f"\"{g}\"" for g in out["fails_now"][:3]) + "."
+    if out.get("keeps_failing"):
+        text += " Keeps failing: " + ", ".join(out["keeps_failing"][:3]) + "."
+    if out.get("jobs_failed"):
+        text += " Jobs that failed: " + ", ".join(out["jobs_failed"]) + "."
+    return text + f" Fine-tune data: {out.get('fine_tune')}."
+
+
 def _say_learned(out):
     """Learned instant skills (master plan S17) in plain words."""
     def share(value):
@@ -1080,7 +1107,7 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
-QUICK_ANSWERS = {"timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
+QUICK_ANSWERS = {"nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,

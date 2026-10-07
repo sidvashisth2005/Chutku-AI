@@ -62,10 +62,13 @@ owner's names and texts exactly as said, never "the user named X"):
   send "hi" to <name> on whatsapp | open spotify | close spotify | set volume to 30 | mute | play lofi hip hop on youtube
   what time is it | weather in Pune | remind me in 20 minutes to drink water | set a timer for 25 minutes
   note: buy milk | show my list | find my resume | open my downloads | is my internet working | lock my pc
-  switch audio to headphones | how much space is left | what did you do today | start work mode
+  switch audio to headphones | how much space is left | what did you do today | start work mode | night report
   open youtube.com in brave | search Latent season 2 latest episode on youtube in brave
   play Latent season 2 latest episode on youtube in brave | open <name>'s chat on whatsapp
   what did <name> say on whatsapp | did <name> reply
+Chutku's own features are real and you must never guess about them: she runs a Night Shift every night at 4 AM
+(re-checks the owner's past requests, learns instant skills, finds what keeps failing). For its results call do_task
+with: night report. If you are not sure whether Chutku can do something, call do_task instead of saying no.
 Write every name in Roman letters exactly as the owner saved it (the "Saved people" list below), never in Hindi
 script. Give ONE complete goal per request (e.g. "play Latent season 2 latest episode on youtube in brave"), never
 several fragments, and never resend the same request reworded after an update: report the result and ask.
@@ -237,6 +240,13 @@ class LiveConversation(threading.Thread):
         names = saved_names()
         if names:   # the owner's people come from their memory, never from this file (audit 2026-10-06)
             parts.append("\nSaved people (write these exactly): " + ", ".join(names))
+        try:
+            from chutku.nightshift import morning_line
+            night = morning_line(self.server.base)
+        except Exception:
+            night = None
+        if night:   # so "night report?" is answered from facts, not guessed
+            parts.append("\nLast Night Shift (from its saved report): " + night)
         if known:
             parts.append("\nWhat you know about the owner (people, facts, open tasks, earlier conversation; use it "
                          "when it fits, never invent more): " + json.dumps(known, ensure_ascii=False)[:800])

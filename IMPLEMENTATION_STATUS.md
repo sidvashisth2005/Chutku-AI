@@ -16,6 +16,28 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-07: Night Shift report on request ("night report?" got a made-up answer)
+
+- **Cause:** the owner asked by voice in the morning (Gemini Live): "Have you prepared the night report?", then "हम लोगों का एक फीचर था ना नाइट शिफ्ट…". The Night Shift had run (04:09–04:23, all 5 jobs ok, `data/nightshift/report-20261007.json`). But no phrase or tool reached the report, and the Live context did not mention it. So Gemini guessed three different answers ("main report nahi banati", "haan yaad aaya", "feature ready nahi hai"), all of them invented (`data/conversations.jsonl`, 2026-10-07 morning).
+- **Fix:**
+  - `nightshift.report_summary(base)` builds the summary from the newest saved report: date and times, new skills, requests re-checked with same/changed/now-failing counts, the failing goals, what keeps failing, failed jobs, and fine-tune progress.
+  - New tool `nightshift.report` (R0) in `tools/ledger_tools.py`. It is listed in `agent_loop.PRIVATE_TOOLS`, because it names the owner's past requests.
+  - Quick tier `info_night` with the `_say_night` answer. It accepts English, Hinglish and the Roman form of Devanagari voice text ("naait shipht riport", "tumane raat ko kya kiya").
+  - `voice/live.py`: the persona states the Night Shift exists, lists "night report" as a do_task form, and says to call do_task rather than say no when unsure. `_context()` adds last night's `morning_line`.
+- **Tests:** `tests/test_night_report.py` (8 tests):
+  - the summary facts against a fixture report, and the spoken text;
+  - "not run yet" and a failed job are said plainly;
+  - 15 ways of asking (including Devanagari) route to the tool;
+  - 6 look-alikes ("good night", "गुड नाइट", "night mode on", "raat ko 10 baje yaad dilana") don't;
+  - the tool is R0 and private;
+  - the Live persona and context carry the report, and there is no line when no report exists.
+  - Also updated: the `test_quick_intents` sample list and the `docs/SECURITY.md` tool counts (161 registered, R0 63).
+- **Results:**
+  - full suite: 953 tests OK (165.8 s);
+  - `scripts/check_phrases.py`: 122/122 instant, slowest 42.5 ms;
+  - real path, after restarting Chutku (`scripts/live_check.py --only night-report night-report-hi time`): "Have you prepared the night report?" → PASS in 0.7 s, quick tier; "नाइट शिफ्ट रिपोर्ट बताओ" → PASS in 0.4 s, quick tier. Both replies quote date 2026-10-07 and 198 re-checked requests, checked independently against `data/nightshift/report-20261007.json`.
+- **Limits:** the Gemini Live voice path was checked through its persona and context (unit tests), not with a spoken conversation. The owner should ask "night report" by voice once.
+
 ### 2026-10-07: S10 service — Kokoro is Chutku's voice (owner's listening test: 10 of 10)
 
 Checked item by item against `docs/MASTER_PLAN.md` S10 "Service".

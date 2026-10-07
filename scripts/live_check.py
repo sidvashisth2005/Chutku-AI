@@ -85,8 +85,20 @@ def monitors(reply):
     return (str(count) in re.findall(r"\d+", reply) or words.get(count, "#") in reply.casefold()), f"{count} display(s)"
 
 
+def check_night(reply):
+    """The night report must quote the newest saved report: its date and how many requests it re-checked."""
+    reports = sorted((ROOT / "data" / "nightshift").glob("report-*.json"))
+    if not reports:
+        return "not run yet" in reply, "no report saved -> 'not run yet'"
+    report = json.loads(reports[-1].read_text(encoding="utf-8"))
+    rechecked = str((report.get("jobs", {}).get("regression_replay") or {}).get("distinct_goals", ""))
+    return report["date"] in reply and rechecked in reply, f"date {report['date']}, {rechecked} re-checked"
+
+
 CASES = [
     ("time", "what time is it", check_time),
+    ("night-report", "Have you prepared the night report?", check_night),
+    ("night-report-hi", "नाइट शिफ्ट रिपोर्ट बताओ", check_night),
     ("time-hinglish", "kitne baje hain", check_time),
     ("disk-c", "how much free space is left on my C drive", free_check("C")),
     ("disk-d", "D drive mein kitni jagah khali hai", free_check("D")),

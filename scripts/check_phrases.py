@@ -24,6 +24,9 @@ CASES = [
     ('In WhatsApp, find the chat titled "UB" and send the message "hi" to it.', "message.send"),
     ('Open WhatsApp and send the message "Hi" to the user named UB.', "message.send"),
     ('Retry sending the message "Hi" to UB on WhatsApp.', "message.send"),
+    # Night Shift report (owner, 2026-10-07: asked by voice and got a made-up answer)
+    ("Have you prepared the night report, bhai?", "nightshift.report"), ("raat ko kya kiya", "nightshift.report"),
+    ("नाइट शिफ्ट रिपोर्ट", "nightshift.report"), ("night shift ka report batao", "nightshift.report"),
     # apps and media
     ("open spotify", "apps.launch"), ("spotify kholo", "apps.launch"), ("open whatsapp", "apps.launch"),
     ("close spotify", "apps.quit"), ("play lofi hip hop on youtube", "youtube.play"),
