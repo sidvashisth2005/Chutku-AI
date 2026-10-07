@@ -803,7 +803,25 @@ class DashboardServer(ThreadingHTTPServer):
         examples = experience.similar(self.base, goal)
         if examples:
             context["past_successes"] = examples
+        attached = None
+        if origin == "text":   # "@file:…", "@folder:…", "@url:…", "@clip" (Phase 3b H6): read before planning
+            from chutku import references
+            if references.find(goal):
+                try:
+                    with create_runtime(self.base) as runtime:
+                        router = RuntimeRouter(runtime, opener=lambda grant_id: create_runtime(self.base, grant_id))
+                        try:
+                            goal, attachments, kinds = references.expand(goal, router)
+                        finally:
+                            router.close()
+                except (references.ReferenceError, ValueError, OSError) as error:
+                    return self._control_session(goal, mode, origin, f"I didn't attach that: {error}")
+                attached = attachments
         session = self.agent_sessions.add(AgentSession(goal, mode=mode, origin=origin, context=context))
+        if attached:   # each read becomes a completed step: taint, privacy and S15 line removal apply as usual
+            with session.lock:
+                for item in attached:
+                    session._record(item["step"], item["result"])
         if origin == "voice" and speaker_check:   # a scheduled task was checked when it was ordered
             session.speaker_verified = self._speaker_check(voice_source)
         session.silent = silent   # set before any work starts: a live conversation narrates its own results

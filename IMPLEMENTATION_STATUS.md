@@ -16,6 +16,42 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-07: H6 — @file / @folder / @url / @clip in typed chat
+
+Checked against `docs/HERMES_PLAN.md` H6.
+- **Built:**
+  - `chutku/references.py`:
+    - Finds `@file:`, `@file:"…":a-b`, `@folder:`, `@url:` and `@clip`, at most 3 per message.
+    - Each is read **before planning** with Chutku's own tool through `RuntimeRouter`, so drive grants, protected zones, never-rules (H1) and the action log apply: `file.extract_text`, `filesystem.list`, `web.read`, `clipboard.read_text`.
+    - Before any read, it refuses secrets (Hermes's list adapted for Windows): `.ssh`, `.aws`, `.kube`, `.gnupg`, Credentials/Protect, `.env*`, `.netrc`, `.npmrc`, `.git-credentials`, `id_*`, Login Data, Cookies, Web Data, `*.kdbx`, `*.pfx`, `*.p12`, `*.pem`, `*.key`.
+    - Line ranges are honoured; text over 6000 characters is cut, with a note.
+  - `dashboard.begin_session` (typed origin only):
+    - the goal's references become `[attached: name]`;
+    - each read is recorded as a **completed first step** of the session (`AgentSession._record`), so taint, private-data exposure and S15 instruction-line removal apply exactly as for a step the agent ran;
+    - a failed or refused reference ends the request with "I didn't attach that: …".
+  - **Design change during the real path:** the first version put attachments in `CONTEXT.attached`. The local model ignored it and proposed `files.open` (which asked for approval). As a completed step it answers from it. The `CONTEXT.attached` prompt lines were removed again.
+- **Not built:**
+  - `@clipimg` (clipboard image to vision);
+  - dashboard autocomplete for `@file:`;
+  - the 25%/50% context-share warnings (a fixed 6000-character cut instead).
+- **Tests:** `tests/test_references.py` (8):
+  - parsing and goal rewrite, including a quoted path with a line range;
+  - no-op for plain "@" text (email addresses);
+  - 5 secret paths refused with no tool call;
+  - long text cut, plus an instruction line removed and counted;
+  - a missing file and more than 3 references are refused;
+  - real runtime reads of a file and a folder;
+  - an attachment becomes a COMPLETED, tainting, private first step whose observation is wrapped `untrusted_data`;
+  - a never-rule on the folder refuses the attachment.
+- **Results:**
+  - full suite: 1005 tests OK (167.1 s);
+  - `check_phrases.py`: 128/128.
+- **Real path** (live dashboard after restart; `D:\ChutkuScratch\notes.txt` = "# Exam Plan for DBMS / Chapter 3 on Friday, chapter 4 on Monday."):
+  - "@file:…notes.txt mein pehla heading kya hai?" → 11.8 s, local: "The first heading is '# Exam Plan for DBMS'".
+  - "@file:…notes.txt:2-2 mein chapter 4 kab hai?" → 9.0 s, Gemini: "Chapter 4 is on Monday" (matches the file).
+  - Negative: "@file:D:\ChutkuScratch\.env padho" → 0.2 s, "I didn't attach that: .env looks like a password, key or login file", with no step run.
+  - "@folder:D:\ChutkuScratch mein kitni files hain?" → "2 files: .env aur notes.txt". Independently, the folder holds 2 files and 2 folders.
+
 ### 2026-10-07: H5 — long tasks: oldest steps become one summary line
 
 Checked against `docs/HERMES_PLAN.md` H5.
