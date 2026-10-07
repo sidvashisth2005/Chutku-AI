@@ -810,7 +810,7 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [x] H4: Fast chat-history search (FTS5) — done 2026-10-07 (gate not met for recall.earlier: word overlap kept there)
 - [x] H5: Step summaries instead of dropping — done 2026-10-07 (live long-session check pending: real sessions are still short)
 - [x] H6: `@file` / `@folder` / `@url` / `@clip` references in typed chat — done 2026-10-07 (@clipimg and autocomplete not built)
-- [ ] H7: Weekly insights
+- [x] H7: Weekly insights — done 2026-10-07 (Today card, reflex time saved and quota not built)
 - [ ] H8: Scheduled-task upgrades (continuity, silent tick, chaining, incidents)
 - [ ] H9: Brain resilience: fallback chain, error classes, per-request brain choice
 - [ ] H10: Proven lessons from mistakes

@@ -63,6 +63,11 @@ def _background_status(_arguments, _context):
     return ToolResult(pause.info(_root()), Verification.PASS)
 
 
+def _insights(_arguments, _context):
+    from chutku import insights
+    return ToolResult(insights.week(_root()), Verification.PASS)
+
+
 def _validate_none(arguments):
     if arguments:
         raise ValueError("This takes no arguments.")
@@ -81,6 +86,10 @@ def register_ledger_tools(registry):
         "on the same place run without asking (on), or always ask again (off).", Risk.REVERSIBLE, _relax,
         _validate_switch, argument_schema=_SWITCH, reversibility="compensatable",
         success_predicate="preference_written", user_only=True))
+    registry.register(Tool("insights.week", "This week vs last week: requests (voice/typed), instant vs model "
+        "answers, most used actions, failures, refusals, approvals asked and given, new learned skills.",
+        Risk.OBSERVATION, _insights, _validate_none, argument_schema=_NONE, reversibility="not_applicable",
+        success_predicate="insights_read"))
     registry.register(Tool("background.pause", "Pause Chutku's background work (scheduled tasks, Night Shift) until "
         "the owner resumes it; the owner's own requests still work.", Risk.REVERSIBLE, _background_pause,
         _validate_none, argument_schema=_NONE, reversibility="compensatable", success_predicate="pause_file_written"))

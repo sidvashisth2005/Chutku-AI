@@ -59,6 +59,10 @@ PATTERNS = [
                               rf"(?: tumne)?|(?:tumane |tumne )?(?:kal )?raat (?:ko|mein|me) kya (?:kiya|seekha)|raat ki {_REPORT}|"
                               rf"what did you do (?:last night|at night|overnight)|{_NIGHT} {_REPORT})"
                               rf"(?:\s+(?:batao|bataao|dikhao|dikhaao|sunao|sunaao|do|please))?{_TAIL}", re.I)),
+    # Weekly insights (Phase 3b H7).
+    ("info_week", re.compile(rf"^{_POLITE}(?:is hafte|iss hafte|is week|iss week|this week|hafte|week)(?: mein| me| ka| ki)? (?:kya kya |kya )?"
+                             rf"(?:kiya|kiye|hua|report|insights|summary)(?: batao| dikhao| sunao)?|weekly (?:report|insights|"
+                             rf"summary)|what did (?:you|we) do this week|(?:show )?(?:my )?(?:usage )?insights{_TAIL}", re.I)),
     # Background pause by voice too (Phase 3b H2); resuming is typed only (catalog).
     ("bg_pause", re.compile(rf"^{_POLITE}(?:pause (?:the |my |all )?background(?: work| kaam| tasks| jobs)?|background"
                             rf"(?: ka| ke)?(?: kaam| work| tasks| jobs)? (?:pause karo|pause kar do|roko|rok do|band karo|"
@@ -661,7 +665,8 @@ def _single(goal, apps=None):
                              "info_perf": ("system.performance", "Check CPU, GPU, memory and temperature"),
                              "info_reliability": ("ledger.summary", "Check how often each action really worked"),
                              "info_learned": ("reflex.list", "List the request shapes learned as instant skills"),
-                             "info_night": ("nightshift.report", "Read last night's Night Shift report")}[kind]
+                             "info_night": ("nightshift.report", "Read last night's Night Shift report"),
+                             "info_week": ("insights.week", "Count this week's requests and actions")}[kind]
             return _proposal(tool, {}, purpose, "", finish=False)
         if kind in {"net_check", "net_ip"}:
             return _proposal("net.check", {}, "Check the internet connection", "", finish=False)
@@ -984,6 +989,12 @@ def _say_tasks(out):
     return f"{len(tasks)} scheduled: " + "; ".join(f"{t['summary']} (id {t['id']})" for t in tasks[:6]) + "."
 
 
+def _say_week(out):
+    """Weekly insights (Phase 3b H7)."""
+    from chutku.insights import say
+    return say(out)
+
+
 def _say_history(out):
     """Past chats about a topic (Phase 3b H4)."""
     found = out.get("matches") or []
@@ -1231,7 +1242,7 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
-QUICK_ANSWERS = {"history.search": _say_history, "background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
+QUICK_ANSWERS = {"insights.week": _say_week, "history.search": _say_history, "background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,

@@ -16,6 +16,35 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-07: H7 — weekly insights ("is hafte kya kiya")
+
+Checked against `docs/HERMES_PLAN.md` H7.
+- **Built:**
+  - `chutku/insights.py`: `week(base, now)` counts the last 7 days against the 7 before, from `conversations.jsonl`, `actions.log.jsonl` and `reflexes.json`:
+    - requests (voice/typed, excluding "said" voice-chat lines);
+    - instant (planners only quick/reflex/replay) vs by a model (local/gemini), and Gemini;
+    - top actions;
+    - actions completed / failed / refused, asks (WAITING_CONFIRMATION) and approvals (`approved_on_screen`);
+    - the most-failed tools and new learned skills.
+    - `say()` writes the answer.
+  - Tool `insights.week` (R0); quick phrases "is hafte kya kiya", "is hafte kya kya hua", "is week ka report", "weekly report", "hafte ki report", "what did you do this week", "insights". "aaj kya kiya" still goes to `log.recent`.
+- **Not built** from the plan:
+  - "time saved by reflexes";
+  - Gemini quota use;
+  - the Monday Today card and dashboard tab;
+  - lessons and skills counts (they come with H10/H11).
+- **Tests:** `tests/test_insights.py` (3):
+  - exact counts on a fixture week (5 requests, 1 voice, 40% instant, 3 by model, 1 Gemini, 2 failed, 1 refused, 1 ask, 1 approval, 1 new skill, last week 2), and the answer text;
+  - empty logs;
+  - phrases.
+  - Also: a quick-answer sample, 2 phrase cases, and `docs/SECURITY.md` counts (169, R0 67).
+- **Results:**
+  - full suite: 1008 tests OK (175.5 s);
+  - `check_phrases.py`: 130/130.
+- **Real path** (live dashboard after restart): "is hafte kya kiya" → 0.8 s, quick tier: "274 requests (39 by voice, 235 typed) … Instant answers: 54% … 70 needed a model, 17 of them Gemini … 205 done, 49 failed, 29 refused; I asked you 66 times and you approved 38 …".
+  - Independent count over the raw files: 275 requests (the extra one is this question, logged after it was answered), 39 voice, 49 failed, 29 refused, 38 approved.
+  - Note: today's "typed" count includes the test requests made while building Phase 3b.
+
 ### 2026-10-07: H6 — @file / @folder / @url / @clip in typed chat
 
 Checked against `docs/HERMES_PLAN.md` H6.
