@@ -16,6 +16,25 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-07: H5 — long tasks: oldest steps become one summary line
+
+Checked against `docs/HERMES_PLAN.md` H5.
+- **Built:** `AgentSession._steps_view` (`chutku/agent_loop.py`):
+  - As before, the newest steps keep their observed data within `profile.steps_chars`.
+  - Older steps keep tool, arguments and state within a second budget, half of `steps_chars`.
+  - Everything older becomes a single first row, `{"earlier": "steps 1-40 (40, details dropped to fit): filesystem.move ✓×39, web.read ✗ (FAILED)"}`, from `_summarize_steps`: tool names and outcomes only, consecutive runs counted, never observed text.
+  - Short sessions are byte-identical to before.
+- **Not built:** the same summary for Gemini Live's `do_task` history (Live already sends only the latest task updates).
+- **Tests:**
+  - `tests/test_steps_summary.py` (4):
+    - the exact summary text;
+    - an 81-step session: rows plus folded steps equal 81, the newest is in full, numbering continues, data ≤ `steps_chars`, older rows ≤ half;
+    - "secret-token" text from 40 web reads never reaches the summary;
+    - a 1-step session is unchanged.
+  - `tests/test_agent_correctness_s5.py` long-session test updated: every step is accounted for (listed or folded) instead of every step listed.
+- **Results:** full suite 997 tests OK (171.2 s).
+- **Real path — limit:** real sessions have at most 3 logged steps (`data/actions.log.jsonl`), so the summary never triggers in today's use. A 30+ step real task would need dozens of owner approvals for file changes. H5 is verified on the real `planner_input` with the real `QWEN` profile (tests above), not on a live long session. The next long real task is the first live check.
+
 ### 2026-10-07: H4 — fast chat-history search (SQLite FTS5)
 
 Checked against `docs/HERMES_PLAN.md` H4.

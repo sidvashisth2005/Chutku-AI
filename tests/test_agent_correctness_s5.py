@@ -83,9 +83,12 @@ class StepsBudgetTests(unittest.TestCase):
         view = json.loads(session.planner_input(QWEN))["STEPS"]
         shown = sum(len(step.get("observed_data", "")) for step in view)
         self.assertLessEqual(shown, QWEN.steps_chars)
-        self.assertEqual(len(view), 60)                       # every step is still listed
+        rows = [step for step in view if "n" in step]
+        folded = view[0].get("earlier", "") if view and "earlier" in view[0] else ""
+        counted = int(folded.split("(")[1].split(",")[0]) if folded else 0
+        self.assertEqual(len(rows) + counted, 60)             # every step is still accounted for (H5)
         self.assertIn("observed_data", view[-1])              # the newest keeps its data
-        self.assertNotIn("observed_data", view[0])            # the oldest only its tool and state
+        self.assertNotIn("observed_data", rows[0])            # older ones only their tool and state
 
 
 class Fake:

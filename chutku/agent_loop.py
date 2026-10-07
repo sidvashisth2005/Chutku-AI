@@ -456,6 +456,22 @@ _INSTRUCTION_LINE = _InstructionLines()
 REMOVED_LINE = "[removed instruction-like line]"
 
 
+def _summarize_steps(numbered):
+    """"steps 1-6: files.find ✓, filesystem.move ✓×4, web.read ✗ (FAILED)": tool names and outcomes only."""
+    groups = []
+    for _n, step in numbered:   # consecutive runs of the same tool and outcome are counted together
+        ok = step["state"] == "COMPLETED"
+        key = (step["tool"], ok, None if ok else step["state"])
+        if groups and groups[-1][0] == key:
+            groups[-1][1] += 1
+        else:
+            groups.append([key, 1])
+    parts = [f"{tool} {'✓' if ok else '✗'}" + (f"×{count}" if count > 1 else "") + ("" if ok else f" ({state})")
+             for (tool, ok, state), count in groups]
+    first, last = numbered[0][0], numbered[-1][0]
+    return f"steps {first}-{last} ({len(numbered)}, details dropped to fit): " + ", ".join(parts)
+
+
 def _defang(value, counter):
     """Instruction-like lines in read content are removed (and counted) before any model sees them."""
     if isinstance(value, str):
@@ -731,16 +747,28 @@ class AgentSession:
 
     def _steps_view(self, budget):
         """STEPS for the planner within a total budget of observed data: the newest steps keep theirs whole, older
-        ones keep only tool, arguments and state (a 60-step session must not overflow the model's context)."""
-        view, used = [], 0
+        ones keep only tool, arguments and state (a 60-step session must not overflow the model's context). Beyond
+        a second budget (half the first) the oldest steps become one summary line with tool names and outcomes only
+        (Phase 3b H5, Hermes context compression done without a model; no observed text goes into it)."""
+        view, used, rows_used, collapsed = [], 0, 0, []
         for i, step in reversed(list(enumerate(self.steps, 1))):
             row = {"n": i, "tool": step["tool"], "arguments": step["arguments"], "state": step["state"]}
             data = step["observation"]
             if used + len(data) <= budget:
                 row["observed_data"] = data
                 used += len(data)
-            view.append(row)
-        return list(reversed(view))
+                view.append(row)
+                continue
+            size = len(json.dumps(row, ensure_ascii=False, default=str))
+            if not collapsed and rows_used + size <= budget // 2:
+                rows_used += size
+                view.append(row)
+            else:
+                collapsed.append((i, step))
+        view.reverse()
+        if collapsed:
+            view.insert(0, {"earlier": _summarize_steps(list(reversed(collapsed)))})
+        return view
 
     def snapshot(self):
         with self.lock:
