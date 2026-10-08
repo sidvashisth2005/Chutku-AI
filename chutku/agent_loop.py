@@ -78,6 +78,7 @@ TAINTING_TOOLS = frozenset({
     "uia.inspect", "clipboard.read_text", "windows.list", "screen.capture", "web.read", "web.results", "web.news",
     "timeline.search",   # window titles are outside text
     "history.search",    # past replies can quote web pages and messages
+    "screen.act_on_visible",   # it reads screen text
     "file.extract_text", "screen.read_text", "code.run_python", "screen.understand", "log.recent",
     "message.read_chat", "image.describe", "screen.click",
 })
@@ -456,6 +457,15 @@ _INSTRUCTION_LINE = _InstructionLines()
 REMOVED_LINE = "[removed instruction-like line]"
 
 
+# "It is on the screen" / "don't search" (owner, 2026-10-08): searching finds look-alikes, so these goals never search.
+_ON_SCREEN = re.compile(r"\b(?:on|from) (?:the |my )?(?:screen|display)\b|\b(?:screen|display|saamne|samne)\s*(?:pe|par|pr|"
+                        r"mein|me)\b|\bdikh (?:raha|rahi|rahe)\b|\b(?:already )?visible\b|\bjo dikh", re.I)
+_NO_SEARCH = re.compile(r"\bsearch\s+(?:mat|nahi|nahin|na|mt)\b|\b(?:mat|nahi|na)\s+search\b|\bdon'?t search\b|"
+                        r"\bdo not search\b|\bwithout search(?:ing)?\b|\bno search\b", re.I)
+SEARCH_TOOLS = frozenset({"spotify.search", "web.search", "web.results", "youtube.play"})
+FINAL_WHEN_FAILED = frozenset({"screen.act_on_visible"})   # its failure is the answer, never a cue to improvise
+
+
 def _signature(step):
     """One step's identity: its tool and exact arguments."""
     return step["tool"], json.dumps(step.get("arguments") or {}, sort_keys=True, default=str)
@@ -735,6 +745,7 @@ class AgentSession:
         self.suspicious = False  # read content contained instruction-like text (master plan S15)
         self.approved_calls = set()   # exact steps the owner approved in this request: not asked twice (2026-10-08)
         self.retry_nudged = False     # told the planner once not to repeat a failed step
+        self.screen_nudged = False    # told the planner once that the owner meant what is on the screen
         self.speaker_verified = None   # Owner Voice Lock (S19): False = the voice did not sound like the owner
         self.feedback = None
         self.finish_pending = False
@@ -876,9 +887,16 @@ class AgentSession:
             self._finish("stopped", "A step was not allowed: " + (self.steps[-1]["message"] or "denied by policy")
                          + ". Nothing further ran.")
             return False
+        last = self.steps[-1]
+        if last["tool"] in FINAL_WHEN_FAILED:
+            # The owner pointed at something on the screen and it is not there as asked (owner, 2026-10-08: after
+            # "not visible as a playlist" the planner clicked a play button and started the SONG of that name).
+            # That answer is final: no improvising with other clicks.
+            self._finish("failed", (last["message"] or "That is not on the screen as you described it.")
+                         + " Tell me exactly what to do instead.")
+            return False
         self.failures += 1
         self.queue = []  # re-plan from the observed failure
-        last = self.steps[-1]
         # Surprise feedback (master plan S16): what the step was expected to achieve vs what was observed.
         self.surprise = (f"Step {last['tool']} expected {last.get('expected') or 'success'} but observed "
                                  f"{state}: {(last.get('message') or 'unverified')[:160]}. Re-plan from what is "
@@ -965,6 +983,18 @@ class AgentSession:
                     failed_calls = {_signature(s) for s in self.steps
                                     if s["state"] not in {"COMPLETED", "WAITING_CONFIRMATION"}
                                     or s.get("verification") == "UNKNOWN"}
+                    if _ON_SCREEN.search(self.goal) or _NO_SEARCH.search(self.goal):
+                        # "screen pe hai, play karo" / "search mat karna" (owner, 2026-10-08): a search would find a
+                        # look-alike, so search steps are refused and the planner is told to act on the screen.
+                        searches = [s for s in proposal["next_steps"] if s["tool"] in SEARCH_TOOLS]
+                        if searches:
+                            failed_calls |= {_signature(s) for s in searches}
+                            if not self.screen_nudged:
+                                self.screen_nudged = True
+                                self.pending_feedback = ("The owner said the item is already on the screen / not to "
+                                                         "search. Do not search. Use screen.act_on_visible with the "
+                                                         "exact name the owner said (app if named, action play/open/"
+                                                         "click), or screen.understand then screen.click.")
                     retried = [s for s in proposal["next_steps"] if _signature(s) in failed_calls]
                     fresh = [s for s in proposal["next_steps"]
                              if _signature(s) not in failed_calls
@@ -974,14 +1004,16 @@ class AgentSession:
                         if not self.retry_nudged:
                             self.retry_nudged = True
                             names = ", ".join(sorted({s["tool"] for s in retried}))
-                            self.pending_feedback = (f"{names} with the same arguments already failed or could not "
+                            self.pending_feedback = self.pending_feedback or (
+                                                     f"{names} with the same arguments already failed or could not "
                                                      "be confirmed in STEPS; do not repeat it. Try a different way "
                                                      "(e.g. screen.understand then screen.click on what the owner "
                                                      "named), or reply status=done saying honestly what did not "
                                                      "work.")
                             continue
-                        self._finish("failed", f"I tried {', '.join(sorted({s['tool'] for s in retried}))} and it "
-                                     "did not work, and I found no other way. I have not done it.")
+                        self._finish("failed", f"I have not done it: {', '.join(sorted({s['tool'] for s in retried}))} "
+                                     "did not work (or is not allowed here, e.g. searching when you said it is on "
+                                     "the screen), and I found no other way.")
                         break
                     if not fresh:
                         only_observed = all(_risk(runtime, s["tool"]) == 0 for s in self.steps)

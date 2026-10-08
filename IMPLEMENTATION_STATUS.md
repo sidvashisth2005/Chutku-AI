@@ -16,6 +16,47 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-08: Act on what is already on the screen (the "After Party" playlist)
+
+- **Cause** (owner, 2026-10-07/08: "playlist screen pr hi h after party ki play it … wo baar baar search krke koi aur after party playlist execute krra tha"):
+  - the planner searched Spotify and played look-alikes; the search results show 7 ("Afterparty" ×2, "After Party", "AFTERPARTY", "After party songs", "bollywood sangeet afterparty", "afterparty 26'").
+  - The first version of this fix matched the exact text but not the type: the exact "After Party" row was the **song** by Don Toliver, and it played. The owner stopped it.
+  - Next run: the tool correctly refused, but the Gemini planner then improvised a `screen.click` on a "Play button" ("Play the After Party song"). It was waiting for approval; I rejected it, and nothing played.
+- **Built:**
+  - `chutku/tools/visible.py` `screen.act_on_visible(name, app?, app_if_open?, action click/open/play, kind?)`:
+    - Brings the app's window forward and reads only that window with Windows OCR. Coordinates are DPI-aware.
+    - Matching: exact text with spacing counted, then the same letters without spaces, then the whole phrase.
+    - **Type match:** `kind_of` reads the small line under a title ("Playlist • …", "Song • …"). If the asked type isn't visible, it clicks the "Playlists"/"Songs" filter and reads again.
+    - Never searches. No match, or a match of the wrong type, means it clicks nothing and says so. Two equal matches: it asks which one.
+    - **Play:** presses the opened page's own play button, found by the vision model, never one in the bottom 15% (the player bar). Then checks via Windows media controls that playback started **and** that the title is one of the tracks on that page; otherwise it pauses again and says so.
+  - `agent_loop`:
+    - `_ON_SCREEN` / `_NO_SEARCH` goals ("screen pe", "dikh raha", "on the screen", "search mat karna") refuse `SEARCH_TOOLS` (spotify.search, web.search, web.results, youtube.play) with one nudge to use the on-screen tool.
+    - `FINAL_WHEN_FAILED`: a failed `screen.act_on_visible` ends the request with its own message ("Tell me exactly what to do instead"), and the planner is not asked again.
+  - Quick tier `_visible` (4 phrasings, including the owner's exact sentence), with `kind` from playlist/song/gaana/album/video. "play" defaults to the Spotify window when it is open.
+  - Live persona: carry "from the screen" and the exact name into do_task; never turn it into a search.
+  - Instant answer `_say_visible`. `screen.act_on_visible` is in `TAINTING_TOOLS` (it reads screen text).
+- **Tests:** `tests/test_visible.py` (16):
+  - the real 7 look-alikes: the exact "after party" wins, "afterparty" is ambiguous (3), an absent name gives nothing;
+  - click position;
+  - ambiguous / not visible / app not open: no click;
+  - play pressed and checked;
+  - **a song with the same name is not the playlist** (no click);
+  - the Playlists filter is used to find the playlist;
+  - a wrong song starting is paused and reported;
+  - the player-bar play button is never used;
+  - play that does not start is not claimed;
+  - 5 owner phrasings;
+  - search refused when the owner said it is on screen;
+  - **a failed on-screen action is final** (no improvised `screen.click`; the planner is not asked again).
+  - Also: a quick-answer sample, 2 phrase cases, and `docs/SECURITY.md` counts (170, R1 48).
+- **Results:**
+  - full suite: 1035 tests OK (191.4 s);
+  - `check_phrases.py`: 132/132.
+- **Real path** (live, the owner's Spotify):
+  - OCR of the Spotify window took 1.2 s and found all 7 look-alikes with positions.
+  - Final run: "playlist screen pr hi h after party ki play it" → 2.3 s, quick tier, one step: "I can see 'after party' … not as a playlist; I clicked nothing and did not search. Tell me exactly what to do instead." Independent check: the media session stayed Paused.
+- **Not yet verified live:** the positive path (the owner's own "After Party" playlist visible → it plays), because the playlist was not on screen during these runs. It is covered by the fixture tests only.
+
 ### 2026-10-08: Fewer approvals; failed steps are never repeated (owner order)
 
 - **Cause:** the owner's Spotify request on 2026-10-07 20:47–20:49 asked 4 times. `spotify.search` can never verify its result (UNKNOWN), every UNKNOWN counted as a failure in the S16 ledger, and the reliability rule then asked before every try ("worked 0 of the last 7 times"). The planner also proposed the same failed search again and again.

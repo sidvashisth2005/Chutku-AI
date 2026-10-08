@@ -34,6 +34,8 @@ CASES = [
     ("gulabi top wali baat dhoondo", "history.search"), ("pichhle hafte DBMS ke baare mein kya baat hui", "history.search"),
     # weekly insights (Phase 3b H7)
     ("is hafte kya kiya", "insights.week"), ("weekly report", "insights.week"),
+    # what is already on the screen (owner, 2026-10-08): never search
+    ("playlist screen pr hi h after party ki play it", "screen.act_on_visible"), ("play After Party from the screen", "screen.act_on_visible"),
     # apps and media
     ("open spotify", "apps.launch"), ("spotify kholo", "apps.launch"), ("open whatsapp", "apps.launch"),
     ("close spotify", "apps.quit"), ("play lofi hip hop on youtube", "youtube.play"),

@@ -276,6 +276,49 @@ _HISTORY_TOPIC = [
 _HISTORY_DAYS = {"kal": 2, "yesterday": 2, "aaj": 1, "today": 1}
 
 
+# "after party playlist screen pe hai, play karo" / "play After Party from the screen" (owner, 2026-10-08).
+_SCREEN_WORDS = r"(?:screen|display|saamne|samne)\s*(?:pe|par|pr|mein|me)"
+_ACT = r"(?P<act>play|chalao|chala do|bajao|baja do|laga do|lagao|open|kholo|khol do|click|dabao|daba do)"
+_DO = r"(?:\s+(?:karo|kar do|kardo|kr do|krdo|kr|kar|please|it|that|na))*"
+_VISIBLE = [
+    re.compile(rf"^{_POLITE}(?:jo\s+)?(?P<name>.+?)\s+(?:jo\s+)?{_SCREEN_WORDS}\s+(?:hi\s+)?(?:hai|h|he|dikh (?:raha|rahi)"
+               rf"(?: hai)?)?[,.]?\s*(?:usko\s+|use\s+|wo\s+|woh\s+|vo\s+|usse\s+)?{_ACT}{_DO}{_TAIL}", re.I),
+    re.compile(rf"^{_POLITE}{_SCREEN_WORDS}\s+(?:jo\s+)?(?P<name>.+?)\s+(?:hai|h|he|dikh (?:raha|rahi)(?: hai)?)[,.]?\s*"
+               rf"(?:usko\s+|use\s+|wo\s+|woh\s+|vo\s+)?{_ACT}{_DO}{_TAIL}", re.I),
+    re.compile(rf"^{_POLITE}(?:playlist|song|gaana|gana|video|album)\s+{_SCREEN_WORDS}\s+(?:hi\s+)?(?:hai|h|he)\s+"
+               rf"(?P<name>.+?)\s+(?:ki|ka|wali|wala)?\s*{_ACT}{_DO}{_TAIL}", re.I),
+    re.compile(rf"^{_POLITE}(?P<act>play|open|click(?: on)?)\s+(?:the\s+)?(?P<name>.+?)\s+(?:that(?:'s| is)\s+|which is\s+)?"
+               rf"(?:on|from)\s+(?:the\s+|my\s+)?(?:screen|display){_TAIL}", re.I),
+]
+_NAME_FILLER = re.compile(r"\b(?:wali|wala|wale|waali|ki|ka|ke|the|playlist|song|gaana|gana|video|album|jo|hi|vo|wo)\b",
+                          re.I)
+_MEDIA_WORDS = re.compile(r"\b(?:playlist|song|gaana|gana|album|spotify|music)\b", re.I)
+
+
+def _visible(text):
+    """screen.act_on_visible arguments when the owner points at something already on the screen, else None."""
+    for pattern in _VISIBLE:
+        found = pattern.match(text)
+        if not found:
+            continue
+        name = " ".join(_NAME_FILLER.sub(" ", found.group("name")).split()).strip(" ,.'\"")
+        if not name or len(name) > 80:
+            return None
+        act = found.group("act").casefold()
+        action = "play" if act in {"play", "chalao", "chala do", "bajao", "baja do", "laga do", "lagao"} else \
+            "open" if act in {"open", "kholo", "khol do"} else "click"
+        arguments = {"name": name, "action": action}
+        kind = re.search(r"\b(playlist|song|gaana|gana|album|video)\b", text, re.I)
+        if kind:   # "After Party playlist" is not the song "After Party" (owner, 2026-10-08)
+            arguments["kind"] = {"gaana": "song", "gana": "song"}.get(kind.group(1).casefold(), kind.group(1).casefold())
+        if re.search(r"\bspotify\b", text, re.I) or (action == "play" and _MEDIA_WORDS.search(text)):
+            arguments["app"] = "spotify"
+        elif action == "play":   # music is usually Spotify: read only its window when it is open, not the whole screen
+            arguments["app_if_open"] = "spotify"
+        return arguments
+    return None
+
+
 def _history_topic(text):
     """{"query": topic, "days"?: n} when the owner asks what was said about a topic, else None."""
     for pattern in _HISTORY_TOPIC:
@@ -432,6 +475,10 @@ def _single(goal, apps=None):
                          "Offline mode is off: Gemini is back as my backup when the internet works.")
     if MIND_MAP.search(text):
         return _proposal("mind.map", {}, "Open your mind map", "Opened your mind map.")
+    shown = _visible(text)
+    if shown is not None:   # it is already on the screen: act on that exact item, never search (2026-10-08)
+        return _proposal("screen.act_on_visible", shown, f"{shown['action'].capitalize()} '{shown['name']}' from the "
+                         "screen", "", finish=False)
     topic = _history_topic(text)
     if topic is not None:   # a topic search ("DBMS ke baare mein kya baat hui"), Phase 3b H4
         return _proposal("history.search", topic, f"Search past chats for {topic['query']}", "", finish=False)
@@ -989,6 +1036,17 @@ def _say_tasks(out):
     return f"{len(tasks)} scheduled: " + "; ".join(f"{t['summary']} (id {t['id']})" for t in tasks[:6]) + "."
 
 
+def _say_visible(out):
+    """screen.act_on_visible (2026-10-08)."""
+    if out.get("playing"):
+        now = f" Now playing: {out['now_playing']}" + (f" by {out['artist']}" if out.get("artist") else "") + "." \
+            if out.get("now_playing") else ""
+        return f"Played “{out['clicked']}” from the screen.{now}"
+    if "play_button" in out:
+        return f"Opened “{out['clicked']}”, but it is not playing yet. " + (out.get("error") or "")
+    return f"Clicked “{out['clicked']}” on the screen."
+
+
 def _say_week(out):
     """Weekly insights (Phase 3b H7)."""
     from chutku.insights import say
@@ -1242,7 +1300,7 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
-QUICK_ANSWERS = {"insights.week": _say_week, "history.search": _say_history, "background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
+QUICK_ANSWERS = {"screen.act_on_visible": _say_visible, "insights.week": _say_week, "history.search": _say_history, "background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,
