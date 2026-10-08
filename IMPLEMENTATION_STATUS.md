@@ -16,6 +16,28 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-09: A0 — app documentation harvested; 11 feature maps
+
+Checked against `docs/APP_MASTERY_PLAN.md` A0.
+- **Built:**
+  - `scripts/app_docs.py`: per-app source lists (official first) and `page_text` (HTML to readable text; scripts, nav and footers dropped). `harvest` writes `data/apps/<app>/sources/<n>.txt` plus an `index.json` (url, kind, title, characters, sha256, or the error).
+  - **Run:** 33 of 34 pages saved. OpenAI's help page refuses downloads (403); its facts came through search and are cited.
+  - `docs/apps/<app>.md` for Spotify, WhatsApp, Brave+YouTube, VS Code, Windows Settings, ChatGPT, Discord, VLC, Telegram, File Explorer and Notepad. Each lists ways in (deep links/URIs, command line, launch), shortcuts by area, screens and landmarks, and an action catalogue with channel, risk class and verifier. Plus `docs/apps/README.md`.
+  - **255 actions catalogued**, documented ones plus new ideas.
+- **Facts gathered:**
+  - 219 official `ms-settings:` URIs;
+  - official `tg://` deep links;
+  - VLC's official command-line options;
+  - VS Code's `code -g/-d/--install-extension`;
+  - Discord `discord://-/channels/<guild>/<channel>` routes and the official hotkeys;
+  - Spotify's official shortcuts (Alt+Shift+1 playlists, Alt+Shift+B like, Ctrl+K search);
+  - ChatGPT's Alt+Space companion window;
+  - YouTube's official player keys.
+- **Finding:** the WhatsApp shortcut lists contradict each other: Ctrl+Shift+D is "delete chat" in one and "dark mode" in another. Rule recorded in the map: nothing destructive by an unverified shortcut, ever. Everything is marked unverified until the Action Lab (A2) passes it.
+- **Tests:** `tests/test_app_docs.py` (5): page cleaning; harvest saves, records a 403 and rejects a script-only page; every app has at least 2 https sources; every map exists, cites sources and has risk-classed rows; every destructive row says it asks.
+- **Results:** full suite 1040 tests OK (185.0 s).
+- **Real path:** `scripts/app_docs.py` run live: 28/31 pages, then 8/9 after swapping the three blocked sources. Each saved file was checked to be non-empty, and its hash is in the index.
+
 ### 2026-10-09: H8 — scheduled tasks report results; "sirf nayi" stays quiet when nothing changed
 
 Checked against `docs/HERMES_PLAN.md` H8.

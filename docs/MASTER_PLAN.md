@@ -800,7 +800,7 @@ Tool `timeline.search` (R0, `output_untrusted`) uses `memory_index` embeddings (
 # Phase 3c: App Mastery (planned 2026-10-08) — comes before H9-H30
 Full spec: `docs/APP_MASTERY_PLAN.md`.
 
-- [ ] A0: Docs harvest (11 apps)
+- [x] A0: Docs harvest — done 2026-10-09 (33/34 pages saved, 11 feature maps, 255 actions catalogued)
 - [ ] A1: Atlas format + validator + runner + verifiers
 - [ ] A2: Action Lab
 - [ ] A3: Phrase compiler + routing + app.howto
