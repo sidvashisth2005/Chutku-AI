@@ -233,6 +233,7 @@ def register_visible_tools(registry):
         "named app's window), found by its exact text: click/open it, or play it (presses its play button and checks "
         "that music plays). Never searches. Use when the owner says it is on the screen / visible / 'jo dikh raha "
         "hai'. Fails, without guessing, if the exact text is not visible or appears twice.",
-        Risk.REVERSIBLE, _act, _validate, required_capability="desktop.input", argument_schema=_SCHEMA,
+        Risk.REVERSIBLE, lambda arguments, context: _act(arguments, context),   # looked up at call time
+        _validate, required_capability="desktop.input", argument_schema=_SCHEMA,
         prerequisites=("interactive Windows desktop",), reversibility="transient",
         success_predicate="exact_visible_item_clicked_and_checked"))
