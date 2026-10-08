@@ -797,6 +797,28 @@ Tool `timeline.search` (R0, `output_untrusted`) uses `memory_index` embeddings (
 
 
 ---
+# Phase 3c: App Mastery (planned 2026-10-08) — comes before H9-H30
+Full spec: `docs/APP_MASTERY_PLAN.md`.
+
+- [ ] A0: Docs harvest (11 apps)
+- [ ] A1: Atlas format + validator + runner + verifiers
+- [ ] A2: Action Lab
+- [ ] A3: Phrase compiler + routing + app.howto
+- [ ] A4: Spotify
+- [ ] A5: WhatsApp
+- [ ] A6: Brave (+YouTube)
+- [ ] A7: VS Code
+- [ ] A8: Windows Settings
+- [ ] A9: ChatGPT
+- [ ] A10: Discord
+- [ ] A11: VLC
+- [ ] A12: Telegram
+- [ ] A13: File Explorer + Notepad
+- [ ] A14: Cross-app recipes
+- [ ] A15: Teach mode
+- [ ] A16: Screen survey (later)
+
+---
 # Phase 3b: Hermes-inspired upgrades + remote phone access (planned 2026-10-07)
 Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, Hermes facts). Order is breadth-first; tick each box when its slice passes the AGENTS.md gate.
 
@@ -811,7 +833,7 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [x] H5: Step summaries instead of dropping — done 2026-10-07 (live long-session check pending: real sessions are still short)
 - [x] H6: `@file` / `@folder` / `@url` / `@clip` references in typed chat — done 2026-10-07 (@clipimg and autocomplete not built)
 - [x] H7: Weekly insights — done 2026-10-07 (Today card, reflex time saved and quota not built)
-- [ ] H8: Scheduled-task upgrades (continuity, silent tick, chaining, incidents)
+- [x] H8: Scheduled-task upgrades — done 2026-10-09 (results reported, only-new quiet, failure dedupe; chaining and doctor summary not built)
 - [ ] H9: Brain resilience: fallback chain, error classes, per-request brain choice
 - [ ] H10: Proven lessons from mistakes
 - [ ] H11: Procedure skills (SKILL.md) with progressive disclosure

@@ -775,7 +775,8 @@ class DashboardServer(ThreadingHTTPServer):
         self.latest_session_id = session.id
         return session
 
-    def begin_session(self, goal, mode, origin, *, silent=False, speaker_check=True, voice_source="local"):
+    def begin_session(self, goal, mode, origin, *, silent=False, speaker_check=True, voice_source="local",
+                      extra_context=None):
         from chutku import control_intent
         control = control_intent.kind(goal)
         busy = self.action_lock.locked() or bool(self.queued_ids())
@@ -803,6 +804,8 @@ class DashboardServer(ThreadingHTTPServer):
         examples = experience.similar(self.base, goal)
         if examples:
             context["past_successes"] = examples
+        if extra_context:   # e.g. a scheduled task's previous result (Phase 3b H8)
+            context.update(extra_context)
         attached = None
         if origin == "text":   # "@file:…", "@folder:…", "@url:…", "@clip" (Phase 3b H6): read before planning
             from chutku import references

@@ -151,27 +151,101 @@ def note_run(base, job_id, status, session_id=None):
                 return
 
 
+ONLY_NEW = re.compile(r"\b(?:sirf|only|bas)\s+(?:nayi|naya|naye|new|nai)\b|\bkuch naya\b|\bnew ones only\b", re.I)
+NOTHING_NEW = "NOTHING NEW"
+FAILURE_QUIET = timedelta(hours=24)
+
+
+def only_new(goal):
+    """"har subah news batao, sirf nayi": report only what changed since the last run (Phase 3b H8, Hermes continuity)."""
+    return bool(ONLY_NEW.search(goal or ""))
+
+
+def run_context(base, job):
+    """Extra planner context for one run: the previous result when the task reports only what is new."""
+    if not only_new(job.get("goal")) or not job.get("last_reply"):
+        return {}
+    return {"previous_run": {"at": job.get("last_at"), "reply": job["last_reply"][:1500],
+                             "rule": f"Report only what is new since this previous result. If nothing is new, reply "
+                                     f"exactly: {NOTHING_NEW}"}}
+
+
+def finished(base, job_id, snapshot, now=None):
+    """Record a finished run and decide what to tell the owner: (title, text) to show, or None to stay quiet."""
+    now = now or datetime.now()
+    status, reply = snapshot.get("status"), " ".join(str(snapshot.get("reply") or "").split())
+    reply = re.sub(r"\s*\[Verified:.*\]\s*$", "", reply)
+    show = None
+    with lock_for(_path(base)):
+        jobs = load(base)
+        job = next((j for j in jobs if j["id"] == job_id), None)
+        if job is None:
+            return None
+        if status == "done":
+            quiet = only_new(job["goal"]) and (NOTHING_NEW.casefold() in reply.casefold()
+                                               or (job.get("last_reply") and reply == job["last_reply"]))
+            entry = "nothing new" if quiet else "done"
+            if not quiet:
+                job["last_reply"], job["last_at"] = reply, _fmt(now.replace(microsecond=0))
+                show = ("Chutku: " + job["goal"][:60], reply[:240] or "Done.")
+        else:
+            signature = f"{status}: {reply[:80]}"
+            last = job.get("last_failure") or {}
+            repeat = last.get("signature") == signature and \
+                now - _parse_time(last.get("at", "2000-01-01T00:00:00")) < FAILURE_QUIET
+            entry = f"{status} (same as before)" if repeat else str(status)
+            if not repeat:   # a new kind of failure is shown once; the same one again within 24 h stays quiet
+                job["last_failure"] = {"signature": signature, "at": _fmt(now.replace(microsecond=0))}
+                show = ("Chutku: scheduled task " + str(status), f"{job['goal'][:60]}: {reply[:200]}")
+        job["history"] = (job.get("history") or [])[-4:] + [{"at": _fmt(now.replace(microsecond=0)), "status": entry}]
+        write_json(_path(base), jobs)
+    return show
+
+
 def watch(server, stop, tick=TICK_SECONDS):
-    """Runs inside the dashboard: starts due tasks as normal requests, without blocking anything else."""
+    """Runs inside the dashboard: starts due tasks as normal requests, without blocking anything else, and reports
+    each result when it is done (Phase 3b H8)."""
     from chutku.core.action_control import ActionControl
     from chutku.core.log import get_logger
     log = get_logger("scheduled")
+    running = {}   # session id -> job id
     while not stop.wait(tick):
         try:
+            for session_id, job_id in list(running.items()):
+                session = server.agent_sessions.get(session_id) if hasattr(server, "agent_sessions") else None
+                if session is None:   # no longer kept by the store: nothing to report
+                    running.pop(session_id)
+                    continue
+                snapshot = session.snapshot()
+                if snapshot["status"] in {"done", "failed", "stopped", "cancelled", "clarify", "waiting_confirmation"}:
+                    running.pop(session_id)
+                    shown = finished(server.base, job_id, snapshot)
+                    if shown:
+                        _notify(*shown)
             from chutku import pause
             if ActionControl(server.base).paused or pause.engaged(server.base):
                 continue   # paused by the owner: due tasks wait (one-off tasks run when resumed, if not too late)
             for job in take_due(server.base):
                 try:
+                    extra = run_context(server.base, job)
                     session = server.begin_session(job["goal"], job["mode"], job["origin"], silent=True,
-                                                   speaker_check=False)
+                                                   speaker_check=False, **({"extra_context": extra} if extra else {}))
                     note_run(server.base, job["id"], "started", session.id)
+                    running[session.id] = job["id"]
                     _announce(job)
                 except Exception:
                     log.exception("starting scheduled task %s failed", job["id"])
                     note_run(server.base, job["id"], "failed to start")
         except Exception:
             log.exception("checking scheduled tasks failed")
+
+
+def _notify(title, text):
+    try:
+        from chutku.health import notify
+        notify(title, text)
+    except Exception:
+        pass
 
 
 def _announce(job):

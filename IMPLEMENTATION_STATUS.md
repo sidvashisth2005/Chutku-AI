@@ -16,6 +16,26 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-09: H8 — scheduled tasks report results; "sirf nayi" stays quiet when nothing changed
+
+Checked against `docs/HERMES_PLAN.md` H8.
+- **Built** (`chutku/scheduled.py`):
+  - `watch` now tracks the sessions it started and reports each result when it finishes (`finished` → notification with the reply, without the "[Verified…]" tail). Sessions the store no longer keeps are dropped silently.
+  - **Only-new tasks:** the goal contains "sirf nayi" / "only new" / "kuch naya" (`only_new`). `run_context` passes the previous result as `CONTEXT.previous_run`, with the rule "if nothing is new reply exactly NOTHING NEW". A reply equal to the last one, or NOTHING NEW, is recorded as "nothing new" with no notification.
+  - **Failures:** a failure with the same status and reply as the last one within 24 h is not shown again (recorded as "(same as before)").
+  - `dashboard.begin_session(…, extra_context=)` merges the extra context; it is only passed when non-empty, so other callers are unchanged.
+- **Not built** from the plan:
+  - chaining ("ye kaam X ke baad karna");
+  - the "scheduled kaam ka haal" doctor summary;
+  - Telegram delivery (H16).
+- **Tests:** `tests/test_scheduled_plus.py` (5): only-new detection; result shown, then quiet when unchanged or NOTHING NEW, then shown again when new; ordinary tasks always report; the same failure is shown once per 24 h; the watcher reports the result and passes nothing extra on the first run. The existing `test_scheduled` passes unchanged.
+- **Results:** full suite 1035 tests OK.
+- **Real path** (live dashboard after restart): "har 1 minute aaj kya date hai batao, sirf nayi" → scheduled for 00:31.
+  - Run 1: `started` 00:31:11 → `done` 00:31:52; `last_reply` "Aaj ka date 09 October 2026 hai.", shown as a notification.
+  - Run 2: `started` 00:32:12 → **`nothing new`** 00:32:18, with no notification.
+  - Then "scheduled tasks cancel karo" → cancelled.
+  - Independent read of `data/scheduled.json` history.
+
 ### 2026-10-08: Act on what is already on the screen (the "After Party" playlist)
 
 - **Cause** (owner, 2026-10-07/08: "playlist screen pr hi h after party ki play it … wo baar baar search krke koi aur after party playlist execute krra tha"):
