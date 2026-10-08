@@ -24,12 +24,15 @@ class DocsTruthTests(unittest.TestCase):
 
     def test_security_doc_lists_every_high_risk_tool_and_the_counts(self):
         text = (ROOT / "docs" / "SECURITY.md").read_text(encoding="utf-8")
-        self.assertIn(f"{len(self.tools)} registered", text)
-        counts = Counter(int(tool.base_risk) for tool in self.tools)
+        apps = [tool for tool in self.tools if tool.name.startswith("app.")]   # atlas actions, counted on their own
+        core = [tool for tool in self.tools if not tool.name.startswith("app.")]
+        self.assertIn(f"{len(core)} registered", text)
+        self.assertIn(f"plus {len(apps)} app actions", text)
+        counts = Counter(int(tool.base_risk) for tool in core)
         for level, name in ((0, "R0 observation"), (1, "R1 reversible"), (2, "R2 data modification"),
                             (3, "R3 external side effect"), (4, "R4 destructive / privileged")):
             self.assertIn(f"| {name} | {counts[level]} |", text, name)
-        for tool in self.tools:
+        for tool in core:
             if tool.base_risk >= 3:
                 self.assertIn(tool.name, text, tool.name)
 

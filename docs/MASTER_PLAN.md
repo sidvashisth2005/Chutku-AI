@@ -801,7 +801,7 @@ Tool `timeline.search` (R0, `output_untrusted`) uses `memory_index` embeddings (
 Full spec: `docs/APP_MASTERY_PLAN.md`.
 
 - [x] A0: Docs harvest — done 2026-10-09 (33/34 pages saved, 11 feature maps, 255 actions catalogued)
-- [ ] A1: Atlas format + validator + runner + verifiers
+- [x] A1: Atlas format + validator + runner + verifiers — done 2026-10-09 (Spotify atlas: 5 of 6 live actions pass; go_playlists shortcut does not work in this Spotify version)
 - [ ] A2: Action Lab
 - [ ] A3: Phrase compiler + routing + app.howto
 - [ ] A4: Spotify

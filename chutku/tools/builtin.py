@@ -426,6 +426,8 @@ def register_builtin_tools(registry: ToolRegistry) -> None:
     register_schedule_tools(registry)
     from chutku.tools.voice_lock_tools import register_voice_lock_tools
     register_voice_lock_tools(registry)
+    from chutku.apps.tools import register_app_tools
+    register_app_tools(registry)   # App Mastery atlases: app.<app>.<action>
     from chutku.tools.visible import register_visible_tools
     register_visible_tools(registry)
     from chutku.tools.history_tools import register_history_tools

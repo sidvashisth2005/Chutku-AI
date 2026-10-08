@@ -16,6 +16,48 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-09: A1 — app atlases, validator, step runner, checks; actions become tools
+
+Checked against `docs/APP_MASTERY_PLAN.md` A1.
+- **Built:**
+  - `chutku/apps/atlas.py`: atlas JSON format, `validate` and `load_all`.
+    - It refuses: a URI scheme the app does not own, a program not in the app's own `cli` list, unknown step verbs, undeclared `{params}` in steps/phrases/checks, unknown key names, a non-safe action without a check, duplicate ids, bad risk classes and malformed JSON.
+    - A refused atlas is not loaded and is reported.
+  - `chutku/apps/runner.py`:
+    - step verbs: focus, launch, uri/settings_uri (values URL-encoded), cli, keys, type, click_text (exact text plus type, reusing `tools/visible`), wait_text, play_page (the page's own play button plus the "is it one of the page's tracks" check), sleep, media;
+    - checks: media_playing / media_paused / media_changed, title_in_page, window_title_contains, ocr_contains, window_open, process_running / process_gone.
+    - **Keys and typing are sent only while the app's own window is in front.** Otherwise the action stops with "no keys were sent".
+    - All Windows work goes through a `Driver`, so tests use a fake one and never touch the screen.
+  - `chutku/apps/tools.py`: every atlas action becomes the tool `app.<app>.<id>`. Risk comes from its class (safe R1, changes R2, consequential R3, destructive R4 plus `deletes`, so it always asks), with `required_capability="desktop.input"`. Registered from `tools/builtin.py`.
+  - First atlas `chutku/apps/atlas/spotify.json`: 18 actions from the official shortcuts and URIs.
+  - `docs/SECURITY.md` counts app actions on their own line ("plus 18 app actions"), with the rules above. `test_docs_truth` checks both counts.
+- **Tests:** `tests/test_app_atlas.py` (11):
+  - the demo and every shipped atlas are valid;
+  - 8 unsafe or malformed atlases are refused;
+  - a refused or broken atlas is not loaded and is reported;
+  - URI values are encoded;
+  - **keys are never sent when another window is in front**;
+  - the check decides success;
+  - a closed app is opened;
+  - play steps and checks, and a wrong song makes the action fail;
+  - typed text is passed through unchanged;
+  - actions become tools with the right risk (destructive = R4 + deletes);
+  - the builtin registry has the Spotify actions.
+- **Results:** full suite 1051 tests OK.
+- **Real path** (live Spotify, through `Runtime.run`):
+
+  | Action | Result | Time |
+  |---|---|---|
+  | `app.spotify.open` | PASS (window_open) | 3.43 s |
+  | `resume` | PASS (media Playing, "After Party") | 1.19 s |
+  | `next` | PASS (title changed to "Wasted") | 2.28 s |
+  | `pause` | PASS (Paused) | 1.19 s |
+  | `search {query: "lofi beats"}` | PASS (the results page showed "lofi beats", OCR) | 3.05 s |
+  | **`go_playlists`** | **FAIL** (its check caught it) | |
+
+  - Independent check: the Windows media session, before Paused (a Brave video), after Paused on "Wasted" by Don Toliver.
+  - `go_playlists`: an OCR probe showed **Alt+Shift+1 does nothing in this Spotify version** (the docs are out of date). Its "Playlist" text check is also too weak, because search results contain "Playlist • …". Both are for the Action Lab (A2) and Spotify (A4) to fix. `play_playlist` depends on it and is not trusted yet.
+
 ### 2026-10-09: A0 — app documentation harvested; 11 feature maps
 
 Checked against `docs/APP_MASTERY_PLAN.md` A0.
