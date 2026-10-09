@@ -11,7 +11,8 @@ Lab rules (the owner's PC is real, not a sandbox):
 - actions marked `"lab": {"skip": "..."}` are skipped with that reason (e.g. quitting the app mid-lab);
 - `"lab": {"pair": true}` toggles (shuffle) run twice per try so the app ends as it started; `"pair": 2` for a
   three-way cycle (repeat: off, all, one);
-- `"lab": {"setup": "<action id>"}` runs that (parameterless, safe) action before each try;
+- `"lab": {"setup": "<action id>"}` runs that (parameterless, safe) action before each try, `"after"` after it
+  (e.g. close the tab the action opened);
 - music that was paused before the lab is paused again afterwards.
 """
 from __future__ import annotations
@@ -105,6 +106,8 @@ def run_lab(base, runtime, atlas, *, only=None, runs=VERIFY_AFTER, include_chang
             if lab.get("pair") and str(result.get("state")) == "COMPLETED":
                 for _ in range(1 if lab["pair"] is True else int(lab["pair"])):
                     runtime.run(tool, params)   # toggle back to where it started
+            if lab.get("after"):
+                runtime.run(f"app.{app}.{lab['after']}", {})   # tidy up, e.g. close the tab the action opened
             output = result.get("output") or {}
             ok = str(result.get("state")) == "COMPLETED" and bool(output.get("ok"))
             seconds = output.get("seconds") or round(time.monotonic() - started, 2)

@@ -324,6 +324,13 @@ Chutku now has a fixed recipe for each thing she can do in an app (`chutku/apps/
   - "whatsapp new chat" / "whatsapp search kholo" / "whatsapp profile kholo" / "whatsapp panel band karo".
 
   Sending and reading messages work as before ("UB ko bolo …", "UB ka last message padho").
+- **Brave and YouTube** (since 2026-10-09):
+  - "brave history kholo" / "brave downloads kholo" / "bookmarks dikhao" / "brave new tab";
+  - "page bada karo" / "page chhota karo" / "page normal size karo";
+  - on a YouTube tab: "video aage karo" / "video peeche karo" (10 s), "youtube captions on karo", "theatre mode on karo", "video full screen karo", "youtube speed badhao" / "speed kam karo", "agla video chalao".
+
+  YouTube keys go only to a YouTube tab; on any other page she says so and presses nothing.
+
 - **When an app action fails, she stops and tells you why.** She does not try other things on her own (since 2026-10-09: once, after "close the panel" failed, she closed WhatsApp instead).
 
 ### Undo everything at once (Causal Rewind, since 2026-10-06)

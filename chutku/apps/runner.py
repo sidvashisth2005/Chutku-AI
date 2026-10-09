@@ -138,6 +138,18 @@ def run(atlas, action, params, driver=None):
         for step in action["steps"]:
             verb = next(v for v in step if v in {"focus", "launch", "uri", "cli", "keys", "type", "click_text",
                                                  "wait_text", "play_page", "sleep", "media", "settings_uri"})
+            if step.get("if_title") or step.get("require_title"):
+                # Keys only for the right page: "if_title" skips quietly (a clean-up Ctrl+W only on the page it
+                # opened), "require_title" stops the action (YouTube keys only on a YouTube tab).
+                current = hwnd or driver.find_window(window)
+                title = driver.title(current) if current else ""
+                wanted = fill(step.get("if_title") or step.get("require_title"), params)
+                if wanted.casefold() not in (title or "").casefold():
+                    if step.get("require_title"):
+                        raise StepFailed(f"The {atlas.get('name', atlas['app'])} window is not on '{wanted}'; "
+                                         "no keys were sent.")
+                    out["steps"].append(f"{verb} (skipped: not on {wanted})")
+                    continue
             if step.get("unless"):
                 # Toggles (a side panel) are pressed only when their screen is not already showing.
                 current = hwnd or driver.find_window(window)
@@ -314,6 +326,9 @@ def _check(check, params, driver, window, hwnd, before, out):
             # The page that opened has this name as its big title (a playlist or artist page), not just a list row.
             current = driver.find_window(window) or hwnd
             results[name] = bool(current) and is_heading(value, driver.ocr(_area(driver.window_rect(current), PAGE_AREA)))
+        elif name == "title_lacks":
+            current = driver.find_window(window) or hwnd
+            results[name] = not current or str(value).casefold() not in (driver.title(current) or "").casefold()
         elif name == "window_title_contains":
             current = driver.find_window(window) or hwnd
             results[name] = bool(current) and str(value).casefold() in driver.title(current).casefold()

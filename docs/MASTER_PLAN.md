@@ -806,7 +806,7 @@ Full spec: `docs/APP_MASTERY_PLAN.md`.
 - [x] A3: Phrase compiler + routing + app.howto — done 2026-10-09 (verified Spotify actions instant: playlist 8.6 s, pause 2.1 s; apps.howto 0.5 s; a look-alike name is refused in 4.3 s)
 - [x] A4: Spotify — done 2026-10-09 (28 actions, 26 verified on the live PC; play artist/album/playlist ~7 s by phrase; 'play song X' from search parked)
 - [x] A5: WhatsApp — done 2026-10-09 (8/8 verified safe actions, unread count; mute/pin/archive/send_file not yet)
-- [ ] A6: Brave (+YouTube)
+- [x] A6: Brave (+YouTube) — done 2026-10-09 (23 actions, 15 verified; YouTube keys only on a YouTube tab)
 - [ ] A7: VS Code
 - [ ] A8: Windows Settings
 - [ ] A9: ChatGPT

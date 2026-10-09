@@ -211,6 +211,27 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaises(atlas_module.AtlasError):
             atlas_module.validate(bad)
 
+    def test_title_guards(self):
+        cleanup = {"id": "close_history", "title": "x", "risk": "safe",
+                   "steps": [{"focus": True}, {"keys": "ctrl+w", "if_title": "History - Brave"}],
+                   "check": {"title_lacks": "History - Brave"}}
+        driver = FakeDriver()                      # its window title is "Demo window"
+        result = runner.run(ATLAS, cleanup, {}, driver)
+        self.assertTrue(result["ok"])
+        self.assertNotIn(("keys", "ctrl+w"), driver.calls)   # never closes a tab it did not open
+        youtube = {"id": "yt", "title": "x", "risk": "safe",
+                   "steps": [{"focus": True}, {"keys": "l", "require_title": "YouTube"}]}
+        result = runner.run(ATLAS, youtube, {}, FakeDriver())
+        self.assertFalse(result["ok"])
+        self.assertIn("no keys were sent", result["error"])
+
+        class TitledDriver(FakeDriver):
+            def title(self, hwnd):
+                return "Lofi - YouTube - Brave"
+        driver = TitledDriver()
+        self.assertTrue(runner.run(ATLAS, youtube, {}, driver)["ok"])
+        self.assertIn(("keys", "l"), driver.calls)
+
     def test_unless_step_skips_a_toggle_that_is_already_showing(self):
         toggle = {"id": "queue", "title": "Queue", "risk": "safe",
                   "steps": [{"focus": True}, {"keys": "alt+shift+q", "unless": "Queue"}], "check": {"ocr_contains": "Queue"}}

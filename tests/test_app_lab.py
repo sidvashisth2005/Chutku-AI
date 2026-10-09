@@ -127,6 +127,18 @@ class LabTests(unittest.TestCase):
         with self.assertRaises(atlas_module.AtlasError):
             atlas_module.validate(atlas)
 
+    def test_after_action_tidies_up_after_each_try(self):
+        atlas = json.loads(json.dumps(ATLAS))
+        atlas["actions"].append({"id": "history", "title": "History", "risk": "safe", "steps": [{"keys": "ctrl+h"}],
+                                 "check": {"window_open": True}, "lab": {"after": "open"}})
+        atlas_module.validate(atlas)
+        runtime = FakeRuntime()
+        lab.run_lab(self.base, runtime, atlas, only={"history"}, media=self.media, pause=0)
+        self.assertEqual([t for t, _ in runtime.calls], ["app.demo.history", "app.demo.open"] * 3)
+        atlas["actions"][-1]["lab"] = {"after": "like"}     # a changes action may not be a clean-up
+        with self.assertRaises(atlas_module.AtlasError):
+            atlas_module.validate(atlas)
+
     def test_music_paused_before_is_paused_again(self):
         self.run_lab(FakeRuntime(), only={"open"})
         self.assertEqual(self.media_log[-1], "pause")

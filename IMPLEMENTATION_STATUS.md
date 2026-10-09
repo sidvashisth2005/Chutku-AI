@@ -16,6 +16,34 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-09: A6 — Brave + YouTube: 23 actions, 15 verified; YouTube keys only on a YouTube tab
+
+Checked against `docs/APP_MASTERY_PLAN.md` A6 and `docs/apps/brave.md`.
+- **Probed live:** Ctrl+H / Ctrl+J / Ctrl+Shift+O / Ctrl+T give window titles "History - Brave", "Downloads - Brave", "Bookmarks - Brave", "New Tab - Brave"; Ctrl+W closes them.
+- **Built:**
+  - `chutku/apps/atlas/brave.json`:
+    - pages: new tab, history, downloads, bookmarks;
+    - close_tab (`changes`, not run by the lab) and reopen_closed_tab;
+    - reload; zoom in, out and reset;
+    - YouTube: ±10 s, captions, theatre, full screen, faster/slower, next video.
+    - Opening sites and searching stay `web.open` / `web.search` / `youtube.play`.
+  - Runner guards:
+    - `"require_title"` stops an action when the app window is not on that page: YouTube keys are sent only when Brave's title says YouTube ("…no keys were sent").
+    - `"if_title"` skips a step quietly: clean-up actions press Ctrl+W only on the exact page they name.
+  - New check `title_lacks`. Lab `"after"`: a safe, parameterless clean-up action run after each try (validated like `setup`).
+- **Lab:** `chutku.cli apps lab brave` → **15/23 verified**, median 1.16 s.
+  - Skipped by design: 4 clean-up helpers, close_tab (changes), reopen_closed_tab, reload (could lose a form), yt_next (changes what the owner watches).
+  - Independent: the Brave title before and after the lab was the owner's YouTube video; every tab the lab opened was closed.
+  - **Honest limit:** the YouTube and zoom actions have no check of their own. "Verified" there means the keys reached the right tab without error.
+- **Tests:** `test_app_atlas` (+1): the `if_title` clean-up never presses Ctrl+W on another page; `require_title` fails with "no keys were sent" and passes on a YouTube title. `test_app_lab` (+1): `after` runs after each try, and a `changes` action may not be a clean-up.
+- **Results:** full suite **1091 tests OK** (244.2 s).
+- **Real path** (live, `/api/chat`, all instant, no approvals):
+  - "brave history kholo" 3.0 s → independent title "History - Brave";
+  - "youtube subtitles band karo" 1.5 s and "youtube captions on karo" 1.5 s (net unchanged);
+  - "brave downloads kholo" 2.3 s → title "Downloads - Brave";
+  - the guarded clean-ups closed each page, and the title read back as the owner's YouTube video.
+- **Negative (live):** "video aage karo" while Brave showed History → failed in 1.2 s, "The Brave window is not on 'YouTube'; no keys were sent." No planner.
+
 ### 2026-10-09: A5 — WhatsApp: 8 verified actions, unread count; every failed app action is now final
 
 Checked against `docs/APP_MASTERY_PLAN.md` A5 and `docs/apps/whatsapp.md`.
