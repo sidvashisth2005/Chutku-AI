@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import statistics
 import subprocess
 import time
 from urllib.parse import quote
@@ -176,15 +177,17 @@ def run(atlas, action, params, driver=None):
                 time.sleep(float(step.get("wait", 0.3)))
             elif verb == "click_text":
                 hwnd = hwnd or driver.find_window(window)
-                out["clicked"] = driver.click_text(driver.window_rect(hwnd), fill(step["click_text"], params),
-                                                   step.get("kind"), **({"double": True} if step.get("double") else {}))
+                out["clicked"] = driver.click_text(_area(driver.window_rect(hwnd), step.get("area")),
+                                                   fill(step["click_text"], params), step.get("kind"),
+                                                   **({"double": True} if step.get("double") else {}))
             elif verb == "wait_text":
                 hwnd = hwnd or driver.find_window(window)
                 text = fill(step["wait_text"], params).casefold()
                 deadline = time.monotonic() + float(step.get("timeout", 6))
-                while not any(text in l["text"].casefold() for l in driver.ocr(driver.window_rect(hwnd))):
+                while not any(text in l["text"].casefold()
+                              for l in driver.ocr(_area(driver.window_rect(hwnd), step.get("area")))):
                     if time.monotonic() > deadline:
-                        raise StepFailed(f"'{text}' did not appear")
+                        raise StepFailed(f"'{fill(step['wait_text'], params)}' did not appear; nothing clicked.")
                     time.sleep(0.5)
             elif verb == "play_page":
                 hwnd = hwnd or driver.find_window(window)
@@ -208,6 +211,19 @@ def run(atlas, action, params, driver=None):
     return out
 
 
+PAGE_AREA = [0, 0, 1, 0.86]   # the window without its bottom player bar
+
+
+def _area(rect, area):
+    """Part of the window, as fractions [left, top, right, bottom] (e.g. only Spotify's library panel)."""
+    if not area:
+        return rect
+    left, top, right, bottom = rect
+    width, height = right - left, bottom - top
+    return (int(left + width * area[0]), int(top + height * area[1]), int(left + width * area[2]),
+            int(top + height * area[3]))
+
+
 def _norm(text):
     return re.sub(r"[^\w]+", " ", str(text).casefold()).strip()
 
@@ -224,8 +240,19 @@ def on_page(title, lines):
     return False
 
 
+def is_heading(name, lines):
+    """True when a line reads exactly `name` in text clearly bigger than the usual lines (a page title)."""
+    heights = [l["rect"][3] - l["rect"][1] for l in lines if len(l.get("rect") or ()) == 4]
+    if not heights:
+        return False
+    usual = statistics.median(heights)
+    want = _norm(name)
+    return any(_norm(l["text"]) == want and l["rect"][3] - l["rect"][1] >= 1.5 * usual for l in lines)
+
+
 def _uses_media(action):
-    return bool({"media_playing", "media_changed", "media_paused", "playing_on_page"} & set(action.get("check") or {}))
+    return bool({"media_playing", "media_changed", "media_paused", "playing_on_page"}
+                & set(action.get("check") or {}))
 
 
 def _media_status(driver):
@@ -276,12 +303,17 @@ def _check(check, params, driver, window, hwnd, before, out):
                 time.sleep(0.5)
                 after = _media_status(driver)
             current = driver.find_window(window) or hwnd
-            lines = driver.ocr(driver.window_rect(current)) if current else []
+            # Not the player bar at the bottom: it always shows the current song, so it proves nothing.
+            lines = driver.ocr(_area(driver.window_rect(current), PAGE_AREA)) if current else []
             results[name] = after.get("status") == "Playing" and on_page(after.get("title") or "", lines)
             started_new = before.get("status") != "Playing" or after.get("title") != before.get("title")
             if not results[name] and after.get("status") == "Playing" and started_new:
                 driver.media("pause")   # something else started: stop it rather than play the wrong thing
                 out["paused_wrong"] = after.get("title")
+        elif name == "heading":
+            # The page that opened has this name as its big title (a playlist or artist page), not just a list row.
+            current = driver.find_window(window) or hwnd
+            results[name] = bool(current) and is_heading(value, driver.ocr(_area(driver.window_rect(current), PAGE_AREA)))
         elif name == "window_title_contains":
             current = driver.find_window(window) or hwnd
             results[name] = bool(current) and str(value).casefold() in driver.title(current).casefold()

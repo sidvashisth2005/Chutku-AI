@@ -177,6 +177,40 @@ class RunnerTests(unittest.TestCase):
         self.assertFalse(runner.on_page("Hey Jude", lines))
         self.assertFalse(runner.on_page("", lines))
 
+    def test_heading_needs_big_text_not_a_list_row(self):
+        row = lambda text, height, y: {"text": text, "rect": (0, y, 100, y + height)}
+        page = [row("After Party", 31, 190), row("Kar Gayi Chull", 14, 480), row("Song two", 14, 520),
+                row("196 songs", 14, 270)]
+        self.assertTrue(runner.is_heading("after party", page))
+        self.assertFalse(runner.is_heading("Kar Gayi Chull", page))        # a track row, not the page title
+        self.assertFalse(runner.is_heading("Afterparty", page))             # look-alike name
+        self.assertFalse(runner.is_heading("After Party", [row("After Party", 14, 300), row("x", 14, 340)]))
+
+    def test_area_and_page_area_leave_out_the_player_bar(self):
+        self.assertEqual(runner._area((900, 0, 1900, 1000), [0, 0.08, 0.42, 0.88]), (900, 80, 1320, 880))
+        self.assertEqual(runner._area((0, 0, 100, 100), None), (0, 0, 100, 100))
+        seen = []
+
+        class AreaDriver(SongDriver):
+            def ocr(self, rect):
+                seen.append(rect)
+                return super().ocr(rect)
+        driver = AreaDriver("Song", ["After Party"])
+        runner.run(ATLAS, PLAY_LIST, {"name": "After Party"}, driver)
+        self.assertEqual(seen[-1], (0, 0, 100, 86))   # the bottom bar always shows the song: not proof
+
+    def test_singles_and_eps_count_as_albums(self):
+        from chutku.tools.visible import kind_of
+        lines = [{"text": "Gal Sun", "rect": (1007, 287, 1074, 301)},
+                 {"text": "Single • Sabaat Batin", "rect": (1007, 315, 1150, 330)}]
+        self.assertEqual(kind_of(lines[0], lines), "album")
+
+    def test_bad_area_is_refused(self):
+        bad = copy.deepcopy(ATLAS)
+        bad["actions"][4]["steps"][1]["area"] = [0.5, 0, 0.2, 1]
+        with self.assertRaises(atlas_module.AtlasError):
+            atlas_module.validate(bad)
+
     def test_unless_step_skips_a_toggle_that_is_already_showing(self):
         toggle = {"id": "queue", "title": "Queue", "risk": "safe",
                   "steps": [{"focus": True}, {"keys": "alt+shift+q", "unless": "Queue"}], "check": {"ocr_contains": "Queue"}}

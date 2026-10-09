@@ -16,6 +16,40 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-09: A4 — Spotify in full: 28 actions, 26 verified; play artist/album; a stricter "it really played" check
+
+Checked against `docs/APP_MASTERY_PLAN.md` A4 and `docs/apps/spotify.md`.
+- **New actions** (all probed live first):
+  - Made For You (Alt+Shift+M) and New Releases (Alt+Shift+N);
+  - my Artists (Alt+Shift+3) and my Albums (Alt+Shift+4);
+  - page back/forward (Alt+←/→);
+  - seek ±5 s (Shift+←/→);
+  - **play an artist from my library**: "spotify pe Arijit Singh ke gaane chalao";
+  - **play an album from my library**: "Gal Sun album chalao".
+- **Check fixed after a live finding:** the song title is always in Spotify's player bar at the bottom, so "the song is on the page" could pass on the bar alone.
+  - `playing_on_page` now reads the window without its bottom 14% (`PAGE_AREA`).
+  - Playlists and artists now check `heading`: a line that reads exactly the name in text at least 1.5× the usual height (the page title, not a list row), plus `media_playing` and `media_changed`. With shuffle, the song is rarely in view.
+  - A media-session artist check was tried and dropped: Windows names only the main artist ("Pritam" for an Arijit Singh song).
+- **Clicks are limited to the library panel** (`"area": [0, 0.08, 0.42, 0.88]`): the open page and the player bar repeat the same names. Before this, the lab correctly refused "4 items read 'Gal Sun'".
+  - Each click first waits (`wait_text`, up to 4 s, same area) for the name. Live: "Gal Sun album chalao" right after an artist page failed closed (the library had not finished drawing); now it passes.
+  - "Single • …" / "EP • …" type lines count as albums.
+- **Parked:** "play song X" (search, then play the song). Double-clicking the top result opened and played its album (live, 2026-10-09). This needs a songs-only results view; it stays `spotify.search` + the owner pressing play.
+- **Tests:** `tests/test_app_atlas.py` (+4):
+  - `is_heading`: a track row, a look-alike name and small text all fail;
+  - `_area` and the page area leaving out the player bar;
+  - singles count as albums;
+  - a bad area is refused.
+- **Results:** full suite **1082 tests OK** (198.0 s). `check_phrases` 132/132 instant.
+- **Lab** (`chutku.cli apps lab spotify`): **26/28 verified**, median 6.5 s for the play actions (playlist ~6.3 s, album ~6.1 s, artist ~6.2 s, liked ~6.5 s), ~1 s for keys, ~2.5 s for pages. The other two are by design: `new_playlist` (changes) and `quit` (consequential).
+- **Real path** (live dashboard after restart, `/api/chat`, owner mode, all instant `quick`, no approvals). Each one was followed by an independent check (media status + the big page heading read from the window without the player bar, then pause):
+  - "spotify pe Arijit Singh ke gaane chalao" 7.7 s → Playing "Hawayein", heading "Arijit Singh" ✓;
+  - "Gal Sun album chalao" 6.9 s → Playing "Gal Sun", heading ✓;
+  - "After Party wali playlist chalao" 7.5 s → Playing "Galat Baat Hai", heading "After Party" ✓;
+  - artist again 7.5 s → "Shayad", heading ✓;
+  - "spotify made for you" 3.1 s;
+  - "spotify pe thoda peeche karo" 1.5 s.
+- **Negative (live):** "spotify pe Arijitt ke gaane chalao" → 3.4 s, failed, "'Arijitt' is not visible; nothing clicked." No planner wandering.
+
 ### 2026-10-09: A3 — app phrases routed instantly (verified actions only), app-scoped planner menu, apps.howto
 
 Checked against `docs/APP_MASTERY_PLAN.md` A3.

@@ -65,6 +65,8 @@ def kind_of(line, lines):
             for kind in KINDS:
                 if re.search(rf"\b{kind}s?\b", other["text"], re.I):
                     return kind
+            if re.search(r"\b(?:single|ep)\b", other["text"], re.I):
+                return "album"   # Spotify labels short albums "Single • artist" / "EP • artist"
     return None
 
 

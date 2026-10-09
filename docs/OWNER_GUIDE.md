@@ -300,7 +300,7 @@ Chutku now has a fixed recipe for each thing she can do in an app (`chutku/apps/
   - only one action: add `--action play_playlist`;
   - to see the counts: `… apps list`.
 - The lab never sends, deletes or quits anything. It adds things to your apps only with `--changes`. If your music was paused before, it pauses it again afterwards.
-- Spotify on 2026-10-09: 16 of 18 verified. Typical times: about 1 s for play, pause or volume; about 2.5 s to open a page; about 6 s to play a named playlist.
+- Spotify on 2026-10-09: 26 of 28 verified (new playlist and quit are never run by the lab). Typical times: about 1 s for play, pause or volume; about 2.5 s to open a page; about 6 s to play a named playlist.
 
 - **Say it, and a verified action runs at once** (since 2026-10-09), with no model and no approval:
   - "After Party wali playlist chalao" / "play my After Party playlist" / "spotify pe After Party playlist chalao";
@@ -310,6 +310,10 @@ Chutku now has a fixed recipe for each thing she can do in an app (`chutku/apps/
   - "spotify mein lofi beats dhoondo" / "search lofi on spotify";
   - "meri playlists dikhao" / "liked songs kholo" / "spotify queue dikhao" / "spotify home";
   - "spotify shuffle" / "spotify repeat" / "spotify ki awaaz badhao".
+  - "spotify pe Arijit Singh ke gaane chalao" / "play songs by Arijit Singh on spotify" (artists saved in your library);
+  - "Gal Sun album chalao" / "play my Gal Sun album" (albums and singles in your library);
+  - "spotify made for you" / "new releases dikhao" / "mere artists dikhao" / "mere albums dikhao";
+  - "spotify back" / "spotify pe thoda peeche karo" / "spotify pe thoda aage karo" (5 seconds).
 
   "gaana roko" / "agla gaana" without "Spotify" still control whatever is playing (YouTube too). If the playlist name isn't in your library exactly as you said it, she clicks nothing and tells you; she does not go hunting.
 - **Ask how to do something in an app:** "spotify mein shuffle kaise karte hain", "how do I mute a chat in whatsapp", "vs code mein terminal kaise kholte hain". She answers from her notes on that app (Spotify, WhatsApp, Brave/YouTube, VS Code, Settings, ChatGPT, Discord, VLC, Telegram, File Explorer, Notepad) and says whether she can do it herself.

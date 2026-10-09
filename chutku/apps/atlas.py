@@ -16,7 +16,7 @@ RISK = {"safe": 1, "changes": 2, "consequential": 3, "destructive": 4}
 VERBS = {"focus", "launch", "uri", "cli", "keys", "type", "click_text", "wait_text", "play_page", "sleep", "media",
          "settings_uri"}
 CHECKS = {"media_playing", "media_paused", "media_changed", "title_in_page", "window_title_contains", "ocr_contains",
-          "process_running", "process_gone", "window_open", "playing_on_page"}
+          "process_running", "process_gone", "window_open", "playing_on_page", "heading"}
 PARAM_TYPES = {"text", "number", "path"}
 _ID = re.compile(r"^[a-z][a-z0-9_]{1,40}$")
 _SLOT = re.compile(r"\{([a-z][a-z0-9_]*)\}")
@@ -88,6 +88,11 @@ def validate(atlas: dict) -> dict:
                     parse_keys(step["keys"])
                 except ValueError as error:
                     raise AtlasError(f"{where}: {error}") from error
+            area = step.get("area")
+            if area is not None and not (isinstance(area, list) and len(area) == 4
+                                         and all(isinstance(v, (int, float)) and 0 <= v <= 1 for v in area)
+                                         and area[0] < area[2] and area[1] < area[3]):
+                raise AtlasError(f"{where}: area is [left, top, right, bottom] as fractions of the window")
             if verb == "sleep" and not (isinstance(step["sleep"], (int, float)) and 0 < step["sleep"] <= 5):
                 raise AtlasError(f"{where}: sleep is 0-5 seconds")
             if verb == "media" and step["media"] not in {"play", "pause", "play_pause", "next", "previous"}:
