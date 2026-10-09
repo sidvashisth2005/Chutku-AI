@@ -318,6 +318,14 @@ Chutku now has a fixed recipe for each thing she can do in an app (`chutku/apps/
   "gaana roko" / "agla gaana" without "Spotify" still control whatever is playing (YouTube too). If the playlist name isn't in your library exactly as you said it, she clicks nothing and tells you; she does not go hunting.
 - **Ask how to do something in an app:** "spotify mein shuffle kaise karte hain", "how do I mute a chat in whatsapp", "vs code mein terminal kaise kholte hain". She answers from her notes on that app (Spotify, WhatsApp, Brave/YouTube, VS Code, Settings, ChatGPT, Discord, VLC, Telegram, File Explorer, Notepad) and says whether she can do it herself.
 
+- **WhatsApp** (since 2026-10-09):
+  - "whatsapp pe kitne unread messages hain" (she reads the "Unread" number; nothing is opened, so nothing is marked read);
+  - "whatsapp unread dikhao" / "whatsapp favourites dikhao" / "whatsapp saare chats dikhao";
+  - "whatsapp new chat" / "whatsapp search kholo" / "whatsapp profile kholo" / "whatsapp panel band karo".
+
+  Sending and reading messages work as before ("UB ko bolo …", "UB ka last message padho").
+- **When an app action fails, she stops and tells you why.** She does not try other things on her own (since 2026-10-09: once, after "close the panel" failed, she closed WhatsApp instead).
+
 ### Undo everything at once (Causal Rewind, since 2026-10-06)
 
 - **"pichhle 10 minute ka sab wapas karo"** / "undo everything from the last 10 minutes", **"aaj jo kiya sab wapas karo"** / "undo everything today", **"last task undo karo"** / "undo the last task".

@@ -805,7 +805,7 @@ Full spec: `docs/APP_MASTERY_PLAN.md`.
 - [x] A2: Action Lab — done 2026-10-09 (Spotify 16/18 verified on the live PC, median 2.86 s; quit and new_playlist are not run by the lab)
 - [x] A3: Phrase compiler + routing + app.howto — done 2026-10-09 (verified Spotify actions instant: playlist 8.6 s, pause 2.1 s; apps.howto 0.5 s; a look-alike name is refused in 4.3 s)
 - [x] A4: Spotify — done 2026-10-09 (28 actions, 26 verified on the live PC; play artist/album/playlist ~7 s by phrase; 'play song X' from search parked)
-- [ ] A5: WhatsApp
+- [x] A5: WhatsApp — done 2026-10-09 (8/8 verified safe actions, unread count; mute/pin/archive/send_file not yet)
 - [ ] A6: Brave (+YouTube)
 - [ ] A7: VS Code
 - [ ] A8: Windows Settings

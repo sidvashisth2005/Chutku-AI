@@ -476,14 +476,14 @@ _ON_SCREEN = re.compile(r"\b(?:on|from) (?:the |my )?(?:screen|display)\b|\b(?:s
 _NO_SEARCH = re.compile(r"\bsearch\s+(?:mat|nahi|nahin|na|mt)\b|\b(?:mat|nahi|na)\s+search\b|\bdon'?t search\b|"
                         r"\bdo not search\b|\bwithout search(?:ing)?\b|\bno search\b", re.I)
 SEARCH_TOOLS = frozenset({"spotify.search", "web.search", "web.results", "youtube.play"})
-FINAL_WHEN_FAILED = frozenset({"screen.act_on_visible"})   # its failure is the answer, never a cue to improvise
-# An app action (App Mastery) that found no exact item, or several, or stopped a wrong song: also the answer.
-_APP_FINAL = re.compile(r"nothing clicked|say which one|check failed: playing_on_page", re.I)
+FINAL_WHEN_FAILED = frozenset({"screen.act_on_visible", "message.unread_count"})   # the failure is the answer
+# App actions (App Mastery) are fixed recipes with their own check. When one fails, its message is the answer:
+# 2026-10-09 live, after "close the WhatsApp panel" failed its check, the planner improvised and QUIT WhatsApp, and
+# after the unread count refused (list covered) it answered a number it had not read.
 
 
 def _final_failure(step):
-    return step["tool"] in FINAL_WHEN_FAILED or (step["tool"].startswith("app.")
-                                                 and bool(_APP_FINAL.search(step.get("message") or "")))
+    return step["tool"] in FINAL_WHEN_FAILED or step["tool"].startswith("app.")
 
 
 def _signature(step):

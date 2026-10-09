@@ -70,6 +70,8 @@ def register_app_tools(registry, directory=None):
     """Register every valid atlas's actions and apps.howto; returns {"apps", "actions", "refused": {file: error}}."""
     atlases, errors = atlas_module.load_all(directory) if directory else atlas_module.load_all()
     registry.register(_howto_tool(atlases))
+    from chutku.apps import extras
+    extras.register(registry)
     count = 0
     for app_atlas in atlases.values():
         for action in app_atlas["actions"]:

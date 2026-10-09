@@ -249,6 +249,11 @@ _HOWTO = [
 _HOWTO_PLAIN = {"karte", "karu", "karun", "karoon", "kare", "karein", "karna", "hota", "hoga", "kiya"}
 
 
+_UNREAD = re.compile(r"^\W*(?:(?:whatsapp|wa) (?:pe|par|pr|mein|me) )?(?:kitne|kitni|how many) (?:unread|naye|nayi|new)"
+                     r" (?:messages?|msgs?|chats?|message aaye)(?: (?:hain|h|he|aaye hain|are there))?"
+                     r"(?: (?:on|in) whatsapp| whatsapp (?:pe|par|pr|mein|me))?(?: hain| h)?\W*$", re.I)
+
+
 def _howto(text):
     """apps.howto arguments for "how do I X in <app>" / "<app> mein X kaise karte hain", else None."""
     from chutku.apps.howto import resolve
@@ -454,6 +459,8 @@ def _single(goal, apps=None):
     app_action = _app_action(text)
     if app_action is not None:
         return app_action
+    if _UNREAD.match(text):
+        return _proposal("message.unread_count", {}, "Count unread WhatsApp chats", "", finish=False)
     howto = _howto(text)
     if howto is not None:
         return _proposal("apps.howto", howto, f"Look up how to {howto['question']} in {howto['app']}", "", finish=False)
@@ -1352,7 +1359,12 @@ def _say_howto(out):
     return say(out)
 
 
-QUICK_ANSWERS = {"apps.howto": _say_howto, "screen.act_on_visible": _say_visible, "insights.week": _say_week, "history.search": _say_history, "background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
+def _say_unread(out):
+    from chutku.apps.extras import say_unread
+    return say_unread(out)
+
+
+QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, "screen.act_on_visible": _say_visible, "insights.week": _say_week, "history.search": _say_history, "background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,

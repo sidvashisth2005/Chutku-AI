@@ -16,6 +16,41 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-09: A5 — WhatsApp: 8 verified actions, unread count; every failed app action is now final
+
+Checked against `docs/APP_MASTERY_PLAN.md` A5 and `docs/apps/whatsapp.md`.
+- **Probed live** (WhatsApp Desktop, maximised):
+  - Ctrl+Alt+/ opens search ("Recent searches"); Ctrl+Alt+P opens Profile; Ctrl+Alt+N opens New chat;
+  - Ctrl+Alt+, and Ctrl+, do **not** open Settings in this version.
+  - The chat list's filter chip reads "Unread 26": a reliable count of unread chats.
+- **Built:**
+  - `chutku/apps/atlas/whatsapp.json`: open (`route: false`), search, new_chat, profile, close_panel, show_unread, show_favourites, show_all. All `safe`.
+  - **No atlas action opens a chat**, so nothing is marked read. Sending, reading and opening chats stay with the checked `message.*` tools.
+  - The test asserts no Enter, no typing, and none of the Ctrl+Alt+Shift chat-changing shortcuts (mute/unread/archive/pin).
+  - `chutku/apps/extras.py` → **`message.unread_count`** (R0). It reads only the chip area of the chat list and returns only a number: no names or text, so no taint. Nothing is clicked. If the chip isn't visible it refuses ("I did not click anything"). Phrases: "whatsapp pe kitne unread messages hain", "how many unread chats on whatsapp", "kitne naye message aaye hain".
+- **Live finding → fix:** in the first live run, after "whatsapp profile kholo":
+  - the unread count correctly refused (list covered), but the local planner then improvised for 55 s and answered "26 unread" without reading it;
+  - "whatsapp panel band karo" failed its check, and the planner ran `show_all` and then **`apps.quit` — WhatsApp was closed**. It was reopened at once.
+  - **Fix:** `agent_loop._final_failure`: **every failed `app.*` action, and `message.unread_count`, ends the request with its own message** ("Tell me exactly what to do instead"). There is no improvising after a fixed recipe fails. Other tools are still replanned.
+  - `close_panel`/`show_all` now check the "Chats" title, which is always there.
+- **Tests:** `tests/test_app_whatsapp.py` (7):
+  - chip parsing (chat text is not the chip);
+  - the tool reads only the chip area and clicks nothing;
+  - fails closed when covered or closed;
+  - phrases;
+  - registered R0 with no arguments;
+  - the atlas never sends, types or changes chats;
+  - verified phrases route, "open whatsapp" stays `apps.launch`.
+
+  `test_app_phrases`: every app failure is final, web.search is not. `test_quick_intents` sample for the new answer.
+- **Results:** full suite **1089 tests OK** (251.6 s). `check_phrases` 132/132 instant.
+- **Lab:** `chutku.cli apps lab whatsapp` → **8/8 verified**, median 2.5 s (open 0.5 s, panels ~2.2 s, chips ~3 s). Independent: the unread chip read 26 before and after the lab (nothing was marked read).
+- **Real path** (live dashboard after restart, `/api/chat`, all instant, no approvals), replaying the sequence that had quit WhatsApp:
+  - profile 3.4 s → count **refused in 1.7 s**, nothing invented → close_panel 2.6 s ✓ → show_unread 3.6 s → close_panel 2.6 s ✓ → show_all 3.6 s → count **"WhatsApp pe 26 chats unread hain." 1.7 s**;
+  - independent: the WhatsApp window is still open; the chip says 26.
+- **Negative (live):** the count with the Profile panel covering the list → failed closed, no click, no planner.
+- **Not yet:** names of the unread chats; mute/pin/archive (Ctrl+Alt+Shift shortcuts need a dry-run lab and undo); send_file; Settings.
+
 ### 2026-10-09: A4 — Spotify in full: 28 actions, 26 verified; play artist/album; a stricter "it really played" check
 
 Checked against `docs/APP_MASTERY_PLAN.md` A4 and `docs/apps/spotify.md`.

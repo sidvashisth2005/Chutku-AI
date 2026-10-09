@@ -118,11 +118,13 @@ class FinalFailureTests(unittest.TestCase):
         self.assertIn("nothing clicked", snap["reply"])
         self.assertEqual(len(planner.proposals), 1)
 
-    def test_other_app_failures_are_still_replanned(self):
+    def test_every_app_failure_is_final_but_other_tools_are_replanned(self):
+        # 2026-10-09 live: after a failed "close the WhatsApp panel" the planner quit WhatsApp.
         self.assertTrue(agent_loop._final_failure({"tool": "app.spotify.play_playlist",
                                                    "message": "2 items read 'X'; say which one"}))
-        self.assertFalse(agent_loop._final_failure({"tool": "app.spotify.go_home",
-                                                    "message": "the steps ran but the check failed: ocr_contains"}))
+        self.assertTrue(agent_loop._final_failure({"tool": "app.whatsapp.close_panel",
+                                                   "message": "the steps ran but the check failed: ocr_contains"}))
+        self.assertTrue(agent_loop._final_failure({"tool": "message.unread_count", "message": "not showing"}))
         self.assertFalse(agent_loop._final_failure({"tool": "web.search", "message": "nothing clicked"}))
 
 
