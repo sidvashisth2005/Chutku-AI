@@ -240,6 +240,47 @@ def _quick_proposal(goal, apps=None):
                                                     for s in steps)}
 
 
+_HOWTO = [
+    re.compile(r"^\W*how (?:do|can|should) i (?P<q>.+?) (?:in|on|with|using) (?P<app>[a-z][a-z ]{1,25}?)\W*$", re.I),
+    re.compile(r"^\W*how to (?P<q>.+?) (?:in|on|with|using) (?P<app>[a-z][a-z ]{1,25}?)\W*$", re.I),
+    re.compile(r"^\W*(?P<app>[a-z][a-z ]{1,25}?) (?:mein|me|main|pe|par|pr) (?P<q>.+?) kaise (?P<verb>[a-z]+)"
+               r"(?: (?:hain|hai|h|jate hain|jata hai|sakte hain))?\W*$", re.I),
+]
+_HOWTO_PLAIN = {"karte", "karu", "karun", "karoon", "kare", "karein", "karna", "hota", "hoga", "kiya"}
+
+
+def _howto(text):
+    """apps.howto arguments for "how do I X in <app>" / "<app> mein X kaise karte hain", else None."""
+    from chutku.apps.howto import resolve
+    for pattern in _HOWTO:
+        found = pattern.match(text)
+        if found:
+            app = resolve(found.group("app"))
+            if app:
+                question = found.group("q").strip()
+                verb = found.groupdict().get("verb")
+                if verb and verb.casefold() not in _HOWTO_PLAIN:
+                    question += " " + verb   # "terminal kaise kholte" -> "terminal kholte" (open)
+                return {"app": app, "question": question}
+    return None
+
+
+def _app_action(text):
+    """A verified app action whose atlas phrase is the whole request (App Mastery A3), else None."""
+    try:
+        from chutku.apps import phrases
+        found = phrases.match(text)
+    except (OSError, ValueError):
+        return None
+    if found is None:
+        return None
+    tool, arguments, action = found
+    done = action.get("done") or f"Ho gaya: {action['title']}."
+    for name, value in arguments.items():
+        done = done.replace("{" + name + "}", str(value))
+    return _proposal(tool, arguments, action["title"], done)
+
+
 def _control_or_known(text):
     """Phrases that other rules own (reminders "mujhe ... yaad dilana" etc.) are not messages."""
     return bool(re.search(r"\byaad\b|\bremind|\balarm|\btimer", text, re.I))
@@ -410,6 +451,12 @@ def _rewind(text):
 
 def _single(goal, apps=None):
     text = " ".join(goal.split())
+    app_action = _app_action(text)
+    if app_action is not None:
+        return app_action
+    howto = _howto(text)
+    if howto is not None:
+        return _proposal("apps.howto", howto, f"Look up how to {howto['question']} in {howto['app']}", "", finish=False)
     rewind = _rewind(text)
     if rewind is not None:
         return rewind
@@ -1300,7 +1347,12 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
-QUICK_ANSWERS = {"screen.act_on_visible": _say_visible, "insights.week": _say_week, "history.search": _say_history, "background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
+def _say_howto(out):
+    from chutku.apps.howto import say
+    return say(out)
+
+
+QUICK_ANSWERS = {"apps.howto": _say_howto, "screen.act_on_visible": _say_visible, "insights.week": _say_week, "history.search": _say_history, "background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,

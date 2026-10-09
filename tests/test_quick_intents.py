@@ -55,6 +55,8 @@ class QuickIntentTests(unittest.TestCase):
                                      "summary": "“send hi to UB” at 9:00 PM today"}], "count": 1},
             "screen.act_on_visible": {"clicked": "After Party", "match": "exact", "at": [1170, 580], "screen_changed": True, "play_button": "Play", "playing": True, "now_playing": "Song", "artist": "Band"},
             "insights.week": {"from": "Wed 30 Sep", "to": "Wed 07 Oct", "this_week": {"requests": 5, "voice": 2, "typed": 3, "instant": 3, "by_model": 2, "gemini": 1, "instant_share": 0.6, "voice_chat_lines": 0, "not_done": 0}, "last_week": {"requests": 0, "voice": 0, "typed": 0, "instant": 0, "by_model": 0, "gemini": 0, "instant_share": None, "voice_chat_lines": 0, "not_done": 0}, "top_actions": [["apps.launch", 2]], "actions_logged": 3, "completed": 2, "failed": 1, "most_failed": [["apps.launch", 1]], "refused": 0, "asked_you": 1, "you_approved": 1, "new_skills": []},
+            "apps.howto": {"app": "spotify", "question": "shuffle", "answers": [{"text": "Playback: Ctrl+S shuffle", "section": "x"}],
+                           "can_do": [{"tool": "app.spotify.shuffle", "title": "Turn shuffle on or off", "verified": True}]},
             "history.search": {"query": "gulabi top", "terms": ["gulabi", "top"], "matches": [
                 {"date": "Wed 07 Oct 2026, 08:10 AM", "origin": "voice", "said": "I spotted a new gulabi top",
                  "reply": "Wow!"}]},

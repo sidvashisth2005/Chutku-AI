@@ -101,9 +101,9 @@ class Driver:
         from chutku.tools.visible import typed
         tier, found = typed(self.ocr(rect), name, kind)
         if not found:
-            raise StepFailed(f"'{name}'{' (' + kind + ')' if kind else ''} is not visible; nothing clicked")
+            raise StepFailed(f"'{name}'{' (' + kind + ')' if kind else ''} is not visible; nothing clicked.")
         if len(found) > 1:
-            raise StepFailed(f"{len(found)} items read '{name}'; say which one")
+            raise StepFailed(f"{len(found)} items read '{name}'; say which one.")
         x0, y0, x1, y1 = found[0]["rect"]
         vision.click_at((x0 + x1) // 2, (y0 + y1) // 2, double=double)
         time.sleep(1.2)

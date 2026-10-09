@@ -112,6 +112,8 @@ def validate(atlas: dict) -> dict:
             setup = next((a for a in actions if a.get("id") == lab["setup"]), None)
             if not setup or setup.get("risk") != "safe" or setup.get("params"):
                 raise AtlasError(f"{where}: lab setup must be a safe action without parameters")
+        if _slots(action.get("done") or "") - set(params):
+            raise AtlasError(f"{where}: the done reply may only use declared params")
         phrases = action.get("phrases") or []
         if not isinstance(phrases, list) or any(_slots(p) - set(params) for p in phrases):
             raise AtlasError(f"{where}: phrases may only use declared params")

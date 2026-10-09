@@ -16,6 +16,44 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-09: A3 — app phrases routed instantly (verified actions only), app-scoped planner menu, apps.howto
+
+Checked against `docs/APP_MASTERY_PLAN.md` A3.
+- **Built:**
+  - `chutku/apps/phrases.py`.
+    - Each atlas phrase becomes one anchored regex, with slots, polite words in front and "please/na" at the end.
+    - **Only actions the Action Lab verified on this PC** are routed.
+    - The phrase with the most fixed words wins; two different actions reading the same → nothing is routed (the planner decides).
+    - `"route": false` leaves a phrase to Chutku's own rules ("open spotify" stays `apps.launch`).
+  - `quick_intents._single` tries app actions first, then "how do I X in <app>" / "<app> mein X kaise karte hain" → `apps.howto`. Each action has a natural `done` reply ("After Party playlist chala di."); the validator allows only declared slots in it.
+  - **Planner menu:** `agent_loop._app_scoped` offers `app.<app>.*` tools only when the request names that app (id, name or alias) or one was already used. The retry with every tool still offers every tool.
+  - **Definite app refusals are final** (`agent_loop._final_failure`): an app action that found no exact item ("nothing clicked"), found several ("say which one"), or stopped a wrong song ends the request with that answer. Other app failures are still replanned.
+  - `chutku/apps/howto.py` + tool **`apps.howto`** (R0). It answers from the checked-in feature maps `docs/apps/*.md` (shortcut cells split into single answers; no web text, so no taint) and lists the atlas actions Chutku can do herself, marked verified or not yet tested on this PC. 11 apps by name ("VS Code" → vscode).
+- **Spotify atlas:**
+  - removed the generic phrases "gaana roko", "agla gaana", "pichhla gaana" and "gaana wapas chalao": they stay `media.control`, which works for any player;
+  - added "spotify pe {name} playlist chalao", "play {name} playlist on spotify", "meri {name} playlist chalao", "spotify roko" and others;
+  - `quit` is now `consequential` (same as `apps.quit`, R3).
+- **Before** (same phrases through the old rules): "spotify mein lofi beats dhoondo" → `files.find`; "liked songs kholo" → `apps.launch "liked songs"`; "gaana wapas chalao" → `apps.launch "gaana wapas"`; "play After Party playlist" → no instant rule (planner).
+- **Tests:**
+  - `tests/test_app_phrases.py` (13):
+    - slots and the longest phrase win; only verified actions are routed;
+    - ambiguous → none; `route: false`; shipped Spotify phrases with a patched verified set;
+    - **negative:** an unverified action is not routed, and with nothing verified the playlist phrase is not routed;
+    - generic phrases keep `media.control`/`apps.launch`;
+    - app scope and planner-menu scope; the full catalog is unscoped;
+    - a definite app refusal ends the session with the planner asked once; other failures are not final;
+    - `apps.howto` resolve, answers, quick phrases (unknown app → not routed), tool R0 + validation + not tainting.
+  - `test_quick_intents` gained an `apps.howto` false-claim sample.
+- **Results:** full suite **1078 tests OK** (197.1 s). `scripts/check_phrases.py` instant **132/132**, slowest match 112.6 ms.
+- **Real path** (live dashboard after restart, `/api/chat`, owner mode, no approval asked anywhere):
+  - "After Party wali playlist chalao" → planner `quick`, `app.spotify.play_playlist` COMPLETED, **8.6 s**. Independent: media Playing "G Phaad Ke"; Spotify window OCR shows "After Party", "196 songs…" and the song title on the page.
+  - "play liked songs" → `app.spotify.play_liked`, **7.8 s**, reply "Liked Songs chala diye." Independent: Playing "Lehnga…", which is on the Liked Songs page.
+  - "spotify pause karo" → `app.spotify.pause`, **2.1 s**, "Spotify rok diya." The media status read back Paused.
+  - "spotify mein shuffle kaise karte hain" → `apps.howto`, **0.5 s**: "Spotify mein: Playback: Ctrl+S shuffle; … Main ye khud kar sakti hoon: Turn shuffle on or off."
+- **Negative (live):** "Afterparty Hits playlist chalao" → refused in **4.3 s**, status failed, "… is not visible; nothing clicked … Tell me exactly what to do instead." The media status was Paused "G Phaad Ke" before and after.
+  - Before the final-failure fix, the same request ran screen.understand and then asked to click, taking 142 s.
+- **Not yet:** the planner menu is not yet scoped by the app *in front* (only by the app named); `apps.howto` uses word overlap, not FTS5 (fine for 11 short maps).
+
 ### 2026-10-09: A2 — Action Lab: Spotify actions proven on this PC (16/18 verified)
 
 Checked against `docs/APP_MASTERY_PLAN.md` A2.

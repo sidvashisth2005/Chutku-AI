@@ -148,6 +148,18 @@ def planner_tool_rows(runtime, domains=None):
     return [row for row in _planner_tools(runtime, domains) if row["name"] not in EXCLUDED_TOOLS]
 
 
+def _app_scoped(rows, session):
+    """App actions (app.<app>.*) only for the apps the request names, or that were already used (App Mastery A3)."""
+    if session is None:
+        return rows
+    used = {step["tool"] for step in session.steps} | {step["tool"] for step in getattr(session, "queue", []) or []}
+    try:
+        from chutku.apps.phrases import app_scope
+        return app_scope(rows, session.goal, used)
+    except (OSError, ValueError):
+        return [row for row in rows if not row["name"].startswith("app.") or row["name"] in used]
+
+
 # The local model plans ~2.3x faster with a short tool menu (measured 2026-10-04 on the RTX 3050: 17.9 s with all
 # 137 tools vs 7.6 s with 30, same plan). Each round gets the core tools, tools whose words match the request and
 # tools already used; when the model says it cannot do the task with that menu, the round is retried with every tool.
@@ -183,7 +195,8 @@ def _words(text):
 def relevant_rows(rows, session):
     """Core tools + tools used so far + the tools whose name/description words best match the request."""
     if session is None or getattr(session, "full_catalog", False):
-        return rows
+        return rows   # the retry with every tool really offers every tool
+    rows = _app_scoped(rows, session)
     wanted = _words(session.goal)
     used = {step["tool"] for step in session.steps} | {step["tool"] for step in getattr(session, "queue", []) or []}
     scored = []
@@ -464,6 +477,13 @@ _NO_SEARCH = re.compile(r"\bsearch\s+(?:mat|nahi|nahin|na|mt)\b|\b(?:mat|nahi|na
                         r"\bdo not search\b|\bwithout search(?:ing)?\b|\bno search\b", re.I)
 SEARCH_TOOLS = frozenset({"spotify.search", "web.search", "web.results", "youtube.play"})
 FINAL_WHEN_FAILED = frozenset({"screen.act_on_visible"})   # its failure is the answer, never a cue to improvise
+# An app action (App Mastery) that found no exact item, or several, or stopped a wrong song: also the answer.
+_APP_FINAL = re.compile(r"nothing clicked|say which one|check failed: playing_on_page", re.I)
+
+
+def _final_failure(step):
+    return step["tool"] in FINAL_WHEN_FAILED or (step["tool"].startswith("app.")
+                                                 and bool(_APP_FINAL.search(step.get("message") or "")))
 
 
 def _signature(step):
@@ -606,6 +626,8 @@ def qwen_prompt(runtime, session):
     the goal). Returns (tool_schemas, system, user)."""
     from chutku.profiles import AGENT_SYSTEM_QWEN, QWEN, TOOL_NOTES, tool_line
     rows = planner_tool_rows(runtime)
+    if not getattr(session, "full_catalog", False):
+        rows = _app_scoped(rows, session)
     core = sorted((r for r in rows if r["name"] in QWEN.core_tools), key=lambda r: r["name"])
     others = [r for r in rows if r["name"] not in QWEN.core_tools]
     if getattr(session, "full_catalog", False):
@@ -888,7 +910,7 @@ class AgentSession:
                          + ". Nothing further ran.")
             return False
         last = self.steps[-1]
-        if last["tool"] in FINAL_WHEN_FAILED:
+        if _final_failure(last):
             # The owner pointed at something on the screen and it is not there as asked (owner, 2026-10-08: after
             # "not visible as a playlist" the planner clicked a play button and started the SONG of that name).
             # That answer is final: no improvising with other clicks.

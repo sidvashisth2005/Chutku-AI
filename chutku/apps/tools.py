@@ -37,9 +37,39 @@ def _make(app_atlas, action):
                 "none", success_predicate="atlas_check_passed", deletes=action["risk"] == "destructive")
 
 
+def _howto_tool(atlases):
+    from chutku.apps import howto
+    apps = sorted(p.stem for p in howto.MAPS.glob("*.md") if p.stem != "README")
+
+    def validate(arguments):
+        if not isinstance(arguments, dict) or set(arguments) != {"app", "question"}:
+            raise ValueError("Give app and question.")
+        if arguments["app"] not in apps:
+            raise ValueError(f"app must be one of {', '.join(apps)}")
+        if not isinstance(arguments["question"], str) or not 0 < len(arguments["question"].strip()) <= 300:
+            raise ValueError("question must be 1-300 characters")
+
+    def execute(arguments, _context):
+        from chutku.app import PROJECT_ROOT
+        from chutku.apps.lab import verified_actions
+        app = arguments["app"]
+        out = howto.answer(arguments["question"], app, atlases.get(app), verified_actions(PROJECT_ROOT).get(app, set()))
+        found = bool(out["answers"] or out["can_do"])
+        return ToolResult(out, Verification.PASS if found else Verification.FAIL)
+
+    return Tool("apps.howto", "How to do something in one of the owner's daily apps (from its feature map), and "
+                "whether Chutku can do it herself", Risk.OBSERVATION, execute, validate,
+                argument_schema={"type": "object", "properties": {
+                    "app": {"type": "string", "enum": apps},
+                    "question": {"type": "string", "minLength": 1, "maxLength": 300}},
+                    "required": ["app", "question"], "additionalProperties": False},
+                success_predicate="answer_found")
+
+
 def register_app_tools(registry, directory=None):
-    """Register every valid atlas's actions; returns {"apps": n, "actions": n, "refused": {file: error}}."""
+    """Register every valid atlas's actions and apps.howto; returns {"apps", "actions", "refused": {file: error}}."""
     atlases, errors = atlas_module.load_all(directory) if directory else atlas_module.load_all()
+    registry.register(_howto_tool(atlases))
     count = 0
     for app_atlas in atlases.values():
         for action in app_atlas["actions"]:

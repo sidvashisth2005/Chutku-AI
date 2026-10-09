@@ -302,6 +302,18 @@ Chutku now has a fixed recipe for each thing she can do in an app (`chutku/apps/
 - The lab never sends, deletes or quits anything. It adds things to your apps only with `--changes`. If your music was paused before, it pauses it again afterwards.
 - Spotify on 2026-10-09: 16 of 18 verified. Typical times: about 1 s for play, pause or volume; about 2.5 s to open a page; about 6 s to play a named playlist.
 
+- **Say it, and a verified action runs at once** (since 2026-10-09), with no model and no approval:
+  - "After Party wali playlist chalao" / "play my After Party playlist" / "spotify pe After Party playlist chalao";
+  - "play liked songs" / "liked songs chalao";
+  - "spotify pause karo" / "spotify roko" / "spotify wapas chalao";
+  - "spotify pe agla gaana" / "spotify next" / "spotify previous";
+  - "spotify mein lofi beats dhoondo" / "search lofi on spotify";
+  - "meri playlists dikhao" / "liked songs kholo" / "spotify queue dikhao" / "spotify home";
+  - "spotify shuffle" / "spotify repeat" / "spotify ki awaaz badhao".
+
+  "gaana roko" / "agla gaana" without "Spotify" still control whatever is playing (YouTube too). If the playlist name isn't in your library exactly as you said it, she clicks nothing and tells you; she does not go hunting.
+- **Ask how to do something in an app:** "spotify mein shuffle kaise karte hain", "how do I mute a chat in whatsapp", "vs code mein terminal kaise kholte hain". She answers from her notes on that app (Spotify, WhatsApp, Brave/YouTube, VS Code, Settings, ChatGPT, Discord, VLC, Telegram, File Explorer, Notepad) and says whether she can do it herself.
+
 ### Undo everything at once (Causal Rewind, since 2026-10-06)
 
 - **"pichhle 10 minute ka sab wapas karo"** / "undo everything from the last 10 minutes", **"aaj jo kiya sab wapas karo"** / "undo everything today", **"last task undo karo"** / "undo the last task".
