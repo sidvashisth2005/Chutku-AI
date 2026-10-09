@@ -113,6 +113,26 @@ def _voice_command(namespace):
     print(f"Enrolled with {used} clips. Type 'voice lock on' in the dashboard chat to switch the lock on.")
 
 
+def _apps_command(namespace):
+    """`apps list` / `apps lab <app>` (App Mastery A2)."""
+    from chutku.app import PROJECT_ROOT
+    from chutku.apps import atlas as atlas_module, lab
+    atlases, errors = atlas_module.load_all()
+    if namespace.apps_action == "list":
+        done = lab.verified_actions(PROJECT_ROOT)
+        for app, atlas in atlases.items():
+            print(f"{app}: {len(atlas['actions'])} actions, {len(done.get(app, ()))} verified")
+        for name, error in errors.items():
+            print(f"REFUSED {name}: {error}")
+        return
+    if namespace.app not in atlases:
+        raise SystemExit(f"Give an app: {', '.join(atlases)}")
+    with create_runtime() as runtime:
+        report = lab.run_lab(PROJECT_ROOT, runtime, atlases[namespace.app], only=namespace.action,
+                             runs=max(1, min(namespace.runs, 10)), include_changes=namespace.changes)
+    print(lab.describe(report))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Chutku text-first runtime")
     parser.add_argument("--resource-grant", default="sandbox",
@@ -179,7 +199,16 @@ def main() -> None:
     reflexes = subparsers.add_parser("reflex", help="Learned instant skills: list, compile, enable or disable")
     reflexes.add_argument("reflex_action", choices=("list", "compile", "enable", "disable"))
     reflexes.add_argument("reflex_id", nargs="?")
+    apps = subparsers.add_parser("apps", help="App Mastery: list atlases, or run the Action Lab for one app")
+    apps.add_argument("apps_action", choices=("list", "lab"))
+    apps.add_argument("app", nargs="?")
+    apps.add_argument("--action", action="append", help="only these action ids (repeatable)")
+    apps.add_argument("--runs", type=int, default=3)
+    apps.add_argument("--changes", action="store_true", help="also run 'changes' actions (they add things)")
     namespace = parser.parse_args()
+    if namespace.command == "apps":
+        _apps_command(namespace)
+        return
     if namespace.command == "open":
         from chutku.dashboard import open_running_dashboard
         print(open_running_dashboard())

@@ -291,6 +291,17 @@ The **Today** card then shows a line like *"Raat ko: 1 naye skills, 4 badle hue 
 - The task is `\Chutku\NightShift` in Task Scheduler; `chutku.cli nightshift install` sets it up again.
 - When there are 300 verified requests, she also writes `data\nightshift\lora-ready.json`. That means enough data for the planned weekly fine-tune, which still needs your yes the first time.
 
+### App actions and the Action Lab (since 2026-10-09)
+
+Chutku now has a fixed recipe for each thing she can do in an app (`chutku/apps/atlas/<app>.json`). Spotify is first: open, pause, resume, next, previous, shuffle, repeat, volume, search, Home, your playlists (Your Library), Liked Songs, queue, **play one of your playlists by its exact name**, play Liked Songs, new playlist, quit.
+- Every recipe ends with its own check, for example: the song that started must be on the page she opened, or she pauses it.
+- **Action Lab:** she tries each harmless recipe 3 times on your PC. Only then does it count as *verified*. Run it yourself:
+  - `.venv\Scripts\python.exe -m chutku.cli apps lab spotify`;
+  - only one action: add `--action play_playlist`;
+  - to see the counts: `… apps list`.
+- The lab never sends, deletes or quits anything. It adds things to your apps only with `--changes`. If your music was paused before, it pauses it again afterwards.
+- Spotify on 2026-10-09: 16 of 18 verified. Typical times: about 1 s for play, pause or volume; about 2.5 s to open a page; about 6 s to play a named playlist.
+
 ### Undo everything at once (Causal Rewind, since 2026-10-06)
 
 - **"pichhle 10 minute ka sab wapas karo"** / "undo everything from the last 10 minutes", **"aaj jo kiya sab wapas karo"** / "undo everything today", **"last task undo karo"** / "undo the last task".

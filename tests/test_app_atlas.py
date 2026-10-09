@@ -68,8 +68,8 @@ class FakeDriver:
     def ocr(self, rect):
         return [{"text": t, "rect": (0, 0, 1, 1)} for t in self.lines]
 
-    def click_text(self, rect, name, kind):
-        self.calls.append(("click_text", name, kind))
+    def click_text(self, rect, name, kind, double=False):
+        self.calls.append(("click_text", name, kind) + (("double",) if double else ()))
         return name
 
     def play_page(self, rect):
@@ -126,7 +126,68 @@ class ValidatorTests(unittest.TestCase):
         self.assertEqual(set(errors), {"bad.json", "broken.json"})
 
 
+class SongDriver(FakeDriver):
+    """Media status changes once something is double-clicked: 'title' plays."""
+    def __init__(self, title, lines, playing_before=False):
+        super().__init__(lines=lines, playing=playing_before)
+        self.song = "Old Song"
+        self.next_title = title
+
+    def click_text(self, rect, name, kind, double=False):
+        self.playing, self.song = True, self.next_title
+        return super().click_text(rect, name, kind, double)
+
+    def media(self, action):
+        if action == "status":
+            return {"status": "Playing" if self.playing else "Paused", "title": self.song}
+        if action == "pause":
+            self.playing = False
+        self.calls.append(("media", action))
+        return {"accepted": True}
+
+
+PLAY_LIST = {"id": "play_list2", "title": "Play list", "risk": "safe", "params": {"name": {"type": "text"}},
+             "steps": [{"focus": True}, {"click_text": "{name}", "kind": "playlist", "double": True}],
+             "check": {"playing_on_page": True}}
+
+
 class RunnerTests(unittest.TestCase):
+    def test_double_click_play_passes_only_when_the_song_is_on_the_page(self):
+        page = ["After Party", "Kar Gayi Chull", 'Lehnga (From "Jatt']
+        driver = SongDriver('Lehnga (From "Jatt & Juliet 3")', page)
+        result = runner.run(ATLAS, PLAY_LIST, {"name": "After Party"}, driver)
+        self.assertTrue(result["ok"], result)
+        self.assertIn(("click_text", "After Party", "playlist", "double"), driver.calls)
+        # Negative: a song that is not on the opened page started -> fail and pause it again.
+        driver = SongDriver("Some Other Song", page)
+        result = runner.run(ATLAS, PLAY_LIST, {"name": "After Party"}, driver)
+        self.assertFalse(result["ok"])
+        self.assertIn(("media", "pause"), driver.calls)
+        self.assertEqual(result["paused_wrong"], "Some Other Song")
+
+    def test_owner_music_is_not_paused_when_nothing_new_started(self):
+        driver = SongDriver("Old Song", ["After Party"], playing_before=True)
+        result = runner.run(ATLAS, PLAY_LIST, {"name": "After Party"}, driver)
+        self.assertFalse(result["ok"])
+        self.assertNotIn(("media", "pause"), driver.calls)
+
+    def test_on_page_accepts_cut_titles_but_not_short_fragments(self):
+        lines = [{"text": 'Lehnga (From "Jatt'}, {"text": "Hey"}]
+        self.assertTrue(runner.on_page('Lehnga (From "Jatt & Juliet 3")', lines))
+        self.assertFalse(runner.on_page("Hey Jude", lines))
+        self.assertFalse(runner.on_page("", lines))
+
+    def test_unless_step_skips_a_toggle_that_is_already_showing(self):
+        toggle = {"id": "queue", "title": "Queue", "risk": "safe",
+                  "steps": [{"focus": True}, {"keys": "alt+shift+q", "unless": "Queue"}], "check": {"ocr_contains": "Queue"}}
+        driver = FakeDriver(lines=["Queue", "Now playing"])
+        result = runner.run(ATLAS, toggle, {}, driver)
+        self.assertTrue(result["ok"])
+        self.assertNotIn(("keys", "alt+shift+q"), driver.calls)
+        driver = FakeDriver(lines=["Home"])
+        runner.run(ATLAS, toggle, {}, driver)
+        self.assertIn(("keys", "alt+shift+q"), driver.calls)
+
     def test_uri_values_are_encoded(self):
         driver = FakeDriver()
         result = runner.run(ATLAS, action(ATLAS, "search"), {"query": "after party & more"}, driver)

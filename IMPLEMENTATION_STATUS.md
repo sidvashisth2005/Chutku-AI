@@ -16,6 +16,45 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-09: A2 — Action Lab: Spotify actions proven on this PC (16/18 verified)
+
+Checked against `docs/APP_MASTERY_PLAN.md` A2.
+- **Built:**
+  - `chutku/apps/lab.py`. It runs each action through the normal `Runtime.run` (policy, action log) with its `drill` values, `--runs` times (default 3).
+    - The action's own check decides each run. 3 passes in a row = **verified**; one failure resets the streak, and the action is not run again that round.
+    - Results go to `data/apps/<app>/lab.json` and to the reliability ledger (`autonomy="lab"`).
+    - Only `safe` actions run by default. `changes` actions run with `--changes`; `consequential` and `destructive` actions never run.
+    - Atlas `lab` fields: `skip` (reason), `pair` (presses a toggle back: shuffle 1, repeat 2), `setup` (a safe action without parameters run before each try).
+    - Music that was paused before the lab is paused again after it.
+  - CLI: `chutku.cli apps list` and `chutku.cli apps lab <app> [--action id] [--runs n] [--changes]`.
+  - Runner (`chutku/apps/runner.py`):
+    - `"unless": "<text>"` on a step skips it when that text is already on the window (Spotify's queue key is a toggle);
+    - `click_text … "double": true`;
+    - `media_paused` now waits up to 3 s for the status;
+    - a new check, `playing_on_page`: the song now playing must be one of the window's OCR lines (cut titles allowed, fragments under 6 characters are not). If a *new* song started that is not on the page, it is paused at once. The owner's own music is never paused when nothing new started.
+  - The validator checks `drill` (declared params only) and `lab` (keys; `setup` must be a safe, parameterless action).
+- **Spotify atlas fixes, all from live probes:**
+  - Alt+Shift+1 does nothing in this Spotify version. **Alt+Shift+0** opens Your Library, which lists the owner's playlists with a "Playlist • Siddhant Vashisth" line under each name.
+  - `play_playlist` and `play_liked` now **double-click the exact row in Your Library**, which plays it. The old vision play-button step took 39–64 s and started a wrong song (`play_liked` → "Lehnga", not on the page).
+  - `go_home` checks "Show all" (the Home page has no "Home" text).
+  - `go_queue` uses `unless: Queue`.
+  - `previous` presses twice (one press only restarts a song past 3 s), with the lab setup `next`.
+- **Tests:**
+  - `tests/test_app_lab.py` (10): verify after 3 and ledger rows; toggles pressed back (6 and 9 calls); consequential/changes/skip/no-drill not run; a failure stops and resets the streak; a DENIED step is a failure; setup runs before each try (and must be safe); music re-paused; a corrupt lab.json means nothing verified; validator drill/lab checks; the shipped Spotify atlas.
+  - `tests/test_app_atlas.py` (+4): the double-click play passes only when the song is on the page, and **negative**: another song started → fail + paused; the owner's music is not paused when nothing new started; `on_page` cut titles; an `unless` step is skipped when its text is showing.
+- **Results:** full suite **1065 tests OK** (191.3 s).
+- **Real path:** `.venv\Scripts\python.exe -m chutku.cli apps lab spotify` on the live PC.
+  - First run: 10/18 verified. The failures were fixed as above, then the failed actions were re-run with `--action`.
+  - Result: **16/18 verified**, median 2.86 s.
+    - open 0.5 s; shuffle, repeat and volume ~1.0 s; resume 1.0–2.0 s; next ~2.1 s; go_* 2.4–2.6 s; search 3.0 s; play_playlist/play_liked ~6 s.
+    - Skipped: `new_playlist` (changes) and `quit` (lab skip).
+  - Direct runner check:
+    - `play_playlist` "After Party": ok in 6.3 s, now playing "Pala Satake".
+    - Independent OCR of the Spotify window: the heading "After Party", "196 songs, 13 hr 17 min" (the owner's playlist) and "Pala Satake" on the page.
+    - Media paused afterwards and read back "Paused".
+- **Negative (live):** `play_playlist` "Afterparty Hits" → refused in 3.6 s: "'Afterparty Hits' (playlist) is not visible; nothing clicked". The media status was Paused / "Lehnga" before and after (unchanged).
+- **Not yet:** verified actions are not yet routed instantly by phrase (A3). The lab does not run `changes` actions on its own, and has no dry mode for consequential ones yet (WhatsApp, A5).
+
 ### 2026-10-09: A1 — app atlases, validator, step runner, checks; actions become tools
 
 Checked against `docs/APP_MASTERY_PLAN.md` A1.

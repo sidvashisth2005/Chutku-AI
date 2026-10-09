@@ -802,7 +802,7 @@ Full spec: `docs/APP_MASTERY_PLAN.md`.
 
 - [x] A0: Docs harvest — done 2026-10-09 (33/34 pages saved, 11 feature maps, 255 actions catalogued)
 - [x] A1: Atlas format + validator + runner + verifiers — done 2026-10-09 (Spotify atlas: 5 of 6 live actions pass; go_playlists shortcut does not work in this Spotify version)
-- [ ] A2: Action Lab
+- [x] A2: Action Lab — done 2026-10-09 (Spotify 16/18 verified on the live PC, median 2.86 s; quit and new_playlist are not run by the lab)
 - [ ] A3: Phrase compiler + routing + app.howto
 - [ ] A4: Spotify
 - [ ] A5: WhatsApp

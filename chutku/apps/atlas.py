@@ -16,7 +16,7 @@ RISK = {"safe": 1, "changes": 2, "consequential": 3, "destructive": 4}
 VERBS = {"focus", "launch", "uri", "cli", "keys", "type", "click_text", "wait_text", "play_page", "sleep", "media",
          "settings_uri"}
 CHECKS = {"media_playing", "media_paused", "media_changed", "title_in_page", "window_title_contains", "ocr_contains",
-          "process_running", "process_gone", "window_open"}
+          "process_running", "process_gone", "window_open", "playing_on_page"}
 PARAM_TYPES = {"text", "number", "path"}
 _ID = re.compile(r"^[a-z][a-z0-9_]{1,40}$")
 _SLOT = re.compile(r"\{([a-z][a-z0-9_]*)\}")
@@ -100,6 +100,18 @@ def validate(atlas: dict) -> dict:
             raise AtlasError(f"{where}: check keys must be from {sorted(CHECKS)}")
         if not check and action["risk"] != "safe":
             raise AtlasError(f"{where}: a {action['risk']} action needs a check")
+        drill = action.get("drill") or {}
+        if not isinstance(drill, dict) or set(drill) - set(params):
+            raise AtlasError(f"{where}: drill values must be for declared params")
+        lab = action.get("lab") or {}
+        pair = lab.get("pair", False) if isinstance(lab, dict) else None
+        if not isinstance(lab, dict) or set(lab) - {"skip", "pair", "setup"} or not (pair in (True, False)
+                                                                                   or pair in (1, 2, 3)):
+            raise AtlasError(f"{where}: lab is {{skip: reason}}, {{pair: true|1-3}} and/or {{setup: action id}}")
+        if lab.get("setup"):
+            setup = next((a for a in actions if a.get("id") == lab["setup"]), None)
+            if not setup or setup.get("risk") != "safe" or setup.get("params"):
+                raise AtlasError(f"{where}: lab setup must be a safe action without parameters")
         phrases = action.get("phrases") or []
         if not isinstance(phrases, list) or any(_slots(p) - set(params) for p in phrases):
             raise AtlasError(f"{where}: phrases may only use declared params")

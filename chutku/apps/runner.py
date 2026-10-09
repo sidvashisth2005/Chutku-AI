@@ -96,7 +96,7 @@ class Driver:
         from chutku.tools.visible import _ocr
         return _ocr(rect)
 
-    def click_text(self, rect, name, kind):
+    def click_text(self, rect, name, kind, double=False):
         from chutku import vision
         from chutku.tools.visible import typed
         tier, found = typed(self.ocr(rect), name, kind)
@@ -105,7 +105,7 @@ class Driver:
         if len(found) > 1:
             raise StepFailed(f"{len(found)} items read '{name}'; say which one")
         x0, y0, x1, y1 = found[0]["rect"]
-        vision.click_at((x0 + x1) // 2, (y0 + y1) // 2)
+        vision.click_at((x0 + x1) // 2, (y0 + y1) // 2, double=double)
         time.sleep(1.2)
         return found[0]["text"]
 
@@ -137,6 +137,13 @@ def run(atlas, action, params, driver=None):
         for step in action["steps"]:
             verb = next(v for v in step if v in {"focus", "launch", "uri", "cli", "keys", "type", "click_text",
                                                  "wait_text", "play_page", "sleep", "media", "settings_uri"})
+            if step.get("unless"):
+                # Toggles (a side panel) are pressed only when their screen is not already showing.
+                current = hwnd or driver.find_window(window)
+                text = fill(step["unless"], params).casefold()
+                if current and any(text in l["text"].casefold() for l in driver.ocr(driver.window_rect(current))):
+                    out["steps"].append(f"{verb} (already showing)")
+                    continue
             if verb == "focus":
                 hwnd = driver.find_window(window)
                 if hwnd is None:
@@ -170,7 +177,7 @@ def run(atlas, action, params, driver=None):
             elif verb == "click_text":
                 hwnd = hwnd or driver.find_window(window)
                 out["clicked"] = driver.click_text(driver.window_rect(hwnd), fill(step["click_text"], params),
-                                                   step.get("kind"))
+                                                   step.get("kind"), **({"double": True} if step.get("double") else {}))
             elif verb == "wait_text":
                 hwnd = hwnd or driver.find_window(window)
                 text = fill(step["wait_text"], params).casefold()
@@ -201,8 +208,24 @@ def run(atlas, action, params, driver=None):
     return out
 
 
+def _norm(text):
+    return re.sub(r"[^\w]+", " ", str(text).casefold()).strip()
+
+
+def on_page(title, lines):
+    """True when the song title is one of the window's OCR lines (OCR may cut long titles: 'Lehnga (From "Jatt')."""
+    want = _norm(title)
+    if not want:
+        return False
+    for line in lines:
+        seen = _norm(line["text"])
+        if seen == want or (len(seen) >= 6 and want.startswith(seen)) or (len(want) >= 6 and seen.startswith(want)):
+            return True
+    return False
+
+
 def _uses_media(action):
-    return bool({"media_playing", "media_changed", "media_paused"} & set(action.get("check") or {}))
+    return bool({"media_playing", "media_changed", "media_paused", "playing_on_page"} & set(action.get("check") or {}))
 
 
 def _media_status(driver):
@@ -226,7 +249,8 @@ def _check(check, params, driver, window, hwnd, before, out):
     results = {}
     if not check:
         return results
-    after = _media_status(driver) if {"media_playing", "media_changed", "media_paused"} & set(check) else {}
+    media_checks = {"media_playing", "media_changed", "media_paused", "playing_on_page"}
+    after = _media_status(driver) if media_checks & set(check) else {}
     for name, value in check.items():
         value = fill(value, params)
         if name == "media_playing":
@@ -236,11 +260,28 @@ def _check(check, params, driver, window, hwnd, before, out):
                 after = _media_status(driver)
             results[name] = after.get("status") == "Playing"
         elif name == "media_paused":
+            deadline = time.monotonic() + 3
+            while after.get("status") not in {"Paused", "Stopped"} and time.monotonic() < deadline:
+                time.sleep(0.4)
+                after = _media_status(driver)
             results[name] = after.get("status") in {"Paused", "Stopped"}
         elif name == "media_changed":
             results[name] = after.get("title") != before.get("title") or after.get("status") != before.get("status")
         elif name == "title_in_page":
             results[name] = bool((out.get("play") or {}).get("playing"))
+        elif name == "playing_on_page":
+            # What plays must be one of the tracks the opened page shows (not a song from somewhere else).
+            deadline = time.monotonic() + 4
+            while after.get("status") != "Playing" and time.monotonic() < deadline:
+                time.sleep(0.5)
+                after = _media_status(driver)
+            current = driver.find_window(window) or hwnd
+            lines = driver.ocr(driver.window_rect(current)) if current else []
+            results[name] = after.get("status") == "Playing" and on_page(after.get("title") or "", lines)
+            started_new = before.get("status") != "Playing" or after.get("title") != before.get("title")
+            if not results[name] and after.get("status") == "Playing" and started_new:
+                driver.media("pause")   # something else started: stop it rather than play the wrong thing
+                out["paused_wrong"] = after.get("title")
         elif name == "window_title_contains":
             current = driver.find_window(window) or hwnd
             results[name] = bool(current) and str(value).casefold() in driver.title(current).casefold()
