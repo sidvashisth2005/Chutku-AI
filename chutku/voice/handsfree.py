@@ -35,6 +35,9 @@ MUTE_HOTKEYS = (("Ctrl+Alt+X", 0x2 | 0x1, 0x58), ("Ctrl+Alt+Z", 0x2 | 0x1, 0x5A)
 _CORE = re.compile(r"(?:[oyewihbak]{0,5})c+h{0,2}[aeiou]{1,2}[td]{1,2}h?a?k+(?:u|uu|oo|o|ou)m?")
 # Whisper sometimes drops the t ("Oe chuku"); accepted only after the "Oye" greeting, so a bare "chuku" never wakes.
 _DROPPED_T = re.compile(r"o[yeiw]{0,3}c+h{0,2}u{1,2}k+(?:u|uu|oo)")
+# English-biased Whisper hears a bare "Oye Chutku" as "Why should it go?" / "Why is it go?" / "I should go."
+# (owner's mic, 2026-10-11, heard.jsonl). Accepted only when the WHOLE utterance is that phrase, with no command.
+_MISHEARD = re.compile(r"(?:why|oye?|oi|o|ah|i)(?:should|shud|shoot|shut|is)(?:it|i)?(?:go|goo|gu|ku|koo)")
 _WORD = re.compile(r"[A-Za-z']+")
 _LISTEN_WORD = re.compile(r"^(?:sun+|suno+|sunna|suniye|suno na|sun na|soon|son|sunn|listen)\b[\s,.!?]*", re.I)
 
@@ -44,6 +47,8 @@ def split_wake(text):
     from chutku.translit import roman
     text = roman(text or "")
     words = list(_WORD.finditer(text))
+    if 2 <= len(words) <= 4 and _MISHEARD.fullmatch("".join(m.group(0) for m in words).lower().replace("'", "")):
+        return True, ""
     for count in (1, 2, 3):
         if len(words) < count:
             break

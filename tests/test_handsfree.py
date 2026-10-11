@@ -28,6 +28,14 @@ class WakePhraseTests(unittest.TestCase):
                               ("Oye chhuku", "")]:
             self.assertEqual(split_wake(text), (True, command), text)
 
+    def test_english_mishearings_of_a_bare_wake_phrase(self):
+        # 2026-10-11 on the owner's mic: "Oye Chutku" came out as these and was ignored.
+        for text in ("Why should it go?", "Why is it go?", "I should go."):
+            self.assertEqual(split_wake(text), (True, ""), text)
+        # Only the whole short phrase counts: real sentences never wake her.
+        for text in ("I should go home now", "Why is it going?", "we should go", "kholo, kholo."):
+            self.assertEqual(split_wake(text), (False, ""), text)
+
     def test_rejects_near_misses_and_ordinary_speech(self):
         for text in ("Oye Chotu, idhar aao.", "Ek chutki bhar namak daal do.", "Chutney bana do please.",
                      "Hey Google, what's the weather?", "Open the window, it is hot.", "The chutney was great",

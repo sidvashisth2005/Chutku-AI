@@ -16,6 +16,14 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-11: Wake phrase heard as "Why should it go?" — now accepted
+
+- **Owner:** "wake up word चालू कर इसका".
+- **Found:** the setting was already on, and the live listener was running (`/api/state`: `wake_word` true, `wake_listening` true, no error). But `data/heard.jsonl` showed the owner's "Oye Chutku" transcribed as "Why should it go?" (confidence 0.49), "Why is it go?" (0.55) and "I should go." (0.58), all `ignored`.
+- **Fix:** `voice/handsfree.split_wake` accepts these English mishearings (`_MISHEARD`), but only when the **whole** utterance is that 2–4 word phrase. Then she wakes and listens for the command.
+- **Tests:** `tests/test_handsfree.py` (+1): the three real transcripts wake. **Negative:** "I should go home now", "Why is it going?", "we should go" and "kholo, kholo." do not. `test_handsfree` + `test_screen_vision`: 32 OK.
+- **Live:** after the restart, `/api/state` shows `wake_listening` true with no error. The spoken test is the owner's next "Oye Chutku".
+
 ### 2026-10-09: A6 — Brave + YouTube: 23 actions, 15 verified; YouTube keys only on a YouTube tab
 
 Checked against `docs/APP_MASTERY_PLAN.md` A6 and `docs/apps/brave.md`.
