@@ -178,6 +178,10 @@ class LiveConversation(threading.Thread):
         self.last_activity = time.monotonic()
         self._playback = bytearray()
         self._play_lock = threading.Lock()
+        self.ending_at = None             # set by end_conversation: finish speaking, beep, then close
+        self.said_this_turn = ""          # what the model said in its current turn (false-claim check)
+        self.task_this_turn = False       # did it call do_task in this turn
+        self.last_audio_at = 0.0
         self._turn_done = False           # the model finished a turn: its next words start a new transcript entry
         self.recent_goals = {}            # goal -> when do_task last started it (one utterance heard twice)
 
@@ -283,7 +287,7 @@ class LiveConversation(threading.Thread):
             from chutku.voice import mic
             while self.active.is_set():
                 chunk = await queue.get()
-                if mic.muted():   # muted: the room is not heard at all, Chutku's answer goes on
+                if mic.muted() or self.ending_at:   # muted or saying goodbye: the room is not heard at all
                     LEVEL["rms"], LEVEL["at"] = 0.0, time.monotonic()
                     await self.ws.send(json.dumps({"realtimeInput": {"audio": {
                         "data": base64.b64encode(b"\x00" * len(chunk)).decode("ascii"),
@@ -299,6 +303,20 @@ class LiveConversation(threading.Thread):
                 for piece in passed or [b"\x00" * len(chunk)]:
                     await self.ws.send(json.dumps({"realtimeInput": {"audio": {
                         "data": base64.b64encode(piece).decode("ascii"), "mimeType": f"audio/pcm;rate={MIC_RATE}"}}}))
+
+    GOODBYE_MAX_SECONDS = 8.0     # never wait longer than this for the goodbye to finish
+    GOODBYE_SILENT_SECONDS = 1.5  # no goodbye audio at all after this long: just beep and close
+
+    def _goodbye_done(self):
+        """After end_conversation: True once the current reply has been fully spoken (or the waits ran out)."""
+        waited = time.monotonic() - self.ending_at
+        if waited >= self.GOODBYE_MAX_SECONDS:
+            return True
+        if self._speaking():
+            return False
+        if self._turn_done:
+            return True                      # the model finished its turn and every byte has been played
+        return waited >= self.GOODBYE_SILENT_SECONDS and time.monotonic() - self.last_audio_at >= 1.0
 
     def _speaking(self):
         with self._play_lock:
@@ -322,7 +340,15 @@ class LiveConversation(threading.Thread):
         """End after a long silence or when asked to stop."""
         from chutku.voice import mic
         while self.active.is_set():
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.25 if self.ending_at else 0.5)
+            if self.ending_at:
+                if self._goodbye_done():
+                    await asyncio.sleep(0.3)        # the speaker has played the last buffered audio
+                    from chutku.voice.handsfree import chime
+                    await asyncio.to_thread(chime, "done")
+                    self.server.live_event("ended")
+                    break
+                continue
             if mic.muted():   # a muted pause is not "the owner left": keep the conversation open
                 self.last_activity = time.monotonic()
                 continue
@@ -350,6 +376,7 @@ class LiveConversation(threading.Thread):
             if data and self.audio:
                 with self._play_lock:
                     self._playback.extend(base64.b64decode(data))
+                self.last_audio_at = time.monotonic()
         heard = (content.get("inputTranscription") or {}).get("text")
         if heard:
             from chutku.voice.heard import meaningful
@@ -362,8 +389,14 @@ class LiveConversation(threading.Thread):
         if said:
             self.last_activity = time.monotonic()
             self._add("chutku", said)
+        if said:
+            self.said_this_turn += " " + said
         if content.get("turnComplete") or content.get("generationComplete"):
             self._turn_done = True   # live 2026-10-06: separate model turns were glued into one repeated reply
+            claimed = self._claimed_without_task()
+            self.said_this_turn, self.task_this_turn = "", False
+            if claimed is not None:
+                return claimed
         calls = (message.get("toolCall") or {}).get("functionCalls") or []
         if calls:
             return {"toolResponse": {"functionResponses": [
@@ -371,6 +404,34 @@ class LiveConversation(threading.Thread):
                                                                                           call.get("args") or {})}
                 for call in calls]}}
         return None
+
+    # The live model sometimes SAYS it is doing PC work without calling do_task (2026-10-11: "us par click kar rahi
+    # hoon ... play button pe click kar diya" with no tool at all; nothing happened). Such a claim starts the task
+    # from the owner's own words, so it becomes true; the model is told so and must wait for the [Task update].
+    _CLAIM = re.compile(
+        r"\b(?:(?:kar|khol|chala|baja|bhej|laga|click kar|play kar|open kar|band kar|search kar|dhoondh?)"
+        r"\s*(?:rahi hoon|rahi hu|raha hoon|diya|di|diye|dungi|deti hoon|ke deti hoon)"
+        r"|(?:opening|opened|clicking|clicked|playing it|started|launching|searching for)\b)", re.I)
+
+    def _claimed_without_task(self):
+        from chutku.voice.heard import meaningful
+        if self.task_this_turn or self.ending_at or self._task_running():
+            return None
+        said = (self.said_this_turn or "").strip()
+        if not self._CLAIM.search(said) or said.rstrip(" .!\"'").endswith("?"):
+            return None   # no claim, or an offer that ends in a question ("open kar deti hoon... karoon?")
+        request = " ".join(self.heard_since_task.split())
+        if not meaningful(request):
+            return None
+        started = self.dispatch("do_task", {"goal": request[:1500]})
+        if started.get("status") != "started":
+            note = (f"[Chutku] You said you were doing it, but you did not call do_task, so NOTHING was done. Tell "
+                    f"the owner honestly: \"Sorry, abhi tak kuch kiya nahi.\" ({started.get('error', '')})")
+        else:
+            note = ("[Chutku] You said you were doing it but did not call do_task, so Chutku started it herself from "
+                    f"the owner's words: \"{request[:200]}\". Do not repeat it. Wait for the [Task update] and only "
+                    "then say whether it worked. Never say something is done before that.")
+        return {"clientContent": {"turns": [{"role": "user", "parts": [{"text": note}]}], "turnComplete": True}}
 
     def _add(self, speaker, text):
         new_turn = self._turn_done and speaker == "chutku"
@@ -395,6 +456,7 @@ class LiveConversation(threading.Thread):
     def dispatch(self, name, args):
         try:
             if name == "do_task":
+                self.task_this_turn = True
                 goal = str(args.get("goal", "")).strip()
                 if not 3 <= len(goal) <= 1500:
                     return {"error": "Give one clear goal."}
@@ -428,9 +490,11 @@ class LiveConversation(threading.Thread):
             if name == "task_status":
                 return self._status()
             if name == "end_conversation":
-                self.active.clear()
-                self.server.live_event("ended")
-                return {"status": "ending"}
+                # Owner 2026-10-11: "bye" used to cut her off mid-sentence (the streams closed at once). Now she
+                # finishes what she is saying, then a soft beep, then the conversation closes (see _watch).
+                self.ending_at = time.monotonic()
+                self._turn_done = False   # wait for the goodbye turn itself, not one that ended earlier
+                return {"status": "ending", "note": "Say one short goodbye (two or three words) and stop talking."}
             return {"error": f"Unknown tool {name}."}
         except Exception as error:
             return {"error": f"{type(error).__name__}: {error}"[:300]}

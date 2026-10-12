@@ -213,6 +213,7 @@ class WakeListener(threading.Thread):
         if sd is None:
             import sounddevice as sd
         segmenter = Segmenter()
+        detector = self._detector()
         with sd.RawInputStream(samplerate=16000, channels=1, dtype="int16", blocksize=1600) as stream:
             while not self.stop_event.is_set():
                 chunk, overflowed = stream.read(1600)
@@ -222,6 +223,13 @@ class WakeListener(threading.Thread):
                 from chutku.voice import mic
                 if self.busy.is_set() or self.hold.is_set() or mic.muted() or voice_session.quiet_for() < 1.0:
                     segmenter.reset()  # never listen to ourselves or during a request
+                    if detector is not None:
+                        detector.reset()
+                    continue
+                if detector is not None:
+                    # The trained detector hears every 80 ms; no Whisper, no queue, nothing to drop (2026-10-11).
+                    if detector.feed(bytes(chunk)) and not self.busy.is_set():
+                        self._woke_by_detector(detector)
                     continue
                 segment = segmenter.feed(bytes(chunk))
                 if segment is None:
@@ -241,6 +249,34 @@ class WakeListener(threading.Thread):
                     except queue.Empty:
                         pass
                     self._segments.put_nowait((segment, voiced["peak_frame_rms"]))
+
+    engine = "whisper"
+    detector_model = None   # tests set a path; None = models/wake/oye_chutku.npz
+
+    def _detector(self):
+        """The trained "Oye Chutku" detector, or None (then the Whisper path below is used)."""
+        if self.backend is not None and self.detector_model is None:
+            return None   # tests with a fake microphone keep the Whisper path unless they ask for the detector
+        try:
+            from chutku.voice import wakeword
+            path = self.detector_model or wakeword.MODEL
+            if not wakeword.available(path):
+                return None
+            detector = wakeword.Detector(path)
+        except Exception as error:   # a broken model never leaves Chutku deaf: fall back to Whisper
+            self.error = f"wake detector: {type(error).__name__}: {error}"[:200]
+            return None
+        self.engine = "detector"
+        self.detector = detector
+        return detector
+
+    def _woke_by_detector(self, detector):
+        from chutku.voice.heard import log_heard
+        log_heard("wake", "(Oye Chutku)", "wake", confidence=round(detector.last_score, 3))
+        detector.best_score = 0.0
+        self.wakes += 1
+        self.busy.set()
+        threading.Thread(target=self._dispatch, args=("",), daemon=True).start()
 
     def _transcriber(self):
         from chutku.voice.heard import log_heard, meaningful

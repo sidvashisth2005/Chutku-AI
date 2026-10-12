@@ -157,9 +157,13 @@ class PhraseAndGuardTests(unittest.TestCase):
                  "play After Party from the screen": {"name": "After Party", "action": "play",
                                                       "app_if_open": "spotify"},
                  "screen pe Settings dikh raha hai usko kholo": {"name": "Settings", "action": "open"}}
-        for text, arguments in cases.items():
-            got = quick_proposal(text)["next_steps"][0]
-            self.assertEqual((got["tool"], got["arguments"]), ("screen.act_on_visible", arguments), text)
+        with patch("chutku.apps.lab.verified", return_value=False):   # before the Action Lab verified play_playlist
+            for text, arguments in cases.items():
+                got = quick_proposal(text)["next_steps"][0]
+                self.assertEqual((got["tool"], got["arguments"]), ("screen.act_on_visible", arguments), text)
+        with patch("chutku.apps.lab.verified", return_value=True):    # verified: the library route (2026-10-11)
+            got = quick_proposal("playlist screen pr hi h after party ki play it")["next_steps"][0]
+            self.assertEqual((got["tool"], got["arguments"]), ("app.spotify.play_playlist", {"name": "after party"}))
         self.assertEqual(quick_proposal("screen pe kya hai")["next_steps"][0]["tool"], "screen.understand")
 
     def test_a_failed_on_screen_action_is_final(self):

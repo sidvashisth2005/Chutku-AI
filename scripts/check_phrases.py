@@ -35,7 +35,8 @@ CASES = [
     # weekly insights (Phase 3b H7)
     ("is hafte kya kiya", "insights.week"), ("weekly report", "insights.week"),
     # what is already on the screen (owner, 2026-10-08): never search
-    ("playlist screen pr hi h after party ki play it", "screen.act_on_visible"), ("play After Party from the screen", "screen.act_on_visible"),
+    ("playlist screen pr hi h after party ki play it", "app.spotify.play_playlist"), ("Bhai Spotify chalu kar", "apps.launch"),
+    ("Screen par dekh meri after party playlist dikh rahi hogi already, uss par click kar", "app.spotify.play_playlist"), ("play After Party from the screen", "screen.act_on_visible"),
     # apps and media
     ("open spotify", "apps.launch"), ("spotify kholo", "apps.launch"), ("open whatsapp", "apps.launch"),
     ("close spotify", "apps.quit"), ("play lofi hip hop on youtube", "youtube.play"),

@@ -133,6 +133,51 @@ def _apps_command(namespace):
     print(lab.describe(report))
 
 
+def _wake_command(namespace):
+    """`wake record` (the owner says "Oye Chutku" 12 times, near and far) / `wake train` / `wake status`."""
+    from chutku.app import PROJECT_ROOT
+    import subprocess
+    import sys
+    import time
+    import wave
+    folder = PROJECT_ROOT / "data" / "wake" / "owner"
+    if namespace.wake_action == "status":
+        from chutku.voice import wakeword
+        clips = len(list(folder.glob("*.wav"))) if folder.exists() else 0
+        if wakeword.available():
+            meta = wakeword.Detector().meta
+            print(f"Detector trained {meta['trained']} with {meta['owner_clips']} of your clips; "
+                  f"threshold {meta['threshold']}. Clips saved now: {clips}.")
+        else:
+            print(f"No detector yet (run 'wake train'). Clips saved: {clips}.")
+        return
+    if namespace.wake_action == "train":
+        sys.exit(subprocess.call([sys.executable, str(PROJECT_ROOT / "scripts" / "train_wake.py")]))
+    import numpy as np
+    import sounddevice as sd
+    from chutku.voice.handsfree import chime
+    folder.mkdir(parents=True, exist_ok=True)
+    start = len(list(folder.glob("*.wav")))
+    plan = [("paas se, normal awaaz mein", 4), ("paas se, dheere", 2), ("2-3 metre door se", 4),
+            ("door se, kaam karte karte jaise bolte ho", 2)]
+    print("Har beep ke baad 'Oye Chutku' bolo (2.5 second). Recordings stay on this PC (data/wake/owner).")
+    number = start
+    for where, count in plan:
+        input(f"\nAb {count} baar {where}. Taiyaar ho to Enter dabao...")
+        for _ in range(count):
+            time.sleep(0.6)
+            chime("listen")
+            audio = sd.rec(int(2.5 * 16000), samplerate=16000, channels=1, dtype="int16")
+            sd.wait()
+            level = float(np.sqrt(np.mean(audio.astype(np.float32) ** 2)) / 32768)
+            number += 1
+            with wave.open(str(folder / f"{number:03d}.wav"), "wb") as out:
+                out.setnchannels(1), out.setsampwidth(2), out.setframerate(16000)
+                out.writeframes(audio.tobytes())
+            print(f"  {number:03d}.wav saved (level {level:.4f}{', bahut dheema - thoda zor se?' if level < 0.002 else ''})")
+    print(f"\n{number - start} clips saved. Now run: .venv\\Scripts\\python.exe -m chutku.cli wake train")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Chutku text-first runtime")
     parser.add_argument("--resource-grant", default="sandbox",
@@ -205,7 +250,12 @@ def main() -> None:
     apps.add_argument("--action", action="append", help="only these action ids (repeatable)")
     apps.add_argument("--runs", type=int, default=3)
     apps.add_argument("--changes", action="store_true", help="also run 'changes' actions (they add things)")
+    wake = subparsers.add_parser("wake", help="'Oye Chutku' detector: record your voice, train, status")
+    wake.add_argument("wake_action", choices=("record", "train", "status"))
     namespace = parser.parse_args()
+    if namespace.command == "wake":
+        _wake_command(namespace)
+        return
     if namespace.command == "apps":
         _apps_command(namespace)
         return

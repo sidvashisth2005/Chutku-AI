@@ -6,15 +6,20 @@ app actions exactly as to every other tool.
 """
 from __future__ import annotations
 
+import re
+
 from chutku.apps import atlas as atlas_module
 from chutku.apps import runner
 from chutku.tools.registry import Risk, Tool, ToolResult, Verification
 
 DRIVER = None   # tests set a fake Driver here; None means the real one
+# A "path" parameter goes to the app's own command line: a full Windows path, never a "-flag", no shell characters.
+_PATH = re.compile(r"[A-Za-z]:\\[^<>\"|?*&^%!\x00-\x1f]{0,250}")
 
 
 def _make(app_atlas, action):
     schema = atlas_module.param_schema(action)
+    kinds = {name: (spec or {}).get("type", "text") for name, spec in (action.get("params") or {}).items()}
 
     def validate(arguments):
         if not isinstance(arguments, dict) or set(arguments) != set(schema["properties"]):
@@ -25,6 +30,9 @@ def _make(app_atlas, action):
                 raise ValueError(f"{name} must be a number")
             if spec["type"] == "string" and (not isinstance(value, str) or not 0 < len(value.strip()) <= 300):
                 raise ValueError(f"{name} must be 1-300 characters")
+            if kinds.get(name) == "path" and not _PATH.fullmatch(value):
+                # Paths go to the app's own command line: a full Windows path only, never a "-flag".
+                raise ValueError(f"{name} must be a full path like D:\\Folder\\file.txt")
 
     def execute(arguments, _context):
         result = runner.run(app_atlas, action, arguments, DRIVER)

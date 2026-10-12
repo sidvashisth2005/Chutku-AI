@@ -16,7 +16,7 @@ RISK = {"safe": 1, "changes": 2, "consequential": 3, "destructive": 4}
 VERBS = {"focus", "launch", "uri", "cli", "keys", "type", "click_text", "wait_text", "play_page", "sleep", "media",
          "settings_uri"}
 CHECKS = {"media_playing", "media_paused", "media_changed", "title_in_page", "window_title_contains", "ocr_contains",
-          "process_running", "process_gone", "window_open", "playing_on_page", "heading", "title_lacks"}
+          "process_running", "process_gone", "window_open", "playing_on_page", "heading", "title_lacks", "title_has_file"}
 PARAM_TYPES = {"text", "number", "path"}
 _ID = re.compile(r"^[a-z][a-z0-9_]{1,40}$")
 _SLOT = re.compile(r"\{([a-z][a-z0-9_]*)\}")

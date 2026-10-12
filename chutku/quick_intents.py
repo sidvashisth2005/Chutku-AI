@@ -13,7 +13,8 @@ import time
 
 from chutku.intents.lexicon import POLITE as _POLITE, TAIL as _TAIL   # one Hinglish vocabulary for every parser
 _OPEN_VERB = r"(?:open|launch|start|run|fire up|bring up)"
-_HINDI_OPEN = r"(?:kholo|khol do|khol|open karo|open kar do|chalu karo|chalu kar do|start karo|start kar do|chalao|launch karo)"
+_HINDI_OPEN = (r"(?:kholo|khol do|khol|open karo|open kar do|open kar|chalu karo|chalu kar do|chalu kar|start karo|"
+               r"start kar do|start kar|chalao|launch karo)")
 _APP_WORDS = r"(?:\s+(?:app|application|program|software))?"
 _SITES = {"youtube": "youtube", "yt": "youtube", "google": "google", "bing": "bing", "duckduckgo": "duckduckgo",
           "wikipedia": "wikipedia", "wiki": "wikipedia", "maps": "maps", "google maps": "maps", "github": "github",
@@ -333,12 +334,36 @@ _VISIBLE = [
                rf"(?:usko\s+|use\s+|wo\s+|woh\s+|vo\s+)?{_ACT}{_DO}{_TAIL}", re.I),
     re.compile(rf"^{_POLITE}(?:playlist|song|gaana|gana|video|album)\s+{_SCREEN_WORDS}\s+(?:hi\s+)?(?:hai|h|he)\s+"
                rf"(?P<name>.+?)\s+(?:ki|ka|wali|wala)?\s*{_ACT}{_DO}{_TAIL}", re.I),
+    # "screen par dekh, meri after party playlist dikh rahi hogi already, uss par click kar" (live, 2026-10-11)
+    re.compile(rf"^{_POLITE}{_SCREEN_WORDS}\s+dekh(?:o|iye)?[,.]?\s+(?:meri\s+|mera\s+|mere\s+)?(?P<name>.+?)\s+"
+               rf"(?:dikh\s+(?:raha|rahi|rahe)(?:\s+(?:hogi|hoga|honge|hai|h))?|hai|h)(?:\s+already)?[,.]?\s+"
+               rf"(?:uss?|usko|use|isko|ise)\s+(?:par\s+|pe\s+|pr\s+)?{_ACT}(?:\s+(?:kar|karo|kar do|kardo|de|do))?{_TAIL}",
+               re.I),
     re.compile(rf"^{_POLITE}(?P<act>play|open|click(?: on)?)\s+(?:the\s+)?(?P<name>.+?)\s+(?:that(?:'s| is)\s+|which is\s+)?"
                rf"(?:on|from)\s+(?:the\s+|my\s+)?(?:screen|display){_TAIL}", re.I),
 ]
-_NAME_FILLER = re.compile(r"\b(?:wali|wala|wale|waali|ki|ka|ke|the|playlist|song|gaana|gana|video|album|jo|hi|vo|wo)\b",
-                          re.I)
+_NAME_FILLER = re.compile(r"\b(?:wali|wala|wale|waali|ki|ka|ke|the|playlist|song|gaana|gana|video|album|jo|hi|vo|wo|"
+                          r"dekh|dekho|dekhiye|already|meri|mera|mere)\b", re.I)
 _MEDIA_WORDS = re.compile(r"\b(?:playlist|song|gaana|gana|album|spotify|music)\b", re.I)
+
+
+def _spotify_playlist(shown):
+    """A Spotify playlist pointed at on screen ("... playlist ..., uss par click kar"): app.spotify.play_playlist
+    when the Action Lab has verified it on this PC, else None (the screen tool handles it)."""
+    if not shown or shown.get("kind") != "playlist" or shown.get("action") not in {"play", "click"}:
+        return None
+    if "spotify" not in {shown.get("app"), shown.get("app_if_open")}:
+        return None
+    try:
+        from chutku.app import PROJECT_ROOT
+        from chutku.apps.lab import verified
+        if not verified(PROJECT_ROOT, "spotify", "play_playlist"):
+            return None
+    except (OSError, ValueError):
+        return None
+    name = shown["name"]
+    return _proposal("app.spotify.play_playlist", {"name": name}, "Play one of my playlists by its exact name",
+                     f"{name} playlist chala di.")
 
 
 def _visible(text):
@@ -359,8 +384,8 @@ def _visible(text):
             arguments["kind"] = {"gaana": "song", "gana": "song"}.get(kind.group(1).casefold(), kind.group(1).casefold())
         if re.search(r"\bspotify\b", text, re.I) or (action == "play" and _MEDIA_WORDS.search(text)):
             arguments["app"] = "spotify"
-        elif action == "play":   # music is usually Spotify: read only its window when it is open, not the whole screen
-            arguments["app_if_open"] = "spotify"
+        elif action == "play" or arguments.get("kind") in {"playlist", "album"}:
+            arguments["app_if_open"] = "spotify"   # music is usually Spotify: read only its window when it is open
         return arguments
     return None
 
@@ -530,6 +555,9 @@ def _single(goal, apps=None):
     if MIND_MAP.search(text):
         return _proposal("mind.map", {}, "Open your mind map", "Opened your mind map.")
     shown = _visible(text)
+    playlist = _spotify_playlist(shown)
+    if playlist is not None:   # a Spotify playlist: the lab-verified way (Your Library, exact name, check it plays)
+        return playlist
     if shown is not None:   # it is already on the screen: act on that exact item, never search (2026-10-08)
         return _proposal("screen.act_on_visible", shown, f"{shown['action'].capitalize()} '{shown['name']}' from the "
                          "screen", "", finish=False)

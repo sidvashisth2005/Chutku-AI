@@ -62,6 +62,18 @@ class Driver:
         from chutku.tools.everyday import Desktop
         return Desktop().describe(hwnd).get("title") or ""
 
+    def titles(self, window):
+        """Titles of every window of the app (an app like VS Code can have several)."""
+        from chutku.tools.everyday import Desktop
+        desktop = Desktop()
+        exe = (window.get("exe") or "").casefold()
+        out = []
+        for hwnd in desktop.windows():
+            info = desktop.describe(hwnd)
+            if exe and os.path.basename(info.get("executable") or "").casefold() == exe:
+                out.append(info.get("title") or "")
+        return out
+
     def launch(self, name):
         from chutku.tools.everyday import _launch
         result = _launch({"name": name}, None)
@@ -72,10 +84,17 @@ class Driver:
         os.startfile(uri)   # the scheme was checked against the app's own schemes by the atlas validator
 
     def run_program(self, program, args):
-        path = shutil.which(program) or program
-        if not os.path.isabs(path) and not shutil.which(program):
+        program = os.path.expandvars(program)
+        path = program if os.path.isabs(program) else shutil.which(program)
+        if not path or not os.path.isfile(path):
             raise StepFailed(f"{program} was not found")
-        subprocess.Popen([path, *args], shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        if os.path.splitext(path)[1].casefold() in {".cmd", ".bat"}:
+            # cmd.exe would parse the arguments again (& | ^ in a path could run commands): never.
+            raise StepFailed(f"{os.path.basename(path)} is a batch file; atlases must name the program's .exe")
+        # ELECTRON_RUN_AS_NODE (inherited when Chutku is started from VS Code) makes Code.exe and other Electron
+        # apps RUN a file argument as JavaScript instead of opening it (seen 2026-10-09): never pass it on.
+        env = {k: v for k, v in os.environ.items() if k.upper() not in {"ELECTRON_RUN_AS_NODE", "NODE_OPTIONS"}}
+        subprocess.Popen([path, *args], shell=False, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
 
     def keys(self, text):
@@ -329,6 +348,16 @@ def _check(check, params, driver, window, hwnd, before, out):
         elif name == "title_lacks":
             current = driver.find_window(window) or hwnd
             results[name] = not current or str(value).casefold() not in (driver.title(current) or "").casefold()
+        elif name == "title_has_file":
+            # A window of the app shows this file or folder's name in its title (VS Code: "README.md - Chutku").
+            wanted = os.path.basename(str(value).rstrip("\/")).casefold()
+            deadline = time.monotonic() + 5
+            while True:
+                titles = driver.titles(window) if hasattr(driver, "titles") else [driver.title(hwnd)]
+                results[name] = bool(wanted) and any(wanted in t.casefold() for t in titles)
+                if results[name] or time.monotonic() > deadline:
+                    break
+                time.sleep(0.5)
         elif name == "window_title_contains":
             current = driver.find_window(window) or hwnd
             results[name] = bool(current) and str(value).casefold() in driver.title(current).casefold()

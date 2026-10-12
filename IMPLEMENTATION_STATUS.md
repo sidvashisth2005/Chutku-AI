@@ -16,6 +16,63 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-12: Wake word, live-conversation honesty, goodbye, and the Spotify sentences from the owner's live log
+
+**1. Wake word: measured, a trained detector built, and a self-installed bad model removed**
+- **Owner:** "wake hone mein bahut time leta hai, chhe baar mein karti hai, door se toh hota hi nahi".
+- **Cause:** the wake listener forced Whisper to English (`language="en"`), so Hindi was *translated* ("Oye Chutku" → "Why should it go?"; Hindi sentences came out as English). It also transcribed every sound, songs and videos included.
+- **Benchmark** (synthetic Kokoro + Windows voices, 28 wake / 58 non-wake clips; "far" = −18 dB, room echo, fan, a video behind):
+
+  | Mode | Near | Far | Time |
+  |---|---|---|---|
+  | en (current) | 19/28 | 0/28 | 2.2 s |
+  | hi | 5/28 | 0/28 | 2.4 s |
+  | auto | 7/28 | 0/28 | 4.8 s |
+  | hi + name prompt | 17/28 | 0/28 | 2.9 s |
+
+  No false wakes in any mode. No Whisper setting fixes far-away speech.
+- **Built:**
+  - `chutku/voice/wakeword.py`: a detector on openWakeWord's local speech embedding (ONNX), every 80 ms, numpy weights loaded with `allow_pickle=False`.
+  - `WakeListener` uses it when `models/wake/oye_chutku.npz` exists; otherwise it uses Whisper as before. A broken model falls back to Whisper.
+  - `/api/state` shows `wake_engine` and `wake_best_score`.
+  - `scripts/train_wake.py`: Kokoro/blended voices with augmentation, the owner's clips, the owner's talk as negatives, 3 rounds of hard-negative mining.
+  - `scripts/record_wake.py`: guided, hands-free continuous recording. The owner recorded 38 "Oye Chutku" (near, 2–3 m, soft) and 40 s of talk, kept in `data/wake/` (local only).
+  - `chutku.cli wake record|train|status`. openWakeWord 0.6.0 + scipy/scikit-learn/requests were installed in the venv.
+- **Result: not good enough yet.**
+  - Model v1 (synthetic only): owner held-out 4/9, about 225–339 false wakes per hour.
+  - Model v2 (owner voice + mining): owner 4/9, 44–153 false wakes per hour.
+- **Incident:** run v2 saved itself into the live path even though no threshold passed (a `default="0.8"` fallback). The next morning Chutku loaded it and woke 7 times in 5 minutes with nobody calling ("har second chalu ho jaa raha hai").
+  - Fixed: the model was moved to `models/wake/rejected-v2-falsewakes.npz`, and Chutku was restarted: `/api/state` `wake_engine: whisper`.
+  - The trainer now writes only `models/wake/candidate.npz` and installs only through `pick_threshold`'s gate (owner held-out ≥ 90%, ≤ 2 false wakes/hour, 0 look-alike false wakes); otherwise it exits 2.
+  - Test: `test_wakeword.GateTests` (v2's real numbers are never chosen).
+- **Open:** wake reliability is still the old Whisper path (near ~70% on synthetic voices, far 0%).
+
+**2. Live conversation claimed actions it never took**
+- **Log 2026-10-11:**
+  - "Bhai Spotify chalu kar" → "open kar rahi hoon";
+  - "after party playlist … uss par click kar" → "click kar rahi hoon … play button pe click kar diya".
+
+  `tools: []`: nothing was done.
+- **Fix** (`voice/live.py`): at the end of each model turn, a claim of PC work ("kar rahi hoon / kar diya / khol … / click kar … / opened …") with no `do_task` in that turn starts `do_task` from the owner's own words. The model is told that it did not call the tool, that the task has now started, and to wait for the [Task update].
+  - Offers ending in a question ("open kar deti hoon… karoon?") and anything said while ending are not claims.
+  - Tests: `tests/test_live_claims.py` (6).
+
+**3. Goodbye no longer cuts off mid-word**
+- `end_conversation` only marks the conversation as ending. She finishes the reply (until the turn is complete and the speaker buffer is empty, at most 8 s, or 1.5 s if she says nothing), the mic is muted meanwhile, then the soft "done" beep, then it closes.
+- Tests: `tests/test_live_goodbye.py` (6).
+
+**4. The owner's sentences route instantly**
+- "Bhai Spotify chalu kar" → `apps.launch` ("chalu kar", "start kar" and "open kar" were added).
+- "Screen par dekh meri after party playlist dikh rahi hogi already, uss par click kar" → `app.spotify.play_playlist {after party}`. This is a new on-screen form: a Spotify playlist with play or click goes to the lab-verified library route when it is verified, else to `screen.act_on_visible`. "dekh", "already" and "meri" are fillers in names.
+- `check_phrases` 134/134 instant.
+
+**Also included (App Mastery A7 groundwork, not finished):**
+- `runner.run_program` refuses `.cmd`/`.bat` (cmd.exe re-parses arguments), expands `%VARS%`, and strips `ELECTRON_RUN_AS_NODE`/`NODE_OPTIONS`. With them set, `Code.exe` ran a file argument as JavaScript (seen live).
+- A `path` parameter must be a full Windows path, never "-flag", with no shell characters.
+- New check `title_has_file`.
+
+**Results:** full suite **1111 tests OK** (258.4 s). The old-path wake fix of 2026-10-11 is unchanged.
+
 ### 2026-10-11: Wake phrase heard as "Why should it go?" — now accepted
 
 - **Owner:** "wake up word चालू कर इसका".

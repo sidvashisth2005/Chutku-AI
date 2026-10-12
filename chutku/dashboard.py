@@ -747,6 +747,8 @@ class DashboardServer(ThreadingHTTPServer):
                 "mute_hotkey": getattr(self.hotkey, "mute_hotkey", None) if self.hotkey else None,
                 "wake_listening": bool(wake and wake.is_alive()), "wake_error": wake.error if wake else None,
                 "wake_audio": {key: getattr(wake, key, 0) for key in ("overflows", "dropped", "restarts")} if wake else None,
+                "wake_engine": getattr(wake, "engine", None) if wake else None,
+                "wake_best_score": round(getattr(getattr(wake, "detector", None), "best_score", 0.0), 3) if wake else None,
                 "latest_session": self.latest_session_id}
 
     def stop_everything(self):
