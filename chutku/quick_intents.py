@@ -294,6 +294,42 @@ def _control_or_known(text):
 
 # "what did we talk about yesterday" / "pichli baar kya kaha tha" / "kal humne kya baat ki" / "show my chat history"
 # "offline mode on" / "offline mode chalu karo" / "go offline" / "offline mode band karo" / "online mode on" / "go online"
+# Phase 4 switches: "conversation mode on" / "baat karte hain mode off" / "hindi samjho" / "cloud brain off" ...
+_ON = r"(?:on|chalu|chalu karo|on karo|start|start karo|enable|laga do)"
+_OFF = r"(?:off|band|band karo|off karo|stop|disable|hatao)"
+CHUTKU_SWITCH = [
+    ("conversation", re.compile(r"\W*(?:turn |switch )?(?:conversation|live|gemini live|baat ?cheet|talk) mode\s+"
+                                rf"(?:(?P<on>{_ON})|(?P<off>{_OFF}))\W*", re.I)),
+    ("hindi_listening", re.compile(r"\W*(?:(?:turn |switch )?hindi (?:listening|samajhna|sunna)\s+"
+                                   rf"(?:(?P<on>{_ON})|(?P<off>{_OFF}))|(?P<on2>hindi (?:bhi )?samjho|hindi bhi suno)"
+                                   r"|(?P<off2>sirf english (?:samjho|suno)|english only listening))\W*", re.I)),
+    ("cloud_brain", re.compile(r"\W*(?:turn |switch )?cloud (?:brain|dimaag|planner)\s+"
+                               rf"(?:(?P<on>{_ON})|(?P<off>{_OFF}))\W*", re.I)),
+    ("heard_debug", re.compile(r"\W*(?:turn |switch )?heard (?:debug|log debug)\s+"
+                               rf"(?:(?P<on>{_ON})|(?P<off>{_OFF}))\W*", re.I)),
+]
+SWITCH_REPLIES = {
+    ("conversation", True): "Conversation mode on: Ctrl+Alt+Space ab Gemini Live se baat shuru karega.",
+    ("conversation", False): "Conversation mode off: Ctrl+Alt+Space ab seedha mera local voice loop chalata hai.",
+    ("hindi_listening", True): "Ab main Hindi bhi samjhungi: har baar English ya Hindi chunkar sunungi.",
+    ("hindi_listening", False): "Ab main sirf English mein sunungi (Hinglish English mein likha jayega).",
+    ("cloud_brain", True): "Cloud brain on: free cloud models pehle sochte hain, offline mein local.",
+    ("cloud_brain", False): "Cloud brain off: ab sirf mera local model sochega.",
+    ("heard_debug", True): "Heard debug on: agle 24 ghante jo bhi sunungi, heard log mein likhungi.",
+    ("heard_debug", False): "Heard debug off: room ki baatein phir se sirf gini jayengi, likhi nahi.",
+}
+
+
+def _chutku_switch(text):
+    for setting, pattern in CHUTKU_SWITCH:
+        found = pattern.fullmatch(text)
+        if found:
+            on = bool(found.groupdict().get("on") or found.groupdict().get("on2"))
+            return _proposal("settings.chutku", {"setting": setting, "on": on}, f"Switch {setting} {'on' if on else 'off'}",
+                             SWITCH_REPLIES[(setting, on)])
+    return None
+
+
 OFFLINE_SWITCH = re.compile(
     r"\W*(?:(?:turn |switch |put )?(?:on )?offline mode(?: on| chalu karo| on karo| laga do| start karo)?|go offline"
     r"|offline (?:ho jao|chalo|kaam karo)|local mode(?: on)?"
@@ -538,6 +574,11 @@ def _single(goal, apps=None):
     chat = parse_open_chat(text)
     if chat is not None:  # "search Pita Shri in WhatsApp": open that chat, then ask what to send (owner, 2026-10-04)
         return _proposal("message.open_chat", chat, f"Open {chat['to']}'s chat on WhatsApp", "", finish=False)
+    from chutku.apps import known
+    playlist_name = known.spoken_playlist(text)
+    if playlist_name is not None:   # a playlist that already played once: play it, never search (F6)
+        return _proposal("app.spotify.play_playlist", {"name": playlist_name}, f"Play the {playlist_name} playlist",
+                         f"{playlist_name} playlist chala di.")
     from chutku.daily_intent import parse_daily
     daily = parse_daily(text)
     if daily is not None:
@@ -548,6 +589,9 @@ def _single(goal, apps=None):
     if browsed is not None:
         tool, arguments, purpose, reply, finish = browsed
         return _proposal(tool, arguments, purpose, reply, finish=finish)
+    switched = _chutku_switch(text)
+    if switched is not None:
+        return switched
     offline = OFFLINE_SWITCH.fullmatch(text)
     if offline:
         on = not offline.group("off")
@@ -618,7 +662,10 @@ def _single(goal, apps=None):
                              f"Build {what} in {folder}", f"Built {what}.")
         if kind == "close":
             name = match.group("name").strip(" '\"").casefold()
-            if name in {"gaana", "gana", "song", "music", "video", "media", "the song", "the music"}:
+            # "spotify ka gaana band karo" / "Spotify open karke gana band karo" closed Spotify (owner 2026-10-06:
+            # "Spotify band nahin karna tha, gaana band karna tha"): a song/music word means pause, never quit.
+            if name in {"gaana", "gana", "song", "music", "video", "media", "the song", "the music"} or re.search(
+                    r"\b(?:gaa?na|gaane|gane|song|songs|music|track)\b", name):
                 return _proposal("media.control", {"action": "pause"}, "Media: pause", "Paused the media.")
             if name in {"tab", "this tab", "the tab", "current tab"}:
                 return _proposal("keyboard.edit", {"action": "close_tab"}, "Close the tab", "Closed the tab.")
@@ -1380,7 +1427,8 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
                                "image.describe", "note.done", "note.add", "files.find", "files.open",
                                "games.install", "message.send", "message.open_chat", "message.read_chat", "settings.theme_set", "apps.launch", "filesystem.list",
                                "file.extract_text", "mind.person", "mind.add",
-                               "mind.done", "mind.fact", "mind.feedback", "mind.map", "settings.offline_mode"})
+                               "mind.done", "mind.fact", "mind.feedback", "mind.map", "settings.offline_mode",
+                               "settings.chutku"})
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).

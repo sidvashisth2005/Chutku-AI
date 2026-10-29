@@ -16,6 +16,83 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-30: W1 (F2–F7, F3 code) + W2: hearing, honesty, Spotify, owner-only learning, cloud-first brain
+
+Each item lists what was built, what proves it in tests, and what still needs the live PC. The live checks are batched into the final terminal phase, as the owner asked ("do all the coding stuff first, then terminal").
+
+**F2: wake path (stage 1)**
+- **Found while building it:** the prompt-echo filter in `whisper_stt` threw away any 2+ word piece of the biasing prompt. So "Spotify kholo", "Open Notepad", "Next song", "Pause the music", "Volume kam karo", "Gaana roko", "System status" and "Calculator open karo" spoken after the hotkey **came back as silence** (8 of 8 checked).
+  - New `prompt_echo()`: an echo must string pieces of **several** prompt sentences or list items, in the prompt's order; the prompt's own "Hinglish" label counts as an echo.
+  - All 44 "kholo, chalao, batao, open, search, time." room echoes are still caught.
+- **Room talk is no longer stored:**
+  - `WakeListener` writes heard.jsonl only for wakes, or while the owner's 24 h debug window is open (`heard_ambient_until`);
+  - everything else is counted in `data/heard-counts.json` without its words.
+- Every wake chimes (also when the command came with the wake phrase).
+- `WakeListener(base=…)` keeps tests out of the owner's log.
+
+**F3: wake engine (code only)**
+- Two stages:
+  - the trained detector runs at a low threshold as the cheap first stage;
+  - its last 2.5 s (`Detector.recent_audio`) goes to Whisper, and only `split_wake` on that audio wakes Chutku.
+- Look-alikes and noise are counted (`wake-2stage`), never stored.
+- `scripts/train_wake.py --two-stage`:
+  - measures owner recall and false wakes per hour **through both stages** (thresholds 0.1–0.5);
+  - installs only if `GATE_TWO_STAGE` passes (owner ≥ 0.9, ≤ 1 false wake/h);
+  - writes `two_stage: true` into the model's meta, so the live listener uses the second stage.
+- **Training run: pending (terminal phase).**
+
+**F4: hearing correctly**
+- Command STT language is a preference: `stt_language` "en" (default) or "en|hi". In "en|hi", `choose_en_or_hi` lets Whisper pick only English or Hindi; Urdu counts as Hindi.
+- **Plausibility gate** (`chutku/voice/plausible.py`): a local-voice transcript with no action word, question, app, known person, control phrase or instant phrase is read back ("Maine suna: '…'. Kya yahi karna hai?") with status clarify and no steps.
+  - Examples: the owner's 10-24 tries "Watch out brother.", "Basic presentation."
+  - Typed text is never gated.
+- An unclear hotkey capture is now spoken about ("Sorry, theek se sunai nahi diya…"). On 10-30 at 00:50 the owner's "…kholo" was dropped with only a beep, and the emergency stop followed a minute later.
+- Fixed control replies on the voice path (resume, pause, read-back) are spoken, by the real install only (`voice_replies`).
+
+**F5: no false "done"**
+- The Gemini Live talk mode is opt-in (`conversation` default false).
+- `LiveConversation._claimed_success`: a completion claim ("ho gaya", "kar diya", "bhej diya", "turned off"…) while the latest task is not `done`, or with no task at all, injects an immediate correction.
+- A "done" claim about a **failed** task is corrected, never re-run (owner rule 2026-10-08).
+- `false_claims` is counted.
+
+**Phase 4 switches**
+- Tool `settings.chutku` (R1, taint-sensitive) with phrases:
+  - "conversation/live mode on/off";
+  - "hindi bhi samjho" / "sirf english suno";
+  - "cloud brain on/off";
+  - "heard debug on/off".
+- New validated preferences: `stt_language`, `brain`, `heard_ambient_until`, `follow_up_seconds`.
+
+**F6: Spotify, from the owner's own sentences**
+- "spotify ka gaana band karo" / "Spotify open karke gana band karo" **quit Spotify** before and now pause. This was the owner's 10-06 complaint.
+- `chutku/apps/known.py`: a playlist, artist or album whose atlas check passed is remembered (`data/apps/known.json`). Loose play sentences naming exactly that playlist ("after party bajao", "play after party", "Spotify pe After Party chalao", "Mera Spotify open kar aur after party playlist chala") route to `app.spotify.play_playlist` instead of a search or the model.
+- **Live 5-of-5 run: pending.**
+
+**F7: owner-only learning**
+- `recall.owner_turn`: the origin must be text, voice, phone or phone_voice, and the turn must not be one of the scripts' own questions (read from `scripts/live_check.py` and `time_live_chat.py` by AST, which covers older turns).
+- `/api/chat` with `X-Chutku-Synthetic: 1` logs as origin `script`; `live_check.py` and `time_live_chat.py` send it.
+- Habits, insights, worked examples and the Night Shift replay use owner turns only. With fewer than 10 owner goals, the replay says "too few real requests", and the Today line says "check adhoora".
+- `AgentSession` accepts script, phone and phone_voice origins.
+- Toasts run on their own thread, with a 15 s timeout and no traceback. Before, a hung PowerShell blocked the watchers for 30 s and logged tracebacks (10-15, 10-17).
+
+**W2: cloud-first brain**
+- `chutku/providers.py`: Groq → Cerebras, OpenAI-compatible JSON mode.
+  - Keys come from Credential Manager ("Chutku/Groq", "Chutku/Cerebras") or the environment.
+  - A 429 cools that model down (Retry-After, or 15 min); 401/403 cools the provider for 24 h; 5xx for 60 s.
+- `CloudAgentPlanner`:
+  - sends the same `cloud_view` (private results withheld) and only the tools relevant to the goal;
+  - parses with the shared `proposal_from` and validates with the same `validate_proposal`;
+  - then falls to Gemini in **fast** mode (relevant tools, 20 s, no retries, at most 3 models). Before, it waited up to 60 s per model with retries, which explains the 85 s voice median.
+- `dashboard.planners()`: with `brain: cloud_first`, online and a key, the cloud leads and the local model is the fallback (never leads while the cloud is up). Priming the local model is skipped then, which keeps the GPU free.
+- `chutku.cli cloud status|set-key|test`.
+- Today: no Groq or Cerebras key is stored. Gemini key and grant are present, so cloud-first already works through Gemini fast.
+- **Pending (terminal phase):** `eval_planner` ≥ 36/40, median plan time, and replay of the owner's failed goals.
+
+**Tests:**
+- New: `test_phase4_voice` (11), `test_spotify_f6` (6), `test_cloud_brain` (10), and additions to `test_heard`, `test_live_claims`, `test_wakeword`, `test_nightshift`, `test_handsfree`.
+- `scripts/check_phrases.py`: 134/134 instant.
+- Full suite: see the commit.
+
 ### 2026-10-29: W0 + F1: audit, Phase 4 plan, and a pause that heals itself and always answers
 
 **Why:** the owner said "this AI isn't working properly". The audit (docs/WORLD_CLASS_PLAN.md) found that real use had stopped on 10-24:

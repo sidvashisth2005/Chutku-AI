@@ -193,8 +193,9 @@ class Net:
                  threshold=np.float32(threshold), meta=np.array(json.dumps(meta)))
 
 
-def stream_false_wakes(net, mean, std, threshold, audio):
-    """Run the detector over a long stream the way the live listener does; count separate triggers."""
+def stream_false_wakes(net, mean, std, threshold, audio, verify=None):
+    """Run the detector over a long stream the way the live listener does; count separate triggers.
+    With verify (the second stage), a trigger counts only when Whisper also hears the name in the last 2.5 s."""
     from openwakeword.utils import AudioFeatures
     extractor = AudioFeatures(inference_framework="onnx")
     triggers, cooldown = 0, 0
@@ -205,8 +206,21 @@ def stream_false_wakes(net, mean, std, threshold, audio):
             continue
         x = (extractor.get_features(16).reshape(1, -1) - mean) / std
         if net.forward(x)[1][0] >= threshold:
-            triggers, cooldown = triggers + 1, 25          # 2 s refractory, as live
+            cooldown = 25                                   # 2 s refractory, as live
+            if verify is None or verify(audio[max(0, start + 1280 - CONTEXT):start + 1280]):
+                triggers += 1
     return triggers
+
+
+CONTEXT = RATE * 5 // 2   # the 2.5 s the live second stage hands to Whisper (chutku.voice.wakeword.CONTEXT_SAMPLES)
+
+
+def whisper_verify(audio):
+    """The live second stage: does Whisper (wake prompt, English) hear "Oye Chutku" in this audio?"""
+    from chutku.voice.handsfree import WAKE_MIN_CONFIDENCE, WAKE_PROMPT, split_wake
+    from chutku.voice.whisper_stt import transcribe_pcm
+    heard = transcribe_pcm(np.clip(audio, -32768, 32767).astype(np.int16).tobytes(), language="en", prompt=WAKE_PROMPT)
+    return split_wake(heard.get("text", ""))[0] and heard.get("confidence", 0) >= WAKE_MIN_CONFIDENCE
 
 
 def main():
@@ -333,7 +347,25 @@ def main():
         eval_stream = np.concatenate([eval_stream, np.clip(talk_test, -32768, 32767).astype(np.int16)])
     hours = len(eval_stream) / RATE / 3600
     results = {}
-    for threshold in (0.5, 0.6, 0.7, 0.8, 0.9):
+    two_stage = "--two-stage" in sys.argv
+    if two_stage:   # F3 (2026-10-29): low first-stage thresholds; Whisper decides
+        owner_heard = [whisper_verify(np.resize(c, max(len(c), RATE))) for c in owner_test] if owner_test else []
+        pos_heard = [whisper_verify(augment(place(c), backgrounds, far=False)) for c in pos_test]
+        print("second stage hears: owner", sum(owner_heard), "/", len(owner_heard), "synthetic", sum(pos_heard), "/",
+              len(pos_heard), flush=True)
+    for threshold in ((0.1, 0.2, 0.3, 0.4, 0.5) if two_stage else (0.5, 0.6, 0.7, 0.8, 0.9)):
+        if two_stage:
+            results[str(threshold)] = {
+                "recall_near": round(float(np.mean([s >= threshold and h for s, h in zip(near_pos, pos_heard)])), 3),
+                "recall_far": round(float((far_pos >= threshold).mean()), 3),   # first stage only (upper bound)
+                "false_near_phrases": int((near_neg >= threshold).sum()), "false_far_phrases": int((far_neg >= threshold).sum()),
+                "false_wakes_per_hour": round(stream_false_wakes(net, mean, std, threshold, eval_stream,
+                                                                 verify=whisper_verify) / hours, 1),
+                "owner_recall": (round(float(np.mean([s >= threshold and h for s, h in zip(owner_scores, owner_heard)])), 3)
+                                 if owner_scores is not None else None),
+                "two_stage": True}
+            print(threshold, results[str(threshold)], flush=True)
+            continue
         results[str(threshold)] = {
             "recall_near": round(float((near_pos >= threshold).mean()), 3),
             "recall_far": round(float((far_pos >= threshold).mean()), 3),
@@ -342,10 +374,11 @@ def main():
             "owner_recall": (round(float((owner_scores >= threshold).mean()), 3)
                              if owner_scores is not None else None)}
         print(threshold, results[str(threshold)], flush=True)
-    chosen = pick_threshold(results)
+    chosen = pick_threshold(results, GATE_TWO_STAGE if two_stage else GATE)
     meta = {"trained": time.strftime("%Y-%m-%d %H:%M"), "owner_clips": len(owner), "owner_test_clips": len(owner_test),
             "owner_talk_seconds": round(sum(len(t) for t in owner_talk) / RATE),
-            "threshold": float(chosen) if chosen else None, "passed_gate": chosen is not None, "gate": GATE,
+            "threshold": float(chosen) if chosen else None, "passed_gate": chosen is not None,
+            "gate": GATE_TWO_STAGE if two_stage else GATE, "two_stage": two_stage,
             "test_positives": len(pos_test), "test_negatives": len(neg_test), "stream_minutes": round(hours * 60, 1),
             "results": results, "seconds": round(time.monotonic() - started)}
     REPORT.write_text(json.dumps(meta, indent=1, ensure_ascii=False), encoding="utf-8")
@@ -360,6 +393,9 @@ def main():
 
 
 GATE = {"owner_recall_min": 0.9, "false_wakes_per_hour_max": 2.0, "false_near_phrases_max": 0}
+# Two-stage: look-alike phrases may pass the cheap first stage (Whisper rejects them), so only what gets through BOTH
+# stages counts, and the false-wake limit is stricter (plan F3: at most 1 per hour).
+GATE_TWO_STAGE = {"owner_recall_min": 0.9, "false_wakes_per_hour_max": 1.0, "false_near_phrases_max": 10**6}
 
 
 def pick_threshold(results, gate=GATE):

@@ -158,10 +158,11 @@ class PreferencesTests(unittest.TestCase):
     def test_defaults_validation_and_persistence(self):
         with tempfile.TemporaryDirectory() as temp:
             prefs = Preferences(Path(temp))
-            self.assertEqual(prefs.load(), {"handsfree_mode": "owner", "wake_word": False, "conversation": True, "browser": "brave",
+            self.assertEqual(prefs.load(), {"handsfree_mode": "owner", "wake_word": False, "conversation": False, "browser": "brave",
                                         "heard_log": True, "offline_mode": False, "earned_autonomy_relax": False,
                                         "voice_lock": False, "voice_lock_threshold": 0.55, "timeline": False,
-                                        "timeline_private": [], "voice_engine": "kokoro"})
+                                        "timeline_private": [], "voice_engine": "kokoro", "stt_language": "en",
+                                        "heard_ambient_until": 0.0, "brain": "cloud_first", "follow_up_seconds": 8.0})
             for bad in ({"handsfree_mode": "yolo"}, {"wake_word": "yes"}, {"conversation": 1}, {"other": 1}, {}):
                 with self.assertRaises(ValueError):
                     prefs.update(bad)
@@ -171,9 +172,17 @@ class PreferencesTests(unittest.TestCase):
                                                               "conversation": False, "browser": "edge", "heard_log": True,
                                                               "offline_mode": False, "earned_autonomy_relax": False,
                                                               "voice_lock": False, "voice_lock_threshold": 0.55, "timeline": False,
-                                        "timeline_private": [], "voice_engine": "kokoro"})
+                                        "timeline_private": [], "voice_engine": "kokoro", "stt_language": "en",
+                                        "heard_ambient_until": 0.0, "brain": "cloud_first", "follow_up_seconds": 8.0})
             with self.assertRaises(ValueError):
                 prefs.update({"browser": "netscape"})
+            for bad in ({"stt_language": "fr"}, {"brain": "gpt"}, {"heard_ambient_until": -1}, {"follow_up_seconds": 99},
+                        {"heard_ambient_until": True}):
+                with self.assertRaises(ValueError):
+                    prefs.update(bad)
+            prefs.update({"stt_language": "en|hi", "brain": "local", "follow_up_seconds": 5})
+            self.assertEqual(Preferences(Path(temp)).load()["stt_language"], "en|hi")
+            self.assertEqual(Preferences(Path(temp)).load()["brain"], "local")
 
 
 class HandsfreeServerTests(unittest.TestCase):

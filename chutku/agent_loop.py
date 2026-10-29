@@ -745,7 +745,9 @@ class AgentSession:
         if not isinstance(goal, str) or not goal.strip() or len(goal) > 2000:
             raise ValueError("Describe the goal in 1 to 2000 characters.")
         self.mode = AutonomyMode(mode).value
-        if origin not in {"text", "voice"}:
+        # text: typed by the owner; voice: spoken at this PC; script: a test/timing script driving the live Chutku
+        # (kept out of habits and replays, F7); phone / phone_voice: the paired phone (W6), typed or spoken.
+        if origin not in {"text", "voice", "script", "phone", "phone_voice"}:
             raise ValueError("Unknown request origin.")
         self.id = secrets.token_urlsafe(18)
         self.goal = goal.strip()
@@ -753,7 +755,7 @@ class AgentSession:
         self.context = dict(context or {})
         if not _BUILD_HINT.search(self.goal):
             self.context.pop("projects_folder", None)  # otherwise "folder banao" drifts into ChutkuProjects
-        self.provenance = "delegated_microphone" if origin == "voice" else "delegated"
+        self.provenance = "delegated_microphone" if origin in ("voice", "phone_voice") else "delegated"
         self.status = "planning"
         self.reply = ""
         self.declared_plan = []

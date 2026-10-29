@@ -128,7 +128,7 @@ def main():
 
     def call(path, data=None):
         request = urllib.request.Request(origin + path, data=None if data is None else json.dumps(data).encode(),
-                                         headers={"X-Chutku-Token": token, "Content-Type": "application/json",
+                                         headers={"X-Chutku-Token": token, "X-Chutku-Synthetic": "1", "Content-Type": "application/json",
                                                   "Origin": origin})
         return json.loads(urllib.request.urlopen(request, timeout=60).read())
 

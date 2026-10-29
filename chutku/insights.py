@@ -37,6 +37,8 @@ def _action_time(row):
 
 
 def _requests(rows):
+    from chutku.recall import owner_turn
+    rows = [r for r in rows if owner_turn(r)]   # the owner's week, not the test scripts' (F7)
     asked = [r for r in rows if r.get("status") != "said"]   # "said": a voice-conversation line, not a request
     planners = [set(r.get("planners") or []) for r in asked]
     instant = sum(1 for p in planners if p and p <= INSTANT)

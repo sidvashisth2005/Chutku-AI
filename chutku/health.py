@@ -122,15 +122,37 @@ def powershell_exe():
     return str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe")
 
 
-def notify(title, message):
-    """Show a Windows toast. The text travels on stdin as JSON, never inside the script."""
+TOAST_TIMEOUT = 15
+
+
+def _show_toast(title, message, timeout=TOAST_TIMEOUT):
     encoded = base64.b64encode(_TOAST.encode("utf-16-le")).decode("ascii")
     done = subprocess.run([powershell_exe(), "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
                           input=json.dumps({"title": "Chutku · " + title, "message": message}), text=True,
-                          encoding="utf-8", errors="replace", capture_output=True, timeout=30,
+                          encoding="utf-8", errors="replace", capture_output=True, timeout=timeout,
                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False)
     if done.returncode != 0:
         raise OSError("Windows did not show the notification.")
+
+
+def notify(title, message, *, wait=False):
+    """Show a Windows toast. The text travels on stdin as JSON, never inside the script.
+
+    By default it returns at once and PowerShell runs on its own thread: a PowerShell that hung for 30 s used to
+    stop the suggestion and health watchers with a traceback (logs, 2026-10-15/17). wait=True keeps the old,
+    blocking behaviour (with errors raised) for callers that need to know it was shown."""
+    if wait:
+        return _show_toast(title, message)
+
+    def run():
+        try:
+            _show_toast(title, message)
+        except (OSError, subprocess.SubprocessError):
+            import logging
+            logging.getLogger("chutku.health").warning("a toast was not shown", exc_info=False)
+    import threading
+    threading.Thread(target=run, name="chutku-toast", daemon=True).start()
+    return None
 
 
 def check(base, *, send=notify):

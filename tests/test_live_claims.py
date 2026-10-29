@@ -63,6 +63,28 @@ class ClaimTests(unittest.TestCase):
         self.assertIsNone(self.turn("bas bye", "Theek hai, band kar rahi hoon."))
         self.assertEqual(self.server.tasks, [])
 
+    def test_done_claim_while_the_task_failed_is_corrected(self):
+        # 2026-10-06: "Ho gaya, Bluetooth band" -> owner: "Bluetooth band nahin hua hai".
+        self.live._snapshot = lambda: {"status": "failed", "goal": "turn off bluetooth", "steps": []}
+        sent = self.turn("Bluetooth band karo", "Ho gaya, Bluetooth band kar diya!")
+        note = sent["clientContent"]["turns"][0]["parts"][0]["text"]
+        self.assertIn("NOTHING is confirmed done", note)
+        self.assertIn("failed", note)
+        self.assertEqual(self.live.false_claims, 1)
+
+    def test_done_claim_after_a_verified_task_is_fine(self):
+        self.live._snapshot = lambda: {"status": "done", "goal": "turn off bluetooth", "steps": []}
+        self.live.task_this_turn = True
+        self.assertIsNone(self.turn("Bluetooth band karo", "Ho gaya, Bluetooth band ho gaya."))
+        self.assertEqual(self.live.false_claims, 0)
+
+    def test_done_claim_with_no_task_at_all_is_corrected(self):
+        self.live._snapshot = lambda: None
+        self.live.ending_at = None
+        self.live.said_this_turn = "Ho gaya!"
+        sent = self.live._claimed_success()
+        self.assertIn("no task was run", sent["clientContent"]["turns"][0]["parts"][0]["text"])
+
 
 class RoutingTests(unittest.TestCase):
     def steps(self, goal, verified=True):

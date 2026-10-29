@@ -869,13 +869,13 @@ Full spec: `docs/WORLD_CLASS_PLAN.md` (diagnosis with evidence, owner decisions 
 
 - [x] W0: Housekeeping (memory, agent-prompt log, this phase, stale counts)
 - [x] F1: Pause that heals itself (watchdog pauses only) and always answers by voice; heartbeat thread + hang dump — done 2026-10-29 (positive live heal pending the final terminal phase)
-- [ ] F2: Wake word stage 1: name-biased prompt, echo filter, en/hi only, no ambient logging by default
-- [ ] F4: Hear correctly: en/hi command STT, plausibility gate for misheard text
-- [ ] F5: Never claim what didn't happen: Gemini Live opt-in, verified outcome lines
-- [ ] F6: Spotify that actually plays (media keys, cached playlist URIs, title check)
-- [ ] F7: Honest self-checks (owner-only habits/replay, toast timeout)
-- [ ] F3: Wake engine stage 2 (synthetic Kokoro clips + owner clips, Whisper second stage, gated)
-- [ ] W2: Cloud-first brain (Groq / Gemini rotation, local fallback, tool retrieval, streaming)
+- [ ] F2: Wake word stage 1: name-biased prompt, echo filter, en/hi only, no ambient logging by default — code done 2026-10-30; live re-benchmark in the terminal phase
+- [ ] F4: Hear correctly: en/hi command STT, plausibility gate for misheard text — code done 2026-10-30; live check in the terminal phase
+- [ ] F5: Never claim what didn't happen: Gemini Live opt-in, verified outcome lines — code done 2026-10-30
+- [ ] F6: Spotify that actually plays (media keys, cached playlist URIs, title check) — code done 2026-10-30; live 5/5 in the terminal phase
+- [ ] F7: Honest self-checks (owner-only habits/replay, toast timeout) — code done 2026-10-30
+- [ ] F3: Wake engine stage 2 (synthetic Kokoro clips + owner clips, Whisper second stage, gated) — two-stage code done 2026-10-30; training run in the terminal phase
+- [ ] W2: Cloud-first brain (Groq / Gemini rotation, local fallback, tool retrieval, streaming) — code done 2026-10-30; eval + Groq key in the terminal phase
 - [ ] W3: Real-time conversation (VAD endpointing, GPU Whisper, streaming speech, follow-up, barge-in)
 - [ ] W4: Jarvis presence UI (orb overlay, dashboard redesign, icon)
 - [ ] W5: Screen copilot (Ctrl+Alt+S, Gemini vision with local fallback, act on what is seen)

@@ -37,6 +37,8 @@ def record(base, session, runtime=None, *, replayable=None):
         return False
     if snap.get("tainted"):
         return False  # a plan steered by a web page or a message must never become a worked example
+    if snap.get("origin") == "script":
+        return False  # a test script's request is not an example of what the owner wants (F7)
     planners = [p.get("planner") for p in snap.get("planners", [])]
     if planners and all(name == "quick" for name in planners):
         return False  # rule-matched plans teach the model nothing, and a wrong match must never become an example

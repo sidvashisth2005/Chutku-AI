@@ -109,6 +109,28 @@ def _offline(arguments, _context):
                       else Verification.FAIL)
 
 
+# Phase 4 switches (2026-10-29), each a reversible preference: the Gemini Live talk mode (now opt-in), Hindi listening
+# (Whisper picks English or Hindi), the cloud-first brain, and a 24 h window in which room talk is written to heard.jsonl.
+SWITCHES = {
+    "conversation": ("conversation", lambda on: bool(on)),
+    "hindi_listening": ("stt_language", lambda on: "en|hi" if on else "en"),
+    "cloud_brain": ("brain", lambda on: "cloud_first" if on else "local"),
+    "heard_debug": ("heard_ambient_until", lambda on: (__import__("time").time() + 86400.0) if on else 0.0),
+}
+
+
+def _switch(arguments, _context):
+    from chutku.core.preferences import Preferences
+    key, value_for = SWITCHES[arguments["setting"]]
+    prefs = Preferences(mind.PROJECT_ROOT)
+    before = prefs.load()[key]
+    wanted = value_for(arguments["on"])
+    prefs.update({key: wanted})
+    now = prefs.load()[key]
+    return ToolResult({"setting": arguments["setting"], "preference": key, "now": now, "was": before},
+                      Verification.PASS if now == wanted else Verification.FAIL)
+
+
 def _check(required, optional=()):
     def validate(arguments):
         if not isinstance(arguments, dict) or not set(required) <= set(arguments) or set(arguments) - set(required) - set(optional):
@@ -160,6 +182,12 @@ def register_mind_tools(registry):
     registry.register(Tool("settings.offline_mode", "Turn Chutku's offline mode on or off. On: only local models "
         "(planner, vision, voice) are used and nothing is sent to Gemini, even with internet.", Risk.REVERSIBLE,
         _offline, _check(("on",)), argument_schema=_schema({"on": {"type": "boolean"}}, ("on",)),
+        reversibility="compensatable", success_predicate="preference_written"))
+    registry.register(Tool("settings.chutku", "Switch one of Chutku's own options on or off: conversation (Gemini Live "
+        "talk mode), hindi_listening (speech-to-text may pick Hindi), cloud_brain (free cloud models plan first, local "
+        "as backup), heard_debug (store overheard room talk for 24 h).", Risk.REVERSIBLE, _switch,
+        _check(("setting", "on")), argument_schema=_schema({"setting": {"type": "string", "enum": sorted(SWITCHES)},
+                                                            "on": {"type": "boolean"}}, ("setting", "on")),
         reversibility="compensatable", success_predicate="preference_written"))
     registry.register(Tool("mind.forget", "Forget a person, a fact, or a list item ('assignments:3') from the owner's "
         "memory.", Risk.DATA_MODIFICATION, _forget, _check(("kind", "key")),

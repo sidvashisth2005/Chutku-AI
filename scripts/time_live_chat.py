@@ -28,7 +28,7 @@ def main():
     origin, token = link.split("#", 1)[0].rstrip("/"), link.split("token=", 1)[1]
 
     def call(path, data=None):
-        request = urllib.request.Request(origin + path, headers={"X-Chutku-Token": token, "Content-Type": "application/json",
+        request = urllib.request.Request(origin + path, headers={"X-Chutku-Token": token, "X-Chutku-Synthetic": "1", "Content-Type": "application/json",
                                                                  "Origin": origin},
                                          data=None if data is None else json.dumps(data).encode("utf-8"))
         return json.loads(urllib.request.urlopen(request, timeout=30).read())

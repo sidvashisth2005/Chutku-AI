@@ -231,6 +231,9 @@ def main() -> None:
     autostart.add_argument("autostart_action", choices=("on", "off", "status"))
     gemini = subparsers.add_parser("gemini", help="Configure Gemini as the secondary planner (off unless cloud.gemini is granted)")
     gemini.add_argument("gemini_action", choices=("status", "set-key"))
+    cloud = subparsers.add_parser("cloud", help="Free cloud brain (Groq, Cerebras): store a key, see status, test")
+    cloud.add_argument("cloud_action", choices=("status", "set-key", "test"))
+    cloud.add_argument("provider", nargs="?", choices=("groq", "cerebras"), default=None)
     subparsers.add_parser("open", help="Open the running Chutku dashboard in your browser")
     night = subparsers.add_parser("nightshift", help="Night Shift: nightly self-improvement jobs (run, install, report)")
     night.add_argument("night_action", choices=("run", "install", "report"))
@@ -299,6 +302,35 @@ def main() -> None:
             print(json.dumps({"key_available": bool(cloud_planner.api_key()),
                               "enabled_by_capability": cloud_planner.fallback_planner() is not None,
                               "enable_with": "python -m chutku.cli authority grant cloud.gemini"}, indent=2))
+        return
+    if namespace.command == "cloud":
+        from chutku import providers
+        if namespace.cloud_action == "set-key":
+            if namespace.provider is None:
+                raise SystemExit("Say which: python -m chutku.cli cloud set-key groq   (or cerebras)")
+            import getpass
+            providers.store_key(namespace.provider, getpass.getpass(f"{namespace.provider} API key (input hidden): "))
+            print("Stored in Windows Credential Manager as", providers.PROVIDERS[namespace.provider]["credential"])
+        elif namespace.cloud_action == "test":
+            started = __import__("time").monotonic()
+            try:
+                parsed, meta = providers.ask('Reply with JSON {"ok": true, "two_plus_two": <number>}.',
+                                             "Answer now.", rungs=[(namespace.provider, providers.PROVIDERS[
+                                                 namespace.provider]["models"][0])] if namespace.provider else None)
+                print(json.dumps({"answer": parsed, "provider": meta["provider"], "model": meta["model"],
+                                  "seconds": meta["seconds"], "correct": parsed.get("two_plus_two") == 4}, indent=2))
+            except providers.ProviderError as error:
+                print(json.dumps({"error": str(error), "seconds": round(__import__("time").monotonic() - started, 2)}))
+                raise SystemExit(1)
+        else:
+            from chutku.app import PROJECT_ROOT as ROOT
+            from chutku.core.preferences import Preferences
+            print(json.dumps({"keys": {name: bool(providers.api_key(name)) for name in providers.ORDER},
+                              "ladder": [f"{p}/{m}" for p, m in providers.ladder()],
+                              "cooling_down": providers.cooling(),
+                              "brain": Preferences(ROOT).load()["brain"],
+                              "get_a_free_key": {"groq": "https://console.groq.com/keys",
+                                                 "cerebras": "https://cloud.cerebras.ai"}}, indent=2))
         return
     if namespace.command == "plan":
         from chutku.planning import plan_request

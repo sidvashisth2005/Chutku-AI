@@ -46,14 +46,14 @@ def _advapi():
     return advapi
 
 
-def stored_key():
-    """Read the key from Windows Credential Manager (DPAPI-protected), if present."""
+def stored_key(target=CREDENTIAL_TARGET):
+    """Read a key from Windows Credential Manager (DPAPI-protected), if present."""
     try:
         advapi = _advapi()
     except (OSError, AttributeError):
         return None
     pointer = ctypes.POINTER(_Credential)()
-    if not advapi.CredReadW(CREDENTIAL_TARGET, 1, 0, ctypes.byref(pointer)):
+    if not advapi.CredReadW(target, 1, 0, ctypes.byref(pointer)):
         return None
     try:
         blob = ctypes.string_at(pointer.contents.CredentialBlob, pointer.contents.CredentialBlobSize)
@@ -62,13 +62,13 @@ def stored_key():
         advapi.CredFree(pointer)
 
 
-def store_key(key: str):
+def store_key(key: str, target=CREDENTIAL_TARGET):
     if not isinstance(key, str) or not 20 <= len(key.strip()) <= 200:
         raise ValueError("That does not look like an API key.")
     advapi = _advapi()
     blob = key.strip().encode("utf-16-le")
     buffer = (ctypes.c_ubyte * len(blob)).from_buffer_copy(blob)
-    credential = _Credential(Type=1, TargetName=CREDENTIAL_TARGET, CredentialBlobSize=len(blob),
+    credential = _Credential(Type=1, TargetName=target, CredentialBlobSize=len(blob),
                              CredentialBlob=ctypes.cast(buffer, ctypes.POINTER(ctypes.c_ubyte)), Persist=2,
                              UserName="chutku")
     if not advapi.CredWriteW(ctypes.byref(credential), 0):
@@ -137,37 +137,97 @@ def cloud_schema(tool_names):
     }, "required": ["status", "reply", "declared_plan", "next_steps", "finish"]}
 
 
+def proposal_from(raw, runtime, schemas, who="The cloud model"):
+    """A cloud model's JSON (arguments as a JSON string) -> a validated proposal; ValueError when malformed."""
+    try:
+        steps = []
+        for s in raw.get("next_steps", []) or []:
+            arguments = s.get("arguments_json")
+            if arguments is None:
+                arguments = s.get("arguments") or {}   # some models send the object itself
+            steps.append({"tool": s["tool"], "arguments": json.loads(arguments) if isinstance(arguments, str)
+                          else arguments, "purpose": str(s.get("purpose", ""))[:160]})
+        proposal = {"status": raw.get("status"), "reply": str(raw.get("reply", ""))[:600],
+                    "declared_plan": [str(x)[:160] for x in raw.get("declared_plan", []) or []][:10],
+                    "next_steps": steps, "finish": raw.get("finish") is True}
+    except (TypeError, AttributeError, KeyError, json.JSONDecodeError) as error:
+        raise ValueError(f"{who} returned malformed step arguments.") from error
+    return validate_proposal(proposal, runtime, set(schemas))
+
+
+# The JSON contract for OpenAI-style models (Groq, Cerebras), which have no response schema: the same fields Gemini
+# fills through its schema.
+JSON_CONTRACT = (
+    'Answer with ONE JSON object and nothing else: {"status": "continue" | "done" | "clarify", "reply": string, '
+    '"declared_plan": [string], "next_steps": [{"tool": one TOOL_CATALOG name, "arguments_json": a JSON string of '
+    'the arguments, "purpose": string}], "finish": boolean}. At most ' + str(MAX_STEPS_PER_ROUND)
+    + ' next_steps. Use only tools from TOOL_CATALOG with exactly their arguments. "done" means nothing (more) has '
+    'to run and reply holds the answer for the owner; "clarify" means you must ask the owner one short question.\n')
+
+
+class CloudAgentPlanner:
+    """W2 (2026-10-29): the free cloud models plan first (Groq / Cerebras, then Gemini); the local model is the
+    planner's fallback in the session (dashboard.planners). It sees cloud_view only: private results stay local."""
+    name = "cloud"
+
+    def __init__(self, base=PROJECT_ROOT, *, gemini=None, transport=None, rungs=None):
+        self.base, self.gemini, self.transport, self.rungs = base, gemini, transport, rungs
+        self.last = None
+
+    def cheap_second_opinion(self):
+        return True
+
+    def propose(self, session, runtime, check=None):
+        from chutku import providers
+        schemas, catalog = planner_catalog(runtime, session)
+        system = AGENT_SYSTEM.replace(" /no_think", "") + JSON_CONTRACT + "TOOL_CATALOG=" + catalog
+        view = cloud_view(session, runtime)
+        failures = []
+        try:
+            raw, meta = providers.ask(system, view, base=self.base, transport=self.transport, rungs=self.rungs)
+            self.name = "cloud:" + meta["provider"]
+            self.last = meta
+            try:
+                return proposal_from(raw, runtime, schemas, meta["provider"]), {
+                    "planner": self.name, "backend": meta["model"], "seconds": meta["seconds"]}
+            except ValueError as error:
+                failures.append(str(error))
+        except providers.ProviderError as error:
+            failures.append(str(error))
+        if self.gemini is not None:
+            self.name = "gemini"
+            return self.gemini.propose(session, runtime, check)
+        raise OSError("; ".join(failures)[:300] or "No cloud model is available.")
+
+
 class GeminiAgentPlanner:
     name = "gemini"
 
-    def __init__(self, key, model=None, transport=None):
+    def __init__(self, key, model=None, transport=None, *, fast=False):
         self.key = key
         self.model = model  # None: the newest Flash model this key can use, chosen on first call
         self.transport = transport  # tests inject a fake network call
+        # fast (W2, leading the brain): only the tools relevant to the goal, 20 s, no retries, 3 models at most.
+        # As the old backup it waited up to 60 s per model and retried, which is why voice answers took 85 s.
+        self.fast = fast
 
     def propose(self, session, runtime, check=None):
         from chutku.gemini import GeminiUnavailable
-        schemas, catalog = planner_catalog(runtime)
+        schemas, catalog = planner_catalog(runtime, session if self.fast else None)
         system = AGENT_SYSTEM.replace(" /no_think", "") + "TOOL_CATALOG=" + catalog
         try:
             envelope = (self.transport or self._call)(system, cloud_view(session, runtime), cloud_schema(schemas))
         except GeminiUnavailable as error:
             raise OSError(str(error)) from error
-        raw = envelope["plan"]
-        try:
-            steps = [{"tool": s["tool"], "arguments": json.loads(s.get("arguments_json") or "{}"),
-                      "purpose": str(s.get("purpose", ""))[:160]} for s in raw.get("next_steps", [])]
-            proposal = {"status": raw.get("status"), "reply": str(raw.get("reply", ""))[:600],
-                        "declared_plan": [str(x)[:160] for x in raw.get("declared_plan", [])][:10],
-                        "next_steps": steps, "finish": raw.get("finish") is True}
-        except (TypeError, AttributeError, json.JSONDecodeError) as error:
-            raise ValueError("Gemini returned malformed step arguments.") from error
-        return validate_proposal(proposal, runtime, set(schemas)), {
+        return proposal_from(envelope["plan"], runtime, schemas, "Gemini"), {
             "planner": self.name, "backend": envelope.get("model"), "seconds": None}
 
     def _call(self, system, user, schema):
         from chutku.gemini import GeminiUnavailable, generate, generate_best
-        if self.model is None:  # best available Flash, with a short retry / next-model fallback
+        if self.model is None and self.fast:
+            text, version = generate_best(self.key, "plan", system, user, schema=schema, max_tokens=2048,
+                                          timeout=20, temperature=0, retries=0, models=3)
+        elif self.model is None:  # best available Flash, with a short retry / next-model fallback
             text, version = generate_best(self.key, "plan", system, user, schema=schema, max_tokens=8192,
                                           timeout=60, temperature=0, retries=1, backoff=(3,))
         else:
@@ -228,22 +288,42 @@ class BackupPlanner:
         return None
 
 
-def fallback_planner(base=PROJECT_ROOT):
-    """Gemini (when the owner enabled it and a key exists) backed by the local 8B; None when neither exists."""
+def gemini_planner(base=PROJECT_ROOT):
+    """GeminiAgentPlanner when the owner granted cloud.gemini and a key exists, else None."""
     from chutku.app import create_runtime
-    from chutku.brain_service import strong_service
-    gemini = None
     try:
         with create_runtime(base) as runtime:
             runtime.current_capability("cloud.gemini")
         key = api_key()
-        gemini = GeminiAgentPlanner(key) if key else None
+        return GeminiAgentPlanner(key) if key else None
     except ValueError:
-        gemini = None   # cloud.gemini is not granted: the normal case without Gemini
+        return None   # cloud.gemini is not granted: the normal case without Gemini
     except Exception:
         from chutku.core.log import get_logger
         get_logger("cloud").exception("Gemini planner could not be prepared; using the local backup")
-        gemini = None
+        return None
+
+
+def cloud_first_planner(base=PROJECT_ROOT, *, online=None):
+    """The W2 lead planner (free cloud models), or None when there is no key or no internet."""
+    from chutku import providers
+    gemini = gemini_planner(base)
+    if not providers.configured(base) and gemini is None:
+        return None
+    if online is None:
+        from chutku.online import reachable
+        online = reachable
+    if not online():
+        return None
+    if gemini is not None:
+        gemini.fast = True
+    return CloudAgentPlanner(base, gemini=gemini)
+
+
+def fallback_planner(base=PROJECT_ROOT):
+    """Gemini (when the owner enabled it and a key exists) backed by the local 8B; None when neither exists."""
+    from chutku.brain_service import strong_service
+    gemini = gemini_planner(base)
     strong = strong_service(base)
     if gemini is None and strong is None:
         return None

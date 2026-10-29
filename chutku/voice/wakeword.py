@@ -14,6 +14,7 @@ import numpy as np
 
 MODEL = Path(__file__).resolve().parents[2] / "models" / "wake" / "oye_chutku.npz"
 REFRACTORY_FRAMES = 25          # 2 s after a wake, no second wake from the same words
+CONTEXT_SAMPLES = 16000 * 5 // 2   # the last 2.5 s of sound, handed to Whisper to confirm a wake (two-stage, F3)
 
 
 class Detector:
@@ -26,6 +27,10 @@ class Detector:
         from openwakeword.utils import AudioFeatures
         self.features = AudioFeatures(inference_framework="onnx")
         self._pending = np.zeros(0, dtype=np.int16)
+        self._recent = np.zeros(0, dtype=np.int16)
+        # Two-stage (F3, 2026-10-29): the detector alone missed 5 of 9 owner clips at every threshold, so it now
+        # runs at a low threshold as a cheap first stage and Whisper must hear the name in the same 2.5 s.
+        self.two_stage = bool(self.meta.get("two_stage", False))
         self.cooldown = 0
         self.last_score = 0.0
         self.best_score = 0.0           # highest score since the last wake (shown in /api/state)
@@ -37,7 +42,9 @@ class Detector:
 
     def feed(self, chunk: bytes) -> bool:
         """Feed raw 16 kHz int16 audio; True once when "Oye Chutku" has just been said."""
-        audio = np.concatenate([self._pending, np.frombuffer(chunk, dtype=np.int16)])
+        incoming = np.frombuffer(chunk, dtype=np.int16)
+        self._recent = np.concatenate([self._recent, incoming])[-CONTEXT_SAMPLES:]
+        audio = np.concatenate([self._pending, incoming])
         woke = False
         while len(audio) >= 1280:
             self.features(audio[:1280])
@@ -52,9 +59,14 @@ class Detector:
         self._pending = audio
         return woke
 
+    def recent_audio(self) -> bytes:
+        """The last 2.5 s of raw 16 kHz int16 sound (memory only), for the second stage."""
+        return self._recent.tobytes()
+
     def reset(self):
         self.features.reset()
         self._pending = np.zeros(0, dtype=np.int16)
+        self._recent = np.zeros(0, dtype=np.int16)
 
 
 def available(path: Path = MODEL) -> bool:

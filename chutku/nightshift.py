@@ -25,6 +25,7 @@ import time
 
 REPORT_DIR = ("data", "nightshift")
 REPLAY_DAYS = 7
+MIN_REAL_GOALS = 10   # fewer owner requests than this in a week: the replay says so instead of "ok" (F7)
 MAX_GOALS = 1000   # every distinct goal of the week; the time box decides how many are checked (newest first)
 LORA_TURNS = 300
 IDLE_MINUTES = 30   # owner, 2026-10-06: after 04:00, once the PC has been unused for half an hour
@@ -78,8 +79,8 @@ def recent_goals(base, days=REPLAY_DAYS, now=None):
     latest = {}
     for turn in recall.turns(base, 5000):
         said = str(turn.get("said") or "").strip()
-        if not said or float(turn.get("at") or 0) < cutoff:
-            continue
+        if not said or float(turn.get("at") or 0) < cutoff or not recall.owner_turn(turn):
+            continue   # only the owner's own requests are replayed (F7)
         key = normal_goal(said)
         if not key:
             continue
@@ -150,7 +151,9 @@ def regression_replay(base, runtime, model=None, deadline=None):
     counts = {}
     for row in rows:
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
-    return {"distinct_goals": len(goals), "counts": counts, "rows": rows}
+    enough = len(goals) >= MIN_REAL_GOALS
+    return {"distinct_goals": len(goals), "counts": counts, "rows": rows, "enough_real_use": enough,
+            "note": "" if enough else f"Only {len(goals)} real request(s) this week: too few to say nothing broke."}
 
 
 # -- 4. maintenance / 5. fine-tune readiness ---------------------------------------------------------------------------
@@ -252,6 +255,9 @@ def morning_line(base):
              f"{counts.get('same', 0)} same"]
     if weak:
         parts.append(f"{weak} baar-baar fail hone wale kaam")
+    replay = jobs.get("regression_replay") or {}
+    if replay.get("enough_real_use") is False:
+        parts.append(f"sirf {replay.get('distinct_goals', 0)} asli request is hafte, isliye check adhoora")
     return f"Raat ko ({report['date']}): " + ", ".join(parts) + "."
 
 
@@ -276,6 +282,7 @@ def report_summary(base):
             "finished": report.get("finished"), "summary": morning_line(base),
             "new_skills": (jobs.get("learned_skills") or {}).get("new_skills", 0),
             "requests_rechecked": replay.get("distinct_goals", 0), "counts": replay.get("counts", {}),
+            "replay_note": replay.get("note", ""),
             "fails_now": goals("fails now"), "changed": goals("changed"),
             "keeps_failing": (jobs.get("reliability") or {}).get("keeps_failing", [])[:5],
             "fine_tune": f"{tune.get('verified_turns', 0)}/{tune.get('needed', 300)} verified turns",

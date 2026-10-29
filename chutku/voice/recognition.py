@@ -182,6 +182,16 @@ def capture(control, *, threshold=0.01):
     return {"wav": base64.b64encode(buffer.getvalue()).decode("ascii"), "pcm": pcm, "activity": activity}
 
 
+def command_language(base=None):
+    """"en" (English only: Hinglish comes out translated) or "en|hi" (Whisper picks English or Hindi per clip)."""
+    from chutku.app import PROJECT_ROOT
+    from chutku.core.preferences import Preferences
+    try:
+        return Preferences(base or PROJECT_ROOT).load()["stt_language"]
+    except (OSError, ValueError, KeyError):
+        return "en"
+
+
 def transcribe(captured):
     """Apply VAD before general local dictation; accept legacy string fixtures."""
     if isinstance(captured, dict):
@@ -192,7 +202,7 @@ def transcribe(captured):
         if isinstance(captured.get("pcm"), (bytes, bytearray)):
             try:
                 from chutku.voice.whisper_stt import WhisperUnavailable, transcribe_pcm
-                heard = transcribe_pcm(bytes(captured["pcm"]), language="en")
+                heard = transcribe_pcm(bytes(captured["pcm"]), language=command_language())
                 heard["activity"] = activity
                 return heard
             except WhisperUnavailable:

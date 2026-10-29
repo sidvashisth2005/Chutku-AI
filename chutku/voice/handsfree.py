@@ -177,9 +177,10 @@ class Segmenter:
 class WakeListener(threading.Thread):
     """Opt-in background listener; only transcripts starting with the wake phrase act."""
 
-    def __init__(self, on_wake, transcribe, *, backend=None):
+    def __init__(self, on_wake, transcribe, *, backend=None, base=None):
         super().__init__(name="chutku-wake", daemon=True)
         self.on_wake, self.transcribe, self.backend = on_wake, transcribe, backend
+        self.base = base          # None: the real install (tests keep None, and the heard log skips test runs)
         self.stop_event = threading.Event()
         self.busy = threading.Event()  # set while a request is being handled
         self.hold = threading.Event()  # set for a whole live conversation (outlives the request that started it)
@@ -272,19 +273,29 @@ class WakeListener(threading.Thread):
 
     def _woke_by_detector(self, detector):
         from chutku.voice.heard import log_heard
-        log_heard("wake", "(Oye Chutku)", "wake", confidence=round(detector.last_score, 3))
+        if getattr(detector, "two_stage", False):
+            # First stage only: Whisper must also hear the name in the same sound (on the transcriber thread).
+            try:
+                self._segments.put_nowait((detector.recent_audio(), None, detector.last_score))
+            except queue.Full:
+                self.dropped += 1
+            detector.best_score = 0.0
+            return
+        log_heard("wake", "(Oye Chutku)", "wake", confidence=round(detector.last_score, 3), base=self.base)
         detector.best_score = 0.0
         self.wakes += 1
         self.busy.set()
         threading.Thread(target=self._dispatch, args=("",), daemon=True).start()
 
     def _transcriber(self):
-        from chutku.voice.heard import log_heard, meaningful
+        from chutku.voice.heard import ambient_logging, count_ignored, log_heard, meaningful
         while not self.stop_event.is_set():
             try:
-                segment, level = self._segments.get(timeout=0.5)
+                item = self._segments.get(timeout=0.5)
             except queue.Empty:
                 continue
+            segment, level = item[0], item[1]
+            first_stage = item[2] if len(item) > 2 else None   # detector score: this is a second-stage check
             if self.busy.is_set() or self.hold.is_set():
                 continue   # a request started meanwhile
             try:
@@ -296,8 +307,12 @@ class WakeListener(threading.Thread):
             woke, command = split_wake(text)
             if woke and (heard.get("confidence", 1.0) < WAKE_MIN_CONFIDENCE or not meaningful(text)):
                 woke = False                   # a garbled near-match is not the owner calling Chutku
-            if text:
-                log_heard("wake", text, "wake" if woke else "ignored", level=level, confidence=heard.get("confidence"))
+            path = "wake" if first_stage is None else "wake-2stage"
+            if text and (woke or ambient_logging(self.base)):
+                log_heard(path, text, "wake" if woke else "ignored", level=level, confidence=heard.get("confidence"),
+                          base=self.base)
+            elif text or first_stage is not None:
+                count_ignored(path, self.base)   # room talk not meant for Chutku: counted, never stored
             if woke and not self.busy.is_set():
                 from chutku.voice import speaker
                 speaker.note_utterance(segment)   # Owner Voice Lock (S19): this voice is checked when the task starts

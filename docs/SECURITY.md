@@ -26,12 +26,12 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (172 registered, plus 59 app actions)
+### Risk levels and tools (173 registered, plus 59 app actions)
 
 | Level | Count | Meaning |
 |---|---|---|
 | R0 observation | 69 | reads only |
-| R1 reversible | 48 | easily undone (open apps or pages, window and media control) |
+| R1 reversible | 49 | easily undone (open apps or pages, window and media control) |
 | R2 data modification | 24 | changes data, with runtime undo where available |
 | R3 external side effect | 25 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, screen.click_risky, settings.theme_restore, settings.theme_set, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close |
 | R4 destructive / privileged | 6 | filesystem.delete_permanent, network.adapter_restore, network.adapter_set, power.cancel, power.schedule, process.terminate |
@@ -72,7 +72,7 @@ Every tool call goes through `Runtime.run`:
 - **Tainting and exposing tools.** Output of the tools in `agent_loop.TAINTING_TOOLS` (web pages, chats, clipboard, screen and OCR text, file text, image descriptions, script output) *taints* the session. Tools in `PRIVATE_TOOLS` (files, clipboard, screen, memory, file listings) *expose* it.
 - **After taint:**
   - R2+ steps ask;
-  - R1 steps that start or remember things (`apps.launch`, `files.open`, `mind.*`, `memory.remember`, `settings.offline_mode`) ask;
+  - R1 steps that start or remember things (`apps.launch`, `files.open`, `mind.*`, `memory.remember`, `settings.offline_mode`, `settings.chutku`, `task.schedule`) ask;
   - an argument the owner said themselves (whole words, at least 4 characters) is exempt.
 - **After exposure:** any network request asks, so a URL built from private data can't leak it.
 - **Screen clicks:**
@@ -90,8 +90,9 @@ A test (`tests/test_taint_v2.py`) fails if any name in these lists is not a real
   - needs a per-launch random token (from the URL fragment), with exact Host/Origin checks and cross-site fetches refused;
   - JSON bodies are bounded and a strict CSP is set.
   - The session link is stored in `data/dashboard-session.json` (same-user readable).
-- **Gemini key:** in Windows Credential Manager ("Chutku/Gemini", DPAPI). Off until the key is stored *and* `cloud.gemini` is granted.
-- **What Gemini sees:**
+- **Cloud keys:** in Windows Credential Manager ("Chutku/Gemini", "Chutku/Groq", "Chutku/Cerebras"; DPAPI) or environment variables, never in files or logs. Gemini is off until its key is stored *and* `cloud.gemini` is granted. Groq/Cerebras are used only after the owner stores a key (`chutku.cli cloud set-key groq`).
+- **Cloud-first brain (W2, owner decision 2026-10-29):** with `brain: cloud_first` (default) and the internet up, Groq → Cerebras → Gemini plan first and the local model is the fallback. They all receive the same `cloud_view` as Gemini below, and their proposals pass the same validation and policy. `cloud brain off` makes planning local-only; offline mode also turns it off.
+- **What the cloud models see:**
   - the goal and the tool catalog;
   - step summaries and allowlisted public results;
   - the memory slice related to the goal;
@@ -105,7 +106,11 @@ A test (`tests/test_taint_v2.py`) fails if any name in these lists is not a real
 - **On stop:**
   - Chutku's own helpers (model servers, OCR) die with the job;
   - the owner's apps that Chutku opened (browser, VS Code, built apps) are started outside the job, so they survive.
-- **Pause after a stop.** Any stop leaves a persistent pause until the owner resumes. No action is replayed automatically.
+- **Pause after a stop (changed 2026-10-29, F1).** Every stop leaves a pause that records who made it (`data/actions.paused`: owner, guard or startup).
+  - The **owner's** pause and the **emergency stop** stay until the owner resumes (button, tray, typed "resume", or Ctrl+Alt+Space then a spoken "resume"; a wake phrase can never lift it).
+  - After a **watchdog** stop (hang, crash, slow start) the guard starts a fresh core (at most 3 times in 30 minutes), and that core lifts the guard's own pause after 30 s of healthy running and says so.
+  - No action is replayed automatically: the interrupted task is reported, never re-run.
+  - A stuck core loop writes every thread's stack to `data/logs/hang-*.txt`.
 
 ## 6. Honest limits
 

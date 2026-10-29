@@ -36,6 +36,27 @@ All commands are run from `D:\Project\Chutku` using `.venv\Scripts\python.exe -m
 **Give several orders and walk away:** while one task runs, new orders (typed in the dashboard or the panel, or spoken with the wake phrase) wait in line, marked **queued**, and start by themselves one after another. Up to 10 can wait. Stop on a queued task removes it from the line. When a run of two or more tasks is over, a Windows notification lists them (✓ done / ✗ not done). Voice answers are spoken as each task finishes.
 
 
+### What changed on 2026-10-29/30 (after "this AI isn't working properly")
+
+- **Brain: free cloud first.** When the internet works, free cloud models plan your requests: Groq and Cerebras if you stored a key, then Gemini (already set up). Your PC's own model takes over offline, or when they all fail. Instant phrases never wait for any model.
+  - Say **"cloud brain off"** to use only the local model; **"cloud brain on"** turns it back on.
+  - For the fastest answers, get a free Groq key at https://console.groq.com/keys, then run `python -m chutku.cli cloud set-key groq` (the key is hidden while you type it).
+  - `python -m chutku.cli cloud status` shows which keys exist; `cloud test` asks the cloud "2+2" and times the answer.
+  - The cloud sees the same things Gemini always saw: your request, tool names and public results. Never file contents, clipboard, chats or typed text.
+- **Gemini Live talk mode is now opt-in.** It sometimes said "ho gaya" when nothing had happened. Ctrl+Alt+Space now listens with Chutku's own voice loop.
+  - Say **"conversation mode on"** / **"live mode on"** for Gemini Live; **"conversation mode off"** turns it off.
+  - If Live says "done" while the task failed or never ran, Chutku makes it correct itself straight away.
+- **She tells you when she didn't hear you.** "Sorry, theek se sunai nahi diya…" instead of only a beep.
+- **Misheard noise is read back, not run.** If what she heard has no request in it ("Watch out brother."), she says "Maine suna: '…'. Kya yahi karna hai?" and does nothing. Typed text is never checked like this.
+- **Commands she used to drop are heard again.** Until now "Spotify kholo", "Open Notepad", "Next song", "Pause the music" and "Volume kam karo" spoken after Ctrl+Alt+Space came back as silence. A filter meant for Whisper's echoes threw them away.
+- **"hindi bhi samjho"** lets speech recognition pick Hindi or English for each command; **"sirf english suno"** goes back to English only (the default; Hinglish comes out translated).
+- **Room talk is not stored any more.** The wake listener used to write every overheard sentence to `data\heard.jsonl` (5,071 lines in 6 days). Now only wakes and your commands are written; other speech is only counted (`data\heard-counts.json`). **"heard debug on"** stores everything for 24 hours if you want to see what it hears; **"heard debug off"** stops it.
+- **Every wake beeps and shows the panel**, so a false wake can never go unnoticed.
+- **Spotify:**
+  - "spotify ka gaana band karo" / "Spotify open karke gana band karo" now **pause the song** (before, they closed Spotify);
+  - after a playlist has played once, "after party bajao", "play after party", "Spotify pe After Party chalao" and "Mera Spotify open kar aur after party playlist chala" play **that playlist** at once, never a search.
+- **Habits and suggestions come from you only.** Chutku's own test scripts no longer count as your habits (the "2 to the power 10" question at 2 AM was a test). The nightly replay says "too few real requests" instead of "ok" when you barely used her that week.
+
 ### Chutku's voice (Kokoro, since 2026-10-07)
 
 You picked the new neural voice in the blind listening test (10 of 10 times over the old Windows voice), so it is now Chutku's voice for everything she says on this PC: spoken answers, reminders and confirmations.
@@ -449,6 +470,7 @@ Rules:
 | Gemini (cloud AI for code and long tasks) | The key is stored and enabled (`gemini status`). Turn it off with `authority revoke cloud.gemini`. It is the free tier: Pro models give quota errors, and Flash works. |
 | Hands-free level | Dashboard, Hands-free row, then Hands-free level. |
 | Wake phrase | Dashboard, Hands-free row, then the "Oye Chutku" checkbox. |
+| Free cloud brain (fastest) | Free key from https://console.groq.com/keys, then `python -m chutku.cli cloud set-key groq`. Check with `cloud status` and `cloud test`. |
 
 ---
 

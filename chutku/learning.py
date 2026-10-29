@@ -214,6 +214,8 @@ def refresh_habits(base=None, *, now=None, min_days=3):
     for turn in recall.turns(base):
         if turn["at"] < since or turn.get("status") not in ("done", "said") or parse_feedback(turn["said"]):
             continue
+        if not recall.owner_turn(turn):
+            continue   # test and timing scripts are not the owner's habits (F7)
         key = _habit_key(turn["said"])
         if key:
             groups[key].append(turn)

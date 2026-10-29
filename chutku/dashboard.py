@@ -135,6 +135,8 @@ class DashboardServer(ThreadingHTTPServer):
         self.loop_tick = time.monotonic()
         self.closing = threading.Event()
         self.healed = None             # the guard pause this core lifted after a restart (shown on the HUD)
+        # Fixed spoken replies (control answers, read-backs): only the real install speaks; tests turn it on with fakes.
+        self.voice_replies = Path(base).resolve() == Path(PROJECT_ROOT).resolve()
         self.action_started = None
         self.work_queue = []           # orders given while another runs: (session, action), oldest first
         self.queue_lock = threading.Lock()
@@ -168,7 +170,7 @@ class DashboardServer(ThreadingHTTPServer):
                 if stalled >= self.HANG_DUMP_AFTER and not dumped:
                     dumped = True
                     dump_hang(self.base, stalled)
-                elif stalled < 1.0:
+                elif stalled < min(1.0, self.HANG_DUMP_AFTER / 2):   # moving again: a later stall dumps anew
                     dumped = False
                 if stalled >= self.LOOP_STALL:
                     continue   # stuck for real: stay silent so the guard restarts the core
@@ -219,16 +221,28 @@ class DashboardServer(ThreadingHTTPServer):
         if self.planner_factory is not None:
             return self.planner_factory()
         from chutku.brain_service import shared_service
-        from chutku.cloud_planner import fallback_planner
-        return LocalAgentPlanner(shared_service(self.base)), fallback_planner(self.base)
+        from chutku.cloud_planner import cloud_first_planner, fallback_planner
+        local = LocalAgentPlanner(shared_service(self.base))
+        prefs = self.preferences.load()
+        if prefs.get("brain") == "cloud_first" and not prefs.get("offline_mode"):
+            # W2 (owner, 2026-10-29: "free cloud first"): Groq/Cerebras/Gemini plan; the local model takes over
+            # only when they fail, and never leads while the cloud is up (cheap_second_opinion False).
+            cloud = cloud_first_planner(self.base)
+            if cloud is not None:
+                local.cheap_second_opinion = lambda: False
+                return cloud, local
+        return local, fallback_planner(self.base)
 
     def prime_brain(self):
         """Warm the local model in the background so the first request is fast."""
         def work():
             try:
                 from chutku.agent_loop import prime
+                lead = self.planners()[0]
+                if str(getattr(lead, "name", "")).startswith("cloud"):
+                    return   # the cloud plans first: keep the GPU free (the local model loads only when needed)
                 with create_runtime(self.base) as runtime:
-                    prime(runtime, self.planners()[0])
+                    prime(runtime, lead)
             except Exception:
                 _log().warning("warming the local model failed", exc_info=True)  # the first request retries
         threading.Thread(target=work, name="chutku-brain-prime", daemon=True).start()
@@ -394,6 +408,8 @@ class DashboardServer(ThreadingHTTPServer):
     def _say(self, text):
         """Speak without the runtime: voice.speak is a tool, and every tool is refused while paused. Used only
         for Chutku's own fixed sentences about the pause, never for content she read."""
+        if not self.voice_replies:
+            return
         from chutku.voice import tts
         from chutku.voice.session import voice_session
         try:
@@ -574,6 +590,8 @@ class DashboardServer(ThreadingHTTPServer):
         mode = self.preferences.load()["handsfree_mode"]
         try:
             if command:
+                if source == "wake":
+                    chime("listen")   # every wake is heard and seen, so a false wake never goes unnoticed
                 self._hud_set("thinking", transcript=command)
                 session = self.begin_session(command, mode, "voice")
                 if session.status == "queued":  # runs after the current order; its answer is spoken then
@@ -588,6 +606,10 @@ class DashboardServer(ThreadingHTTPServer):
                 if session is None:
                     self._hud_set("error", message=message or "I didn't catch that.")
                     chime("busy")
+                    # 2026-10-30 00:50: the owner's hotkey request came out as "Kholo." (unclear) and got only a
+                    # beep; a minute later the emergency stop was pressed. Always say what happened.
+                    if self.voice_replies:
+                        self._speak("Sorry, theek se sunai nahi diya. Ctrl+Alt+Space dabake thoda paas se phir bolo.")
                     return
                 self.hud_state["transcript"] = transcript
             self.hud_state["session_id"] = session.id
@@ -878,7 +900,7 @@ class DashboardServer(ThreadingHTTPServer):
             from chutku.voice.whisper_stt import transcribe_pcm
             self.wake = WakeListener(lambda command: self.handsfree_request(command or None, source="wake"),
                                      lambda pcm: transcribe_pcm(pcm, language="en", base=self.base,
-                                                                prompt=WAKE_PROMPT))
+                                                                prompt=WAKE_PROMPT), base=self.base)
             self.wake.start()
         elif not enabled and self.wake is not None:
             self.wake.stop()
@@ -917,12 +939,24 @@ class DashboardServer(ThreadingHTTPServer):
                     pass
         return stopped
 
-    def _control_session(self, goal, mode, origin, reply):
+    def _control_session(self, goal, mode, origin, reply, *, status="done", silent=False):
         session = self.agent_sessions.add(AgentSession(goal, mode=mode, origin=origin, context={}))
         with session.lock:
-            session._finish("done", reply)
+            session._finish(status, reply)
         self.latest_session_id = session.id
+        if origin == "voice" and not silent and self.voice_replies:   # a spoken request gets a spoken answer
+            speak = self._say if ActionControl(self.base).paused else self._speak
+            threading.Thread(target=speak, args=(reply,), name="chutku-control-reply", daemon=True).start()
         return session
+
+    def _known_names(self):
+        """People the owner taught Chutku (mind.json), so "mammi ko bolo" is a request even without a verb list hit."""
+        try:
+            from chutku import mind
+            people = mind.Mind(self.base).load().get("people", [])
+            return [n for p in people for n in [p.get("name", "")] + list(p.get("aliases", []))]
+        except Exception:
+            return []
 
     def begin_session(self, goal, mode, origin, *, silent=False, speaker_check=True, voice_source="local",
                       extra_context=None):
@@ -947,6 +981,10 @@ class DashboardServer(ThreadingHTTPServer):
                                                                  "ya dashboard ya tray mein Resume dabao.")
             ActionControl(self.base).resume()
             return self._control_session(goal, mode, origin, "Chalu ho gayi. Ab bolo, kya karna hai?")
+        if origin == "voice" and voice_source == "local" and control is None:
+            from chutku.voice.plausible import plausible, read_back
+            if not plausible(goal, known_names=self._known_names()):
+                return self._control_session(goal, mode, origin, read_back(goal), status="clarify", silent=silent)
         with create_runtime(self.base) as runtime:
             context = default_context(RuntimeRouter(runtime, opener=lambda _grant: None))
         from chutku import recall
@@ -962,7 +1000,7 @@ class DashboardServer(ThreadingHTTPServer):
         if extra_context:   # e.g. a scheduled task's previous result (Phase 3b H8)
             context.update(extra_context)
         attached = None
-        if origin == "text":   # "@file:…", "@folder:…", "@url:…", "@clip" (Phase 3b H6): read before planning
+        if origin in ("text", "script"):   # "@file:…", "@folder:…", "@url:…", "@clip" (Phase 3b H6): read before planning
             from chutku import references
             if references.find(goal):
                 try:
@@ -1417,6 +1455,9 @@ def _agent_post(self, path, data):
                     or not 1 <= len(data["message"].strip()) <= 2000:
                 raise ValueError("Enter a message of 1 to 2000 characters.")
             mode = _mode(data)
+            # F7: scripts that drive the live Chutku (live_check, timing runs) say so; their turns are kept apart
+            # from the owner's, so habits, suggestions, examples and the nightly replay learn from the owner only.
+            origin = "script" if self.headers.get("X-Chutku-Synthetic") == "1" else "text"
             from chutku.planning import plan_request
             understood = plan_request(data["message"])
             from chutku import control_intent
@@ -1433,11 +1474,11 @@ def _agent_post(self, path, data):
                 finally:
                     server.action_lock.release()
                 from chutku import recall
-                recall.log_conversation(data["message"], present(result), origin="text", base=server.base,
+                recall.log_conversation(data["message"], present(result), origin=origin, base=server.base,
                                         status="done" if result.get("state") == "COMPLETED" else "failed",
                                         tools=[understood.tool] if result.get("state") == "COMPLETED" else [])
                 return 200, {"kind": "direct", "result": result, "message": present(result)}
-            session = server.begin_session(data["message"].strip(), mode, "text")
+            session = server.begin_session(data["message"].strip(), mode, origin)
             return 200, {"kind": "agent", "session": session.snapshot()}
         if path == "/api/suggestions":
             from chutku import suggest

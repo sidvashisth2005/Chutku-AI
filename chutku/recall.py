@@ -54,6 +54,44 @@ def conversations_path(base=None):
     return Path(base or PROJECT_ROOT) / "data" / "conversations.jsonl"
 
 
+# -- whose turn was it (F7, 2026-10-29) ----------------------------------------------------------------------
+# Habits, suggestions, worked examples and the nightly replay learn from the OWNER only. Before 2026-10-30 the test
+# scripts that drive the live Chutku logged as "text" like the owner: "which is bigger, 2 to the power 10 or 10
+# cubed?" became a 2 AM habit and a suggestion toast. Since then they send X-Chutku-Synthetic and log as "script";
+# older turns are recognised by the scripts' own questions.
+OWNER_ORIGINS = frozenset({"text", "voice", "phone", "phone_voice"})
+_script_goals = None
+
+
+def script_goals():
+    """The questions scripts/live_check.py and scripts/time_live_chat.py ask (normalised), read without running them."""
+    global _script_goals
+    if _script_goals is None:
+        import ast
+        found = set()
+        for name, variable in (("live_check.py", "CASES"), ("time_live_chat.py", "QUESTIONS")):
+            try:
+                tree = ast.parse((PROJECT_ROOT / "scripts" / name).read_text(encoding="utf-8"))
+            except (OSError, SyntaxError, ValueError):
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == variable for t in node.targets) \
+                        and isinstance(node.value, (ast.List, ast.Tuple)):
+                    for item in node.value.elts:
+                        value = item.elts[1] if isinstance(item, ast.Tuple) and len(item.elts) > 1 else item
+                        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                            found.add(" ".join(value.value.casefold().split()))
+        _script_goals = frozenset(found)
+    return _script_goals
+
+
+def owner_turn(turn):
+    """True for a turn the owner really asked (typed, spoken or from the phone); False for scripts and tests."""
+    if turn.get("origin", "text") not in OWNER_ORIGINS:
+        return False
+    return " ".join(str(turn.get("said") or "").casefold().split()) not in script_goals()
+
+
 # -- conversation log --------------------------------------------------------------------------------------
 
 def log_conversation(said, reply, *, origin="text", status="done", tools=(), base=None, at=None, planners=None,

@@ -44,7 +44,7 @@ class NightShiftTests(unittest.TestCase):
 
     def test_replay_compares_plans_and_never_runs_anything(self):
         self.conversations([
-            turn("what time is it", ["system.get_time"]),                        # rule: same
+            turn("time batao", ["system.get_time"]),                             # rule: same
             turn("tell me whether Zzqx exists on this laptop", ["apps.installed"]),   # model now: same
             turn("summarise my week for me", ["files.recent"]),                   # model now: changed
             turn("do the impossible thing", ["web.search"]),                      # model now: no plan
@@ -60,10 +60,10 @@ class NightShiftTests(unittest.TestCase):
             result = nightshift.regression_replay(self.base, runtime, model)
         verdicts = {row["goal"]: row["verdict"] for row in result["rows"]}
         self.assertEqual(result["distinct_goals"], 5)
-        self.assertEqual(verdicts, {"what time is it": "same", "tell me whether Zzqx exists on this laptop": "same",
+        self.assertEqual(verdicts, {"time batao": "same", "tell me whether Zzqx exists on this laptop": "same",
                                     "summarise my week for me": "changed", "do the impossible thing": "fails now",
                                     "which is bigger, 2^10 or 10^3": "answers directly"})
-        self.assertNotIn("what time is it", model.asked)   # the rules answered it: no model round needed
+        self.assertNotIn("time batao", model.asked)   # the rules answered it: no model round needed
 
     def test_without_the_model_unplanned_goals_are_marked_not_checked(self):
         self.conversations([turn("summarise my week for me", ["files.recent"])])
@@ -72,7 +72,7 @@ class NightShiftTests(unittest.TestCase):
         self.assertEqual(result["rows"][0]["verdict"], "not checked (needs the model)")
 
     def test_run_once_writes_a_report_with_every_job(self):
-        self.conversations([turn("what time is it", ["system.get_time"])])
+        self.conversations([turn("time batao", ["system.get_time"])])
         (self.base / "data" / "heard.jsonl").write_text(
             json.dumps({"at": time.time() - 30 * 86400, "text": "old"}) + "\n"
             + json.dumps({"at": time.time(), "text": "new"}) + "\n", encoding="utf-8")
@@ -133,3 +133,45 @@ class NightShiftTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OwnerOnlyTests(unittest.TestCase):
+    """F7 (2026-10-29): scripts and test runs never become habits, examples or replayed goals."""
+    def test_script_turns_are_not_the_owners(self):
+        from chutku.recall import owner_turn
+        self.assertFalse(owner_turn({"said": "anything", "origin": "script"}))
+        self.assertFalse(owner_turn({"said": "which is bigger, 2 to the power 10 or 10 cubed? one line", "origin": "text"}))
+        self.assertTrue(owner_turn({"said": "Spotify kholo", "origin": "voice"}))
+        self.assertTrue(owner_turn({"said": "time batao", "origin": "phone"}))
+
+    def test_replay_says_when_there_is_too_little_real_use(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            (base / "data").mkdir()
+            (base / "data" / "conversations.jsonl").write_text(
+                json.dumps({"at": time.time(), "said": "time batao", "reply": "", "origin": "text", "status": "done",
+                            "tools": ["system.get_time"]}) + "\n"
+                + json.dumps({"at": time.time(), "said": "what time is it", "reply": "", "origin": "script",
+                              "status": "done", "tools": ["system.get_time"]}) + "\n", encoding="utf-8")
+            with create_runtime(base) as runtime:
+                result = nightshift.regression_replay(base, runtime, None)
+            self.assertEqual(result["distinct_goals"], 1)
+            self.assertFalse(result["enough_real_use"])
+            self.assertIn("too few", result["note"])
+
+    def test_habits_ignore_script_turns(self):
+        from chutku import learning
+        from chutku.mind import Mind
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            (base / "data").mkdir()
+            rows = []
+            for day in range(4):
+                at = time.time() - day * 86400
+                rows.append({"at": at, "said": "which is bigger, 2 to the power 10 or 10 cubed? one line",
+                             "reply": "", "origin": "text", "status": "done"})
+                rows.append({"at": at, "said": "status check", "reply": "", "origin": "script", "status": "done"})
+            (base / "data" / "conversations.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows),
+                                                              encoding="utf-8")
+            self.assertEqual(learning.refresh_habits(base), {})
+            self.assertEqual(Mind(base).load().get("habits"), {})

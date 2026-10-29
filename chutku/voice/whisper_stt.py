@@ -72,6 +72,55 @@ def _load(base: Path = PROJECT_ROOT):
         return model, entry
 
 
+# The owner speaks English, Hindi or a mix. Free language detection also picked Spanish, Japanese or Korean for
+# unclear audio; this mode lets Whisper choose only between English and Hindi (Urdu counts as Hindi: the same
+# spoken language). Hindi comes out in Devanagari, which chutku.translit.roman turns into Roman letters later.
+EN_OR_HI = "en|hi"
+
+
+def choose_en_or_hi(model, audio):
+    try:
+        _language, _probability, ranked = model.detect_language(audio)
+    except Exception:
+        return "en"
+    scores = dict(ranked or [])
+    hindi = scores.get("hi", 0.0) + scores.get("ur", 0.0)
+    return "hi" if hindi > scores.get("en", 0.0) else "en"
+
+
+def _words(text):
+    import re
+    return re.findall(r"[a-z0-9']+", (text or "").casefold())
+
+
+def prompt_echo(text, prompt):
+    """True when Whisper only repeated its biasing prompt back (it does that on noise).
+
+    One sentence of the prompt is a real command ("Spotify kholo", "Next song"): until 2026-10-29 any 2+ word piece
+    of the prompt was thrown away, so those commands came back as silence. An echo strings pieces of SEVERAL prompt
+    sentences or list items together, in the prompt's order ("kholo, chalao, batao, open, search, time." was heard
+    44 times from an empty room). The name "Chutku" is ignored when counting pieces."""
+    import re
+    words = [w for w in _words(text) if w != "chutku"]
+    if not prompt or len(words) < 3:
+        return False
+    if "hinglish" in words and "hinglish" in _words(prompt):
+        return True   # the prompt's own label ("Kholo, hinglish speech."): nobody says it to Chutku
+    pieces = [_words(p) for p in re.split(r"[.,!?:;]", prompt)]
+    pieces = [[w for w in p if w != "chutku"] for p in pieces]
+    pieces = [p for p in pieces if p]
+    flat = [(index, w) for index, piece in enumerate(pieces) for w in piece]
+    position, used = 0, set()
+    for word in words:   # every word, in order, must be a prompt word
+        while position < len(flat) and flat[position][1] != word:
+            position += 1
+        if position == len(flat):
+            return False
+        used.add(flat[position][0])
+        position += 1
+    return len(used) >= 2
+
+
 def transcribe_pcm(pcm: bytes, *, sample_rate=16000, base: Path = PROJECT_ROOT, language=None, prompt=HINGLISH_PROMPT):
     """Transcribe mono int16 PCM. Returns text, language and a 0..1 confidence."""
     import numpy as np
@@ -81,6 +130,8 @@ def transcribe_pcm(pcm: bytes, *, sample_rate=16000, base: Path = PROJECT_ROOT, 
         positions = np.linspace(0, len(audio) - 1, int(len(audio) * 16000 / sample_rate))
         audio = np.interp(positions, np.arange(len(audio)), audio).astype(np.float32)
     started = time.monotonic()
+    if language == EN_OR_HI:
+        language = choose_en_or_hi(model, audio)
     # vad_filter: Whisper's own speech detector cuts non-speech before decoding; temperature 0: no random retries,
     # which made text out of noise (owner report 2026-10-04).
     segments, info = model.transcribe(
@@ -94,10 +145,7 @@ def transcribe_pcm(pcm: bytes, *, sample_rate=16000, base: Path = PROJECT_ROOT, 
         logprobs.append(segment.avg_logprob)
     text = " ".join(p for p in pieces if p).strip()
     confidence = math.exp(sum(logprobs) / len(logprobs)) if logprobs else 0.0
-    # Whisper can echo the biasing prompt on near-silence. Short phrases are legitimate
-    # commands ("Spotify kholo"), so only a long verbatim echo is discarded.
-    if prompt and len(text.split()) >= 2 and text.casefold().replace(" ", "").strip(".!?,") in \
-            prompt.casefold().replace(" ", ""):
+    if prompt_echo(text, prompt):
         text, confidence = "", 0.0     # an echo of the biasing prompt, not speech
     from chutku.voice.heard import meaningful
     if text.casefold().strip(" .!?,") in HALLUCINATIONS or (text and not meaningful(text, short_answers_ok=True)):

@@ -6,9 +6,19 @@ import os
 from pathlib import Path
 import threading
 
-DEFAULTS = {"handsfree_mode": "owner", "wake_word": False, "conversation": True, "browser": "brave", "heard_log": True,
+# Phase 4 (2026-10-29): Gemini Live becomes opt-in ("conversation" False; it claimed things it had not done), the
+# hotkey uses the local voice loop, the brain is free-cloud-first, ignored room speech is not stored unless a 24 h
+# debug window is open (heard_ambient_until), and command speech-to-text may let Whisper pick English or Hindi.
+DEFAULTS = {"handsfree_mode": "owner", "wake_word": False, "conversation": False, "browser": "brave", "heard_log": True,
             "offline_mode": False, "earned_autonomy_relax": False, "voice_lock": False, "voice_lock_threshold": 0.55,
-            "timeline": False, "timeline_private": [], "voice_engine": "kokoro"}
+            "timeline": False, "timeline_private": [], "voice_engine": "kokoro", "stt_language": "en",
+            "heard_ambient_until": 0.0, "brain": "cloud_first", "follow_up_seconds": 8.0}
+STT_LANGUAGES = {"en", "en|hi"}
+BRAINS = {"cloud_first", "local"}
+
+
+def _number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
 _MODES = {"review", "auto_safe", "auto_edits", "owner"}
 BROWSER_CHOICES = {"brave", "edge", "chrome", "firefox", "default"}  # owner's choice 2026-10-04: Brave
 
@@ -49,13 +59,29 @@ class Preferences:
                 values["voice_engine"] = raw["voice_engine"]
             if raw.get("browser") in BROWSER_CHOICES:
                 values["browser"] = raw["browser"]
+            if raw.get("stt_language") in STT_LANGUAGES:
+                values["stt_language"] = raw["stt_language"]
+            if raw.get("brain") in BRAINS:
+                values["brain"] = raw["brain"]
+            if _number(raw.get("heard_ambient_until")) and raw["heard_ambient_until"] >= 0:
+                values["heard_ambient_until"] = float(raw["heard_ambient_until"])
+            if _number(raw.get("follow_up_seconds")) and 0 <= raw["follow_up_seconds"] <= 30:
+                values["follow_up_seconds"] = float(raw["follow_up_seconds"])
             return values
 
     def update(self, changes: dict) -> dict:
         if not isinstance(changes, dict) or not changes or set(changes) - set(DEFAULTS):
-            raise ValueError("Only handsfree_mode, wake_word, conversation, browser, heard_log, offline_mode, "
-                             "earned_autonomy_relax, voice_lock, voice_lock_threshold, timeline, "
-                             "timeline_private and voice_engine can be changed.")
+            raise ValueError("Only these can be changed: " + ", ".join(DEFAULTS) + ".")
+        if "stt_language" in changes and changes["stt_language"] not in STT_LANGUAGES:
+            raise ValueError("stt_language must be en or en|hi.")
+        if "brain" in changes and changes["brain"] not in BRAINS:
+            raise ValueError("brain must be cloud_first or local.")
+        if "heard_ambient_until" in changes and not (_number(changes["heard_ambient_until"])
+                                                     and changes["heard_ambient_until"] >= 0):
+            raise ValueError("heard_ambient_until must be a time (seconds since 1970) or 0.")
+        if "follow_up_seconds" in changes and not (_number(changes["follow_up_seconds"])
+                                                   and 0 <= changes["follow_up_seconds"] <= 30):
+            raise ValueError("follow_up_seconds must be between 0 and 30.")
         if "browser" in changes and changes["browser"] not in BROWSER_CHOICES:
             raise ValueError("browser must be brave, edge, chrome, firefox or default.")
         if "handsfree_mode" in changes and changes["handsfree_mode"] not in _MODES:

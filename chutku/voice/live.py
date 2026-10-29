@@ -179,6 +179,7 @@ class LiveConversation(threading.Thread):
         self._playback = bytearray()
         self._play_lock = threading.Lock()
         self.ending_at = None             # set by end_conversation: finish speaking, beep, then close
+        self.false_claims = 0             # completion claims corrected (F5)
         self.said_this_turn = ""          # what the model said in its current turn (false-claim check)
         self.task_this_turn = False       # did it call do_task in this turn
         self.last_audio_at = 0.0
@@ -393,7 +394,11 @@ class LiveConversation(threading.Thread):
             self.said_this_turn += " " + said
         if content.get("turnComplete") or content.get("generationComplete"):
             self._turn_done = True   # live 2026-10-06: separate model turns were glued into one repeated reply
-            claimed = self._claimed_without_task()
+            # A "done" claim about a task that failed is corrected, never re-run (owner, 2026-10-08: a failed step
+            # must not be repeated); a claim with no task at all starts the owner's request; any other unconfirmed
+            # "done" is corrected.
+            claimed = (self._claimed_success(with_task_only=True) or self._claimed_without_task()
+                       or self._claimed_success())
             self.said_this_turn, self.task_this_turn = "", False
             if claimed is not None:
                 return claimed
@@ -412,6 +417,28 @@ class LiveConversation(threading.Thread):
         r"\b(?:(?:kar|khol|chala|baja|bhej|laga|click kar|play kar|open kar|band kar|search kar|dhoondh?)"
         r"\s*(?:rahi hoon|rahi hu|raha hoon|diya|di|diye|dungi|deti hoon|ke deti hoon)"
         r"|(?:opening|opened|clicking|clicked|playing it|started|launching|searching for)\b)", re.I)
+
+    # F5 (2026-10-29): "Ho gaya, Bluetooth band" while the Bluetooth task had not succeeded (owner: "Bluetooth band
+    # nahin hua hai"). A completion claim is only allowed after the latest task finished with status "done".
+    _DONE_CLAIM = re.compile(
+        r"\b(?:ho gaya|ho gayi|ho gaye|kar diya|kar di|kar diye|band (?:ho gaya|kar diya)|bhej diya|bhej di|"
+        r"khol diya|khol di|chala diya|laga diya|baja diya|it'?s done|all done|done hai|"
+        r"turned (?:it )?(?:off|on)|is now (?:off|on|open|playing)|i (?:have )?(?:sent|opened|closed|turned|played))\b",
+        re.I)
+
+    def _claimed_success(self, with_task_only=False):
+        said = (self.said_this_turn or "").strip()
+        if self.ending_at or not said or not self._DONE_CLAIM.search(said) or said.rstrip(" .!\"'").endswith("?"):
+            return None
+        snapshot = self._snapshot()
+        if (snapshot is not None and snapshot["status"] == "done") or (with_task_only and snapshot is None):
+            return None
+        state = "no task was run at all" if snapshot is None else f"the task is {snapshot['status']}"
+        note = (f"[Chutku] You just said it was done, but {state}: NOTHING is confirmed done. Correct yourself right "
+                "now in one short sentence (\"Sorry, galat bola, abhi hua nahi hai\") and say only what the latest "
+                "[Task update] says. Never claim done before a [Task update] with status done.")
+        self.false_claims += 1
+        return {"clientContent": {"turns": [{"role": "user", "parts": [{"text": note}]}], "turnComplete": True}}
 
     def _claimed_without_task(self):
         from chutku.voice.heard import meaningful

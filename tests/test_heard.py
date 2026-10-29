@@ -174,9 +174,37 @@ class WhisperSettingsTests(unittest.TestCase):
         self.assertEqual(result["text"], "agla gaana")
 
     def test_prompt_echo_is_dropped(self):
-        seg = types.SimpleNamespace(text=" Spotify kholo.", avg_logprob=-0.3, no_speech_prob=0.2)
+        seg = types.SimpleNamespace(text=" Spotify kholo. Open Notepad. Next song.", avg_logprob=-0.3, no_speech_prob=0.2)
         result, _ = self.run_whisper([seg])
         self.assertEqual(result["text"], "")     # near-silence turned into the biasing prompt's own words
+
+    def test_one_prompt_sentence_is_a_real_command(self):
+        # Until 2026-10-29 every 2+ word piece of the prompt was thrown away: "Spotify kholo" said by the owner
+        # came back as silence.
+        seg = types.SimpleNamespace(text=" Spotify kholo.", avg_logprob=-0.3, no_speech_prob=0.2)
+        result, _ = self.run_whisper([seg])
+        self.assertEqual(result["text"], "Spotify kholo.")
+
+    def test_echo_rule(self):
+        from chutku.voice.handsfree import WAKE_PROMPT
+        from chutku.voice.whisper_stt import HINGLISH_PROMPT, prompt_echo
+        for said in ("Spotify kholo.", "Open Notepad.", "Next song.", "Pause the music.", "Volume kam karo.",
+                     "Calculator open karo.", "YouTube pe search karo.", "Chutku, what time is it?",
+                     "Downloads folder mein newest PDF kholo.", "open notepad and type hello"):
+            self.assertFalse(prompt_echo(said, HINGLISH_PROMPT), said)
+        self.assertTrue(prompt_echo("What time is it? Spotify kholo. Next song.", HINGLISH_PROMPT))
+        for heard in ("kholo, chalao, batao, open, search, time.", "Kholo, hinglish speech.", "open search time",
+                      "Hinglish speech: kholo, chalao, roko, batao, open, search, time."):
+            self.assertTrue(prompt_echo(heard, WAKE_PROMPT), heard)   # all heard from an empty room, 2026-10-23..29
+        self.assertFalse(prompt_echo("Oye Chutku, Spotify kholo", WAKE_PROMPT))
+
+    def test_english_or_hindi_only(self):
+        from chutku.voice.whisper_stt import choose_en_or_hi
+        model = lambda ranked: types.SimpleNamespace(detect_language=lambda audio: ("es", 0.4, ranked))
+        self.assertEqual(choose_en_or_hi(model([("es", 0.4), ("en", 0.3), ("hi", 0.2)]), None), "en")
+        self.assertEqual(choose_en_or_hi(model([("ja", 0.4), ("hi", 0.2), ("ur", 0.15), ("en", 0.3)]), None), "hi")
+        broken = types.SimpleNamespace(detect_language=lambda audio: 1 / 0)
+        self.assertEqual(choose_en_or_hi(broken, None), "en")
 
 
 if __name__ == "__main__":

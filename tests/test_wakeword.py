@@ -17,12 +17,12 @@ from chutku.voice.session import voice_session
 from tests.test_handsfree import FakeStream
 
 
-def model(folder, bias):
+def model(folder, bias, two_stage=False):
     path = Path(folder) / "m.npz"
     np.savez(path, w1=np.zeros((1536, 4), np.float32), b1=np.zeros(4, np.float32), w2=np.zeros((4, 1), np.float32),
              b2=np.array([bias], np.float32), mean=np.zeros(1536, np.float32), std=np.ones(1536, np.float32),
              threshold=np.float32(0.7), meta=np.array(json.dumps({"trained": "test", "owner_clips": 0,
-                                                                   "threshold": 0.7})))
+                                                                   "threshold": 0.7, "two_stage": two_stage})))
     return path
 
 
@@ -66,11 +66,12 @@ class GateTests(unittest.TestCase):
 
 
 class ListenerTests(unittest.TestCase):
-    def run_listener(self, model_path, seconds=1.5):
+    def run_listener(self, model_path, seconds=1.5, heard_text=""):
         done, woke, transcribed = threading.Event(), [], []
         backend = types.SimpleNamespace(RawInputStream=lambda **_: FakeStream([0.05] * int(seconds * 10), done))
         listener = WakeListener(lambda command: woke.append(command),
-                                lambda pcm: transcribed.append(pcm) or {"text": ""}, backend=backend)
+                                lambda pcm: transcribed.append(pcm) or {"text": heard_text, "confidence": 0.8},
+                                backend=backend)
         listener.detector_model = model_path
         with patch.object(voice_session, "quiet_for", return_value=5.0), \
                 patch("chutku.voice.heard.log_heard") as logged:
@@ -89,6 +90,21 @@ class ListenerTests(unittest.TestCase):
         self.assertEqual(set(woke), {""})                # empty command: she beeps and listens
         self.assertEqual(transcribed, [])                # Whisper never ran
         self.assertEqual(logged.call_args[0][:3], ("wake", "(Oye Chutku)", "wake"))
+
+    def test_two_stage_wakes_only_when_whisper_hears_the_name(self):
+        with tempfile.TemporaryDirectory() as temp:
+            woke, transcribed, listener, _logged = self.run_listener(model(temp, 10.0, two_stage=True),
+                                                                     heard_text="Oye Chutku")
+        self.assertTrue(transcribed)                     # the second stage ran on the detector's own audio
+        self.assertTrue(all(0 < len(pcm) <= wakeword.CONTEXT_SAMPLES * 2 for pcm in transcribed))
+        self.assertTrue(woke)
+
+    def test_two_stage_rejects_a_look_alike(self):
+        with tempfile.TemporaryDirectory() as temp:
+            woke, transcribed, _listener, _logged = self.run_listener(model(temp, 10.0, two_stage=True),
+                                                                      heard_text="Chotu, idhar aao")
+        self.assertTrue(transcribed)
+        self.assertEqual(woke, [])
 
     def test_broken_model_falls_back_to_whisper(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -41,6 +41,7 @@ AUTO_EDIT_REVERSIBILITY = frozenset({"journaled", "compensatable", "single_use",
 # Reversible (R1) steps that still ask right after Chutku read outside content (a web page, a message, the clipboard),
 # because they start programs, open files, change what Chutku remembers, or turn the cloud back on.
 TAINT_SENSITIVE_R1 = ("apps.launch", "files.open", "mind.", "memory.remember", "settings.offline_mode",
+                      "settings.chutku",   # brain, listening and Live switches: a page must not flip them
                       "task.schedule")   # a page must never plant a task that runs later by itself
 # Content Chutku read contained instruction-like text (a page or message trying to steer her, master plan S15):
 # from then on every step that changes anything waits for the owner, in every mode.

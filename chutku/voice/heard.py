@@ -148,6 +148,53 @@ def log_heard(path_name, text, decision, *, level=None, confidence=None, base=No
             pass  # the log is a diagnostic aid, never a reason to fail
 
 
+def ambient_logging(base=None):
+    """True while the owner's 24 h debug window is open ("heard debug on"): only then is speech that was NOT
+    meant for Chutku written to heard.jsonl. From 2026-10-23 to 10-29 the wake listener stored 5,071 overheard
+    household sentences; by default they are now only counted."""
+    from chutku.core.preferences import Preferences
+    try:
+        return Preferences(Path(base or PROJECT_ROOT)).load()["heard_ambient_until"] > time.time()
+    except (OSError, ValueError, KeyError):
+        return False
+
+
+def counts_path(base=None):
+    return Path(base or PROJECT_ROOT) / "data" / "heard-counts.json"
+
+
+def count_ignored(path_name, base=None, *, keep_days=14):
+    """Count speech that was ignored, per day and path, without its words (data/heard-counts.json)."""
+    if base is None and _under_test():
+        return
+    file = counts_path(base)
+    day = time.strftime("%Y-%m-%d")
+    with _log_lock:
+        try:
+            data = json.loads(file.read_text(encoding="utf-8")) if file.exists() else {}
+        except (OSError, ValueError):
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        row = data.setdefault(day, {})
+        row[path_name] = int(row.get(path_name, 0)) + 1
+        for old in sorted(data)[:-keep_days]:
+            data.pop(old, None)
+        try:
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text(json.dumps(data), encoding="utf-8")
+        except OSError:
+            pass
+
+
+def ignored_counts(base=None):
+    try:
+        data = json.loads(counts_path(base).read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
 def _prune_file(file):
     """Keep the last KEEP_DAYS (at most 5000 lines). Returns how many lines were dropped."""
     cutoff = time.time() - KEEP_DAYS * 86400
