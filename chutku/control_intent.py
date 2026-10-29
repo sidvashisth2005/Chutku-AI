@@ -1,7 +1,7 @@
 """Controlling Chutku in plain words (English / Hinglish): stop, pause, undo, repeat, help, "are you there".
 
-kind(goal) -> "stop" | "pause" | "undo" | "recent" | "repeat" | "help" | "presence" | None.
-"stop"/"pause" act on Chutku itself (the dashboard handles them before anything is queued, so "stop" never
+kind(goal) -> "stop" | "pause" | "resume" | "undo" | "recent" | "repeat" | "help" | "presence" | None.
+"stop"/"pause"/"resume" act on Chutku itself (the dashboard handles them before anything is queued, so "stop" never
 waits behind the task it should stop). The others are instant quick-tier proposals.
 """
 from __future__ import annotations
@@ -15,6 +15,8 @@ _KINDS = [
     ("stop", r"(?:stop|stop it|stop that|stop everything|cancel|cancel it|cancel that|abort|ruko|ruk jao|ruk ja|bas|bas karo|"
              r"rehne do|chhodo|chodo|band karo sab|sab band karo|stop karo|cancel karo)"),
     ("pause", r"(?:pause (?:all )?actions|pause everything|pause chutku|freeze|sab rok do|actions rok do)"),
+    ("resume", r"(?:resume|resume (?:actions|everything|chutku)|unpause|chalu ho jao|chalu ho ja|wapas chalu (?:ho jao|karo)|"
+               r"kaam chalu karo|actions chalu karo)"),
     ("undo", r"(?:undo|undo (?:that|it|this|the last (?:thing|change|action)|last|last change)|revert (?:that|it)|"
              r"wapas karo|wapas kar do|vapas karo|pichla wapas karo|ulta karo)"),
     ("recent", r"(?:what did you (?:just )?do|what have you just done|abhi kya kiya|tumne abhi kya kiya|last kya kiya)"),

@@ -21,6 +21,9 @@ How the work is split:
 | 6 | 2026-10-06 | `679cd5ba` | skill `/code-review` | Code review of everything built since S0 (built-in /code-review skill) |
 | 7 | 2026-10-06 | `679cd5ba` | skill `/security-review` | Security review of everything built since S0 (built-in /security-review skill) |
 | 8 | 2026-10-06 | `679cd5ba` | agent (general-purpose) | Security review: find exploitable issues |
+| 9 | 2026-10-29 | `42e77248` | agent (Explore) | Audit 2026-10-29, part 1 of 3: architecture and request flow |
+| 10 | 2026-10-29 | `42e77248` | agent (Explore) | Audit 2026-10-29, part 2 of 3: real-session failures from the logs |
+| 11 | 2026-10-29 | `42e77248` | agent (Explore) | Audit 2026-10-29, part 3 of 3: plans, status and test health |
 
 ## 1. Investigate random noise being taken as commands
 
@@ -177,4 +180,94 @@ OBJECTIVE: identify HIGH-CONFIDENCE security vulnerabilities newly added with re
 Methodology: 1) understand existing patterns (PolicyKernel, Runtime.authorize/run, step_question, TAINT_SENSITIVE_R1, TAINTING_TOOLS/PRIVATE_TOOLS, user_only, approvals binding). 2) compare new code against them. 3) trace data flows from untrusted inputs to sensitive operations. Examples worth checking concretely: Can a tainted/suspicious agent session reach rewind.run, task.schedule, reflex compile, settings.* without CONFIRM? Does a scheduled task replay run with fewer checks than the original order (e.g. loses taint)? Can the reflex compiler learn a skill from a tainted session's goal and later execute it unasked? Do rewind inverses escape protected zones or grant roots (e.g. _root_of derived from journal records)? Does /api/nightshift or /api/voice/enroll lack token/origin checks? Does the cli _ask_running_chutku leak the token? Does the timeline search output reach the Gemini cloud planner?
 
 Output: markdown list of findings, each with file:line, severity (HIGH/MEDIUM), category, description, concrete exploit scenario, recommendation, and your confidence 1-10. Only include findings you're >80% confident are exploitable. If none, say so explicitly.
+````
+
+## 9. Audit 2026-10-29, part 1 of 3: architecture and request flow
+
+- **When:** 2026-10-29, session `42e77248`
+- **Kind:** Agent, type `Explore`; short description "Map architecture and request flow"
+- **Why it was used:** 2026-10-29. You said "this AI isn't working properly" and asked for a check of the complete codebase. I had already found that actions were paused and the wake word had never fired. I needed the exact path of a request (wake, hotkey, typed) and the pause/heartbeat behaviour, with file:line references.
+- **What came of it:** It mapped every hop, from `serve()` through `begin_session`, `AgentSession`, `Runtime` and `SpeechQueue`. It confirmed the following:
+  - a guard stop pauses actions until a typed resume;
+  - the marker always says "by the user";
+  - paused voice requests get no spoken reply;
+  - `WAKE_PROMPT` is echoed back by Whisper (44 exact echoes);
+  - none of the 5,071 ignored lines resembles "Chutku".
+  These became plan items F1 and F2 in Phase 4 (`docs/WORLD_CLASS_PLAN.md`).
+
+**Prompt / input, word for word:**
+
+````text
+Repo: D:\Project\Chutku — "Chutku", a local Windows voice/desktop AI assistant (Python, llama.cpp Qwen3-4B local brain, optional Gemini, faster-whisper STT, Kokoro TTS, dashboard, policy kernel). Thoroughness: very thorough, but read-only.
+
+I need a concise architecture map so I can plan fixes. Report:
+1. The end-to-end path of ONE request from (a) voice wake word, (b) the Ctrl+Alt+Space hotkey, (c) typed dashboard chat → to the planner → tool execution → reply/TTS. Name the exact modules/functions at each hop (e.g. chutku/voice/*, chutku/runtime.py, chutku/agent_loop.py, chutku/quick_intents.py, chutku/router/*, chutku/core/*, chutku/brain_service.py, chutku/dashboard.py).
+2. Which processes/services run live (guard, core, brain llama-server, voice service, dashboard, tray, HUD) and how they're started (Start-Chutku.cmd, scheduled task \Chutku\Chutku, chutku/cli.py). What is the heartbeat and what does 'heartbeat_timeout' do — data/guard-last-stop.json shows reason heartbeat_timeout on 2026-10-28 and data/actions.paused says "Actions paused by the user. Resume explicitly." Find who writes actions.paused and what happens to requests while paused (do they silently fail?).
+3. The wake word path: how is 'Oye Chutku' detected (Whisper transcribe-everything vs a wake detector), where is the 'confidence' / 'level' in data/heard.jsonl computed, what the thresholds are, and what the "wake detector (gated, off until it passes)" from the last commit is. Note: data/heard.jsonl has 5071 entries since 2026-10-23, ALL with decision 'ignored', and one heard text is literally "kholo, chalao, batao, open, search, time." — find whether that is an initial_prompt for Whisper being hallucinated back.
+4. Size map: list the largest modules by line count (top 25) and the number of tools registered (find the tool registry/catalog and count tools).
+Keep the report under ~900 words with file:line references.
+````
+
+## 10. Audit 2026-10-29, part 2 of 3: real-session failures from the logs
+
+- **When:** 2026-10-29, session `42e77248`
+- **Kind:** Agent, type `Explore`; short description "Mine real-session failures from logs"
+- **Why it was used:** The same audit. Your real sessions, not the test runs, show what fails. I needed numbers and examples from `data/` without reading 700 KB of logs into the main session.
+- **What came of it:** It found that real voice use peaked on 10-06 and stopped after 10-24. Its failure taxonomy:
+  - the talk mode claimed things it hadn't done (Bluetooth, Spotify);
+  - STT mishearing (19 foreign-language turns, hotkey failed 13 of 31);
+  - Spotify "After Party": 0 of 15;
+  - wrong tools or refusals;
+  - pause and heartbeat stops.
+  Latency: local model median 14.7 s and p90 58 s by voice; Gemini median 85 s by voice. It also found 25 frustration turns. Night Shift replay "passes" on only 2 goals. These became plan items F4–F7 and W2.
+
+**Prompt / input, word for word:**
+
+````text
+Repo: D:\Project\Chutku — "Chutku", a local Windows voice assistant. The owner says "this AI isn't working properly". Read-only investigation of the REAL usage logs to find what actually fails. Thoroughness: very thorough.
+
+Files (in D:\Project\Chutku\data): conversations.jsonl (154 KB), actions.log.jsonl (400 KB), experience.jsonl, feedback.jsonl, last-task.json, scheduled.json, reflexes.json, suggestions.json, logs/chutku.log, nightshift/ (folder), and chutku.db / ledger.db (SQLite — you may query with python's sqlite3 read-only via `python -c` using uri 'file:...?mode=ro', list tables first). Use python one-liners to aggregate; don't dump whole files.
+
+Report:
+1. Timeline: date range of real owner requests; requests per day for the last 3 weeks; when usage dropped off.
+2. The owner's last ~60 real requests (goal text, path: instant/quick vs model/planner vs Gemini, status, elapsed seconds, reply). Show them compactly.
+3. Failure taxonomy: group failures/wrong answers/timeouts/refusals/'I can't'/approval asks/hallucinated success into categories with counts and 2-3 concrete examples each (quote the goal + what Chutku did). Look especially for: slow model responses (>15 s), planner picking the wrong tool, claims of success that didn't happen, Hindi/Hinglish misunderstanding, app actions failing (Spotify/WhatsApp/Brave/YouTube), approvals that annoyed the owner, pause/heartbeat problems.
+4. Latency stats: median/p90 time for instant vs model-planned requests.
+5. Errors/tracebacks in logs/chutku.log and the nightshift folder (latest nightshift report contents and whether regression replay passes).
+6. Anything that suggests the owner gave up (repeated rephrasings, angry/frustrated messages, 'stop', 'kuch nahi hota', etc.).
+Keep the report under ~1000 words, concrete, with numbers.
+````
+
+## 11. Audit 2026-10-29, part 3 of 3: plans, status and test health
+
+- **When:** 2026-10-29, session `42e77248`
+- **Kind:** Agent, type `Explore`; short description "Audit plans, status and test health"
+- **Why it was used:** The same audit. Before proposing upgrades I needed to know:
+  - which planned slices are done or open;
+  - what the ledger records as broken or parked;
+  - which flagship features are actually switched on;
+  - the state of the test suite and the dashboard.
+- **What came of it:** It reported:
+  - A0–A6 and H1–H8 are done; A7 is next; P1–P4 were skipped.
+  - The latest full run was 1,111 tests OK (10-12).
+  - Voice Lock was never enrolled, and Timeline is off.
+  - Several docs have stale counts.
+  - The dashboard is plain (93-line HTML, 101-line CSS, 0-byte icon).
+  This shaped the "wow" options I put to you and Phase W4.
+
+**Prompt / input, word for word:**
+
+````text
+Repo: D:\Project\Chutku — "Chutku", a local Windows voice assistant (Python). Read-only audit of the project's planning/status docs and feature inventory. Thoroughness: medium-to-thorough.
+
+Read: IMPLEMENTATION_STATUS.md (latest ~300 lines, it's a ledger), docs/MASTER_PLAN.md, docs/HERMES_PLAN.md, docs/APP_MASTERY_PLAN.md, docs/MARK_PARITY.md, docs/OWNER_GUIDE.md (skim), README.md, docs/ROADMAP.md.
+
+Report:
+1. For HERMES_PLAN (H1–H30) and APP_MASTERY_PLAN (A0–A16): which slices are ticked done vs not done; what's the next unticked slice; what is parked and why.
+2. Open problems / known-broken items / 'unverified' / 'parked' / 'owner-only' items explicitly recorded in IMPLEMENTATION_STATUS.md and docs (list them with one line each).
+3. The current user-facing feature inventory as a compact grouped list (voice, apps, files, web, messaging, memory, scheduling, dashboard, coding, vision, etc.), marking which are verified live vs unit-tested only.
+4. What 'wow'/flagship features exist already (Reflex Compiler, Earned Autonomy, Causal Rewind, Voice Lock, Night Shift, Timeline, etc.) and whether they are actually enabled in data/preferences.json (handsfree_mode owner, timeline false, voice_lock false...).
+5. Test suite shape: number of test files in tests/, any tests marked skip/expectedFailure, and the most recent recorded full-suite result in IMPLEMENTATION_STATUS (count, pass/fail, date).
+6. The dashboard UI: what tech it uses (chutku/dashboard.py, chutku/web/*) and what it looks like (pages/panels), roughly how polished.
+Keep the report under ~1000 words.
 ````

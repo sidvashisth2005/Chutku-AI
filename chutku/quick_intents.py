@@ -513,6 +513,8 @@ def _single(goal, apps=None):
         if again is None or not again["next_steps"]:
             return None  # the model plans the previous request again
         return again
+    if control == "resume":
+        return _done("Main chalu hi hoon. Bolo, kya karna hai?")   # (a real pause is lifted by the dashboard)
     if control in ("stop", "pause") and not re.fullmatch(r"\W*stop\W*", text, re.I):
         return _done("Nothing is running right now.")  # (the dashboard stops running work before this point)
     scheduled = _scheduled(text)

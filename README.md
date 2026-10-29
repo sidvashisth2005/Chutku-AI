@@ -44,7 +44,7 @@ contents, clipboard, screen text and memory stay on the PC.
   skills and tidies logs; the Today card shows the result.
 - **Timeline** (opt-in, titles only): "wo PDF jo kal shaam khola tha".
 - Hardening: injection lines removed from read content, taint/identity rules, fail-closed network/paths/logging,
-  stop that really stops, streaming answers, structured logs. 935 automated tests.
+  stop that really stops, streaming answers, structured logs. 231 tools, about 1,130 automated tests (2026-10-29).
 
 See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for verified evidence and
 limits, and [docs/DESIGN.md](docs/DESIGN.md) for the design.

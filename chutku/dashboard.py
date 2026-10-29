@@ -132,6 +132,9 @@ class DashboardServer(ThreadingHTTPServer):
         self.planner_factory = None  # tests may inject (planner, fallback)
         self.action_lock = threading.Lock()
         self.heartbeat = heartbeat
+        self.loop_tick = time.monotonic()
+        self.closing = threading.Event()
+        self.healed = None             # the guard pause this core lifted after a restart (shown on the HUD)
         self.action_started = None
         self.work_queue = []           # orders given while another runs: (session, action), oldest first
         self.queue_lock = threading.Lock()
@@ -141,8 +144,75 @@ class DashboardServer(ThreadingHTTPServer):
         self.origin = f"http://127.0.0.1:{self.server_port}"
 
     def service_actions(self):
-        if self.heartbeat is not None:
-            self.heartbeat.send({"type": "heartbeat", "action_started": self.action_started})
+        self.loop_tick = time.monotonic()   # the HTTP loop is alive; the heartbeat thread reports it to the guard
+
+    # The guard kills a core that is silent for 5 s. Beats used to come from this HTTP loop, so a few seconds of
+    # GIL-heavy speech work or Windows background throttling looked like a hang (2026-10-28). Beats now come from
+    # their own thread and stop only when the loop has been stuck for LOOP_STALL seconds: a real hang still ends.
+    LOOP_STALL = 30.0
+    HANG_DUMP_AFTER = 8.0
+
+    def server_close(self):
+        self.closing.set()   # ends the heartbeat and healing threads
+        super().server_close()
+
+    def start_heartbeat(self, interval=0.5):
+        if self.heartbeat is None:
+            return None
+        self.loop_tick = time.monotonic()
+
+        def run():
+            dumped = False
+            while not self.closing.wait(interval):
+                stalled = time.monotonic() - self.loop_tick
+                if stalled >= self.HANG_DUMP_AFTER and not dumped:
+                    dumped = True
+                    dump_hang(self.base, stalled)
+                elif stalled < 1.0:
+                    dumped = False
+                if stalled >= self.LOOP_STALL:
+                    continue   # stuck for real: stay silent so the guard restarts the core
+                try:
+                    self.heartbeat.send({"type": "heartbeat", "action_started": self.action_started})
+                except (OSError, ValueError):
+                    return     # the guard is gone
+        thread = threading.Thread(target=run, name="chutku-heartbeat", daemon=True)
+        thread.start()
+        return thread
+
+    def heal_when_healthy(self, healthy_for=30.0, retry=10.0, give_up=600.0):
+        """After the guard restarted this core, lift the guard's own pause once the core has stayed up
+        `healthy_for` seconds, and say so. The owner's pause is never lifted; the cut-off task is not re-run."""
+        if self.heartbeat is None:
+            return None
+
+        def run():
+            if self.closing.wait(healthy_for):
+                return
+            deadline = time.monotonic() + give_up
+            while time.monotonic() < deadline:
+                try:
+                    lifted = ActionControl(self.base).heal()
+                    break
+                except ExecutionBusy:
+                    if self.closing.wait(retry):
+                        return
+            else:
+                return
+            if lifted is None:
+                return
+            _log().info("lifted the guard's pause (%s)", lifted.get("reason"))
+            self.healed = lifted
+            message = "Main atak gayi thi, isliye khud restart hui. Ab phir se taiyaar hoon."
+            cut = interrupted_task(self.base)
+            if cut:
+                message += f" '{str(cut.get('goal', ''))[:60]}' beech mein ruk gaya tha; chahiye to dobara bolo."
+            self.hud_state["message"] = message
+            if Path(self.base).resolve() == Path(PROJECT_ROOT).resolve():
+                self._speak(message)
+        thread = threading.Thread(target=run, name="chutku-heal", daemon=True)
+        thread.start()
+        return thread
 
     # -- agent sessions ---------------------------------------------------------
     def planners(self):
@@ -321,6 +391,24 @@ class DashboardServer(ThreadingHTTPServer):
         except Exception:
             _log().exception("speaking failed")
 
+    def _say(self, text):
+        """Speak without the runtime: voice.speak is a tool, and every tool is refused while paused. Used only
+        for Chutku's own fixed sentences about the pause, never for content she read."""
+        from chutku.voice import tts
+        from chutku.voice.session import voice_session
+        try:
+            with voice_session.active("speaking"):
+                if tts.available():
+                    try:
+                        tts.speak(text[:400])
+                        return
+                    except Exception:
+                        _log().exception("Kokoro failed; using the Windows voice")
+                from chutku.tools.speech import _speak_sapi
+                _speak_sapi({"text": text[:400]})
+        except Exception:
+            _log().exception("speaking while paused failed")   # the HUD still shows the reason
+
     def _wait_for(self, session, seconds=240):
         """Follow a voice task; each step that needs approval is asked out loud and answered by voice."""
         deadline = time.monotonic() + seconds
@@ -470,6 +558,9 @@ class DashboardServer(ThreadingHTTPServer):
                 live.stop()
                 self._hud_set("done", message="Conversation ended.")
             return
+        if ActionControl(self.base).paused:
+            self._paused_voice(source, command)   # always answer out loud; the hotkey may lift the pause by voice
+            return
         conversation = self.preferences.load().get("conversation", True)
         from chutku.voice import mic
         mic.set_muted(False)   # calling Chutku means "listen to me now"
@@ -505,6 +596,62 @@ class DashboardServer(ThreadingHTTPServer):
                 self._local_conversation(mode)
         except ExecutionBusy:
             chime("busy")
+
+    def _paused_voice(self, source, command=None):
+        """Called while actions are paused. Before 2026-10-29 the hotkey only beeped and the wake phrase failed
+        silently, so the owner never learned why Chutku "did nothing" for three days. Now she says why. After
+        the hotkey (a key pressed at this PC, so the owner) a spoken "resume" lifts the pause; nothing else heard
+        here runs. A wake phrase only gets the explanation: a voice in the room may not lift a pause."""
+        from chutku import control_intent
+        from chutku.voice.handsfree import chime
+        why = paused_spoken(self.base)
+        self._hud_set("error", message=paused_explanation(self.base, short=True))
+        if source != "hotkey":
+            self._say(why + " Chalu karne ke liye Ctrl+Alt+Space dabake resume bolo.")
+            return
+        if self.action_lock.locked():
+            chime("busy")
+            return
+        heard = command
+        if not heard:
+            self._say(why + " Chalu karna hai to resume bolo.")
+            chime("listen")
+            self._hud_set("listening", message="Paused. Say \"resume\" to switch actions back on.")
+            heard = self._listen_paused()
+        if heard and control_intent.kind(heard) == "resume":
+            try:
+                ActionControl(self.base).resume()
+            except ExecutionBusy:
+                self._say("Abhi ek kaam chal raha hai, thodi der mein phir se bolo.")
+                return
+            self._hud_set("done", transcript=heard, message="Resumed: actions are on again.")
+            self._say("Chalu ho gayi. Ab bolo, kya karna hai?")
+            return
+        self._hud_set("error", transcript=heard or None, message=paused_explanation(self.base, short=True))
+
+    def _listen_paused(self):
+        """One transcript while paused (the listen tool refuses to run then). Used only to hear "resume"."""
+        from chutku.voice import recognition
+        from chutku.voice.session import voice_session
+        wake = self.wake
+        if wake is not None:
+            wake.busy.set()
+
+        class Unpaused:
+            @staticmethod
+            def check():
+                return None
+        try:
+            with voice_session.active("listening"):
+                heard = recognition.transcribe(recognition.capture(Unpaused()))
+        except Exception:
+            _log().exception("listening while paused failed")
+            return ""
+        finally:
+            if wake is not None and not getattr(wake, "handling", False):
+                wake.busy.clear()
+        text = heard.get("text", "") if isinstance(heard.get("text"), str) else ""
+        return text.strip() if heard.get("confidence", 0) >= 0.35 else ""
 
     END_CONVERSATION = re.compile(r"\W*(?:bas|bas karo|bye|ok bye|bye bye|thank you|thanks|that'?s all|ho gaya|"
                                   r"band karo|stop|rehne do|kuch nahi|nothing|no thanks)\W*", re.I)
@@ -790,10 +937,16 @@ class DashboardServer(ThreadingHTTPServer):
             return self._control_session(goal, mode, origin, f"Stopped ({count} task{'s' if count != 1 else ''}). "
                                                              "Completed steps stay; say \"undo that\" to reverse the last change.")
         if control == "pause":
-            ActionControl(self.base).pause()
+            ActionControl(self.base).pause("owner", "asked")
             self.stop_everything()
             return self._control_session(goal, mode, origin, "Paused. Nothing will run until you press Resume on the "
-                                                             "dashboard or the tray.")
+                                                             "dashboard or the tray, or say \"resume\" after Ctrl+Alt+Space.")
+        if control == "resume" and ActionControl(self.base).paused:
+            if origin != "text":   # a voice in the room may not lift a pause; the hotkey path handles spoken resume
+                return self._control_session(goal, mode, origin, "Resume ke liye Ctrl+Alt+Space dabake \"resume\" bolo, "
+                                                                 "ya dashboard ya tray mein Resume dabao.")
+            ActionControl(self.base).resume()
+            return self._control_session(goal, mode, origin, "Chalu ho gayi. Ab bolo, kya karna hai?")
         with create_runtime(self.base) as runtime:
             context = default_context(RuntimeRouter(runtime, opener=lambda _grant: None))
         from chutku import recall
@@ -1352,15 +1505,64 @@ _STOP_REASONS = {
 }
 
 
-def paused_explanation(base, *, short=False):
-    """Plain words for 'why can't you do anything': the guard's last stop reason and how to resume.
-    short=True gives only the reason, for the dashboard banner that carries its own Resume button."""
+def dump_hang(base, stalled, keep=10):
+    """Every thread's stack when the core's loop stops moving, so a hang can be diagnosed afterwards
+    (data/logs/hang-*.txt, newest `keep` kept). Returns the file, or None."""
+    import faulthandler
+    folder = Path(base) / "data" / "logs"
     try:
-        report = json.loads((Path(base) / "data" / "guard-last-stop.json").read_text(encoding="utf-8"))
-        when = datetime.fromisoformat(report["timestamp_utc"]).astimezone().strftime("%I:%M %p on %d %b").lstrip("0")
-        why = f" Chutku paused itself at {when} because {_STOP_REASONS.get(report.get('reason'), 'it was stopped')}."
-    except (OSError, ValueError, KeyError):
-        why = ""
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / f"hang-{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
+        with path.open("w", encoding="utf-8") as stream:
+            stream.write(f"Chutku's HTTP loop has not moved for {stalled:.1f} s.\nThreads (id -> name):\n")
+            for thread in threading.enumerate():   # faulthandler prints ids only
+                stream.write(f"  0x{thread.ident or 0:016x} {thread.name}\n")
+            stream.write("\n")
+            stream.flush()
+            faulthandler.dump_traceback(stream, all_threads=True)
+        for old in sorted(folder.glob("hang-*.txt"))[:-keep]:
+            old.unlink(missing_ok=True)
+        _log().warning("loop stalled %.1f s; stacks in %s", stalled, path)
+        return path
+    except OSError:
+        return None
+
+
+def paused_spoken(base):
+    """One short spoken sentence (her own Hinglish, feminine) for why actions are paused."""
+    info = ActionControl(base).info()
+    source, reason = info.get("source"), info.get("reason")
+    if source == "owner":
+        return ("Emergency stop dabaya gaya tha, isliye main paused hoon." if reason == "emergency_stop"
+                else "Aapne mujhe pause kiya hua hai.")
+    if source in {"guard", "startup"}:
+        return "Main atak gayi thi, isliye paused hoon; thodi der mein khud chalu ho jaungi."
+    return "Main abhi paused hoon."
+
+
+def _when(timestamp):
+    return datetime.fromtimestamp(timestamp).strftime("%I:%M %p on %d %b").lstrip("0")
+
+
+def paused_explanation(base, *, short=False):
+    """Plain words for 'why can't you do anything': who paused (the owner, or the guard and why) and how to
+    resume. short=True gives only the reason, for the dashboard banner that carries its own Resume button."""
+    info = ActionControl(base).info()
+    why = ""
+    if info.get("source") == "owner":
+        when = f" at {_when(info['at'])}" if info.get("at") else ""
+        why = (" The emergency stop was used" if info.get("reason") == "emergency_stop" else " You paused me") + when + "."
+    elif info.get("source") == "startup":
+        why = " I closed unexpectedly last time, so I paused to be safe; I resume by myself once I'm running fine."
+    else:
+        try:
+            report = json.loads((Path(base) / "data" / "guard-last-stop.json").read_text(encoding="utf-8"))
+            when = datetime.fromisoformat(report["timestamp_utc"]).astimezone().strftime("%I:%M %p on %d %b").lstrip("0")
+            why = f" Chutku paused itself at {when} because {_STOP_REASONS.get(report.get('reason'), 'it was stopped')}."
+            if info.get("source") == "guard":
+                why += " I resume by myself once the restarted core is running fine."
+        except (OSError, ValueError, KeyError):
+            why = ""
     if short:
         return (why.strip() or "Actions are paused.") + " Nothing runs until you resume."
     return ("I'm paused, so I didn't do that." + why + " Nothing runs while paused, for safety. "
@@ -1457,6 +1659,7 @@ def _warm_app_list():
 
 def serve(port: int = 8765, open_browser: bool = False, *, base=PROJECT_ROOT, heartbeat=None):
     with DashboardServer(base=base, port=port, heartbeat=heartbeat) as server:
+        server.start_heartbeat()   # before the slow start-up work: a hang there is caught too
         mark_interrupted_task(base)
         server.prime_brain()
         server.start_handsfree()
@@ -1478,6 +1681,7 @@ def serve(port: int = 8765, open_browser: bool = False, *, base=PROJECT_ROOT, he
             threading.Thread(target=scheduled.watch, args=(server, threading.Event()), name="chutku-scheduled",
                              daemon=True).start()   # "30 min baad ...", "har 15 min ...": runs beside normal work
             server.start_tray()
+        server.heal_when_healthy()
         _write_session_link(base, server.url)
         print("Chutku is ready. Open this local session link:", flush=True)
         print(server.url, flush=True)

@@ -1,8 +1,8 @@
 """Independent Windows supervisor for the dashboard and owned subprocesses.
 
 The child waits for assignment to a kill-on-close Job Object before starting.
-The guard watches main-loop heartbeats and bounded action duration. It never
-restarts or replays work. Existing/broker-launched desktop apps are not owned.
+The guard watches heartbeats and bounded action duration. After a watchdog stop it
+starts a fresh core (a few times per half hour) but never replays work. Existing/broker-launched desktop apps are not owned.
 """
 from __future__ import annotations
 
@@ -100,10 +100,28 @@ def dashboard_child(connection, base, port, open_browser):
         connection.close()
 
 
-def supervise(base=PROJECT_ROOT, port=8765, open_browser=False, **options):
+# A watchdog stop (hang, crash, slow start) used to end the guard: Chutku stayed off and paused until the next
+# logon, which is how she sat dead from 2026-10-26 to 10-29. Now the guard starts a fresh core, at most
+# `restarts` times in RESTART_WINDOW seconds; the owner's emergency stop still ends everything.
+WATCHDOG_REASONS = frozenset({"heartbeat_timeout", "startup_timeout", "action_deadline", "core_exited",
+                              "core_disconnected"})
+RESTART_WINDOW = 1800.0
+
+
+def supervise(base=PROJECT_ROOT, port=8765, open_browser=False, *, restarts=0, restart_delay=3.0, **options):
     from chutku.core.execution_lock import ExecutionLock
     with ExecutionLock(Path(base) / "data/guard.lock"):
-        return _supervise(base, port, open_browser, **options)
+        recent = []
+        while True:
+            report = _supervise(base, port, open_browser, **options)
+            now = time.monotonic()
+            recent = [at for at in recent if now - at < RESTART_WINDOW]
+            if report.get("reason") not in WATCHDOG_REASONS or len(recent) >= restarts:
+                return report
+            recent.append(now)
+            open_browser = False
+            print(f"Restarting Chutku's core after {report['reason']} ({len(recent)} of {restarts}).", flush=True)
+            time.sleep(restart_delay)
 
 
 def _boot_time():
@@ -131,9 +149,9 @@ def _supervise(base=PROJECT_ROOT, port=8765, open_browser=False, *, child_target
     stop_marker = directory / "guard.stop"
     running_marker = directory / "guard.running"
     if running_marker.exists() and _same_boot(running_marker):
-        # Chutku stopped uncleanly during this Windows session: pause until the owner resumes.
+        # Chutku stopped uncleanly during this Windows session: pause until the restarted core is healthy.
         # A marker left by a previous boot just means Windows shut down with Chutku running.
-        ActionControl(base).pause()
+        ActionControl(base).pause("startup", "unclean_stop")
     running_marker.write_text(str(_boot_time()), encoding="utf-8")
     # A previous stop remains a persistent pause. Clear only the consumed signal.
     stop_marker.unlink(missing_ok=True)
@@ -192,9 +210,10 @@ def _supervise(base=PROJECT_ROOT, port=8765, open_browser=False, *, child_target
     except KeyboardInterrupt:
         reason = "emergency_stop"
     finally:
-        # Pause before killing; it survives restart and never auto-resumes work.
+        # Pause before killing. It survives restart; only a watchdog pause is lifted, by a restarted core that
+        # stayed healthy, and the interrupted task itself is never run again.
         try:
-            ActionControl(base).pause()
+            ActionControl(base).pause("owner" if reason == "emergency_stop" else "guard", reason)
         finally:
             job.close()
             if child.pid is not None:
@@ -233,7 +252,7 @@ def main():
     args = parser.parse_args()
     if not 0 <= args.port <= 65535:
         parser.error("Port must be between 0 and 65535.")
-    supervise(port=args.port, open_browser=args.open)
+    supervise(port=args.port, open_browser=args.open, restarts=3)
 
 
 if __name__ == "__main__":

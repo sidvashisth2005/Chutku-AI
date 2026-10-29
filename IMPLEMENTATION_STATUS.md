@@ -1,6 +1,6 @@
 # Chutku Implementation Status
 
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-30
 **Source of truth for scope:** [docs/DESIGN.md](docs/DESIGN.md)
 
 This file is the implementation ledger. Update it in the same change as every code, configuration, benchmark, or documentation change. A checked item means it exists and has been verified to the stated degree; it does not imply a broader roadmap phase is complete.
@@ -15,6 +15,56 @@ Stage 5 still needs the owner's consented live microphone run and 200 human tria
 Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
+
+### 2026-10-29: W0 + F1: audit, Phase 4 plan, and a pause that heals itself and always answers
+
+**Why:** the owner said "this AI isn't working properly". The audit (docs/WORLD_CLASS_PLAN.md) found that real use had stopped on 10-24:
+- actions had been paused since 10-26;
+- any guard watchdog stop paused Chutku until a *typed* resume, and the guard then exited;
+- the marker always said "paused by the user";
+- a paused voice request got no spoken answer.
+
+**W0 (housekeeping):**
+- Phase 4 (W0–W6) added to docs/MASTER_PLAN.md, with docs/WORLD_CLASS_PLAN.md as the full spec.
+- Agent prompts 9–11 logged in docs/AGENT_PROMPTS.md.
+- README counts updated (231 tools).
+- Memory updated.
+- Baseline before code: 1,111 tests OK (203 s).
+
+**F1, built:**
+- `core/action_control.py`:
+  - the marker is JSON `{source, reason, at}`;
+  - `info()` (legacy text counts as source unknown and never heals);
+  - `heal()` lifts only `guard`/`startup` pauses, under the execution lock;
+  - an owner pause replaces a guard pause, never the reverse;
+  - `stop()` records `owner/emergency_stop`.
+- `guard.py`:
+  - labelled pauses: startup = unclean stop, guard = watchdog reason, owner = emergency stop;
+  - `supervise(restarts=N)` starts a fresh core after a watchdog stop, at most 3 in 30 min from `main()`;
+  - the emergency stop still ends everything.
+- `dashboard.py`:
+  - heartbeats come from their own thread (`start_heartbeat`) and stop only after the HTTP loop has been stuck for 30 s;
+  - after 8 s stuck, `dump_hang` writes every thread's stack, with thread names, to `data/logs/hang-*.txt`;
+  - `heal_when_healthy` lifts the guard's pause 30 s after a restart and says "Main atak gayi thi, isliye khud restart hui…", naming the cut-off task (never re-run);
+  - `paused_explanation`/`paused_spoken` name the real cause;
+  - while paused, the hotkey or wake phrase always gets a spoken answer (`_say` speaks without the refused runtime tool);
+  - after Ctrl+Alt+Space, a spoken "resume" lifts the pause and nothing else heard runs;
+  - a wake phrase can never lift it;
+  - typed "resume" lifts it; a voice-session "resume" is refused.
+- `control_intent.py`: new kind `resume` ("resume", "chalu ho jao", "wapas chalu karo", "unpause"). Look-alikes such as "fan chalu karo", "spotify chalu karo", "resume my download" don't match.
+
+**Tests:**
+- `tests/test_self_healing_pause.py`, 16 tests: marker sources, heal rules, the owner always winning, the legacy marker, guard restart once then give up, the emergency stop never restarted, heartbeat thread beats then goes silent past the stall with one hang dump, healing only with the guard, the paused voice paths.
+- Full suite: **1,127 OK (250 s)**.
+
+**Real path (live PC, 2026-10-29/30):**
+- `Stop-Chutku.cmd` turned the legacy 10-26 text marker into `{"source": "owner", "reason": "emergency_stop"}`.
+- `Start-ScheduledTask` brought the new code up: a fresh session file in 6.4 s, and the owner pause still in place 32 s later.
+- Typed "resume" → reply "Chalu ho gayi…" in 0.06 s; `/api/state` `actions_paused: false`, and the marker was gone.
+- Typed "pause chutku" → `{"source": "owner", "reason": "asked"}` in 0.07 s; **still paused after 62 s** (negative: an owner pause never heals); typed "resume" lifted it in 0.03 s.
+- **Negative, live:** while an emergency-stop pause from 00:51 was in place, the core was killed (pid 21968). The guard restarted it (`core_disconnected` → new core pid 25492, so the guard no longer exits). The owner's emergency-stop pause was **not** lifted after 90 s.
+
+**Not yet shown live:** the positive heal (a guard-made pause lifted 30 s after a restart, and the spoken notice). It needs the owner's current emergency-stop pause gone first, so it is run in the final terminal phase. Per-tool deadlines (the 120 s `action_deadline`) are not changed in F1; W5 bounds `screen.understand` to 20 s instead.
 
 ### 2026-10-12: Wake word, live-conversation honesty, goodbye, and the Spotify sentences from the owner's live log
 

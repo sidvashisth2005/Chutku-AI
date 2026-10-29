@@ -1,6 +1,6 @@
 # Chutku — Owner's Guide
 
-Everything you need to use, control and look after Chutku. Last updated 2026-10-03 (internet check, paused banner with Resume, sleep-safe guard).
+Everything you need to use, control and look after Chutku. Last updated 2026-10-29 (self-healing pause after a hang, "resume" by voice after Ctrl+Alt+Space, paused answers out loud).
 
 ---
 
@@ -17,10 +17,10 @@ Everything you need to use, control and look after Chutku. Last updated 2026-10-
 | Start it by hand | Double-click **`Start-Chutku.cmd`**. It starts Chutku and opens the dashboard. |
 | Talk from anywhere | **Ctrl+Alt+Space**, then speak. You can also say **"Oye Chutku"** or **"Chutku sun"** if the wake phrase is switched on in the dashboard. |
 | Emergency stop | **Ctrl+Alt+F12**, or the **Stop Chutku** button. This stops everything at once. |
-| Pause or resume actions | The **Pause actions** button at the top of the dashboard, or `python -m chutku.cli control pause` and `control resume`. |
+| Pause or resume actions | The **Pause actions** button at the top of the dashboard, typing "pause chutku" / "resume" in chat, pressing **Ctrl+Alt+Space** and saying "resume" / "chalu ho jao", or `python -m chutku.cli control pause` and `control resume`. |
 | Is it OK? | `.venv\Scripts\python.exe -m chutku.cli doctor`. It should say `"ready": true`. |
 
-**Important:** after any crash, forced stop or emergency stop, Chutku starts up **paused** on purpose. Check Activity, then press **Resume actions** in the dashboard or run `python -m chutku.cli control resume`.
+**Important (changed 2026-10-29):** if Chutku hangs or crashes, the guard restarts her by itself (up to 3 times in half an hour). The pause the guard set is lifted by itself once the restarted Chutku has run fine for 30 seconds, and she says so ("Main atak gayi thi, isliye khud restart hui…", naming the task that was cut off). That task is **never** run again by itself: ask again if you still want it. **Your own pause** (Pause button, tray, "pause chutku") and the **emergency stop** (Ctrl+Alt+F12, Stop Chutku) are never lifted by themselves. Resume them with the dashboard or tray button, by typing "resume", or with **Ctrl+Alt+Space** then saying "resume". A wake phrase ("Oye Chutku") cannot lift a pause, because anyone in the room can say it. If her loop gets stuck, a hang report with every thread is saved in `data\logs\hang-*.txt`.
 
 All commands are run from `D:\Project\Chutku` using `.venv\Scripts\python.exe -m chutku.cli …`.
 
@@ -121,7 +121,8 @@ Everything below is **instant**: matched by rules and done within about a second
 
 **Controlling Chutku** (works typed, in the panel, or by voice)
 - "stop" / "ruko" / "cancel" / "bas": stops the running task **and** everything waiting in line, at once. (With nothing running, "stop" pauses your music.)
-- "pause actions" / "sab rok do": stops everything and pauses Chutku until you press Resume on the dashboard or tray.
+- "pause actions" / "sab rok do": stops everything and pauses Chutku until you resume (button, typed "resume", or Ctrl+Alt+Space then "resume" / "chalu ho jao").
+- While paused she still answers when you call her and says why she is paused ("Aapne mujhe pause kiya hua hai"). After Ctrl+Alt+Space she listens for "resume" only; anything else is not run.
 - "undo that" / "wapas karo": reverses the most recent change Chutku can undo (a write, move, copy, Recycle Bin, tidy-up).
 - "do it again" / "phir se karo": repeats your previous request.
 - "what did you just do" / "abhi kya kiya": the last few actions. "what can you do" / "help": a short list. "are you there" / "suno": a quick hello back.
@@ -473,7 +474,7 @@ Rules:
 | `data\experience.jsonl` | Plans that worked, reused for similar requests (rated-bad ones are skipped). |
 | `data\heard.jsonl` | **What Chutku heard** by voice: the text, where it came from (wake / hotkey / live), and what it did with it (ignored / wake / task / approval). Local only, kept 7 days. Shown on the dashboard's Activity tab under "What I heard". To turn it off, set `"heard_log": false` in `data\preferences.json`. |
 | `data\dashboard-session.json` | The current dashboard link, including its session token. Don't share it. |
-| `data\actions.paused` | Exists while actions are paused. |
+| `data\actions.paused` | Exists while actions are paused. It records who paused (you, the guard, or an unclean start) and why. |
 | `data\guard-last-stop.json` | Why Chutku last stopped. |
 | `IMPLEMENTATION_STATUS.md` | Detailed record of everything built and how it was verified. |
 | `docs\MARK_PARITY.md` | Comparison with Mark LIV. |
@@ -485,7 +486,7 @@ Rules:
 
 | Symptom | Fix |
 |---|---|
-| "I'm paused, so I didn't do that" / "Actions are paused" | Chutku paused itself for safety after a stop; the message says why and when. Press **Resume actions** (top of the dashboard or the tray menu), then ask again. Since 2026-10-03, waking the PC from sleep no longer causes this. |
+| "I'm paused, so I didn't do that" / "Actions are paused" | The message says who paused and when. A pause after a hang lifts itself within about a minute. Your own pause or the emergency stop needs **Resume actions** (dashboard or tray), a typed "resume", or Ctrl+Alt+Space then "resume". |
 | `Open-Chutku.cmd` says "not running" | Run `Start-Chutku.cmd`. |
 | The hotkey doesn't work | Another app owns Ctrl+Alt+Space; the dashboard shows "Hotkey unavailable". Close that app or restart Chutku. |
 | A request "needs your OK" every time | You're on **Review every step**. Switch to **Auto: safe steps**. |

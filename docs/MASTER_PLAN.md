@@ -864,6 +864,24 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [ ] P8: File transfer phone <-> laptop
 - [ ] P9: Point-and-ask
 ---
+# Phase 4: Make it work, then world-class (planned 2026-10-29) — comes before A7 and H9
+Full spec: `docs/WORLD_CLASS_PLAN.md` (diagnosis with evidence, owner decisions 2026-10-29, slice details, verification).
+
+- [x] W0: Housekeeping (memory, agent-prompt log, this phase, stale counts)
+- [x] F1: Pause that heals itself (watchdog pauses only) and always answers by voice; heartbeat thread + hang dump — done 2026-10-29 (positive live heal pending the final terminal phase)
+- [ ] F2: Wake word stage 1: name-biased prompt, echo filter, en/hi only, no ambient logging by default
+- [ ] F4: Hear correctly: en/hi command STT, plausibility gate for misheard text
+- [ ] F5: Never claim what didn't happen: Gemini Live opt-in, verified outcome lines
+- [ ] F6: Spotify that actually plays (media keys, cached playlist URIs, title check)
+- [ ] F7: Honest self-checks (owner-only habits/replay, toast timeout)
+- [ ] F3: Wake engine stage 2 (synthetic Kokoro clips + owner clips, Whisper second stage, gated)
+- [ ] W2: Cloud-first brain (Groq / Gemini rotation, local fallback, tool retrieval, streaming)
+- [ ] W3: Real-time conversation (VAD endpointing, GPU Whisper, streaming speech, follow-up, barge-in)
+- [ ] W4: Jarvis presence UI (orb overlay, dashboard redesign, icon)
+- [ ] W5: Screen copilot (Ctrl+Alt+S, Gemini vision with local fallback, act on what is seen)
+- [ ] W6: Phone remote with full control (P1–P9 from HERMES_PLAN)
+
+---
 # Parked (needs a later owner decision)
 - **Hermes features not taken** (2026-10-07; reasons in `docs/HERMES_PLAN.md` section 3): smart/LLM approvals, yolo and "approve always", container backends (D5), execute_code, MCP client, plugins and hooks, Skills Hub installs, local API server/ACP, extra chat gateways, FAL image generation, external memory providers, mascot/skins, multi-profile agents, bot-to-bot peer, coding-agent tools (worktree, LSP, /init, /plan).
 - **Sandboxed code runner (D5 original choice):** run scripts and builds at reduced Windows privileges automatically, and ask only for full rights. It could not be specified in this session. Until it exists, S1's "always confirm" stays in force.
