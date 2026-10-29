@@ -16,6 +16,25 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-30: W3: real-time voice loop (code; live timings in the terminal phase)
+
+- **Endpointing:** `recognition.capture` uses Silero VAD, which ships with faster-whisper (CPU, ~11 ms per 100 ms chunk measured).
+  - A chunk counts as speech only when it is loud **and** voice-like (probability ≥ 0.5), so a fan, music or a click never starts or extends a capture.
+  - The sentence ends after 0.6 s of non-speech (was 0.9 s).
+  - If Silero cannot load, loudness decides exactly as before.
+  - `LAST_END` records when the owner stopped speaking.
+- **Follow-up window:** after a voice answer, Chutku listens for `follow_up_seconds` (default 8) with no hotkey or wake phrase. `voice.listen_command` takes an optional `wait_seconds` (1–15, validated). Silence ends the conversation quietly.
+- **Barge-in:** pressing Ctrl+Alt+Space while she talks stops her at once (`tts.stop`) and listens. `tts.STOPS` makes the speech queue drop the rest of that answer ("ruko" does the same).
+- **Filler:** when a voice answer has not started after 1.2 s (a model round), she says "Ek second." through the **same** speech queue, so it can never talk over the answer. It is never counted as the answer's timing.
+- **Timings:** `data/voice-timings.jsonl` records end of the owner's speech → the answer's first sound, one row per request, for streamed and non-streamed answers. Targets: instant ≤ 1.2 s, cloud ≤ 2.5 s.
+- **GPU speech-to-text:** a `stt_fast` manifest entry (faster-whisper large-v3-turbo, CUDA int8_float16) is used first when installed and hash-verified.
+  - Any load or run failure (no CUDA libraries, no VRAM) falls back to the CPU small model and is remembered for the run (`whisper_stt.FAST`).
+  - **Download, install and timing: terminal phase.**
+- **Tests:**
+  - `tests/test_voice_loop_w3.py` (6): GPU fallback, interruption drops queued sentences, timing row, barge-in, filler first, follow-up window;
+  - `VadEndpointingTests` (3) plus a follow-up wait test in `test_whisper_voice`.
+  - Full suite: **1,175 OK (233 s)**.
+
 ### 2026-10-30: W1 (F2–F7, F3 code) + W2: hearing, honesty, Spotify, owner-only learning, cloud-first brain
 
 Each item lists what was built, what proves it in tests, and what still needs the live PC. The live checks are batched into the final terminal phase, as the owner asked ("do all the coding stuff first, then terminal").

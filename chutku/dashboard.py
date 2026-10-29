@@ -54,11 +54,16 @@ class PreviewStore:
 
 
 class SpeechQueue:
-    """Speaks sentences in order on one thread (with its own runtime) while the answer is still being written."""
+    """Speaks sentences in order on one thread (with its own runtime) while the answer is still being written.
 
-    def __init__(self, base):
+    W3: an interruption (hotkey barge-in, "ruko") drops whatever was still queued, and the first sentence records
+    how long the owner waited from the end of their speech to Chutku's first sound (data/voice-timings.jsonl)."""
+
+    def __init__(self, base, goal=""):
         import queue as _queue
+        from chutku.voice import tts
         self.base, self.items, self.thread, self.spoken = base, _queue.Queue(), None, 0
+        self.goal, self.stops, self.timed = goal, tts.STOPS["count"], False
 
     IDLE_SECONDS = 120
 
@@ -78,8 +83,15 @@ class SpeechQueue:
                     return   # nothing more to say (e.g. close() ran before an approved step spoke): free the runtime
                 if text is None:
                     return
+                from chutku.voice import tts
+                if tts.STOPS["count"] != self.stops:
+                    continue   # the owner interrupted: the rest of this answer is not spoken
                 try:
-                    runtime.run("voice.speak", {"text": text[:1000]}, provenance="tool_observed")
+                    started = time.monotonic()
+                    result = runtime.run("voice.speak", {"text": text[:1000]}, provenance="tool_observed")
+                    if not self.timed and text != FILLER:   # the real answer's first sound, not the filler
+                        self.timed = True
+                        record_voice_timing(self.base, self.goal, started, result)
                     self.spoken += 1
                 except Exception:
                     _log().exception("speaking a sentence failed")
@@ -88,6 +100,32 @@ class SpeechQueue:
         if self.thread is not None:
             self.items.put(None)
             self.thread.join(timeout)
+
+
+FILLER = "Ek second."
+
+
+def record_voice_timing(base, goal, speak_started, result):
+    """End of the owner's speech -> Chutku's first sound, for a spoken answer (W3 target: instant 1.2 s, cloud
+    2.5 s). Local file only; nothing about the audio is kept."""
+    from chutku.voice.recognition import LAST_END
+    ended = LAST_END.get("at")
+    if ended is None or not isinstance(result, dict) or speak_started - ended > 120:
+        return None
+    output = result.get("output") or {}
+    first = output.get("first_audio_s")
+    latency = round(speak_started + (first if isinstance(first, (int, float)) else 0.0) - ended, 2)
+    row = {"at": time.time(), "goal": str(goal)[:80], "seconds_to_first_audio": latency,
+           "engine": output.get("engine")}
+    try:
+        path = Path(base) / "data" / "voice-timings.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+    LAST_END["at"] = None   # one timing per heard request
+    return latency
 
 
 def speak_result(session, router):
@@ -103,7 +141,9 @@ def speak_result(session, router):
     if any(step.get("low_trust") for step in snapshot["steps"]):   # this kind of step has been failing lately
         text = "Shayad ho gaya, ek baar check kar lo. " + text
     try:
-        router.default.run("voice.speak", {"text": text[:1000]}, provenance="tool_observed")
+        started = time.monotonic()
+        result = router.default.run("voice.speak", {"text": text[:1000]}, provenance="tool_observed")
+        record_voice_timing(router.default.granted_root.parent, snapshot["goal"], started, result)
     except Exception:
         _log().exception("spoken answer failed")  # the answer is still shown on screen
 
@@ -151,6 +191,7 @@ class DashboardServer(ThreadingHTTPServer):
     # The guard kills a core that is silent for 5 s. Beats used to come from this HTTP loop, so a few seconds of
     # GIL-heavy speech work or Windows background throttling looked like a hang (2026-10-28). Beats now come from
     # their own thread and stop only when the loop has been stuck for LOOP_STALL seconds: a real hang still ends.
+    FILLER_AFTER = 1.2   # seconds without an answer before a spoken "ek second" (W3)
     LOOP_STALL = 30.0
     HANG_DUMP_AFTER = 8.0
 
@@ -544,14 +585,15 @@ class DashboardServer(ThreadingHTTPServer):
         self._speak("I didn't catch a clear haan or na. The button is on the screen.")
         return False
 
-    def _listen_once(self):
-        """One short local transcript for an approval answer ("" when nothing clear was heard)."""
+    def _listen_once(self, wait_seconds=None):
+        """One short local transcript ("" when nothing clear was heard): an approval answer, or a follow-up within
+        `wait_seconds` (W3) after she answered."""
         wake = self.wake
         if wake is not None:
             wake.busy.set()  # the wake listener must not treat the answer as a new request
         try:
             with create_runtime(self.base) as runtime:
-                heard = runtime.run("voice.listen_command", {})
+                heard = runtime.run("voice.listen_command", {"wait_seconds": wait_seconds} if wait_seconds else {})
         except Exception:
             _log().exception("listening for an answer failed")
             return ""
@@ -577,6 +619,8 @@ class DashboardServer(ThreadingHTTPServer):
         if ActionControl(self.base).paused:
             self._paused_voice(source, command)   # always answer out loud; the hotkey may lift the pause by voice
             return
+        if source == "hotkey" and command is None:
+            self._barge_in()
         conversation = self.preferences.load().get("conversation", True)
         from chutku.voice import mic
         mic.set_muted(False)   # calling Chutku means "listen to me now"
@@ -614,8 +658,10 @@ class DashboardServer(ThreadingHTTPServer):
                 self.hud_state["transcript"] = transcript
             self.hud_state["session_id"] = session.id
             self._wait_for(session)
-            if conversation:   # the online conversation was not possible (offline / no Gemini): talk locally
-                self._local_conversation(mode)
+            follow_up = float(self.preferences.load().get("follow_up_seconds", 0) or 0)
+            if follow_up > 0 and session.snapshot()["status"] in {"done", "clarify"}:
+                # W3: after her answer she keeps listening a few seconds; just speak, no hotkey or wake phrase.
+                self._local_conversation(mode, wait_seconds=follow_up)
         except ExecutionBusy:
             chime("busy")
 
@@ -678,7 +724,19 @@ class DashboardServer(ThreadingHTTPServer):
     END_CONVERSATION = re.compile(r"\W*(?:bas|bas karo|bye|ok bye|bye bye|thank you|thanks|that'?s all|ho gaya|"
                                   r"band karo|stop|rehne do|kuch nahi|nothing|no thanks)\W*", re.I)
 
-    def _local_conversation(self, mode, turns=6):
+    def _barge_in(self, settle=1.0):
+        """Hotkey while she is talking: stop her now (and drop the rest of that answer), then listen (W3)."""
+        from chutku.voice import tts
+        from chutku.voice.session import voice_session
+        if voice_session.snapshot().state != "speaking":
+            return False
+        tts.stop()
+        deadline = time.monotonic() + settle
+        while voice_session.snapshot().state == "speaking" and time.monotonic() < deadline:
+            time.sleep(0.05)
+        return True
+
+    def _local_conversation(self, mode, turns=6, wait_seconds=None):
         """Offline conversation: after each spoken answer Chutku listens again (no wake phrase needed) until
         silence, noise, or "bas" / "bye". Everything runs on this PC: Whisper, the local model, Windows' voice."""
         from chutku.voice.handsfree import chime
@@ -690,7 +748,7 @@ class DashboardServer(ThreadingHTTPServer):
                 time.sleep(0.1)   # let the answer finish speaking: the mic must not hear Chutku itself
             from chutku.voice import mic
             waited = time.monotonic()
-            while mic.muted() and time.monotonic() - waited < 60:
+            while mic.muted() and wait_seconds is None and time.monotonic() - waited < 60:
                 time.sleep(0.2)   # muted: wait for Ctrl+Alt+M instead of listening to the room
             if mic.muted():
                 mic.set_muted(False)
@@ -698,7 +756,7 @@ class DashboardServer(ThreadingHTTPServer):
                 return
             self._hud_set("listening", message="Anything else? (say \"bas\" to stop)")
             chime("listen")
-            heard = self._listen_once()
+            heard = self._listen_once(wait_seconds)
             if not heard or not meaningful(heard) or self.END_CONVERSATION.fullmatch(heard):
                 self._hud_set("done", message="Conversation ended.")
                 return
@@ -1029,9 +1087,20 @@ class DashboardServer(ThreadingHTTPServer):
         planner, fallback = self.planners()
         self.latest_session_id = session.id
 
-        speech = SpeechQueue(self.base) if origin == "voice" and not silent else None
+        speech = SpeechQueue(self.base, goal) if origin == "voice" and not silent else None
         if speech is not None:
             session.on_sentence = speech.say   # first sentences are spoken while the answer is still being written
+
+            def filler():
+                # W3: a slow answer (a model round) starts with a short "ek second" so the owner knows she heard;
+                # it goes through the same queue, so it can never talk over the answer.
+                snapshot = session.snapshot()
+                if snapshot["status"] in {"planning", "running", "queued"} and speech.spoken == 0 \
+                        and speech.items.empty() and not snapshot["steps"]:
+                    speech.say(FILLER)
+            timer = threading.Timer(self.FILLER_AFTER, filler)
+            timer.daemon = True
+            timer.start()
 
         def run(router, beat):
             try:

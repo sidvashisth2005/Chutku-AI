@@ -42,9 +42,10 @@ def fake_sd(stream):
 
 
 class EndpointingTests(unittest.TestCase):
+    """Loudness endpointing (Silero unavailable); the Silero path is VadEndpointingTests below."""
     def capture(self, levels):
         stream = FakeStream(levels)
-        with patch.dict("sys.modules", {"sounddevice": fake_sd(stream)}):
+        with patch.dict("sys.modules", {"sounddevice": fake_sd(stream)}),                 patch.object(recognition, "speech_probability", return_value=None):
             result = recognition.capture(Control())
         return result, stream.reads
 
@@ -61,6 +62,12 @@ class EndpointingTests(unittest.TestCase):
     def test_never_exceeds_maximum(self):
         _, reads = self.capture([0.3] * 500)
         self.assertEqual(reads, recognition.MAX_CAPTURE_SECONDS * 10)
+
+    def test_follow_up_window_waits_only_as_long_as_asked(self):
+        stream = FakeStream([0.0] * 200)
+        with patch.dict("sys.modules", {"sounddevice": fake_sd(stream)}),                 patch.object(recognition, "speech_probability", return_value=None):
+            recognition.capture(Control(), wait_seconds=2)
+        self.assertEqual(stream.reads, 21)
 
     def test_single_click_is_not_speech(self):
         _, reads = self.capture([0.0, 0.5, 0.0] + [0.0] * 200)
@@ -137,3 +144,30 @@ class PhraseScoringTests(unittest.TestCase):
         self.assertEqual(n("GPU  status!"), "gpu status")
         self.assertNotEqual(n("What time it is?"), n("what time is it"))
         self.assertNotEqual(n("Open calculator now"), n("open calculator"))
+
+
+class VadEndpointingTests(unittest.TestCase):
+    """W3: with Silero, a loud sound that is not a voice never starts or keeps a capture; speech ends after 0.6 s."""
+    def capture(self, levels, voice):
+        stream = FakeStream(list(levels))
+        flags = iter(voice)
+        with patch.dict("sys.modules", {"sounddevice": fake_sd(stream)}),                 patch.object(recognition, "speech_probability", return_value=lambda chunk: next(flags, 0.0)):
+            result = recognition.capture(Control())
+        return result, stream.reads
+
+    def test_voice_ends_after_the_shorter_pause_and_marks_the_end(self):
+        recognition.LAST_END["at"] = None
+        _, reads = self.capture([0.0] * 5 + [0.2] * 15 + [0.0] * 30, [0.0] * 5 + [0.9] * 15 + [0.0] * 30)
+        self.assertEqual(reads, 5 + 15 + 6)
+        self.assertIsNotNone(recognition.LAST_END["at"])
+
+    def test_a_loud_fan_or_music_is_not_speech(self):
+        _, reads = self.capture([0.3] * 200, [0.1] * 200)
+        self.assertEqual(reads, recognition.WAIT_FOR_SPEECH_SECONDS * 10 + 1)
+
+    def test_listen_tool_takes_only_a_sane_wait(self):
+        for bad in ({"wait_seconds": 0}, {"wait_seconds": 99}, {"wait_seconds": True}, {"other": 1}):
+            with self.assertRaises(ValueError):
+                recognition._validate_listen(bad)
+        recognition._validate_listen({"wait_seconds": 8})
+        recognition._validate_listen({})

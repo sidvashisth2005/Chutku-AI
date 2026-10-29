@@ -46,6 +46,7 @@ All commands are run from `D:\Project\Chutku` using `.venv\Scripts\python.exe -m
 - **Gemini Live talk mode is now opt-in.** It sometimes said "ho gaya" when nothing had happened. Ctrl+Alt+Space now listens with Chutku's own voice loop.
   - Say **"conversation mode on"** / **"live mode on"** for Gemini Live; **"conversation mode off"** turns it off.
   - If Live says "done" while the task failed or never ran, Chutku makes it correct itself straight away.
+- **Faster, more natural talking (W3).** She notices when you stop talking sooner (about 0.6 s instead of 0.9 s) and ignores fans, music and clicks. After answering she keeps listening for 8 seconds, so just keep talking. **Press Ctrl+Alt+Space while she talks to cut her off** and speak. A slow answer starts with "Ek second." Every spoken answer's wait time is saved in `dataoice-timings.jsonl`.
 - **She tells you when she didn't hear you.** "Sorry, theek se sunai nahi diya…" instead of only a beep.
 - **Misheard noise is read back, not run.** If what she heard has no request in it ("Watch out brother."), she says "Maine suna: '…'. Kya yahi karna hai?" and does nothing. Typed text is never checked like this.
 - **Commands she used to drop are heard again.** Until now "Spotify kholo", "Open Notepad", "Next song", "Pause the music" and "Volume kam karo" spoken after Ctrl+Alt+Space came back as silence. A filter meant for Whisper's echoes threw them away.

@@ -26,6 +26,7 @@ _engine = None
 _engine_lock = threading.Lock()
 _play_lock = threading.Lock()      # one voice at a time
 stop_event = threading.Event()
+STOPS = {"count": 0}    # every stop() adds one: a speech queue drops sentences queued before an interruption (W3)
 
 
 def available():
@@ -118,7 +119,8 @@ def speak(text, *, make=synthesize, play=_play):
 
 
 def stop():
-    """Stop speaking now ("ruko" / "stop", the stop-speaking endpoint)."""
+    """Stop speaking now ("ruko" / "stop", the stop-speaking endpoint, a hotkey barge-in)."""
+    STOPS["count"] += 1
     stop_event.set()
 
 

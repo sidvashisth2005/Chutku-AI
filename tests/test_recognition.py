@@ -52,7 +52,7 @@ class RecognitionTests(unittest.TestCase):
             capture.assert_called_once()
 
     def test_pause_during_capture_prevents_recognition(self):
-        def capture(control):
+        def capture(control, **_):
             control.pause()
             return "audio"
         with patch("chutku.voice.recognition.capture", side_effect=capture), patch("chutku.voice.recognition.recognize") as recognize:
@@ -60,7 +60,7 @@ class RecognitionTests(unittest.TestCase):
             recognize.assert_not_called()
 
     def test_explicit_capture_cancel_prevents_transcript_and_releases_session(self):
-        def capture(control):
+        def capture(control, **_):
             self.assertTrue(voice_session.cancel_capture())
             voice_session.check_capture()
         with patch("chutku.voice.recognition.capture", side_effect=capture), patch("chutku.voice.recognition.recognize") as recognize:

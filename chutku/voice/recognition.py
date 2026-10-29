@@ -120,7 +120,46 @@ def analyze_pcm(chunks, *, sample_rate=16000, frame_seconds=0.02, threshold=0.01
 MAX_CAPTURE_SECONDS = 12
 WAIT_FOR_SPEECH_SECONDS = 5
 END_SILENCE_SECONDS = 0.9
+VAD_END_SILENCE_SECONDS = 0.6   # W3: with Silero deciding what is speech, the pause that ends a sentence is shorter
 _CHUNK = 1600  # 100 ms at 16 kHz
+LAST_END = {"at": None}         # when the last capture heard the speaker stop (monotonic): voice latency is from here
+
+
+class SpeechProbability:
+    """Silero VAD (shipped with faster-whisper, CPU, ~1 ms per call): is there speech in the last half second?
+    It tells a voice from a fan, a keyboard or music far better than loudness alone (W3, 2026-10-29)."""
+
+    WINDOW = 7680    # 0.48 s = 15 frames of 512 samples
+
+    def __init__(self):
+        from faster_whisper.vad import get_vad_model
+        self.model = get_vad_model()
+        self.recent = b""
+
+    def __call__(self, chunk):
+        import numpy as np
+        self.recent = (self.recent + chunk)[-self.WINDOW * 2:]
+        audio = np.frombuffer(self.recent, dtype=np.int16).astype(np.float32) / 32768.0
+        usable = len(audio) // 512 * 512
+        if usable == 0:
+            return 0.0
+        probabilities = np.asarray(self.model(audio[-usable:])).reshape(-1)
+        return float(probabilities[-3:].max())
+
+
+_vad = {"model": None, "failed": False}
+
+
+def speech_probability():
+    """A fresh SpeechProbability, or None when Silero cannot load (then loudness decides, as before)."""
+    if _vad["failed"]:
+        return None
+    try:
+        detector = SpeechProbability()
+        return detector
+    except Exception:
+        _vad["failed"] = True
+        return None
 
 
 def _rms(chunk):
@@ -133,15 +172,18 @@ def _rms(chunk):
 LEVEL = {"rms": 0.0, "at": 0.0}  # latest microphone level while capturing (read by the HUD)
 
 
-def capture(control, *, threshold=0.01):
+def capture(control, *, threshold=0.01, wait_seconds=WAIT_FOR_SPEECH_SECONDS, vad=True):
     """Record until the speaker pauses (end-of-speech endpointing), in memory only.
 
-    Waits up to 5 s for speech, stops 0.9 s after speech ends, never exceeds 12 s.
+    Waits up to `wait_seconds` for speech (5 s; a follow-up window passes its own), stops 0.6 s after speech ends
+    when Silero VAD is available (0.9 s by loudness otherwise), never exceeds 12 s.
     """
     import sounddevice as sd
     frames = []
     identity = _default_input_identity(sd)
     heard_speech, silent_chunks, active_run = False, 0, 0
+    detector = speech_probability() if vad else None
+    end_silence = VAD_END_SILENCE_SECONDS if detector is not None else END_SILENCE_SECONDS
     with sd.RawInputStream(device=identity[0], samplerate=16000, channels=1, dtype="int16") as stream:
         for index in range(int(MAX_CAPTURE_SECONDS * 10)):
             if index % 10 == 0:
@@ -157,14 +199,17 @@ def capture(control, *, threshold=0.01):
             level = _rms(chunk)
             LEVEL["rms"], LEVEL["at"] = level, time.monotonic()  # the HUD's reactor follows the voice
             loud = level >= threshold
+            if detector is not None:
+                loud = loud and detector(chunk) >= 0.5   # loud AND voice-like: a fan or a click does not count
             active_run = active_run + 1 if loud else 0
             if active_run >= 2:
                 heard_speech = True
             if heard_speech:
                 silent_chunks = 0 if loud else silent_chunks + 1
-                if silent_chunks >= END_SILENCE_SECONDS * 10:
+                if silent_chunks >= end_silence * 10:
+                    LAST_END["at"] = time.monotonic() - end_silence
                     break
-            elif index >= WAIT_FOR_SPEECH_SECONDS * 10:
+            elif index >= wait_seconds * 10:
                 break
     control.check()
     voice_session.check_capture()
@@ -231,7 +276,7 @@ def _status(arguments, context):
 def _listen(arguments, context):
     control = ActionControl(context.granted_root.parent)
     with voice_session.active("listening"):
-        audio = capture(control)
+        audio = capture(control, wait_seconds=float(arguments.get("wait_seconds", WAIT_FOR_SPEECH_SECONDS)))
         control.check()
         voice_session.check_capture()
         heard = transcribe(audio)
@@ -255,6 +300,18 @@ def _listen(arguments, context):
     return ToolResult(output, Verification.PASS, audit)
 
 
+LISTEN_SCHEMA = {"type": "object", "properties": {"wait_seconds": {"type": "number", "minimum": 1, "maximum": 15}},
+                 "additionalProperties": False}
+
+
+def _validate_listen(arguments):
+    if not isinstance(arguments, dict) or set(arguments) - {"wait_seconds"}:
+        raise ValueError("Only wait_seconds (1-15) may be given.")
+    wait = arguments.get("wait_seconds", WAIT_FOR_SPEECH_SECONDS)
+    if isinstance(wait, bool) or not isinstance(wait, (int, float)) or not 1 <= wait <= 15:
+        raise ValueError("wait_seconds must be between 1 and 15.")
+
+
 def register_recognition(registry):
     from chutku.tools.assistant import _none
     registry.register(Tool("voice.recognition_status", "Inspect installed offline free-form speech recognition.",
@@ -262,7 +319,7 @@ def register_recognition(registry):
                            prerequisites=("Windows offline speech recognizer",), reversibility="not_applicable",
                            success_predicate="recognizer_and_dictation_mode_status_returned"))
     registry.register(Tool("voice.listen_command", "Listen until the speaker pauses (max 12 s) and return a local offline transcript; never executes it by itself.",
-                           Risk.REVERSIBLE, _listen, _none, argument_schema=EMPTY_ARGUMENT_SCHEMA,
+                           Risk.REVERSIBLE, _listen, _validate_listen, argument_schema=LISTEN_SCHEMA,
                            prerequisites=("microphone and Windows offline speech recognizer",),
                            reversibility="transient", success_predicate="capture_completed_without_action_execution"))
 

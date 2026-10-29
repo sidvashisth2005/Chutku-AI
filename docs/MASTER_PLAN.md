@@ -876,7 +876,7 @@ Full spec: `docs/WORLD_CLASS_PLAN.md` (diagnosis with evidence, owner decisions 
 - [ ] F7: Honest self-checks (owner-only habits/replay, toast timeout) — code done 2026-10-30
 - [ ] F3: Wake engine stage 2 (synthetic Kokoro clips + owner clips, Whisper second stage, gated) — two-stage code done 2026-10-30; training run in the terminal phase
 - [ ] W2: Cloud-first brain (Groq / Gemini rotation, local fallback, tool retrieval, streaming) — code done 2026-10-30; eval + Groq key in the terminal phase
-- [ ] W3: Real-time conversation (VAD endpointing, GPU Whisper, streaming speech, follow-up, barge-in)
+- [ ] W3: Real-time conversation (VAD endpointing, GPU Whisper, streaming speech, follow-up, barge-in) — code done 2026-10-30; GPU model + live timings in the terminal phase
 - [ ] W4: Jarvis presence UI (orb overlay, dashboard redesign, icon)
 - [ ] W5: Screen copilot (Ctrl+Alt+S, Gemini vision with local fallback, act on what is seen)
 - [ ] W6: Phone remote with full control (P1–P9 from HERMES_PLAN)

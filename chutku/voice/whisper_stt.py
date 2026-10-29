@@ -34,15 +34,17 @@ class WhisperUnavailable(OSError):
     pass
 
 
-def configured_model(base: Path = PROJECT_ROOT):
-    """Return the verified model entry from the manifest, or None if not configured."""
+def configured_model(base: Path = PROJECT_ROOT, key="stt"):
+    """Return the verified model entry from the manifest, or None if not configured.
+
+    key "stt_fast" (W3): faster-whisper large-v3-turbo on the GPU, used first when it is installed and loads."""
     from chutku.brain_service import directory_digest
     base = Path(base)
     try:
         manifest = json.loads((base / "models/manifest.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    entry = manifest.get("stt")
+    entry = manifest.get(key)
     if not isinstance(entry, dict):
         return None
     directory = (base / str(entry.get("directory", ""))).resolve()
@@ -51,8 +53,21 @@ def configured_model(base: Path = PROJECT_ROOT):
     return {**entry, "path": directory}
 
 
+FAST = {"failed": None}   # why the GPU model could not be used this run (then the CPU model is used)
+
+
 def _load(base: Path = PROJECT_ROOT):
-    entry = configured_model(base)
+    """The GPU turbo model when it is installed and works, else the CPU model."""
+    fast = configured_model(base, "stt_fast") if FAST["failed"] is None else None
+    if fast is not None:
+        try:
+            return _load_entry(fast)
+        except Exception as error:   # no CUDA libraries, no VRAM (the local brain holds it), a bad file...
+            FAST["failed"] = f"{type(error).__name__}: {error}"[:200]
+    return _load_entry(configured_model(base))
+
+
+def _load_entry(entry):
     if entry is None:
         raise WhisperUnavailable("No Whisper model is configured.")
     key = (str(entry["path"]), entry.get("directory_sha256"))
@@ -66,8 +81,10 @@ def _load(base: Path = PROJECT_ROOT):
             from faster_whisper import WhisperModel
         except ImportError as error:
             raise WhisperUnavailable("faster-whisper is not installed.") from error
-        model = WhisperModel(str(entry["path"]), device="cpu", compute_type="int8", cpu_threads=6,
-                             local_files_only=True)
+        device = entry.get("device", "cpu")
+        model = WhisperModel(str(entry["path"]), device=device,
+                             compute_type=entry.get("compute_type", "int8" if device == "cpu" else "int8_float16"),
+                             cpu_threads=6, local_files_only=True)
         _loaded.update(key=key, model=model)
         return model, entry
 
@@ -134,9 +151,19 @@ def transcribe_pcm(pcm: bytes, *, sample_rate=16000, base: Path = PROJECT_ROOT, 
         language = choose_en_or_hi(model, audio)
     # vad_filter: Whisper's own speech detector cuts non-speech before decoding; temperature 0: no random retries,
     # which made text out of noise (owner report 2026-10-04).
-    segments, info = model.transcribe(
-        audio, language=language, task="transcribe", beam_size=1, vad_filter=True, temperature=0.0,
-        initial_prompt=prompt, condition_on_previous_text=False, without_timestamps=True)
+    def decode(model):
+        segments, info = model.transcribe(
+            audio, language=language, task="transcribe", beam_size=1, vad_filter=True, temperature=0.0,
+            initial_prompt=prompt, condition_on_previous_text=False, without_timestamps=True)
+        return list(segments), info
+    try:
+        segments, info = decode(model)
+    except Exception as error:
+        if entry.get("device", "cpu") == "cpu":
+            raise
+        FAST["failed"] = f"{type(error).__name__}: {error}"[:200]   # e.g. out of GPU memory: CPU from now on
+        model, entry = _load(base)
+        segments, info = decode(model)
     pieces, logprobs = [], []
     for segment in segments:
         if segment.no_speech_prob > 0.5 and segment.avg_logprob < -0.8:
