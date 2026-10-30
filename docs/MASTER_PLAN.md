@@ -879,7 +879,7 @@ Full spec: `docs/WORLD_CLASS_PLAN.md` (diagnosis with evidence, owner decisions 
 - [ ] W3: Real-time conversation (VAD endpointing, GPU Whisper, streaming speech, follow-up, barge-in) — code done 2026-10-30; GPU model + live timings in the terminal phase
 - [ ] W4: Jarvis presence UI (orb overlay, dashboard redesign, icon) — code done 2026-10-30; pywebview + screenshots in the terminal phase
 - [ ] W5: Screen copilot (Ctrl+Alt+S, Gemini vision with local fallback, act on what is seen) — code done 2026-10-30; live answer check in the terminal phase
-- [ ] W6: Phone remote with full control (P1–P9 from HERMES_PLAN)
+- [ ] W6: Phone remote with full control (P1–P9 from HERMES_PLAN) — code done 2026-10-30; live run after Tailscale is installed
 
 ---
 # Parked (needs a later owner decision)

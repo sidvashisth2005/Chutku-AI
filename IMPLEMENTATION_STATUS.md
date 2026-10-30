@@ -16,6 +16,13 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-30: W6 phone remote with full control (HERMES_PLAN P1-P9; code, unit-tested; live run needs Tailscale)
+
+- `chutku/remote/`: `auth.py` (pairing codes 10 min/single use/5 tries, max 3 phones, hashed credentials, scrypt PIN, 12 h sessions, step-bound single-use approval nonces, rate limit), `tailscale.py` (status, serve, Funnel check, fails closed), `control.py` (P5/P6 rules), `server.py` (127.0.0.1:8766: chat, approvals, phone voice via PyAV + Whisper + Kokoro WAV reply, screen view, control, clipboard, files, point-and-ask), `manager.py`, `tools.py` (6 `remote.*` tools + phrases), `border.py` (red frame).
+- Phone PWA `chutku/web/phone/` (service worker never caches /api); dashboard Phone panel (enable, pair code + QR when `qrcode` is installed, allow/forbid control, remove phones); Ctrl+Alt+Shift+P kill hotkey; presence shows phone connected/viewing/controlling.
+- Tests: `tests/test_phone_remote_w6.py` (27): wrong host/login, unpaired, revoked, CSRF, wrong PIN, spent/replayed nonce, laptop-only R4, screen PIN + heartbeat + only changed frames, control unarmed then armed + kill, create-only uploads, `.blocked` programs, secret/protected files refused, SW cache list, no secrets in logs, Funnel stops the server.
+- **Pending (needs the owner):** install Tailscale on laptop and phone (same account), then the P1-P9 real paths on mobile data.
+
 ### 2026-10-30: W4 Jarvis presence UI + W5 screen copilot (code; window, screenshots and live answers in the terminal phase)
 
 **W4: presence**

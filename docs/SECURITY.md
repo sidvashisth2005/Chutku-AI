@@ -26,14 +26,14 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (174 registered, plus 59 app actions)
+### Risk levels and tools (180 registered, plus 59 app actions)
 
 | Level | Count | Meaning |
 |---|---|---|
-| R0 observation | 70 | reads only |
-| R1 reversible | 49 | easily undone (open apps or pages, window and media control) |
-| R2 data modification | 24 | changes data, with runtime undo where available |
-| R3 external side effect | 25 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, screen.click_risky, settings.theme_restore, settings.theme_set, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close |
+| R0 observation | 71 | reads only |
+| R1 reversible | 51 | easily undone (open apps or pages, window and media control) |
+| R2 data modification | 25 | changes data, with runtime undo where available |
+| R3 external side effect | 27 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, settings.theme_restore, settings.theme_set, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close |
 | R4 destructive / privileged | 6 | filesystem.delete_permanent, network.adapter_restore, network.adapter_set, power.cancel, power.schedule, process.terminate |
 
 **App actions** (`app.<app>.<action>`, App Mastery, `chutku/apps/atlas/*.json`) take their risk from the atlas class: safe → R1, changes → R2, consequential → R3, destructive → R4 with `deletes` (always asks). The atlas validator refuses URI schemes and programs that are not the app's own and unknown step verbs; keys and typing are sent only while the app's own window is in front; every action ends with its own check, and the kernel, never-rules, taint rules, ledger and action log apply as to any tool. Instant routing by phrase (`chutku/apps/phrases.py`) only picks actions the Action Lab has verified on this PC; anything else goes to the planner, which is offered an app's actions only when the request names that app. `apps.howto` (R0) reads only the checked-in feature maps (`docs/apps/*.md`), not web text.
@@ -99,6 +99,14 @@ A test (`tests/test_taint_v2.py`) fails if any name in these lists is not a real
   - screenshots for screen tasks: `screen.ask` (the W5 screen copilot) sends the foreground window, cropped and scaled to 1280 px, to Gemini first (20 s budget), with local vision as the fallback; `screen.understand` still tries local vision first. Apps on the owner's private list (`timeline_private`) are never captured for either.
 - **Audit redaction:** message text, typed text, file contents, clipboard, phone numbers (`mind.show`/`mind.who`), the public IP (`net.check`), window titles and OCR text are redacted from the event trace.
 - **Plaintext data (not a secrets vault):** `mind.json`, saved notes and the operation journal (it keeps file contents so undo can work).
+
+## 4b. Phone access (W6, 2026-10-30)
+- Off until the owner says "phone connect karo". Phone server on 127.0.0.1:8766 only, published inside the owner's tailnet by `tailscale serve` (HTTPS); Funnel detected every 5 min stops everything.
+- Every request: exact ts.net Host, the owner's Tailscale-User-Login, a paired device credential (hash stored) + PIN session (scrypt), CSRF + Origin on changes, 30 req/min.
+- PIN again for every approval (single-use nonce bound to the step), screen view (30 min, 15 s heartbeat), control, laptop clipboard, laptop files. 5 wrong PINs revoke the phone.
+- Never from the phone: R4, power/network/process.terminate, permanent delete, code running, unknown recipients, never-rules, remote.* settings.
+- Direct control: armed only at the laptop, red border, local input wins 10 s, Ctrl+Alt+Shift+P kills, Enter/paste in command windows needs the PIN, no Ctrl+Alt+Del, nothing while locked, typed text logged only as length/script.
+- Files: phone uploads create-only in D:\ChutkuInbox (programs saved as .blocked); laptop files refused in protected zones and secret paths.
 
 ## 5. Stop and recovery
 
