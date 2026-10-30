@@ -175,6 +175,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.loop_tick = time.monotonic()
         self.closing = threading.Event()
         self.healed = None             # the guard pause this core lifted after a restart (shown on the HUD)
+        self.remote = None             # W6 phone access (chutku/remote/manager.py), real install only
         # Fixed spoken replies (control answers, read-backs): only the real install speaks; tests turn it on with fakes.
         self.voice_replies = Path(base).resolve() == Path(PROJECT_ROOT).resolve()
         self.action_started = None
@@ -753,6 +754,30 @@ class DashboardServer(ThreadingHTTPServer):
         self.hud_state["session_id"] = session.id
         return session
 
+    # -- W6: phone access ---------------------------------------------------------------------------------------
+    def start_remote(self):
+        """Phone access (when the owner left it on): only the real install, never tests or demos."""
+        if Path(self.base).resolve() != Path(PROJECT_ROOT).resolve():
+            return None
+        from chutku.remote.manager import RemoteManager
+        self.remote = RemoteManager(self)
+        try:
+            self.remote.start()
+        except OSError:
+            _log().exception("the phone server could not start")
+        return self.remote
+
+    def phone_active(self):
+        return bool(self.remote is not None and self.remote.active())
+
+    def remote_kill(self):
+        """Ctrl+Alt+Shift+P: end phone control now and forbid it until it is armed again at the laptop."""
+        from chutku.voice.handsfree import chime
+        if self.remote is not None:
+            self.remote.disarm("Ctrl+Alt+Shift+P")
+        chime("busy")
+        self.hud_state["message"] = "Phone control stopped (Ctrl+Alt+Shift+P)."
+
     def _barge_in(self, settle=1.0):
         """Hotkey while she is talking: stop her now (and drop the rest of that answer), then listen (W3)."""
         from chutku.voice import tts
@@ -932,7 +957,9 @@ class DashboardServer(ThreadingHTTPServer):
                 "pending": (session.get("pending") or {}).get("approval") if session.get("status") == "waiting_confirmation" else None,
                 "paused": bool(state.get("paused")), "mic_muted": bool(state.get("mic_muted")),
                 "conversation": [list(t) for t in (state.get("conversation") or [])][-4:],
-                "healed": bool(self.healed), "phone": bool(getattr(self, "phone_active", lambda: False)())}
+                "healed": bool(self.healed), "phone": self.phone_active(),
+                "phone_viewing": bool(self.remote and self.remote.server and self.remote.server.viewing()),
+                "phone_control": bool(self.remote and self.remote.server and self.remote.server.controlling())}
 
     def toggle_mute(self):
         """Ctrl+Alt+M / the HUD mic button: mute or unmute the microphone without stopping anything."""
@@ -1010,7 +1037,7 @@ class DashboardServer(ThreadingHTTPServer):
     def start_handsfree(self):
         from chutku.voice.handsfree import HotkeyListener
         self.hotkey = HotkeyListener(lambda: self.handsfree_request(), on_mute=self.toggle_mute,
-                                     on_screen=self.screen_copilot)
+                                     on_screen=self.screen_copilot, on_kill=self.remote_kill)
         self.hotkey.start()
         self.hotkey.registered.wait(2)
         prefs = self.preferences.load()
@@ -1318,6 +1345,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if parts.path == "/api/presence":   # polled ~10x a second by the presence orb: memory only
                 self._reply(200, self.server.presence_state())
                 return
+            if parts.path == "/api/remote":     # W6: the Phone panel
+                remote = self.server.remote
+                self._reply(200, remote.status() if remote is not None else {"enabled": False, "running": False,
+                                                                             "available": False})
+                return
             with create_runtime(self.server.base) as runtime:
                 if parts.path == "/api/state":
                     from chutku.evidence import read_evidence
@@ -1428,6 +1460,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
             from chutku.voice import tts
             tts.stop()
             self._reply(200, {"stopped": True})
+            return
+        if urlsplit(self.path).path == "/api/remote":   # W6 Phone panel (laptop only: needs this dashboard's token)
+            remote = self.server.remote
+            action = data.get("action")
+            if remote is None:
+                self._reply(409, {"error": "Phone access is available only in the running Chutku."})
+                return
+            if action == "enable":
+                self._reply(200, remote.enable())
+            elif action == "disable":
+                self._reply(200, remote.disable())
+            elif action == "pair":
+                self._reply(200, remote.pair_code())
+            elif action in ("arm", "disarm"):
+                self._reply(200, remote.arm(action == "arm"))
+            elif action == "revoke" and isinstance(data.get("device_id"), str):
+                self._reply(200, remote.revoke(data["device_id"]))
+            else:
+                self._reply(400, {"error": "Choose enable, disable, pair, arm, disarm or revoke."})
             return
         if urlsplit(self.path).path == "/api/presence/talk":   # the orb was clicked: the same as Ctrl+Alt+Space
             if data:
@@ -1887,6 +1938,7 @@ def serve(port: int = 8765, open_browser: bool = False, *, base=PROJECT_ROOT, he
                              daemon=True).start()   # "30 min baad ...", "har 15 min ...": runs beside normal work
             server.start_tray()
         server.heal_when_healthy()
+        server.start_remote()
         _write_session_link(base, server.url)
         print("Chutku is ready. Open this local session link:", flush=True)
         print(server.url, flush=True)

@@ -294,6 +294,30 @@ def _control_or_known(text):
 
 # "what did we talk about yesterday" / "pichli baar kya kaha tha" / "kal humne kya baat ki" / "show my chat history"
 # "offline mode on" / "offline mode chalu karo" / "go offline" / "offline mode band karo" / "online mode on" / "go online"
+# W6 phone access ("phone connect karo", "phone pair karo", "remote band karo", "phone hatao", "phone control on karo").
+_W = r"\W*"
+REMOTE_PHRASES = [
+    (re.compile(_W + r"(?:phone (?:connect|access) (?:karo|kar do|on karo|chalu karo|on)|turn on phone access|"
+                r"connect (?:my )?phone|phone se (?:jodo|connect karo))" + _W, re.I),
+     "remote.enable", {}, "Turn on phone access"),
+    (re.compile(_W + r"(?:(?:naya )?phone (?:pair|jod) (?:karo|kar do|do)|pair (?:a |my )?(?:new )?phone|"
+                r"phone pairing code(?: do| dikhao)?)" + _W, re.I),
+     "remote.pair", {}, "Make a pairing code for a phone"),
+    (re.compile(_W + r"(?:remote (?:band|off) (?:karo|kar do)|phone access (?:band|off) (?:karo|kar do)|"
+                r"turn off phone access|remote off)" + _W, re.I),
+     "remote.disable", {}, "Turn phone access off"),
+    (re.compile(_W + r"(?:phone hatao|phone hata do|remove (?:my |the )?phone|unpair (?:my |the )?phone|"
+                r"sab phone hatao)" + _W, re.I),
+     "remote.revoke", {"phone": "all"}, "Remove the paired phones"),
+    (re.compile(_W + r"(?:phone control (?:on|chalu) (?:karo|kar do)|allow phone control)" + _W, re.I),
+     "remote.arm", {"on": True}, "Allow control from the phone"),
+    (re.compile(_W + r"(?:phone control (?:band|off) (?:karo|kar do)|forbid phone control|stop phone control)" + _W,
+                re.I),
+     "remote.arm", {"on": False}, "Forbid control from the phone"),
+    (re.compile(_W + r"(?:phone (?:juda|connected) hai\??|is (?:my )?phone connected\??|phone status)" + _W, re.I),
+     "remote.status", {}, "Phone access status"),
+]
+
 # W5 screen copilot: questions about what is on screen ("is error ko fix karo", "explain this error",
 # "is page ka summary do", "screen dekh ke batao ...").
 SCREEN_COPILOT = re.compile(
@@ -585,6 +609,9 @@ def _single(goal, apps=None):
     chat = parse_open_chat(text)
     if chat is not None:  # "search Pita Shri in WhatsApp": open that chat, then ask what to send (owner, 2026-10-04)
         return _proposal("message.open_chat", chat, f"Open {chat['to']}'s chat on WhatsApp", "", finish=False)
+    for pattern, tool, arguments, purpose in REMOTE_PHRASES:   # W6: phone access, at the laptop
+        if pattern.fullmatch(text):
+            return _proposal(tool, arguments, purpose, "", finish=False)
     if SCREEN_COPILOT.search(text):   # W5: a question about what is on screen, answered by the screen copilot
         return _proposal("screen.ask", {"when": "hotkey_moment", "question": text[:300]}, "Look at the screen", "",
                          finish=False)
@@ -1090,6 +1117,32 @@ def _say_image(out):
     return out["description"]
 
 
+def _say_remote(out):
+    """W6 phone access replies (her own words; the pairing code itself is shown on the laptop screen)."""
+    if out.get("error"):
+        return str(out["error"])
+    if out.get("steps"):
+        return str(out["steps"])
+    if "code" in out:
+        return (f"Phone pe ye link kholo: {out.get('link')} . Code {out['code']} hai, {out.get('minutes', 10)} minute "
+                f"tak chalega. Dashboard ke Phone panel mein QR bhi hai.")
+    if "removed" in out:
+        return "Ye phone hata diye: " + ", ".join(out["removed"]) + ". Unhe dobara pair karna hoga."
+    if "control_allowed" in out:
+        return ("Phone se control ab allowed hai; shuru karne ke liye phone pe PIN lagega." if out["control_allowed"]
+                else "Phone se control band kar diya.")
+    if out.get("enabled") is True:
+        return f"Phone access chalu hai: {out.get('url')} . Ab 'phone pair karo' bolo."
+    if out.get("enabled") is False and "running" not in out:
+        return "Phone access band kar diya."
+    phones = out.get("phones") or []
+    state = "chalu" if out.get("enabled") else "band"
+    extra = (" Phone abhi juda hua hai." if out.get("phone_active") else "") + \
+            (" Screen dekhi ja rahi hai." if out.get("viewing") else "") + \
+            (" Phone se control ho raha hai." if out.get("controlling") else "")
+    return f"Phone access {state} hai, {len(phones)} phone paired." + extra
+
+
 def _say_screen(out):
     return out.get("answer") or out.get("summary") or "I looked, but couldn't describe the screen."
 
@@ -1461,7 +1514,7 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,
-                 "image.describe": _say_image, "screen.understand": _say_screen, "screen.ask": _say_screen,
+                 "image.describe": _say_image, "screen.understand": _say_screen, "screen.ask": _say_screen, "remote.status": _say_remote, "remote.enable": _say_remote, "remote.disable": _say_remote, "remote.pair": _say_remote, "remote.revoke": _say_remote, "remote.arm": _say_remote,
                  "note.list": _say_notes, "files.find": _say_found,
                  "net.check": _say_net, "net.ping": _say_ping,
                  "message.send": _say_message, "system.gpu_status": _say_gpu,

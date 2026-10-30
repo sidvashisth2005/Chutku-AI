@@ -78,12 +78,15 @@ class HotkeyListener(threading.Thread):
     """Owns Ctrl+Alt+Space in a dedicated message-loop thread of the core process."""
 
     SCREEN_HOTKEY = ("Ctrl+Alt+S", 0x2 | 0x1, 0x53)   # W5: ask about what is on screen
+    KILL_HOTKEY = ("Ctrl+Alt+Shift+P", 0x2 | 0x1 | 0x4, 0x50)   # W6: end phone control at once, at the laptop
 
-    def __init__(self, on_press, on_mute=None, on_screen=None):
+    def __init__(self, on_press, on_mute=None, on_screen=None, on_kill=None):
         super().__init__(name="chutku-ptt-hotkey", daemon=True)
         self.on_press = on_press
         self.on_screen = on_screen
         self.screen_registered = False
+        self.on_kill = on_kill
+        self.kill_registered = False
         self.on_mute = on_mute     # Ctrl+Alt+M: mic mute toggle (optional; Ctrl+Alt+Space works without it)
         self.mute_registered = False
         self.mute_hotkey = None    # the combination actually registered
@@ -112,6 +115,9 @@ class HotkeyListener(threading.Thread):
         if self.on_screen is not None:
             _name, modifiers, key = self.SCREEN_HOTKEY
             self.screen_registered = bool(user.RegisterHotKey(None, 9, modifiers | _MOD_NOREPEAT, key))
+        if self.on_kill is not None:
+            _name, modifiers, key = self.KILL_HOTKEY
+            self.kill_registered = bool(user.RegisterHotKey(None, 10, modifiers | _MOD_NOREPEAT, key))
         message = w.MSG()
         try:
             while user.GetMessageW(ctypes.byref(message), None, 0, 0) > 0:
@@ -121,12 +127,16 @@ class HotkeyListener(threading.Thread):
                     threading.Thread(target=self.on_mute, name="chutku-mute", daemon=True).start()
                 elif message.message == _WM_HOTKEY and message.wParam == 9 and self.on_screen is not None:
                     threading.Thread(target=self.on_screen, name="chutku-screen", daemon=True).start()
+                elif message.message == _WM_HOTKEY and message.wParam == 10 and self.on_kill is not None:
+                    threading.Thread(target=self.on_kill, name="chutku-remote-kill", daemon=True).start()
         finally:
             user.UnregisterHotKey(None, 7)
             if self.mute_registered:
                 user.UnregisterHotKey(None, 8)
             if self.screen_registered:
                 user.UnregisterHotKey(None, 9)
+            if self.kill_registered:
+                user.UnregisterHotKey(None, 10)
 
     def stop(self):
         if self.thread_id:

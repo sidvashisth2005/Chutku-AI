@@ -8,7 +8,7 @@ if(location.hash)history.replaceState(null,"",location.pathname);
 let sessionToken = tokenFromLink || "";
 try{sessionToken = sessionToken || sessionStorage.getItem("chutku-token") || "";}catch{}
 let state=null, busy=false;
-const labels={voicelock:"Voice lock",skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Command center",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
+const labels={phone:"Phone",voicelock:"Voice lock",skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Command center",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
 const MODE_HELP={
   review:"Review: every step waits for your click before it runs.",
   auto_safe:"Auto (safe): looking, opening apps/files/sites and other easily reversible steps run by themselves. File changes and anything risky wait for your click.",
@@ -27,7 +27,7 @@ async function api(path,data){
   if(!response.ok)throw new Error(payload.error||"The request failed.");
   return payload;
 }
-function switchTab(id){if(id==="mind")loadMind();if(id==="reliability")loadReliability();if(id==="skills")loadSkills();if(id==="voicelock")loadVoiceLock();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
+function switchTab(id){if(id==="phone")loadPhone();if(id==="mind")loadMind();if(id==="reliability")loadReliability();if(id==="skills")loadSkills();if(id==="voicelock")loadVoiceLock();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
 document.querySelectorAll("[data-tab]").forEach(e=>e.addEventListener("click",()=>switchTab(e.dataset.tab)));
 
 // ---- autonomy selector (remembered per browser) ----
@@ -377,3 +377,35 @@ async function pollPhase(){
 }
 pollPhase();
 $("open-presence")?.addEventListener("click",()=>{window.open("/presence#token="+encodeURIComponent(sessionToken),"chutku-presence","width=380,height=620");});
+
+
+// ---- W6: the Phone panel (phone access through the owner's tailnet) ----
+async function loadPhone(){
+  try{
+    const r=await api("/api/remote");
+    $("phone-state").textContent=r.available===false?"Phone access runs inside the real Chutku only.":
+      (r.enabled?`On · ${r.url||""}`:"Off")+(r.phone_active?" · 📱 phone connected":"")+(r.viewing?" · screen being watched":"")+(r.controlling?" · CONTROLLED FROM PHONE":"")+(r.control_allowed?" · control allowed":" · control forbidden");
+    const list=$("phone-devices");list.replaceChildren();
+    for(const d of (r.devices||[]).filter(d=>!d.revoked)){
+      const row=node("div","activity-row"),name=node("div","activity-title",d.name),rm=node("button","text-button danger-text","Remove");
+      rm.addEventListener("click",async()=>{await phoneAction({action:"revoke",device_id:d.id});});
+      row.append(name,rm);list.append(row);
+    }
+    if(!list.children.length)list.append(node("p","muted","No phone paired yet."));
+  }catch(e){error(e.message);}
+}
+async function phoneAction(body){
+  try{const r=await api("/api/remote",body);
+    if(body.action==="pair"){
+      const box=$("phone-pairing");box.replaceChildren();
+      if(r.error){box.append(node("p","muted",r.error));}
+      else{
+        box.append(node("h2","","Code: "+r.code),node("p","muted",`Open ${r.link} on the phone (valid ${r.minutes} minutes), or scan:`));
+        if(r.qr_svg){const svg=new DOMParser().parseFromString(r.qr_svg,"image/svg+xml").documentElement;if(svg&&svg.nodeName==="svg"){svg.setAttribute("width","220");svg.setAttribute("height","220");box.append(document.importNode(svg,true));}}
+      }
+    } else if(r.steps){ $("phone-state").textContent=r.steps; return; }
+    loadPhone();
+  }catch(e){error(e.message);}
+}
+for(const [id,action] of [["phone-enable","enable"],["phone-disable","disable"],["phone-pair","pair"],["phone-arm","arm"],["phone-disarm","disarm"]])
+  $(id)?.addEventListener("click",()=>phoneAction({action}));

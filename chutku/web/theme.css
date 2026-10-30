@@ -81,3 +81,5 @@ code{color:#a5f3fc}
 #open-presence{margin-top:10px;padding:6px 0}
 @media (max-width:760px){.sidebar{position:static;width:auto;border-right:0;border-bottom:1px solid var(--line)}body{flex-direction:column}main{margin-left:0!important;padding:16px!important}.today-grid{grid-template-columns:1fr 1fr!important}h1{font-size:26px}}
 @media (prefers-reduced-motion:reduce){.brand-icon{animation:none}}
+.row-buttons{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+#phone-pairing svg{background:#fff;border-radius:12px;padding:8px;margin-top:8px}

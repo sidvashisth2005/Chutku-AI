@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Chutku</title><meta name="theme-color" content="#070b12"><link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.png"><link rel="apple-touch-icon" href="/icon.png"><link rel="stylesheet" href="/phone.css">
+<script src="/phone.js" defer></script></head>
+<body>
+<header><img src="/icon.png" alt="" class="logo"><strong>Chutku</strong><span id="status" class="status">…</span></header>
+
+<section id="pair" class="card" hidden>
+  <h1>Pair this phone</h1>
+  <p class="muted">On the laptop: dashboard → Phone → "Pair a phone". Type the code shown there.</p>
+  <label>Pairing code <input id="pair-code" autocomplete="one-time-code" maxlength="8" autocapitalize="characters"></label>
+  <label>Name for this phone <input id="pair-name" maxlength="40" value="My phone"></label>
+  <label>Choose a PIN (4-6 digits) <input id="pair-pin" inputmode="numeric" type="password" maxlength="6"></label>
+  <button id="pair-go" class="primary">Pair</button>
+</section>
+
+<section id="login" class="card" hidden>
+  <h1>Unlock</h1>
+  <label>PIN <input id="login-pin" inputmode="numeric" type="password" maxlength="6"></label>
+  <button id="login-go" class="primary">Unlock</button>
+  <button id="forget" class="text">Forget this phone</button>
+</section>
+
+<main id="app" hidden>
+  <nav class="tabs"><button data-tab="chat" class="on">Chat</button><button data-tab="screen">Screen</button><button data-tab="files">Files</button></nav>
+
+  <section id="tab-chat" class="tab">
+    <div id="paused" class="banner" hidden>Chutku is paused. <button id="resume">Resume (PIN)</button></div>
+    <div id="log" class="log" aria-live="polite"></div>
+    <form id="ask" class="composer">
+      <input id="message" placeholder="Tell Chutku what to do…" maxlength="2000" autocomplete="off">
+      <button type="button" id="talk" class="talk" aria-label="Hold to talk">🎙</button>
+      <button type="submit" class="primary">Send</button>
+    </form>
+    <p class="muted small">Hold 🎙 to talk. Replies are spoken here, not on the laptop.</p>
+  </section>
+
+  <section id="tab-screen" class="tab" hidden>
+    <div class="row"><button id="screen-go" class="primary">Screen dekho (PIN)</button><button id="screen-stop">Stop</button>
+      <select id="tap-mode"><option value="ask">Tap = ask about it</option><option value="control">Tap = click (control)</option></select></div>
+    <div class="stage"><img id="frame" alt="Laptop screen"></div>
+    <div id="control-bar" class="controls" hidden>
+      <div class="row"><button id="control-go" class="primary">Start control (PIN)</button><button id="control-stop">End control</button></div>
+      <div class="row"><input id="type-text" placeholder="Type on the laptop (Hindi too)"><button id="type-send">Type</button><button id="type-enter">Type + Enter</button></div>
+      <div class="keys" id="keys"></div>
+      <div class="row"><button id="clip-get">Laptop clipboard (PIN)</button><button id="clip-paste">Paste my text</button></div>
+    </div>
+    <p class="muted small">View only until you start control. The laptop shows a red border while you control it; anyone at the laptop wins for 10 s.</p>
+  </section>
+
+  <section id="tab-files" class="tab" hidden>
+    <div class="card"><h2>Phone → laptop</h2><p class="muted small">Lands in D:\ChutkuInbox\&lt;date&gt;, never overwrites. Programs are stored as .blocked.</p>
+      <input type="file" id="upload-file"><button id="upload-go" class="primary">Send to laptop</button><p id="upload-out" class="small"></p></div>
+    <div class="card"><h2>Laptop → phone</h2><input id="get-path" placeholder="D:\Folder\file.pdf"><button id="get-go">Get file (PIN)</button><p id="get-out" class="small"></p></div>
+  </section>
+</main>
+
+<dialog id="pin-dialog"><form method="dialog"><p id="pin-why">Enter your PIN</p><input id="pin-input" inputmode="numeric" type="password" maxlength="6"><div class="row"><button value="cancel">Cancel</button><button value="ok" class="primary">OK</button></div></form></dialog>
+</body></html>
