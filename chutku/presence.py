@@ -59,6 +59,12 @@ class Bridge:
         self.window = None
         self.compact = None
 
+    # js_api calls arrive while the page waits; touching the window from that call froze it ("Python is not
+    # responding", owner 2026-10-30), so every window change runs on its own thread.
+    def _later(self, action):
+        import threading
+        threading.Thread(target=action, daemon=True).start()
+
     def size(self, compact):
         compact = bool(compact)
         if self.window is None or compact == self.compact:
@@ -66,9 +72,20 @@ class Bridge:
         self.compact = compact
         width, height = COMPACT if compact else FULL
         x, y = corner((width, height))
-        self.window.resize(width, height)
-        self.window.move(x, y)
+
+        def apply():
+            self.window.resize(width, height)
+            self.window.move(x, y)
+        self._later(apply)
         return {"compact": compact}
+
+    def minimize(self):
+        if self.window is not None:
+            self._later(self.window.minimize)
+
+    def close(self):
+        if self.window is not None:
+            self._later(self.window.destroy)
 
 
 def main(argv=None):
@@ -79,7 +96,7 @@ def main(argv=None):
     bridge = Bridge()
     x, y = corner(FULL)
     bridge.window = webview.create_window("Chutku", presence_url(link), js_api=bridge, width=FULL[0], height=FULL[1],
-                                          x=x, y=y, frameless=True, on_top=True, easy_drag=True, resizable=False,
+                                          x=x, y=y, frameless=True, on_top=True, easy_drag=False, resizable=False,
                                           background_color="#070b12")
     bridge.compact = False
     webview.start(private_mode=True)
