@@ -47,7 +47,7 @@ class DailyPhraseTests(unittest.TestCase):
     def test_spotify_score_screen_time(self):
         self.assertEqual(steps("spotify pe arijit singh chalao"), [("spotify.search", {"query": "arijit singh"})])
         self.assertEqual(steps("cricket score kya hai"), [("web.search", {"query": "cricket score live", "site": "google"})])
-        self.assertEqual(steps("yeh kya hai")[0][0], "screen.understand")
+        self.assertEqual(steps("yeh kya hai")[0][0], "screen.ask")   # W5: the fast screen copilot
         self.assertEqual(steps("mujhe batao time kya hai"), [("system.get_time", {})])
         self.assertEqual(steps("instagram kholo brave mein"),
                          [("web.open", {"url": "https://www.instagram.com", "browser": "brave"})])

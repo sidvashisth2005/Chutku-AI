@@ -64,19 +64,47 @@ def synthesize(sentence):
     return samples, rate
 
 
+SPEAKING = {"envelope": (), "started": 0.0, "step": 0.05}   # her voice's loudness while she talks (presence orb, W4)
+
+
+def speaking_level(now=None):
+    """0..1 loudness of what Chutku is saying right now (0 when silent)."""
+    envelope = SPEAKING["envelope"]
+    if not envelope:
+        return 0.0
+    index = int(((now or time.monotonic()) - SPEAKING["started"]) / SPEAKING["step"])
+    return float(envelope[index]) if 0 <= index < len(envelope) else 0.0
+
+
+def _envelope(samples, rate, step=0.05):
+    try:
+        import numpy as np
+        audio = np.asarray(samples, dtype=np.float32).reshape(-1)
+        size = max(1, int(rate * step))
+        blocks = audio[:len(audio) // size * size].reshape(-1, size)
+        rms = np.sqrt((blocks ** 2).mean(axis=1)) if len(blocks) else np.zeros(0)
+        peak = float(rms.max()) if len(rms) else 0.0
+        return tuple(float(v) for v in (rms / peak if peak > 0 else rms))
+    except Exception:
+        return ()
+
+
 def _play(samples, rate, backend=None):
     """Play one clip; returns False when stopped."""
     sd = backend
     if sd is None:
         import sounddevice as sd
+    SPEAKING.update(envelope=_envelope(samples, rate), started=time.monotonic())
     sd.play(samples, rate)
     end = time.monotonic() + len(samples) / rate + 0.5
     while time.monotonic() < end:
         if stop_event.is_set():
             sd.stop()
+            SPEAKING["envelope"] = ()
             return False
         time.sleep(0.05)
     sd.wait()
+    SPEAKING["envelope"] = ()
     return True
 
 

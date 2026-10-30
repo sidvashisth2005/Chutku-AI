@@ -724,6 +724,35 @@ class DashboardServer(ThreadingHTTPServer):
     END_CONVERSATION = re.compile(r"\W*(?:bas|bas karo|bye|ok bye|bye bye|thank you|thanks|that'?s all|ho gaya|"
                                   r"band karo|stop|rehne do|kuch nahi|nothing|no thanks)\W*", re.I)
 
+    def screen_copilot(self, question=None):
+        """Ctrl+Alt+S (W5): keep what is on screen right now, listen ~4 s for a question ("ye error kya hai?"),
+        then answer it out loud from the screen copilot. No question: "what is on my screen, anything to fix?"."""
+        from chutku import vision
+        from chutku.voice.handsfree import chime
+        from chutku.quick_intents import SCREEN_COPILOT
+        vision.remember_moment()          # before the HUD or anything else appears on screen
+        if ActionControl(self.base).paused:
+            self._paused_voice("hotkey", None)
+            return None
+        self._barge_in()
+        if question is None:
+            self._hud_set("listening", message="Screen ke baare mein kya poochna hai? (ya chup raho: main bata dungi)")
+            chime("listen")
+            question = self._listen_once(4)
+        question = (question or "").strip()
+        if question and SCREEN_COPILOT.search(question):
+            goal = question
+        else:
+            goal = ("screen dekh ke batao: " + question) if question else "screen dekh ke batao kya hai, kuch fix karna hai?"
+        mode = self.preferences.load()["handsfree_mode"]
+        try:
+            session = self.begin_session(goal, mode, "voice", speaker_check=False)
+        except ExecutionBusy:
+            chime("busy")
+            return None
+        self.hud_state["session_id"] = session.id
+        return session
+
     def _barge_in(self, settle=1.0):
         """Hotkey while she is talking: stop her now (and drop the rest of that answer), then listen (W3)."""
         from chutku.voice import tts
@@ -878,6 +907,33 @@ class DashboardServer(ThreadingHTTPServer):
                 state["phase"] = "listening"  # the conversation goes on after a task
         return state
 
+    PHASES = ("idle", "listening", "thinking", "running", "speaking", "confirm", "done", "clarify", "error", "paused")
+
+    def presence_state(self):
+        """What the presence orb shows (W4): its phase, voice levels in and out, captions and the live task."""
+        from chutku.voice import tts
+        from chutku.voice.session import voice_session
+        state = self.hud_status()
+        speaking = voice_session.snapshot().state == "speaking"
+        phase = state.get("phase", "idle")
+        if speaking:
+            phase = "speaking"
+        if state.get("paused") and phase in {"idle", "done", "error"}:
+            phase = "paused"
+        session = state.get("session") or {}
+        steps = [{"tool": s.get("tool"), "purpose": str(s.get("purpose") or "")[:90], "state": s.get("state"),
+                  "verified": s.get("verification") == "PASS"} for s in (session.get("steps") or [])][-8:]
+        return {"phase": phase if phase in self.PHASES else "idle",
+                "mic_level": round(float(state.get("level") or 0.0), 4),
+                "voice_level": round(tts.speaking_level(), 3) if speaking else 0.0,
+                "heard": state.get("transcript") or "", "message": state.get("message") or "",
+                "reply": str(session.get("reply") or "")[:400], "goal": str(session.get("goal") or "")[:160],
+                "session_id": session.get("id"), "status": session.get("status"), "steps": steps,
+                "pending": (session.get("pending") or {}).get("approval") if session.get("status") == "waiting_confirmation" else None,
+                "paused": bool(state.get("paused")), "mic_muted": bool(state.get("mic_muted")),
+                "conversation": [list(t) for t in (state.get("conversation") or [])][-4:],
+                "healed": bool(self.healed), "phone": bool(getattr(self, "phone_active", lambda: False)())}
+
     def toggle_mute(self):
         """Ctrl+Alt+M / the HUD mic button: mute or unmute the microphone without stopping anything."""
         from chutku.voice import mic
@@ -914,6 +970,27 @@ class DashboardServer(ThreadingHTTPServer):
         self.tray.ready.wait(5)
         return self.tray.error
 
+    def start_presence(self):
+        """W4: the presence orb window (pywebview) as a child process of this core, so it closes with Chutku.
+        False when it is off, not installed, or this is not the real install (then the Tk HUD is used)."""
+        if Path(self.base).resolve() != Path(PROJECT_ROOT).resolve():
+            return False
+        if not self.preferences.load().get("presence_overlay", True):
+            return False
+        from chutku import presence
+        if not presence.available():
+            return False
+        import subprocess
+        import sys
+        try:
+            self.presence_process = subprocess.Popen([sys.executable, "-m", "chutku.presence", self.url],
+                                                     cwd=str(PROJECT_ROOT),
+                                                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except OSError:
+            _log().exception("the presence window could not start; using the HUD")
+            return False
+        return True
+
     def start_hud(self):
         from chutku.hud import Hud
         server = self
@@ -932,7 +1009,8 @@ class DashboardServer(ThreadingHTTPServer):
 
     def start_handsfree(self):
         from chutku.voice.handsfree import HotkeyListener
-        self.hotkey = HotkeyListener(lambda: self.handsfree_request(), on_mute=self.toggle_mute)
+        self.hotkey = HotkeyListener(lambda: self.handsfree_request(), on_mute=self.toggle_mute,
+                                     on_screen=self.screen_copilot)
         self.hotkey.start()
         self.hotkey.registered.wait(2)
         prefs = self.preferences.load()
@@ -1211,7 +1289,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         static = {"/": ("index.html", "text/html; charset=utf-8"),
                   "/app.js": ("app.js", "text/javascript; charset=utf-8"),
                   "/style.css": ("style.css", "text/css; charset=utf-8"),
-                  "/chutku.ico": ("chutku.ico", "image/x-icon")}
+                  "/chutku.ico": ("chutku.ico", "image/x-icon"),
+                  "/icon.png": ("icon.png", "image/png"),
+                  "/theme.css": ("theme.css", "text/css; charset=utf-8"),
+                  "/presence": ("presence.html", "text/html; charset=utf-8"),
+                  "/presence.js": ("presence.js", "text/javascript; charset=utf-8"),
+                  "/presence.css": ("presence.css", "text/css; charset=utf-8"),
+                  "/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json")}
         if parts.path in static:
             file, mime = static[parts.path]
             self._reply(200, (Path(__file__).parent / "web" / file).read_bytes(), mime)
@@ -1230,6 +1314,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if parts.path == "/api/agent/session":
                 session = self.server.agent_sessions.get(parse_qs(parts.query).get("id", [""])[0])
                 self._reply(200, {"session": session.snapshot()})
+                return
+            if parts.path == "/api/presence":   # polled ~10x a second by the presence orb: memory only
+                self._reply(200, self.server.presence_state())
                 return
             with create_runtime(self.server.base) as runtime:
                 if parts.path == "/api/state":
@@ -1341,6 +1428,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
             from chutku.voice import tts
             tts.stop()
             self._reply(200, {"stopped": True})
+            return
+        if urlsplit(self.path).path == "/api/presence/talk":   # the orb was clicked: the same as Ctrl+Alt+Space
+            if data:
+                self._reply(400, {"error": "Talk takes no arguments."})
+                return
+            threading.Thread(target=self.server.handsfree_request, name="chutku-orb-talk", daemon=True).start()
+            self._reply(200, {"listening": True})
             return
         if urlsplit(self.path).path == "/api/voice/cancel":
             if data:
@@ -1773,7 +1867,8 @@ def serve(port: int = 8765, open_browser: bool = False, *, base=PROJECT_ROOT, he
         mark_interrupted_task(base)
         server.prime_brain()
         server.start_handsfree()
-        server.start_hud()
+        if not server.start_presence():
+            server.start_hud()
         if Path(base).resolve() == Path(PROJECT_ROOT).resolve():  # the real install, not a throwaway demo state
             import threading
             from chutku.health import watch

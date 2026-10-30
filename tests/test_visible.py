@@ -164,7 +164,7 @@ class PhraseAndGuardTests(unittest.TestCase):
         with patch("chutku.apps.lab.verified", return_value=True):    # verified: the library route (2026-10-11)
             got = quick_proposal("playlist screen pr hi h after party ki play it")["next_steps"][0]
             self.assertEqual((got["tool"], got["arguments"]), ("app.spotify.play_playlist", {"name": "after party"}))
-        self.assertEqual(quick_proposal("screen pe kya hai")["next_steps"][0]["tool"], "screen.understand")
+        self.assertEqual(quick_proposal("screen pe kya hai")["next_steps"][0]["tool"], "screen.ask")
 
     def test_a_failed_on_screen_action_is_final(self):
         # 2026-10-08 live: after "not as a playlist", the planner clicked a play button and started the song.

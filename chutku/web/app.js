@@ -369,3 +369,11 @@ function renderToday(t){
 async function refreshToday(){try{renderToday(await api("/api/today"));}catch{}}
 tickClock();setInterval(tickClock,15000);setInterval(refreshToday,60000);
 refresh().then(()=>{if(startTab&&labels[startTab])switchTab(startTab);refreshToday();setTimeout(refreshToday,4000);setTimeout(pollHandsfree,1500);}).catch(e=>{$("connection").textContent="Session unavailable";error(e.message);});
+
+// ---- W4: Chutku's live phase colours the command center (brand orb, accents) ----
+async function pollPhase(){
+  try{const p=await api("/api/presence");document.body.dataset.phase=p.phase;}catch{}
+  setTimeout(pollPhase,1000);
+}
+pollPhase();
+$("open-presence")?.addEventListener("click",()=>{window.open("/presence#token="+encodeURIComponent(sessionToken),"chutku-presence","width=380,height=620");});

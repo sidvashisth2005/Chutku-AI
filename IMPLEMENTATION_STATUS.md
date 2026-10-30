@@ -16,6 +16,58 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-10-30: W4 Jarvis presence UI + W5 screen copilot (code; window, screenshots and live answers in the terminal phase)
+
+**W4: presence**
+- **`/presence`** (`chutku/web/presence.html|js|css`):
+  - a canvas orb with a halo, rings, a voice wave and particles that follows Chutku's phase: listening (mic level), thinking or working (spinning rings), speaking (**her own voice's loudness**), needs your OK, paused;
+  - live captions (what you said, what she answers);
+  - each step of the current task with ✓ verified, ✗ failed or a spinner;
+  - an approval card (Approve or Cancel through `/api/agent/confirm`);
+  - clicking the orb = Ctrl+Alt+Space (`POST /api/presence/talk`).
+  - It uses the same token, origin and strict CSP as the dashboard.
+- **`/api/presence`** (token required): built from memory only (`DashboardServer.presence_state`): phase, mic and voice levels, captions, steps, pending approval, paused, phone. Polled every 100 ms while active and every 400 ms when idle.
+- **Voice level:** `tts.SPEAKING` holds each sentence's loudness envelope (50 ms), and `tts.speaking_level()` reads it.
+- **Corner window** (`chutku/presence.py`):
+  - pywebview (WebView2), frameless and always on top, in the bottom-right corner of the work area;
+  - shrinks to a 112 px orb after 6 s of nothing happening and grows to the 360×600 panel as soon as she listens, thinks, speaks or needs you;
+  - a child process of the core, so it closes with Chutku;
+  - only the real install opens it (`presence_overlay` preference, default on); without pywebview the Tk HUD is used as before.
+- **Dashboard:**
+  - the dark "command center" theme (`theme.css`, loaded after `style.css`, ids unchanged);
+  - the accent colour follows her live phase (`app.js` polls `/api/presence` every second) and the brand orb breathes;
+  - phone-width layout;
+  - PWA manifest;
+  - an "Open presence orb" button.
+- **Icon:** a real icon replaces the 0-byte `chutku.ico`. `scripts/make_icon.py` draws the orb (pure Python + numpy) and writes `icon.png` (256 px) and a 7-size `chutku.ico`.
+- **Tests:** `tests/test_presence_w4.py` (10):
+  - files served with the CSP, PNG header and size;
+  - presence state needs the token;
+  - paused shows as paused;
+  - the orb click listens;
+  - the theme and manifest are linked;
+  - the link keeps its token and refuses other hosts;
+  - the corner shrink and grow geometry;
+  - a test install never opens a window;
+  - the speaking envelope.
+- **Pending (terminal phase):** install pywebview; open the real window; Playwright screenshots (dashboard and presence, desktop and phone width).
+
+**W5: screen copilot**
+- **`screen.ask`** (R0, `screen.observe`, tainting and private like `screen.understand`):
+  - the screenshot from the moment you called her;
+  - **only the foreground window** (its rectangle is now recorded at capture), scaled to 1280 px;
+  - Gemini Flash-Lite vision first (15 s call, at most 2 models, no retries, inside a **20 s budget**), then local Qwen3-VL (90 s) offline;
+  - one plain answer: an error's meaning and its fix.
+  - Apps on the owner's private list (`timeline_private`) are refused and never uploaded.
+  - When nothing answers, it says which rung failed.
+  - Before this, `screen.understand` once took 5 min 39 s because the slow local model always went first.
+- **Phrases:** "ye kya hai", "screen pe kya hai", "is error ko fix karo", "screen dekh ke batao …", "explain this error", "is page ka summary do", "summarise this page", "what am I looking at", "ye code kya karta hai explain karo". "open notepad", "this page is slow" and "error log file kholo" do not route to the copilot. The answer is spoken.
+- **Ctrl+Alt+S:** keeps the screen as it is, listens 4 s for a question, and answers. With no question it says what is on screen and what needs fixing. A paused Chutku answers why instead.
+- **Docs:** SECURITY.md counts are 174 registered, R0 70, and the cloud-screenshot rule is updated.
+- Four older phrase tests that expected `screen.understand` now expect `screen.ask`. `check_phrases`: 135/135 instant.
+- **Tests:** `tests/test_screen_copilot_w5.py` (11): window crop, whole screen, cloud first, a slow cloud cut off for local, offline local, an honest failure, a private app never looked at, argument checks, phrases (both ways), Ctrl+Alt+S.
+- **Pending (terminal phase):** a live question about a real window, with seconds and a check that the answer is right.
+
 ### 2026-10-30: W3: real-time voice loop (code; live timings in the terminal phase)
 
 - **Endpointing:** `recognition.capture` uses Silero VAD, which ships with faster-whisper (CPU, ~11 ms per 100 ms chunk measured).

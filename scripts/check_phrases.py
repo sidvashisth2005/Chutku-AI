@@ -60,7 +60,7 @@ CASES = [
     ("remind me in 20 minutes to drink water", "reminder.set"), ("set a timer for 25 minutes", "reminder.set"),
     ("remember city = Delhi", "memory.remember"), ("note: buy milk", "note.add"), ("show my list", "note.list"),
     ("mark 2 done", "note.done"), ("what did you do today", "log.recent"), ("aaj kya kiya", "log.recent"),
-    ("screen pe kya hai", "screen.understand"), ("list my routines", "routine.list"),
+    ("screen pe kya hai", "screen.ask"), ("is error ko fix karo", "screen.ask"), ("list my routines", "routine.list"),
     ("build me a calculator app", "code.build_project"),
     # PC info (these took 11-15 s through the model in the 2026-10-01 benchmark)
     ("which gpu do i have", "system.gpu_status"), ("what windows version do i have", "system.environment"),

@@ -1,0 +1,39 @@
+:root{--bg:#070b12;--ink:#e8f1ff;--muted:#8193ad;--line:#1b2636;--accent:#22d3ee;--ok:#34d399;--warn:#fbbf24;--bad:#fb7185;
+  font-family:"Segoe UI Variable","Segoe UI",system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:14px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:radial-gradient(120% 80% at 50% 0%,#0d1830 0%,var(--bg) 60%);overflow:hidden}
+body[data-phase="listening"]{--accent:#38bdf8}
+body[data-phase="thinking"],body[data-phase="running"]{--accent:#a78bfa}
+body[data-phase="speaking"]{--accent:#22d3ee}
+body[data-phase="confirm"],body[data-phase="clarify"]{--accent:#fbbf24}
+body[data-phase="done"]{--accent:#34d399}
+body[data-phase="error"],body[data-phase="paused"]{--accent:#fb7185}
+.presence{height:100%;display:flex;flex-direction:column;align-items:center;padding:14px 16px 10px;gap:6px}
+.orb-wrap{position:relative;width:min(220px,62vw);aspect-ratio:1}
+#orb{width:100%;height:100%;display:block}
+.talk{position:absolute;inset:28%;border-radius:50%;border:0;background:transparent;cursor:pointer}
+.talk:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.phase{font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);text-shadow:0 0 12px color-mix(in srgb,var(--accent) 55%,transparent)}
+.heard{margin:0;color:var(--muted);font-size:13px;text-align:center;min-height:1.2em;max-width:34ch}
+.heard:not(:empty)::before{content:"“"}.heard:not(:empty)::after{content:"”"}
+.reply{margin:0;font-size:15px;line-height:1.45;text-align:center;max-width:36ch;min-height:1.4em}
+.steps{list-style:none;margin:4px 0 0;padding:0;width:100%;max-width:360px;display:flex;flex-direction:column;gap:5px;overflow:auto;flex:1}
+.steps li{display:flex;gap:9px;align-items:flex-start;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#0b1424;font-size:12.5px;animation:rise .25s ease-out}
+.steps li .mark{width:18px;height:18px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:#16233a;color:var(--muted)}
+.steps li.ok .mark{background:color-mix(in srgb,var(--ok) 22%,transparent);color:var(--ok)}
+.steps li.bad .mark{background:color-mix(in srgb,var(--bad) 22%,transparent);color:var(--bad)}
+.steps li.run .mark{border:2px solid var(--accent);border-right-color:transparent;animation:spin .8s linear infinite;background:none}
+.steps li .tool{color:var(--muted);font-family:Consolas,monospace;font-size:11px}
+.approval{width:100%;max-width:360px;border:1px solid color-mix(in srgb,var(--warn) 55%,transparent);background:#1d1608;border-radius:12px;padding:10px 12px}
+.approval p{margin:6px 0 10px;font-size:13px;line-height:1.4}
+.approval-actions{display:flex;gap:8px}
+button{font:inherit;border:1px solid var(--line);background:#111c2e;color:var(--ink);border-radius:9px;padding:8px 14px;font-weight:650;cursor:pointer}
+button.primary{background:var(--ok);border-color:var(--ok);color:#03130c}
+.foot{margin:0;font-size:10.5px;color:#5d6e86;text-align:center}
+[hidden]{display:none!important}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+body.compact .heard,body.compact .reply,body.compact .steps,body.compact .foot,body.compact .phase{display:none}
+body.compact .presence{padding:4px;justify-content:center}
+body.compact .orb-wrap{width:88px}

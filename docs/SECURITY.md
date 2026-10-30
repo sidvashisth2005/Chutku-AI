@@ -26,11 +26,11 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (173 registered, plus 59 app actions)
+### Risk levels and tools (174 registered, plus 59 app actions)
 
 | Level | Count | Meaning |
 |---|---|---|
-| R0 observation | 69 | reads only |
+| R0 observation | 70 | reads only |
 | R1 reversible | 49 | easily undone (open apps or pages, window and media control) |
 | R2 data modification | 24 | changes data, with runtime undo where available |
 | R3 external side effect | 25 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, screen.click_risky, settings.theme_restore, settings.theme_set, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close |
@@ -96,7 +96,7 @@ A test (`tests/test_taint_v2.py`) fails if any name in these lists is not a real
   - the goal and the tool catalog;
   - step summaries and allowlisted public results;
   - the memory slice related to the goal;
-  - screenshots only for screen tasks, when local vision fails.
+  - screenshots for screen tasks: `screen.ask` (the W5 screen copilot) sends the foreground window, cropped and scaled to 1280 px, to Gemini first (20 s budget), with local vision as the fallback; `screen.understand` still tries local vision first. Apps on the owner's private list (`timeline_private`) are never captured for either.
 - **Audit redaction:** message text, typed text, file contents, clipboard, phone numbers (`mind.show`/`mind.who`), the public IP (`net.check`), window titles and OCR text are redacted from the event trace.
 - **Plaintext data (not a secrets vault):** `mind.json`, saved notes and the operation journal (it keeps file contents so undo can work).
 

@@ -88,9 +88,17 @@ def _foreground_info():
         desktop = Desktop()
         hwnd = desktop.foreground()
         info = desktop.describe(hwnd) if hwnd else {}
-        return {"title": (info.get("title") or "")[:200], "executable": os.path.basename(info.get("executable") or "")}
+        found = {"title": (info.get("title") or "")[:200], "executable": os.path.basename(info.get("executable") or "")}
     except OSError:
         return {}
+    try:   # the window's own rectangle (physical pixels), so the screen copilot can look at just that window (W5)
+        with dpi_aware() as user32:
+            rect = w.RECT()
+            if user32.GetWindowRect(user32.GetForegroundWindow(), ctypes.byref(rect)):
+                found["rect"] = (rect.left, rect.top, rect.right, rect.bottom)
+    except (OSError, AttributeError):
+        pass
+    return found
 
 
 def capture():

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chutku presence</title><link rel="icon" href="/icon.png"><link rel="stylesheet" href="/presence.css"><script src="/presence.js" defer></script></head>
+<body data-phase="idle">
+<main class="presence" aria-live="polite">
+  <div class="orb-wrap"><canvas id="orb" width="320" height="320" aria-hidden="true"></canvas><button id="talk" class="talk" title="Talk to Chutku (Ctrl+Alt+Space)" aria-label="Talk to Chutku"></button></div>
+  <div class="phase" id="phase">Ready</div>
+  <p class="heard" id="heard"></p>
+  <p class="reply" id="reply"></p>
+  <ol class="steps" id="steps"></ol>
+  <section class="approval" id="approval" hidden>
+    <strong>Confirm this step</strong>
+    <p id="approval-text"></p>
+    <div class="approval-actions"><button id="approve" class="primary">Approve</button><button id="reject">Cancel</button></div>
+  </section>
+  <p class="foot" id="foot">Ctrl+Alt+Space to talk · press again while I speak to cut me off</p>
+</main>
+</body></html>

@@ -86,6 +86,7 @@ class QuickIntentTests(unittest.TestCase):
             "audio.outputs": {"devices": [{"name": "Speakers", "default": True}, {"name": "Headphones", "default": False}]},
             "image.describe": {"description": "A cat sitting on a sofa next to a window."},
             "screen.understand": {"summary": "VS Code with a Python file open.", "answer": ""},
+            "screen.ask": {"answer": "VS Code shows a NameError on line 3: define x first."},
             "note.list": {"items": [{"id": 1, "text": "buy milk", "done": False}]},
             "message.send": {"app": "WhatsApp", "to": "UB", "text": "hi", "seen_in_chat": True,
                              "tip": "Save their number once ('remember contact_ub = +91...')."},

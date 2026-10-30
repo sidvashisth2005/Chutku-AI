@@ -127,7 +127,7 @@ def parse_daily(goal, now=None):
             return "web.search", {"query": f"{query} live" if "live" not in query else query, "site": "google"}, \
                 "Look up the live score", "Opened the live score.", True
         if kind == "screen":
-            return "screen.understand", {"when": "hotkey_moment", "question": goal[:300]}, "Look at the screen", "", False
+            return "screen.ask", {"when": "hotkey_moment", "question": goal[:300]}, "Look at the screen", "", False
         if kind == "call":
             who = g["who"].strip()
             if who.casefold() in {"mujhe", "me", "us", "hume", "use", "usko"}:

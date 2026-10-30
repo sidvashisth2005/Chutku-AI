@@ -294,6 +294,17 @@ def _control_or_known(text):
 
 # "what did we talk about yesterday" / "pichli baar kya kaha tha" / "kal humne kya baat ki" / "show my chat history"
 # "offline mode on" / "offline mode chalu karo" / "go offline" / "offline mode band karo" / "online mode on" / "go online"
+# W5 screen copilot: questions about what is on screen ("is error ko fix karo", "explain this error",
+# "is page ka summary do", "screen dekh ke batao ...").
+SCREEN_COPILOT = re.compile(
+    r"\b(?:(?:is|iss|ye|yeh|this|that|the) (?:error|warning|message|popup|dialog|code|page|screen|chart|graph|table|"
+    r"bug|exception)\b.*\b(?:fix|theek|thik|solve|samjha|samjhao|explain|kya hai|kya matlab|batao|bata|summary|"
+    r"summari[sz]e|mean)"
+    r"|(?:explain|summari[sz]e|translate|read) (?:this|the|my) (?:error|page|screen|message|popup|code|article|chart)"
+    r"|screen (?:dekh|dekho|dekhke|dekh ke|dekhkar|dekh kar|check kar|pe dekh)\w* (?:ke |kar )?(?:batao|bata|bolo|"
+    r"samjhao)"
+    r"|(?:is|iss|ye) page ka (?:summary|saar|matlab))", re.I)
+
 # Phase 4 switches: "conversation mode on" / "baat karte hain mode off" / "hindi samjho" / "cloud brain off" ...
 _ON = r"(?:on|chalu|chalu karo|on karo|start|start karo|enable|laga do)"
 _OFF = r"(?:off|band|band karo|off karo|stop|disable|hatao)"
@@ -574,6 +585,9 @@ def _single(goal, apps=None):
     chat = parse_open_chat(text)
     if chat is not None:  # "search Pita Shri in WhatsApp": open that chat, then ask what to send (owner, 2026-10-04)
         return _proposal("message.open_chat", chat, f"Open {chat['to']}'s chat on WhatsApp", "", finish=False)
+    if SCREEN_COPILOT.search(text):   # W5: a question about what is on screen, answered by the screen copilot
+        return _proposal("screen.ask", {"when": "hotkey_moment", "question": text[:300]}, "Look at the screen", "",
+                         finish=False)
     from chutku.apps import known
     playlist_name = known.spoken_playlist(text)
     if playlist_name is not None:   # a playlist that already played once: play it, never search (F6)
@@ -898,7 +912,8 @@ def _single(goal, apps=None):
             return _proposal("image.describe", {"path": match.group("path").strip()}, "Look at the image", "",
                              finish=False)
         if kind == "screen":
-            return _proposal("screen.understand", {"when": "hotkey_moment"}, "Look at the screen", "", finish=False)
+            return _proposal("screen.ask", {"when": "hotkey_moment", "question": text[:300]}, "Look at the screen", "",
+                             finish=False)
         if kind == "audio_out":
             device = " ".join(match.group("device").split())
             return _proposal("audio.set_output", {"device": device}, f"Switch sound to {device}",
@@ -1446,7 +1461,7 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,
-                 "image.describe": _say_image, "screen.understand": _say_screen,
+                 "image.describe": _say_image, "screen.understand": _say_screen, "screen.ask": _say_screen,
                  "note.list": _say_notes, "files.find": _say_found,
                  "net.check": _say_net, "net.ping": _say_ping,
                  "message.send": _say_message, "system.gpu_status": _say_gpu,

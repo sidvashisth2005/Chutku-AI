@@ -79,14 +79,15 @@ TAINTING_TOOLS = frozenset({
     "timeline.search",   # window titles are outside text
     "history.search",    # past replies can quote web pages and messages
     "screen.act_on_visible",   # it reads screen text
-    "file.extract_text", "screen.read_text", "code.run_python", "screen.understand", "log.recent",
+    "file.extract_text", "screen.read_text", "code.run_python", "screen.understand", "screen.ask", "log.recent",
     "message.read_chat", "image.describe", "screen.click",
 })
 # Tools that read the user's private data. After one of these, network requests need a click,
 # because a URL built from that data could leak it. Public web content alone does not count.
 PRIVATE_TOOLS = frozenset({
     "filesystem.read_text", "filesystem.search", "file.extract_text", "clipboard.read_text",
-    "screen.read_text", "screen.understand", "screen.capture", "uia.inspect", "windows.list", "memory.search",
+    "screen.read_text", "screen.understand", "screen.ask", "screen.capture", "uia.inspect", "windows.list",
+    "memory.search",
     "code.run_python", "log.recent", "message.read_chat",
     "filesystem.list", "filesystem.largest", "files.find", "files.recent",   # names of the owner's files
     "reflex.list", "nightshift.report",   # the owner's past requests
