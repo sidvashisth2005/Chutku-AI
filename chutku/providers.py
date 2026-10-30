@@ -23,12 +23,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PROVIDERS = {
     "groq": {"url": "https://api.groq.com/openai/v1/chat/completions", "env": "GROQ_API_KEY",
              "credential": "Chutku/Groq",
-             "models": ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "qwen/qwen3-32b"]},
+             "models": ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b"]},   # as listed 2026-10-30
     "cerebras": {"url": "https://api.cerebras.ai/v1/chat/completions", "env": "CEREBRAS_API_KEY",
                  "credential": "Chutku/Cerebras", "models": ["llama-3.3-70b", "qwen-3-32b"]},
 }
 ORDER = ("groq", "cerebras")
-QUOTA_COOLDOWN = 15 * 60       # a 429 without Retry-After: try this model again in 15 minutes
+QUOTA_COOLDOWN = 60           # a 429 without Retry-After: free tiers limit tokens per MINUTE (measured 2026-10-30)
 ERROR_COOLDOWN = 60
 _lock = threading.Lock()
 
@@ -119,6 +119,8 @@ def chat_json(provider, model, system, user, *, key=None, timeout=25, max_tokens
                 raise ProviderError(f"{provider} quota reached.", kind="quota", retry_after=retry) from None
             if error.code in (401, 403):
                 raise ProviderError(f"The {provider} key was rejected.", kind="auth") from None
+            if error.code == 404:
+                raise ProviderError(f"{provider} no longer offers {model}.", kind="retired") from None
             raise ProviderError(f"{provider} answered HTTP {error.code}.") from None
         except (urllib.error.URLError, TimeoutError, OSError) as error:
             raise ProviderError(f"{provider} is not reachable ({type(error).__name__}).") from None
@@ -158,6 +160,8 @@ def ask(system, user, *, base=None, transport=None, timeout=25, rungs=None):
                 cool_down(f"{provider}/{model}", error.retry_after or QUOTA_COOLDOWN, base)
             elif error.kind == "auth":
                 cool_down(provider, 24 * 3600, base)
+            elif error.kind == "retired":
+                cool_down(f"{provider}/{model}", 24 * 3600, base)
             elif error.kind == "unavailable":
                 cool_down(f"{provider}/{model}", ERROR_COOLDOWN, base)
     raise ProviderError("No free cloud model answered: " + "; ".join(tried or ["no key stored"]), kind="exhausted")
