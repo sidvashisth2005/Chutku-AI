@@ -627,6 +627,9 @@ class DashboardServer(ThreadingHTTPServer):
         mic.set_muted(False)   # calling Chutku means "listen to me now"
         if conversation and self.start_live(command):
             return
+        if conversation and getattr(self, "live_error", None) and self.voice_replies:
+            # 2026-10-31: Gemini Live silently failed (key rejected) and the owner only noticed "the voice changed".
+            self._speak(f"{self.live_error}, isliye abhi local mode mein sun rahi hoon.")
         if self.action_lock.locked() and not command:
             self._hud_show()  # show what is running now
             chime("busy")
@@ -829,10 +832,13 @@ class DashboardServer(ThreadingHTTPServer):
         from chutku.voice.handsfree import chime
         from chutku.voice.live import LiveConversation
         key = gemini_allowed(self.base)
+        self.live_error = None
         if not key:
+            self.live_error = "Gemini ki key ya permission set nahi hai"
             return False
         from chutku.online import reachable
         if not reachable():
+            self.live_error = "internet nahi mil raha"
             return False   # offline: the local conversation takes over at once (no 12 s connection wait)
         vision.remember_moment()
         if self.wake is not None:
@@ -847,6 +853,7 @@ class DashboardServer(ThreadingHTTPServer):
         while time.monotonic() < deadline and live.model is None and not live.closed.is_set():
             time.sleep(0.1)
         if live.model is None:
+            self.live_error = "Gemini se connect nahi ho paayi (key reject ho rahi hai ya model band hai)"
             live.stop()
             if self.wake is not None:
                 self.wake.hold.clear()
