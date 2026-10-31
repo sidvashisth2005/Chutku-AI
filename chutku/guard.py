@@ -124,6 +124,13 @@ def supervise(base=PROJECT_ROOT, port=8765, open_browser=False, *, restarts=0, r
             time.sleep(restart_delay)
 
 
+def _marker_says_quit(marker):
+    try:
+        return marker.read_text(encoding="utf-8").strip() == "quit"
+    except OSError:
+        return False
+
+
 def _boot_time():
     """When Windows booted (seconds since the epoch, to within a minute)."""
     import ctypes
@@ -178,7 +185,8 @@ def _supervise(base=PROJECT_ROOT, port=8765, open_browser=False, *, child_target
         while True:
             now = clock()
             if stop_marker.exists() or (keyboard and keyboard.pressed()):
-                reason = "emergency_stop"
+                # "quit" (the owner closed Chutku from the taskbar, 2026-10-31): a clean shutdown, not a pause
+                reason = "owner_quit" if _marker_says_quit(stop_marker) else "emergency_stop"
                 break
             if now - previous > suspend_gap:
                 suspensions.append((now, now - previous))
@@ -213,7 +221,8 @@ def _supervise(base=PROJECT_ROOT, port=8765, open_browser=False, *, child_target
         # Pause before killing. It survives restart; only a watchdog pause is lifted, by a restarted core that
         # stayed healthy, and the interrupted task itself is never run again.
         try:
-            ActionControl(base).pause("owner" if reason == "emergency_stop" else "guard", reason)
+            if reason != "owner_quit":
+                ActionControl(base).pause("owner" if reason == "emergency_stop" else "guard", reason)
         finally:
             job.close()
             if child.pid is not None:

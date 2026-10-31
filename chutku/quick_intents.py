@@ -294,6 +294,13 @@ def _control_or_known(text):
 
 # "what did we talk about yesterday" / "pichli baar kya kaha tha" / "kal humne kya baat ki" / "show my chat history"
 # "offline mode on" / "offline mode chalu karo" / "go offline" / "offline mode band karo" / "online mode on" / "go online"
+# "play X playlist [from the screen | screen pe hai | in/on spotify] [chalao/bajao/play karo]" -> the verified action.
+NAMED_PLAYLIST = re.compile(
+    r"\W*(?:(?:please |zara |bhai )?(?:play|chalao|chala|bajao|baja|laga|lagao)\s+)?(?:my |meri |mera )?"
+    r"(?P<name>[\"'“]?[^\"'”]{2,60}?[\"'”]?)\s+(?:wali |vali )?playlist"
+    r"(?:\s+(?:from|on|off) (?:the |my )?screen|\s+screen (?:pe|par) (?:hai|he|dikh rahi hai)|\s+(?:in|on|pe|par) spotify"
+    r"|\s+(?:chalao|chala do|bajao|baja do|play karo|play kar do|laga do|lagao|chala|baja)|\s+please|\s+jaldi)*\W*", re.I)
+
 # W6 phone access ("phone connect karo", "phone pair karo", "remote band karo", "phone hatao", "phone control on karo").
 _W = r"\W*"
 REMOTE_PHRASES = [
@@ -615,6 +622,19 @@ def _single(goal, apps=None):
     if SCREEN_COPILOT.search(text):   # W5: a question about what is on screen, answered by the screen copilot
         return _proposal("screen.ask", {"when": "hotkey_moment", "question": text[:300]}, "Look at the screen", "",
                          finish=False)
+    named = NAMED_PLAYLIST.fullmatch(text)
+    if named:   # 2026-10-31: "play "After Party" playlist from the screen in spotify" took 3 min via the planner
+        name = named.group("name").strip(" '\"“”")
+        name = re.split(r"\b(?:aur|and|phir|then|karke|kar ke)\b", name, flags=re.I)[-1].strip(" ,'\"“”")
+        asked = re.search(r"\b(?:play|chalao|chala|bajao|baja|laga|lagao|screen|spotify)\b", text, re.I)
+        from chutku.apps import known as _known
+        name = next((k for k in _known.known("spotify", "playlist") if _known.norm(k) == _known.norm(name)), name)
+        from chutku.apps.lab import verified_actions
+        from pathlib import Path as _Path
+        proven = "play_playlist" in verified_actions(_Path(__file__).resolve().parents[1]).get("spotify", ())
+        if proven and asked and 2 <= len(name) <= 60 and not re.match(r"(?:what|which|how|kya|kaun)\b", name, re.I):
+            return _proposal("app.spotify.play_playlist", {"name": name}, f"Play the {name} playlist",
+                             f"{name} playlist chala di.")
     from chutku.apps import known
     playlist_name = known.spoken_playlist(text)
     if playlist_name is not None:   # a playlist that already played once: play it, never search (F6)

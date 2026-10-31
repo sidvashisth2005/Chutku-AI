@@ -82,6 +82,11 @@ class ActionControl:
         self.pause("owner", "emergency_stop")
         (self.directory / "guard.stop").touch()
 
+    def quit(self) -> None:
+        """Close Chutku completely without pausing (the taskbar button's Close): the guard ends every process."""
+        self.directory.mkdir(parents=True, exist_ok=True)
+        (self.directory / "guard.stop").write_text("quit", encoding="utf-8")
+
     def check(self) -> None:
         if self.paused:
             raise ActionsPaused("Actions are paused. An in-flight action may have finished; inspect history before resuming.")

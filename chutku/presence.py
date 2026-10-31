@@ -85,7 +85,37 @@ class Bridge:
 
     def close(self):
         if self.window is not None:
-            self._later(self.window.destroy)
+            self._later(self.window.destroy)   # closing the window quits Chutku (see on_closed)
+
+
+def quit_chutku():
+    """The owner closed the Chutku window (✕ or the taskbar's Close): every Chutku process ends, cleanly."""
+    from chutku.core.action_control import ActionControl
+    ActionControl(PROJECT_ROOT).quit()
+
+
+def show_in_taskbar(title="Chutku"):
+    """Give the window its own taskbar button with Chutku's icon (frameless windows can lack one)."""
+    import ctypes
+    import time
+    user32 = ctypes.windll.user32
+    for _ in range(50):
+        hwnd = user32.FindWindowW(None, title)
+        if hwnd:
+            break
+        time.sleep(0.1)
+    else:
+        return
+    GWL_EXSTYLE, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW = -20, 0x40000, 0x80
+    style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+    user32.ShowWindow(hwnd, 0)
+    user32.SetWindowLongW(hwnd, GWL_EXSTYLE, (style | WS_EX_APPWINDOW) & ~WS_EX_TOOLWINDOW)
+    user32.ShowWindow(hwnd, 5)
+    icon_path = str(Path(__file__).resolve().parent / "web" / "chutku.ico")
+    for size, kind in ((16, 0), (32, 1)):   # ICON_SMALL, ICON_BIG
+        icon = user32.LoadImageW(None, icon_path, 1, size, size, 0x10)   # IMAGE_ICON, LR_LOADFROMFILE
+        if icon:
+            user32.SendMessageW(hwnd, 0x80, kind, icon)                   # WM_SETICON
 
 
 def main(argv=None):
@@ -93,13 +123,19 @@ def main(argv=None):
     link = argv[0] if argv else json.loads((PROJECT_ROOT / "data" / "dashboard-session.json").read_text(
         encoding="utf-8"))["url"]
     import webview
+    try:   # its own taskbar group and icon, not "Python"
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Chutku.Assistant")
+    except Exception:
+        pass
     bridge = Bridge()
     x, y = corner(FULL)
     bridge.window = webview.create_window("Chutku", presence_url(link), js_api=bridge, width=FULL[0], height=FULL[1],
                                           x=x, y=y, frameless=True, on_top=True, easy_drag=False, resizable=False,
                                           background_color="#070b12")
     bridge.compact = False
-    webview.start(private_mode=True)
+    bridge.window.events.closed += quit_chutku
+    webview.start(show_in_taskbar, private_mode=True)
 
 
 if __name__ == "__main__":

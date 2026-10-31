@@ -99,3 +99,18 @@ class OwnerModeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FewerAsksAfterReadingTests(unittest.TestCase):
+    """Owner order 2026-10-31: closing apps/windows, media keys and Spotify actions don't ask after a read step;
+    file changes and other R2+ steps still do."""
+    def test_close_after_taint_is_allowed_but_file_changes_still_ask(self):
+        from chutku.policy.kernel import Decision, PolicyKernel
+        from chutku.tools.registry import Risk, Tool
+        def tool(name, risk, access="none"):
+            return Tool(name, "t", risk, lambda a, c: None, resource_access=access)
+        for name in ("apps.quit", "apps.close", "app.spotify.pause"):
+            self.assertEqual(PolicyKernel._owner(tool(name, Risk.EXTERNAL_SIDE_EFFECT), Risk.EXTERNAL_SIDE_EFFECT,
+                                                 True, False, None).decision, Decision.ALLOW, name)
+        self.assertEqual(PolicyKernel._owner(tool("message.send", Risk.EXTERNAL_SIDE_EFFECT), Risk.EXTERNAL_SIDE_EFFECT,
+                                             True, False, None).decision, Decision.CONFIRM)

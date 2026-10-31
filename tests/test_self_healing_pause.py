@@ -228,3 +228,22 @@ class PausedVoiceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def quit_request_child(connection, base, port, open_browser):
+    connection.recv()
+    (base / "data/guard.stop").write_text("quit", encoding="utf-8")
+    time.sleep(60)
+
+
+@unittest.skipUnless(sys.platform == "win32", "Windows Job Object integration")
+class TaskbarQuitTests(unittest.TestCase):
+    def test_closing_from_the_taskbar_ends_everything_without_a_pause(self):
+        from chutku.guard import supervise
+        with TemporaryDirectory() as temp:
+            base = Path(temp)
+            result = supervise(base, child_target=quit_request_child, hotkey=False, restarts=3, restart_delay=0)
+            self.assertEqual(result["reason"], "owner_quit")
+            self.assertTrue(result["core_stopped"])
+            self.assertFalse(ActionControl(base).paused)          # the next start is not paused
+            self.assertFalse((base / "data/guard.running").exists())

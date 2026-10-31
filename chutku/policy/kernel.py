@@ -47,6 +47,11 @@ TAINT_SENSITIVE_R1 = ("apps.launch", "files.open", "mind.", "memory.remember", "
 # from then on every step that changes anything waits for the owner, in every mode.
 SUSPICIOUS_REASON = "What Chutku read tried to give her instructions; every change now waits for your click."
 OWNER_TAINT_FREE_R1 = frozenset({"apps.launch", "files.open"})   # owner order 2026-10-08
+# Owner order 2026-10-31 ("baar baar approval maangta hai"): closing/quitting an app or window, media keys and
+# Spotify actions no longer ask just because an earlier step read window titles or screen text. A page or message
+# that tried to give orders (suspicious) still makes everything ask.
+OWNER_TAINT_FREE = frozenset({"apps.quit", "apps.close", "windows.close", "media.control"})
+OWNER_TAINT_FREE_PREFIXES = ("app.spotify.",)
 TAINT_R1_REASON ="This step follows content read from outside; confirm it."
 RUNS_CODE_REASON ="Running code or a program with arguments always asks first."
 CREATE_ONLY_TOOLS = frozenset({"filesystem.create_directory", "files.zip", "files.unzip", "code.build_project",
@@ -161,7 +166,8 @@ class PolicyKernel:
             return Authorization(Decision.CONFIRM, risk, "Changing files always asks first.")
         if owner_question:
             return Authorization(Decision.CONFIRM, risk, str(owner_question))
-        if tainted and risk >= Risk.DATA_MODIFICATION:
+        if tainted and risk >= Risk.DATA_MODIFICATION and not (tool.name in OWNER_TAINT_FREE
+                                                               or tool.name.startswith(OWNER_TAINT_FREE_PREFIXES)):
             # Text read from a web page or a message must not be able to make Chutku act on its own.
             return Authorization(Decision.CONFIRM, risk, "This step follows content read from outside; confirm it.")
         if exposed and tool.network_egress:
