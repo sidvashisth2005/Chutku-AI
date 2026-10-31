@@ -995,11 +995,12 @@ class DashboardServer(ThreadingHTTPServer):
         def toggle():
             control.resume() if control.paused else control.pause()
 
-        def stop():
+        def stop():   # "Quit Chutku": every process ends, cleanly (no pause on the next start), 2026-11-01
             if self.heartbeat is not None:
-                control.stop()
+                control.quit()
         self.tray = Tray(open_dashboard=lambda: webbrowser.open(self.url), toggle_pause=toggle, stop=stop,
-                         is_paused=lambda: control.paused, guard_active=lambda: self.heartbeat is not None)
+                         is_paused=lambda: control.paused, guard_active=lambda: self.heartbeat is not None,
+                         show_window=self.show_window)
         self.tray.start()
         self.tray.ready.wait(5)
         return self.tray.error
@@ -1023,7 +1024,37 @@ class DashboardServer(ThreadingHTTPServer):
         except OSError:
             _log().exception("the presence window could not start; using the HUD")
             return False
+        self.watch_presence()
         return True
+
+    def show_window(self):
+        """Tray "Show Chutku window": the orb if it runs (restarted when it was closed), else the panel."""
+        process = getattr(self, "presence_process", None)
+        if process is not None and process.poll() is None:
+            from chutku.presence import bring_to_front
+            bring_to_front()
+        elif not self.start_presence():
+            if self.hud is None:
+                self.start_hud()
+            self._hud_show()
+
+    def watch_presence(self, wait=8.0):
+        """2026-11-01: the orb sometimes never appeared and nothing said why. If its process dies or no window
+        shows within `wait` seconds, the Tk panel starts instead (and the reason is logged)."""
+        def run():
+            from chutku.presence import window_exists
+            deadline = time.monotonic() + wait
+            while time.monotonic() < deadline:
+                if self.presence_process.poll() is not None:
+                    break
+                if window_exists():
+                    return
+                time.sleep(0.5)
+            _log().warning("the presence window did not appear (exit code %s); using the HUD",
+                           self.presence_process.poll())
+            if self.hud is None:
+                self.start_hud()
+        threading.Thread(target=run, name="chutku-presence-watch", daemon=True).start()
 
     def start_hud(self):
         from chutku.hud import Hud

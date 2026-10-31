@@ -103,17 +103,8 @@ function render(){
   $("foot").textContent = state.mic_muted ? "Mic is muted (Ctrl+Alt+X)" : state.phone ? "📱 Phone connected" :
     "Ctrl+Alt+Space to talk · press again while I speak to cut me off";
 }
-// In the corner window (pywebview): shrink to a small orb after 6 s of nothing happening, grow at once when she
-// listens, thinks, speaks or needs an answer.
-let quietSince = Date.now(), small = false;
-function fit(){
-  const bridge = window.pywebview && window.pywebview.api;
-  if(!bridge) return;
-  const quiet = state.phase==="idle" || state.phase==="done" || state.phase==="paused";
-  if(!quiet) quietSince = Date.now();
-  const want = quiet && Date.now() - quietSince > 6000;
-  if(want !== small){ small = want; document.body.classList.toggle("compact", small); bridge.size(small).catch(() => {}); }
-}
+// 2026-11-01 (owner): a normal app window. It never shrinks, moves or stays on top by itself.
+function fit(){}
 async function poll(){
   try{ state = await api("/api/presence"); render(); fit(); }
   catch{ state = {...state, phase:"error", message:"Chutku is not running."}; render(); }
@@ -129,9 +120,5 @@ $("approve").addEventListener("click", () => decide(true));
 $("reject").addEventListener("click", () => decide(false));
 $("talk").addEventListener("click", () => api("/api/presence/talk", {}).catch(() => {}));
 if(compact) document.body.classList.add("compact");
-const winApi = () => window.pywebview && window.pywebview.api;
-$("min").addEventListener("click", () => winApi() ? winApi().minimize() : null);
-$("close").addEventListener("click", () => winApi() ? winApi().close() : window.close());
-if(!window.pywebview) setTimeout(() => { if(!window.pywebview) document.querySelector(".bar").hidden = true; }, 1500);
 requestAnimationFrame(draw);
 poll();

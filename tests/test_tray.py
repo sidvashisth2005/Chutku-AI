@@ -2,7 +2,7 @@ import struct
 import unittest
 
 from chutku import icon
-from chutku.tray import OPEN, STOP, TOGGLE, Tray, menu_items
+from chutku.tray import OPEN, STOP, TOGGLE, Tray, menu_items, WINDOW
 
 
 class TrayTests(unittest.TestCase):
@@ -10,7 +10,8 @@ class TrayTests(unittest.TestCase):
         paused = menu_items(True, True)
         self.assertEqual(paused[0][1], "Chutku: actions paused")
         self.assertIn((TOGGLE, "Resume actions", True), paused)
-        self.assertIn((STOP, "Stop Chutku (emergency)", True), paused)
+        self.assertIn((STOP, "Quit Chutku (close everything)", True), paused)
+        self.assertIn((WINDOW, "Show Chutku window", True), paused)
         ready = menu_items(False, False)
         self.assertIn((TOGGLE, "Pause actions", True), ready)
         self.assertEqual([i for i in ready if i and i[0] == STOP][0][2], False)  # no guard: stop is greyed

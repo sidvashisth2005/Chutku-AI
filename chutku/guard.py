@@ -95,7 +95,20 @@ def dashboard_child(connection, base, port, open_browser):
         if connection.recv() != "start":
             return
         from chutku.dashboard import serve
-        serve(port, open_browser, base=base, heartbeat=connection)
+        try:
+            serve(port, open_browser, base=base, heartbeat=connection)
+        except BaseException:
+            # 2026-11-01: the core once died at start-up with no trace (no orb, no tray). Never silently again.
+            import traceback
+            crash = Path(base) / "data" / "logs" / "core-crash.txt"
+            try:
+                crash.parent.mkdir(parents=True, exist_ok=True)
+                crash.write_text(datetime.now().isoformat() + "\n" + traceback.format_exc(), encoding="utf-8")
+                from chutku.health import notify
+                notify("Chutku could not start", "Details: data\\logs\\core-crash.txt", wait=True)
+            except Exception:
+                pass
+            raise
     finally:
         connection.close()
 

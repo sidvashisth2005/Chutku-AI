@@ -17,6 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FULL = (360, 600)
 COMPACT = (112, 112)
 MARGIN = 18
+TITLE = "Chutku Assistant"   # unique: the core's hidden tray window is also called "Chutku"
 
 
 def available():
@@ -80,12 +81,31 @@ class Bridge:
         return {"compact": compact}
 
     def minimize(self):
-        if self.window is not None:
-            self._later(self.window.minimize)
+        """pywebview's minimize does nothing on a frameless window (owner, 2026-10-31): ask Windows directly."""
+        def run():
+            import ctypes
+            hwnd = ctypes.windll.user32.FindWindowW(None, TITLE)
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 6)   # SW_MINIMIZE
+        self._later(run)
 
     def close(self):
         if self.window is not None:
             self._later(self.window.destroy)   # closing the window quits Chutku (see on_closed)
+
+
+def window_exists(title=TITLE):
+    import ctypes
+    return bool(ctypes.windll.user32.FindWindowW(None, title))
+
+
+def bring_to_front(title=TITLE):
+    import ctypes
+    hwnd = ctypes.windll.user32.FindWindowW(None, title)
+    if hwnd:
+        ctypes.windll.user32.ShowWindow(hwnd, 9)          # SW_RESTORE
+        ctypes.windll.user32.SetForegroundWindow(hwnd)
+    return bool(hwnd)
 
 
 def quit_chutku():
@@ -94,7 +114,8 @@ def quit_chutku():
     ActionControl(PROJECT_ROOT).quit()
 
 
-def show_in_taskbar(title="Chutku"):
+def show_in_taskbar(title=None):
+    title = title or TITLE
     """Give the window its own taskbar button with Chutku's icon (frameless windows can lack one)."""
     import ctypes
     import time
@@ -130,8 +151,8 @@ def main(argv=None):
         pass
     bridge = Bridge()
     x, y = corner(FULL)
-    bridge.window = webview.create_window("Chutku", presence_url(link), js_api=bridge, width=FULL[0], height=FULL[1],
-                                          x=x, y=y, frameless=True, on_top=True, easy_drag=False, resizable=False,
+    bridge.window = webview.create_window(TITLE, presence_url(link), js_api=bridge, width=FULL[0], height=FULL[1],
+                                          x=x, y=y, frameless=False, on_top=False, resizable=True, min_size=(300, 420),
                                           background_color="#070b12")
     bridge.compact = False
     bridge.window.events.closed += quit_chutku
