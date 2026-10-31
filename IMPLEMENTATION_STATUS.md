@@ -37,7 +37,16 @@ Owner decisions are in `docs/DESIGN.md` §51.
   - Explorer 11/12 at first.
 - Explorer then changed, at the owner's request, to reuse the one open window (address bar instead of a new window). Its 6 changed actions were reset to unverified until they are re-run.
 - Verified phrases route instantly, for example "bluetooth settings kholo" → `app.settings.bluetooth`, "notepad mein dhundo" → `app.notepad.find`.
-- **Pending:** labs for VLC, Telegram and VS Code (the owner was watching VLC), and the Explorer re-run.
+- **Lab, later the same day:**
+  - Explorer 12/12 (re-run with the reuse-one-window recipe);
+  - Telegram 7/7, median 1.27 s;
+  - VLC 12/15: pause and resume can't be checked because VLC reports no Windows media status, and play_file needs a media file (skipped);
+  - VS Code 3/3 of the safe view actions; open_folder/new_file/terminal/run are not lab-run, because the owner's VS Code is the live session.
+- **Live through the running Chutku:**
+  - "telegram saved messages kholo" took 4.2 s via quick routing, and the window in front was "Saved Messages";
+  - "bluetooth settings kholo" took 4.2 s, with Settings in front;
+  - "documents folder kholo" then "downloads folder kholo" reused one Explorer window (6 Explorer windows before and after).
+- 21 leftover Explorer windows from the old new-window recipe were closed.
 - `SECURITY.md`: 127 app actions.
 
 ### 2026-10-30: W6 phone remote with full control (HERMES_PLAN P1-P9; code, unit-tested; live run needs Tailscale)
