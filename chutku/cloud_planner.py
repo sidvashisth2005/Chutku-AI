@@ -168,6 +168,18 @@ JSON_CONTRACT = (
     'they used (English or Hinglish), in 1-3 natural sentences.\n')
 
 
+def compact_catalog(catalog, limit=110):
+    """The cloud brain's tool list with each description cut to its first sentence or `limit` characters
+    (2026-11-01: 14.7k of a 20k-character prompt were descriptions; free tiers count tokens per minute and the
+    big prompt made every plan slower). Names, arguments and risk stay exact."""
+    rows = json.loads(catalog)
+    for row in rows:
+        does = str(row.get("does") or "")
+        first = does.split(". ")[0]
+        row["does"] = (first if len(first) <= limit else first[:limit].rsplit(" ", 1)[0] + "…")
+    return json.dumps(rows, separators=(",", ":"), ensure_ascii=True)
+
+
 class CloudAgentPlanner:
     """W2 (2026-10-29): the free cloud models plan first (Groq / Cerebras, then Gemini); the local model is the
     planner's fallback in the session (dashboard.planners). It sees cloud_view only: private results stay local."""
@@ -183,6 +195,7 @@ class CloudAgentPlanner:
     def propose(self, session, runtime, check=None):
         from chutku import providers
         schemas, catalog = planner_catalog(runtime, session)
+        catalog = compact_catalog(catalog)
         system = AGENT_SYSTEM.replace(" /no_think", "") + JSON_CONTRACT + "TOOL_CATALOG=" + catalog
         view = cloud_view(session, runtime)
         failures = []
