@@ -1,0 +1,182 @@
+{
+ "app": "telegram",
+ "name": "Telegram",
+ "aliases": [
+  "telegram",
+  "tg"
+ ],
+ "window": {
+  "exe": "Telegram.exe"
+ },
+ "launch": {
+  "start_menu": "Telegram"
+ },
+ "uri_schemes": [
+  "tg"
+ ],
+ "sources": [
+  "docs/apps/telegram.md"
+ ],
+ "note": "Sending stays with message.send (unknown recipients ask). Nothing here sends a message.",
+ "actions": [
+  {
+   "id": "open",
+   "title": "Open Telegram",
+   "risk": "safe",
+   "phrases": [
+    "open telegram",
+    "telegram kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "route": false
+  },
+  {
+   "id": "saved_messages",
+   "title": "Open Saved Messages",
+   "risk": "safe",
+   "phrases": [
+    "telegram saved messages",
+    "telegram saved messages kholo",
+    "open saved messages"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+0",
+     "wait": 1.0
+    }
+   ],
+   "check": {
+    "ocr_contains": "Saved Messages"
+   },
+   "done": "Saved Messages khol diya."
+  },
+  {
+   "id": "open_chat",
+   "title": "Open a Telegram chat by username",
+   "risk": "safe",
+   "phrases": [
+    "open {username} on telegram",
+    "telegram pe {username} kholo",
+    "telegram pe {username} ka chat kholo"
+   ],
+   "steps": [
+    {
+     "uri": "tg://resolve?domain={username}"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "params": {
+    "username": {
+     "type": "text"
+    }
+   },
+   "done": "{username} ka chat khol diya.",
+   "drill": {
+    "username": "telegram"
+   }
+  },
+  {
+   "id": "search",
+   "title": "Search Telegram",
+   "risk": "safe",
+   "phrases": [
+    "telegram search",
+    "telegram mein search karo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+f",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Telegram search khol diya."
+  },
+  {
+   "id": "next_chat",
+   "title": "Next Telegram chat",
+   "risk": "safe",
+   "phrases": [
+    "telegram next chat",
+    "telegram agla chat"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+tab",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Agla chat."
+  },
+  {
+   "id": "previous_chat",
+   "title": "Previous Telegram chat",
+   "risk": "safe",
+   "phrases": [
+    "telegram previous chat",
+    "telegram pichla chat"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+tab",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Pichla chat."
+  },
+  {
+   "id": "archive",
+   "title": "Open archived chats",
+   "risk": "safe",
+   "phrases": [
+    "telegram archive kholo",
+    "telegram archived chats"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+9",
+     "wait": 1.0
+    }
+   ],
+   "check": {
+    "ocr_contains": "Archive"
+   },
+   "done": "Archive khol diya."
+  }
+ ]
+}

@@ -1,0 +1,294 @@
+{
+ "app": "settings",
+ "name": "Windows Settings",
+ "aliases": [
+  "settings",
+  "windows settings"
+ ],
+ "window": {
+  "title": "Settings"
+ },
+ "launch": {
+  "start_menu": "Settings"
+ },
+ "uri_schemes": [],
+ "sources": [
+  "docs/apps/settings.md"
+ ],
+ "note": "Only opens pages (safe); changing a toggle stays elsewhere.",
+ "actions": [
+  {
+   "id": "bluetooth",
+   "title": "Open bluetooth settings",
+   "risk": "safe",
+   "phrases": [
+    "bluetooth settings",
+    "bluetooth settings kholo"
+   ],
+   "steps": [
+    {
+     "settings_uri": "ms-settings:bluetooth"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Bluetooth settings khol di."
+  },
+  {
+   "id": "wifi",
+   "title": "Open wifi settings",
+   "risk": "safe",
+   "phrases": [
+    "wifi settings",
+    "wifi settings kholo"
+   ],
+   "steps": [
+    {
+     "settings_uri": "ms-settings:network-wifi"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Wifi settings khol di."
+  },
+  {
+   "id": "display",
+   "title": "Open display settings",
+   "risk": "safe",
+   "phrases": [
+    "display settings",
+    "display settings kholo"
+   ],
+   "steps": [
+    {
+     "settings_uri": "ms-settings:display"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Display settings khol di."
+  },
+  {
+   "id": "sound",
+   "title": "Open sound settings",
+   "risk": "safe",
+   "phrases": [
+    "sound settings",
+    "sound settings kholo"
+   ],
+   "steps": [
+    {
+     "settings_uri": "ms-settings:sound"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Sound settings khol di."
+  },
+  {
+   "id": "power",
+   "title": "Open power settings",
+   "risk": "safe",
+   "phrases": [
+    "power settings",
+    "battery settings kholo"
+   ],
+   "steps": [
+    {
+     "settings_uri": "ms-settings:powersleep"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Power settings khol di."
+  },
+  {
+   "id": "apps",
+   "title": "Open apps settings",
+   "risk": "safe",
+   "phrases": [
+    "installed apps settings",
+    "apps settings kholo"
+   ],
+   "steps": [
+    {
+     "settings_uri": "ms-settings:appsfeatures"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Apps settings khol di."
+  },
+  {
+   "id": "default_apps",
+   "title": "Open default apps settings",
+   "risk": "safe",
+   "phrases": [
+    "default apps settings",
+    "default apps kholo"
+   ],
+   "steps": [
+    {
+     "settings_uri": "ms-settings:defaultapps"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Default Apps settings khol di."
+  },
+  {
+   "id": "taskbar",
+   "title": "Open taskbar settings",
+   "risk": "safe",
+   "phrases": [
+    "taskbar settings",
+    "taskbar settings kholo"
+   ],
+   "steps": [
+    {
+     "settings_uri": "ms-settings:taskbar"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Taskbar settings khol di."
+  },
+  {
+   "id": "notifications",
+   "title": "Open notifications settings",
+   "risk": "safe",
+   "phrases": [
+    "notification settings",
+    "notifications settings kholo"
+   ],
+   "steps": [
+    {
+     "settings_uri": "ms-settings:notifications"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Notifications settings khol di."
+  },
+  {
+   "id": "windows_update",
+   "title": "Open windows update settings",
+   "risk": "safe",
+   "phrases": [
+    "windows update settings",
+    "update settings kholo"
+   ],
+   "steps": [
+    {
+     "settings_uri": "ms-settings:windowsupdate"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Windows Update settings khol di."
+  },
+  {
+   "id": "storage",
+   "title": "Open storage settings",
+   "risk": "safe",
+   "phrases": [
+    "storage settings",
+    "storage settings kholo"
+   ],
+   "steps": [
+    {
+     "settings_uri": "ms-settings:storagesense"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Storage settings khol di."
+  },
+  {
+   "id": "night_light",
+   "title": "Open night light settings",
+   "risk": "safe",
+   "phrases": [
+    "night light settings",
+    "night light kholo"
+   ],
+   "steps": [
+    {
+     "settings_uri": "ms-settings:nightlight"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Night Light settings khol di."
+  },
+  {
+   "id": "mouse",
+   "title": "Open mouse settings",
+   "risk": "safe",
+   "phrases": [
+    "mouse settings",
+    "touchpad settings kholo"
+   ],
+   "steps": [
+    {
+     "settings_uri": "ms-settings:mousetouchpad"
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Mouse settings khol di."
+  }
+ ]
+}

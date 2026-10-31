@@ -1,0 +1,182 @@
+{
+ "app": "notepad",
+ "name": "Notepad",
+ "aliases": [
+  "notepad"
+ ],
+ "window": {
+  "exe": "Notepad.exe"
+ },
+ "launch": {
+  "start_menu": "Notepad"
+ },
+ "uri_schemes": [],
+ "cli": {
+  "notepad": "C:\\Windows\\notepad.exe"
+ },
+ "sources": [
+  "docs/apps/notepad.md"
+ ],
+ "note": "Saving stays with filesystem.write_text (journaled undo); nothing here saves.",
+ "actions": [
+  {
+   "id": "open",
+   "title": "Open Notepad",
+   "risk": "safe",
+   "phrases": [
+    "open notepad",
+    "notepad kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "route": false
+  },
+  {
+   "id": "open_file",
+   "title": "Open a text file in Notepad",
+   "risk": "safe",
+   "phrases": [
+    "open {path} in notepad",
+    "notepad mein {path} kholo"
+   ],
+   "steps": [
+    {
+     "cli": [
+      "notepad",
+      "{path}"
+     ]
+    },
+    {
+     "sleep": 1
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "params": {
+    "path": {
+     "type": "path"
+    }
+   },
+   "done": "Notepad mein khol diya.",
+   "drill": {
+    "path": "D:\\ChutkuScratch\\chutku-lab.txt"
+   }
+  },
+  {
+   "id": "new_tab",
+   "title": "New Notepad tab",
+   "risk": "safe",
+   "phrases": [
+    "notepad new tab",
+    "notepad naya tab"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+n",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Naya tab khol diya."
+  },
+  {
+   "id": "find",
+   "title": "Find in Notepad",
+   "risk": "safe",
+   "phrases": [
+    "notepad find",
+    "notepad mein dhundo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+f",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Find khol diya."
+  },
+  {
+   "id": "replace",
+   "title": "Replace in Notepad",
+   "risk": "safe",
+   "phrases": [
+    "notepad replace"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+h",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Replace khol diya."
+  },
+  {
+   "id": "insert_date",
+   "title": "Insert date and time",
+   "risk": "safe",
+   "phrases": [
+    "notepad date daalo",
+    "notepad insert date time"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "f5",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Date daal di."
+  },
+  {
+   "id": "go_to_line",
+   "title": "Go to line",
+   "risk": "safe",
+   "phrases": [
+    "notepad go to line",
+    "notepad line pe jao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+g",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Go to line khol diya."
+  }
+ ]
+}

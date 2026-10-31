@@ -1,0 +1,350 @@
+{
+ "app": "explorer",
+ "name": "File Explorer",
+ "aliases": [
+  "explorer",
+  "file explorer"
+ ],
+ "window": {
+  "exe": "explorer.exe"
+ },
+ "launch": {
+  "start_menu": "File Explorer"
+ },
+ "uri_schemes": [],
+ "cli": {
+  "explorer": "C:\\Windows\\explorer.exe"
+ },
+ "sources": [
+  "docs/apps/explorer.md"
+ ],
+ "note": "Moving, copying, renaming and deleting stay with the filesystem tools (journaled undo, asks).",
+ "actions": [
+  {
+   "id": "open",
+   "title": "Open File Explorer",
+   "risk": "safe",
+   "phrases": [
+    "open file explorer",
+    "file explorer kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "route": false
+  },
+  {
+   "id": "open_folder",
+   "title": "Open a folder",
+   "risk": "safe",
+   "phrases": [
+    "open folder {path}",
+    "{path} folder kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+l",
+     "wait": 0.4
+    },
+    {
+     "type": "{path}"
+    },
+    {
+     "keys": "enter",
+     "wait": 1.2
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "params": {
+    "path": {
+     "type": "path"
+    }
+   },
+   "done": "Folder khol diya.",
+   "drill": {
+    "path": "D:\\ChutkuScratch"
+   }
+  },
+  {
+   "id": "show_file",
+   "title": "Show a file in its folder",
+   "risk": "safe",
+   "phrases": [
+    "show {path} in explorer",
+    "{path} ko folder mein dikhao"
+   ],
+   "steps": [
+    {
+     "cli": [
+      "explorer",
+      "/select,{path}"
+     ]
+    },
+    {
+     "sleep": 1.2
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "params": {
+    "path": {
+     "type": "path"
+    }
+   },
+   "done": "File dikha di.",
+   "drill": {
+    "path": "D:\\ChutkuScratch\\chutku-lab.txt"
+   }
+  },
+  {
+   "id": "downloads",
+   "title": "Open Downloads",
+   "risk": "safe",
+   "phrases": [
+    "open downloads folder",
+    "downloads folder kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+l",
+     "wait": 0.4
+    },
+    {
+     "type": "shell:Downloads"
+    },
+    {
+     "keys": "enter",
+     "wait": 1.2
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Downloads khol diya."
+  },
+  {
+   "id": "documents",
+   "title": "Open Documents",
+   "risk": "safe",
+   "phrases": [
+    "open documents folder",
+    "documents folder kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+l",
+     "wait": 0.4
+    },
+    {
+     "type": "shell:Personal"
+    },
+    {
+     "keys": "enter",
+     "wait": 1.2
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Documents khol diya."
+  },
+  {
+   "id": "desktop",
+   "title": "Open Desktop",
+   "risk": "safe",
+   "phrases": [
+    "open desktop folder",
+    "desktop folder kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+l",
+     "wait": 0.4
+    },
+    {
+     "type": "shell:Desktop"
+    },
+    {
+     "keys": "enter",
+     "wait": 1.2
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Desktop khol diya."
+  },
+  {
+   "id": "pictures",
+   "title": "Open Pictures",
+   "risk": "safe",
+   "phrases": [
+    "open pictures folder",
+    "pictures folder kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+l",
+     "wait": 0.4
+    },
+    {
+     "type": "shell:My Pictures"
+    },
+    {
+     "keys": "enter",
+     "wait": 1.2
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Pictures khol diya."
+  },
+  {
+   "id": "recycle_bin",
+   "title": "Open Recycle Bin",
+   "risk": "safe",
+   "phrases": [
+    "open recycle bin",
+    "recycle bin kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+l",
+     "wait": 0.4
+    },
+    {
+     "type": "shell:RecycleBinFolder"
+    },
+    {
+     "keys": "enter",
+     "wait": 1.2
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Recycle Bin khol diya."
+  },
+  {
+   "id": "new_tab",
+   "title": "New Explorer tab",
+   "risk": "safe",
+   "phrases": [
+    "explorer new tab",
+    "explorer naya tab",
+    "file explorer new tab",
+    "file explorer naya tab"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+t",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Naya tab khol diya."
+  },
+  {
+   "id": "search",
+   "title": "Search in this folder",
+   "risk": "safe",
+   "phrases": [
+    "explorer search",
+    "explorer mein search karo",
+    "file explorer search",
+    "file explorer mein search karo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+e",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Search khol diya."
+  },
+  {
+   "id": "details_view",
+   "title": "Details view",
+   "risk": "safe",
+   "phrases": [
+    "explorer details view",
+    "file explorer details view"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+6",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Details view."
+  },
+  {
+   "id": "large_icons",
+   "title": "Large icons view",
+   "risk": "safe",
+   "phrases": [
+    "explorer large icons",
+    "explorer bade icons",
+    "file explorer large icons",
+    "file explorer bade icons"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+2",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Bade icons."
+  }
+ ]
+}

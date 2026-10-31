@@ -1,0 +1,359 @@
+{
+ "app": "vscode",
+ "name": "Visual Studio Code",
+ "aliases": [
+  "vs code",
+  "vscode",
+  "visual studio code"
+ ],
+ "window": {
+  "exe": "Code.exe"
+ },
+ "launch": {
+  "start_menu": "Visual Studio Code"
+ },
+ "uri_schemes": [],
+ "cli": {
+  "code": "C:\\Users\\siddh\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe"
+ },
+ "sources": [
+  "docs/apps/vscode.md"
+ ],
+ "actions": [
+  {
+   "id": "open",
+   "title": "Open VS Code",
+   "risk": "safe",
+   "phrases": [
+    "open vs code",
+    "vs code kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "route": false
+  },
+  {
+   "id": "open_folder",
+   "title": "Open a folder or file in VS Code",
+   "risk": "safe",
+   "phrases": [
+    "open {path} in vs code",
+    "vs code mein {path} kholo"
+   ],
+   "steps": [
+    {
+     "cli": [
+      "code",
+      "--reuse-window",
+      "{path}"
+     ]
+    },
+    {
+     "sleep": 2
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "params": {
+    "path": {
+     "type": "path"
+    }
+   },
+   "done": "VS Code mein khol diya.",
+   "drill": {
+    "path": "D:\\ChutkuScratch"
+   }
+  },
+  {
+   "id": "command_palette",
+   "title": "Open the command palette",
+   "risk": "safe",
+   "phrases": [
+    "vs code command palette",
+    "vscode command palette"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+p",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Command palette."
+  },
+  {
+   "id": "quick_open",
+   "title": "Quick open a file",
+   "risk": "safe",
+   "phrases": [
+    "vs code quick open",
+    "vs code file dhundo",
+    "vscode quick open",
+    "vscode file dhundo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+p",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Quick open khol diya."
+  },
+  {
+   "id": "terminal",
+   "title": "Toggle the terminal",
+   "risk": "safe",
+   "phrases": [
+    "vs code terminal",
+    "vs code terminal kholo",
+    "vscode terminal",
+    "vscode terminal kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+`",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Terminal khol diya."
+  },
+  {
+   "id": "new_terminal",
+   "title": "New terminal",
+   "risk": "safe",
+   "phrases": [
+    "vs code new terminal",
+    "vs code naya terminal",
+    "vscode new terminal",
+    "vscode naya terminal"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+`",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Naya terminal."
+  },
+  {
+   "id": "sidebar",
+   "title": "Toggle the side bar",
+   "risk": "safe",
+   "phrases": [
+    "vs code sidebar",
+    "vs code sidebar toggle karo",
+    "vscode sidebar",
+    "vscode sidebar toggle karo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+b",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Side bar badal diya."
+  },
+  {
+   "id": "search_files",
+   "title": "Search in all files",
+   "risk": "safe",
+   "phrases": [
+    "vs code search in files",
+    "vs code sab files mein search karo",
+    "vscode search in files",
+    "vscode sab files mein search karo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+f",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Search khol diya."
+  },
+  {
+   "id": "source_control",
+   "title": "Show source control",
+   "risk": "safe",
+   "phrases": [
+    "vs code source control",
+    "vs code git dikhao",
+    "vscode source control",
+    "vscode git dikhao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+g",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Source control khol diya."
+  },
+  {
+   "id": "extensions",
+   "title": "Show extensions",
+   "risk": "safe",
+   "phrases": [
+    "vs code extensions",
+    "vs code extensions kholo",
+    "vscode extensions",
+    "vscode extensions kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+x",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Extensions."
+  },
+  {
+   "id": "problems",
+   "title": "Show problems",
+   "risk": "safe",
+   "phrases": [
+    "vs code problems",
+    "vs code errors dikhao",
+    "vscode problems",
+    "vscode errors dikhao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+m",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Problems dikha diye."
+  },
+  {
+   "id": "open_recent",
+   "title": "Open a recent project",
+   "risk": "safe",
+   "phrases": [
+    "vs code recent projects",
+    "vs code recent kholo",
+    "vscode recent projects",
+    "vscode recent kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+r",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Recent."
+  },
+  {
+   "id": "new_file",
+   "title": "New untitled file",
+   "risk": "safe",
+   "phrases": [
+    "vs code new file",
+    "vs code nayi file",
+    "vscode new file",
+    "vscode nayi file"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+n",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Nayi file khol di."
+  },
+  {
+   "id": "run",
+   "title": "Run without debugging",
+   "risk": "consequential",
+   "phrases": [
+    "vs code run karo",
+    "run the code in vs code"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+f5",
+     "wait": 1.0
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Run kar diya."
+  }
+ ]
+}

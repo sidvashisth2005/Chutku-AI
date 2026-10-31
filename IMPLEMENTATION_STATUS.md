@@ -16,6 +16,30 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-01: Visible like a normal app, faster planning, recipes for 6 more apps (A7, A8, A11-A13)
+
+**Window and taskbar**
+- Cause: the core had died at start-up with no trace (the guard was alive, the core was not), so there was no orb, no tray and no voice. Fix: start-up crashes are now written to `data/logs/core-crash.txt` and shown as a toast.
+- The "Chutku Assistant" window is a normal app: Windows' own title bar, not always on top, no self-resizing, its own taskbar button and icon.
+- Live: the window was found; minimize box yes, always on top no, minimized and restored.
+- Closing the window, or tray → "Quit Chutku", ends every process without a pause.
+- The tray has "Show Chutku window".
+- The orb watchdog falls back to the Tk HUD.
+
+**Cloud planning**
+- Compact tool descriptions in the prompt.
+- Live plans: "close vs code" 1.5 s, "open notepad and type hello" 1.4 s, "free space on D" 1.4 s, each with the right tool.
+
+**Recipes:** `scripts/make_atlases.py` writes atlases from `docs/apps/<app>.md` (documented keys, command lines and ms-settings URIs) for VLC (15), Telegram (7), VS Code (14), Notepad (7), File Explorer (12) and Settings (13). All pass the validator.
+- Action Lab on the live PC, 3 runs each:
+  - Settings 13/13 verified, median 2.61 s;
+  - Notepad 7/7, median 1.27 s;
+  - Explorer 11/12 at first.
+- Explorer then changed, at the owner's request, to reuse the one open window (address bar instead of a new window). Its 6 changed actions were reset to unverified until they are re-run.
+- Verified phrases route instantly, for example "bluetooth settings kholo" → `app.settings.bluetooth`, "notepad mein dhundo" → `app.notepad.find`.
+- **Pending:** labs for VLC, Telegram and VS Code (the owner was watching VLC), and the Explorer re-run.
+- `SECURITY.md`: 127 app actions.
+
 ### 2026-10-30: W6 phone remote with full control (HERMES_PLAN P1-P9; code, unit-tested; live run needs Tailscale)
 
 - `chutku/remote/`: `auth.py` (pairing codes 10 min/single use/5 tries, max 3 phones, hashed credentials, scrypt PIN, 12 h sessions, step-bound single-use approval nonces, rate limit), `tailscale.py` (status, serve, Funnel check, fails closed), `control.py` (P5/P6 rules), `server.py` (127.0.0.1:8766: chat, approvals, phone voice via PyAV + Whisper + Kokoro WAV reply, screen view, control, clipboard, files, point-and-ask), `manager.py`, `tools.py` (6 `remote.*` tools + phrases), `border.py` (red frame).

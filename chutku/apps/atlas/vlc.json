@@ -1,0 +1,360 @@
+{
+ "app": "vlc",
+ "name": "VLC media player",
+ "aliases": [
+  "vlc",
+  "vlc player"
+ ],
+ "window": {
+  "exe": "vlc.exe"
+ },
+ "launch": {
+  "start_menu": "VLC media player"
+ },
+ "uri_schemes": [],
+ "cli": {
+  "vlc": "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe"
+ },
+ "sources": [
+  "docs/apps/vlc.md"
+ ],
+ "actions": [
+  {
+   "id": "open",
+   "title": "Open VLC",
+   "risk": "safe",
+   "phrases": [
+    "open vlc",
+    "vlc kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "route": false
+  },
+  {
+   "id": "play_file",
+   "title": "Play a file or folder in VLC",
+   "risk": "safe",
+   "phrases": [
+    "play {path} in vlc",
+    "vlc mein {path} chalao",
+    "vlc pe {path} play karo"
+   ],
+   "steps": [
+    {
+     "cli": [
+      "vlc",
+      "--one-instance",
+      "{path}"
+     ]
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "params": {
+    "path": {
+     "type": "path"
+    }
+   },
+   "done": "VLC mein chala diya."
+  },
+  {
+   "id": "pause",
+   "title": "Pause VLC",
+   "risk": "safe",
+   "phrases": [
+    "pause vlc",
+    "vlc pause karo",
+    "vlc roko"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "space",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "media_paused": true
+   },
+   "done": "VLC rok diya."
+  },
+  {
+   "id": "resume",
+   "title": "Resume VLC",
+   "risk": "safe",
+   "phrases": [
+    "resume vlc",
+    "vlc chalao",
+    "vlc play karo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "space",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "media_playing": true
+   },
+   "done": "VLC chala diya."
+  },
+  {
+   "id": "next",
+   "title": "Next item in VLC",
+   "risk": "safe",
+   "phrases": [
+    "vlc next",
+    "vlc agla"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "n",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Agla chala diya."
+  },
+  {
+   "id": "previous",
+   "title": "Previous item in VLC",
+   "risk": "safe",
+   "phrases": [
+    "vlc previous",
+    "vlc pichla"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "p",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Pichla chala diya."
+  },
+  {
+   "id": "fullscreen",
+   "title": "Toggle full screen in VLC",
+   "risk": "safe",
+   "phrases": [
+    "vlc full screen",
+    "vlc fullscreen karo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "f",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Full screen."
+  },
+  {
+   "id": "volume_up",
+   "title": "VLC volume up",
+   "risk": "safe",
+   "phrases": [
+    "vlc volume up",
+    "vlc awaaz badhao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+up",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Awaaz badha di."
+  },
+  {
+   "id": "volume_down",
+   "title": "VLC volume down",
+   "risk": "safe",
+   "phrases": [
+    "vlc volume down",
+    "vlc awaaz kam karo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+down",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Awaaz kam kar di."
+  },
+  {
+   "id": "mute",
+   "title": "Mute VLC",
+   "risk": "safe",
+   "phrases": [
+    "vlc mute",
+    "vlc mute karo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "m",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Mute."
+  },
+  {
+   "id": "forward_10",
+   "title": "Jump 10 s forward",
+   "risk": "safe",
+   "phrases": [
+    "vlc aage karo",
+    "vlc 10 second aage"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+right",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "10 second aage."
+  },
+  {
+   "id": "back_10",
+   "title": "Jump 10 s back",
+   "risk": "safe",
+   "phrases": [
+    "vlc peeche karo",
+    "vlc 10 second peeche"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+left",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "10 second peeche."
+  },
+  {
+   "id": "faster",
+   "title": "Play faster",
+   "risk": "safe",
+   "phrases": [
+    "vlc faster",
+    "vlc tez chalao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "]",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Thoda tez."
+  },
+  {
+   "id": "slower",
+   "title": "Play slower",
+   "risk": "safe",
+   "phrases": [
+    "vlc slower",
+    "vlc dheere chalao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "[",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Thoda dheere."
+  },
+  {
+   "id": "subtitles",
+   "title": "Cycle subtitles",
+   "risk": "safe",
+   "phrases": [
+    "vlc subtitles",
+    "vlc subtitle badlo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "v",
+     "wait": 0.6
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Subtitle badal diya."
+  }
+ ]
+}
