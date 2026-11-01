@@ -1971,6 +1971,9 @@ def serve(port: int = 8765, open_browser: bool = False, *, base=PROJECT_ROOT, he
             from chutku import timeline
             threading.Thread(target=timeline.watch, args=(base, threading.Event()), name="chutku-timeline",
                              daemon=True).start()   # opt-in ("timeline on"): window titles only, 14 days
+            from chutku import know_me   # what the owner watches, opens and visits (local, every 6 h)
+            threading.Thread(target=know_me.watch, args=(base, threading.Event()), name="chutku-know-me",
+                             daemon=True).start()
             from chutku import scheduled
             threading.Thread(target=scheduled.watch, args=(server, threading.Event()), name="chutku-scheduled",
                              daemon=True).start()   # "30 min baad ...", "har 15 min ...": runs beside normal work

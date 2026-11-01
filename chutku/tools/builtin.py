@@ -422,6 +422,8 @@ def register_builtin_tools(registry: ToolRegistry) -> None:
     register_mind_tools(registry)
     from chutku.remote.tools import register_remote_tools   # W6: phone access (laptop-side controls)
     register_remote_tools(registry)
+    from chutku.tools.know_me_tools import register_know_me_tools   # learns the owner's shows, apps, sites
+    register_know_me_tools(registry)
     from chutku.tools.ledger_tools import register_ledger_tools
     register_ledger_tools(registry)
     from chutku.tools.schedule_tools import register_schedule_tools

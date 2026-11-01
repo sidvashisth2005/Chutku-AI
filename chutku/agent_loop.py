@@ -88,7 +88,7 @@ PRIVATE_TOOLS = frozenset({
     "filesystem.read_text", "filesystem.search", "file.extract_text", "clipboard.read_text",
     "screen.read_text", "screen.understand", "screen.ask", "screen.capture", "uia.inspect", "windows.list",
     "memory.search",
-    "code.run_python", "log.recent", "message.read_chat",
+    "code.run_python", "log.recent", "message.read_chat", "me.profile",
     "filesystem.list", "filesystem.largest", "files.find", "files.recent",   # names of the owner's files
     "reflex.list", "nightshift.report",   # the owner's past requests
     "timeline.search",   # what the owner had open

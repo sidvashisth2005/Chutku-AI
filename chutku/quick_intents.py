@@ -294,6 +294,65 @@ def _control_or_known(text):
 
 # "what did we talk about yesterday" / "pichli baar kya kaha tha" / "kal humne kya baat ki" / "show my chat history"
 # "offline mode on" / "offline mode chalu karo" / "go offline" / "offline mode band karo" / "online mode on" / "go online"
+# 2026-11-01 (owner): Chutku must know what the owner watches and visits, not be taught. Shows come from the local
+# video index (chutku/know_me.py); a sentence plays a show only when its name matches a show on this PC.
+_SHOW_WORDS = re.compile(r"\b(?:play|chalao|chala|chala do|lagao|laga|laga do|dekhna hai|dekhni hai|dekhao|dikhao|"
+                         r"start|shuru|karo|kar do|continue|resume|watch|ka|ki|ke|the|of|episode|ep|epi|part|next|agla|"
+                         r"agli|again|phir se|dobara|latest|last|aakhri|first|pehla|pehli|wala|wali|please|zara|in vlc|"
+                         r"vlc mein|vlc pe|anime|series|show|movie|film|number|no)\b", re.I)
+
+
+def _my_show(text):
+    from chutku import know_me
+    lowered = text.casefold()
+    if not re.search(r"\b(?:play|chalao|chala|lagao|laga|dekhna|dekhao|dikhao|continue|resume|watch|episode|ep)\b", lowered):
+        return None
+    data = know_me.load()
+    if not data.get("media"):
+        return None
+    number = re.search(r"\b(?:episode|ep|epi|part|number|no)\s*\.?\s*(\d{1,4})\b|\b(\d{1,4})\s*(?:wala|th|st|nd|rd)?\s*episode\b", lowered)
+    which = ("next" if re.search(r"\b(?:next|agla|agli)\b", lowered) else
+             "again" if re.search(r"\b(?:again|phir se|dobara)\b", lowered) else
+             "latest" if re.search(r"\b(?:latest|last|aakhri)\b", lowered) else
+             "first" if re.search(r"\b(?:first|pehla|pehli)\b", lowered) else "continue")
+    name = _SHOW_WORDS.sub(" ", re.sub(r"\d{1,4}", " ", lowered))
+    name = " ".join(name.split())
+    if len(name) < 2:
+        return None
+    show = None
+    for candidate in data["media"]:
+        if know_me.norm(candidate) == know_me.norm(name) or know_me.norm(candidate).startswith(know_me.norm(name) + " ")                 or know_me.norm(name).startswith(know_me.norm(candidate)):
+            show = candidate
+            break
+    if show is None:
+        return None
+    arguments = {"series": show}
+    if number:
+        arguments["episode"] = int(number.group(1) or number.group(2))
+    else:
+        arguments["which"] = which
+    return _proposal("media.play_series", arguments, f"Play {show}", "", finish=False)
+
+
+def _my_site(text):
+    """"open github" / "vercel kholo": the owner's usual site from Brave history, when no app has that name."""
+    found = re.fullmatch(r"\W*(?:open|kholo|khol|chalao)?\s*(?P<name>[a-z0-9.\- ]{2,30}?)\s*(?:kholo|khol do|open karo|open)?\W*",
+                         text.casefold())
+    if not found or not re.search(r"\b(?:open|kholo|khol)\b", text.casefold()):
+        return None
+    name = found.group("name").strip().replace(" ", "")
+    if "." in name:
+        return None   # a typed address ("open youtube.com") opens exactly that, as before
+    from chutku import know_me
+    for site in know_me.load().get("sites", []):
+        label = site["site"].split(".")[0]
+        if name in (label, site["site"], site["site"].removesuffix(".com")):
+            if any(name in str(a.get("name", "")).casefold().replace(" ", "") for a in _installed_apps()):
+                return None   # an installed app with that name wins
+            return _proposal("web.open", {"url": site["url"]}, f"Open {site['site']}", f"{site['site']} khol diya.")
+    return None
+
+
 # "play X playlist [from the screen | screen pe hai | in/on spotify] [chalao/bajao/play karo]" -> the verified action.
 NAMED_PLAYLIST = re.compile(
     r"\W*(?:(?:please |zara |bhai )?(?:play|chalao|chala|bajao|baja|laga|lagao)\s+)?(?:my |meri |mera )?"
@@ -570,6 +629,12 @@ def _single(goal, apps=None):
     rewind = _rewind(text)
     if rewind is not None:
         return rewind
+    show = _my_show(text)
+    if show is not None:   # 2026-11-01: "play baki episode 5" / "baki ka next episode" from the owner's own videos
+        return show
+    site = _my_site(text)
+    if site is not None:
+        return site
     remembered = _timeline(text)
     if remembered is not None:
         return remembered
@@ -1163,6 +1228,27 @@ def _say_remote(out):
     return f"Phone access {state} hai, {len(phones)} phone paired." + extra
 
 
+def _say_show(out):
+    if out.get("error"):
+        return str(out["error"])
+    resumed = f", {int(out['resumed_at_s']) // 60} minute se aage" if out.get("resumed_at_s") else ""
+    episode = f" episode {out['episode']}" if out.get("episode") else ""
+    return f"{out.get('series')}{episode} VLC mein chala diya{resumed}."
+
+
+def _say_library(out):
+    shows = out.get("series") or []
+    if not shows:
+        return "Mujhe abhi koi show nahi mila tumhare videos mein."
+    parts = [f"{s['series']} (last {s['last_watched']})" if s.get("last_watched") else s["series"] for s in shows[:5]]
+    return "Tumhare paas: " + ", ".join(parts) + "."
+
+
+def _say_profile(out):
+    return ("Tum sabse zyada " + ", ".join(out.get("top_apps", [])[:5]) + " use karte ho; sites: "
+            + ", ".join(out.get("top_sites", [])[:5]) + "; shows: " + ", ".join(list(out.get("series", {}))[:4]) + ".")
+
+
 def _say_screen(out):
     return out.get("answer") or out.get("summary") or "I looked, but couldn't describe the screen."
 
@@ -1516,7 +1602,7 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
                                "games.install", "message.send", "message.open_chat", "message.read_chat", "settings.theme_set", "apps.launch", "filesystem.list",
                                "file.extract_text", "mind.person", "mind.add",
                                "mind.done", "mind.fact", "mind.feedback", "mind.map", "settings.offline_mode",
-                               "settings.chutku"})
+                               "settings.chutku", "media.play_series"})
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
@@ -1534,7 +1620,7 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,
-                 "image.describe": _say_image, "screen.understand": _say_screen, "screen.ask": _say_screen, "remote.status": _say_remote, "remote.enable": _say_remote, "remote.disable": _say_remote, "remote.pair": _say_remote, "remote.revoke": _say_remote, "remote.arm": _say_remote,
+                 "image.describe": _say_image, "screen.understand": _say_screen, "screen.ask": _say_screen, "media.play_series": _say_show, "media.library": _say_library, "me.profile": _say_profile, "remote.status": _say_remote, "remote.enable": _say_remote, "remote.disable": _say_remote, "remote.pair": _say_remote, "remote.revoke": _say_remote, "remote.arm": _say_remote,
                  "note.list": _say_notes, "files.find": _say_found,
                  "net.check": _say_net, "net.ping": _say_ping,
                  "message.send": _say_message, "system.gpu_status": _say_gpu,
