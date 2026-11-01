@@ -334,6 +334,28 @@ def _my_show(text):
     return _proposal("media.play_series", arguments, f"Play {show}", "", finish=False)
 
 
+_RECENT_KIND = {"pdf": "pdf", "word": "word", "doc": "word", "docx": "word", "excel": "excel", "sheet": "excel",
+                "ppt": "ppt", "presentation": "ppt", "slides": "ppt", "photo": "image", "image": "image",
+                "video": "video", "text": "text", "notes": "text", "file": "any", "document": "any"}
+
+
+def _my_recent_file(text):
+    """"meri last pdf kholo" / "open my recent word file": the newest such file Windows says the owner opened."""
+    lowered = text.casefold()
+    if not re.search(r"\b(?:last|latest|recent|abhi wali|pichli|pichhli|wahi)\b", lowered) or \
+            not re.search(r"\b(?:open|kholo|khol|dikhao|chalao)\b", lowered):
+        return None
+    kind = next((k for word, k in _RECENT_KIND.items() if re.search(rf"\b{word}\b", lowered)), None)
+    if kind is None:
+        return None
+    from chutku import know_me
+    found = know_me.latest_file(kind, know_me.load())
+    if found is None:
+        return None
+    return _proposal("files.open", {"path": found["path"]}, f"Open {Path(found['path']).name}",
+                     f"{Path(found['path']).name} khol di.")
+
+
 def _my_site(text):
     """"open github" / "vercel kholo": the owner's usual site from Brave history, when no app has that name."""
     found = re.fullmatch(r"\W*(?:open|kholo|khol|chalao)?\s*(?P<name>[a-z0-9.\- ]{2,30}?)\s*(?:kholo|khol do|open karo|open)?\W*",
@@ -632,6 +654,9 @@ def _single(goal, apps=None):
     show = _my_show(text)
     if show is not None:   # 2026-11-01: "play baki episode 5" / "baki ka next episode" from the owner's own videos
         return show
+    recent = _my_recent_file(text)
+    if recent is not None:
+        return recent
     site = _my_site(text)
     if site is not None:
         return site

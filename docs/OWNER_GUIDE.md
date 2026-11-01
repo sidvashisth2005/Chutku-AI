@@ -548,3 +548,5 @@ Rules:
 - Tests: `.venv\Scripts\python.exe -m unittest discover -s tests`. 501 pass as of 2026-10-03.
 - Rules in `AGENTS.md`: run the tests, run a real command, include a negative safety case, and record the evidence in `IMPLEMENTATION_STATUS.md` before calling anything done.
 - Keep downloads, models and caches on **D:**. C: is nearly full.
+
+- "meri last pdf kholo", "latest video kholo", "last photo dikhao", "open my recent ppt": opens the newest file of that kind you opened.

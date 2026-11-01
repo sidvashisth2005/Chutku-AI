@@ -1,0 +1,106 @@
+{
+ "app": "discord",
+ "name": "Discord",
+ "aliases": [
+  "discord"
+ ],
+ "window": {
+  "exe": "Discord.exe"
+ },
+ "launch": {
+  "start_menu": "Discord"
+ },
+ "uri_schemes": [],
+ "sources": [
+  "docs/apps/discord.md"
+ ],
+ "note": "Sending messages stays with the planner and asks for new recipients.",
+ "actions": [
+  {
+   "id": "open",
+   "title": "Open Discord",
+   "risk": "safe",
+   "route": false,
+   "phrases": [
+    "open discord",
+    "discord kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    }
+   ],
+   "check": {
+    "window_open": true
+   }
+  },
+  {
+   "id": "quick_switcher",
+   "title": "Open the quick switcher",
+   "risk": "safe",
+   "phrases": [
+    "discord quick switcher",
+    "discord server dhundo",
+    "discord channel dhundo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+k",
+     "wait": 0.8
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Quick switcher khol diya."
+  },
+  {
+   "id": "mute",
+   "title": "Mute or unmute the mic in Discord",
+   "risk": "safe",
+   "phrases": [
+    "discord mute karo",
+    "discord mic mute karo",
+    "discord unmute karo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+m",
+     "wait": 0.8
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Discord mic badal diya."
+  },
+  {
+   "id": "deafen",
+   "title": "Deafen or undeafen in Discord",
+   "risk": "safe",
+   "phrases": [
+    "discord deafen karo",
+    "discord deafen"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+d",
+     "wait": 0.8
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Discord deafen badal diya."
+  }
+ ]
+}

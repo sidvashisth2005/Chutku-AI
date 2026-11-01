@@ -92,6 +92,20 @@ class PhraseTests(unittest.TestCase):
                 self.assertEqual((step["tool"], step["arguments"]), expected, said)
             self.assertIsNone(quick_intents._my_show("baki kab aayega"))              # no play word: not a request
 
+    def test_recent_files_by_kind(self):
+        from chutku import quick_intents
+        data = {"recent_files": [{"path": "C:/d/new.pdf", "kind": "pdf"}, {"path": "C:/d/old.pdf", "kind": "pdf"},
+                                 {"path": "C:/d/a.png", "kind": "image"}]}
+        with patch.object(know_me, "load", return_value=data):
+            step = quick_intents.quick_proposal("meri last pdf kholo")["next_steps"][0]
+            self.assertEqual(step["arguments"], {"path": "C:/d/new.pdf"})            # newest first
+            self.assertIsNone(quick_intents._my_recent_file("open my recent word file"))   # none known: planner decides
+            self.assertIsNone(quick_intents._my_recent_file("pdf kya hai"))           # a question, not a request
+
+    def test_recent_files_survives_odd_names(self):
+        with patch("subprocess.run", side_effect=UnicodeError("emoji")):
+            self.assertEqual(know_me.recent_files(), [])                            # never breaks refresh
+
 
 if __name__ == "__main__":
     unittest.main()

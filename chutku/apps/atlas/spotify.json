@@ -1,120 +1,864 @@
 {
-  "app": "spotify",
-  "name": "Spotify",
-  "aliases": ["spotify", "gaane", "gaana", "music", "songs"],
-  "window": {"exe": "Spotify.exe"},
-  "launch": {"start_menu": "Spotify"},
-  "uri_schemes": ["spotify"],
-  "sources": ["https://support.spotify.com/us/article/keyboard-shortcuts/",
-              "https://developer.spotify.com/documentation/web-api/concepts/spotify-uris-ids"],
-  "actions": [
-    {"id": "open", "title": "Open Spotify", "risk": "safe",
-     "phrases": ["open spotify", "spotify kholo"], "route": false,
-     "steps": [{"focus": true}], "check": {"window_open": true}},
-    {"id": "pause", "done": "Spotify rok diya.", "title": "Pause the music", "risk": "safe",
-     "phrases": ["pause spotify", "spotify pause karo", "spotify roko"],
-     "steps": [{"media": "pause"}], "check": {"media_paused": true}},
-    {"id": "resume", "done": "Spotify phir se chala diya.", "title": "Resume the music", "risk": "safe",
-     "phrases": ["resume spotify", "spotify wapas chalao", "spotify resume karo"],
-     "steps": [{"media": "play"}], "check": {"media_playing": true}},
-    {"id": "next", "done": "Agla gaana laga diya.", "title": "Next song", "risk": "safe",
-     "phrases": ["next song on spotify", "spotify pe agla gaana", "spotify next"],
-     "steps": [{"media": "next"}, {"sleep": 1}], "check": {"media_changed": true}},
-    {"id": "previous", "done": "Pichhla gaana laga diya.", "title": "Previous song", "risk": "safe",
-     "phrases": ["previous song on spotify", "spotify pe pichhla gaana", "spotify previous"],
-     "steps": [{"media": "previous"}, {"sleep": 0.3}, {"media": "previous"}, {"sleep": 1}],
-     "check": {"media_changed": true}, "lab": {"setup": "next"},
-     "note": "one press only restarts a song that is past 3 s"},
-    {"id": "shuffle", "done": "Shuffle badal diya.", "title": "Turn shuffle on or off", "risk": "safe",
-     "phrases": ["spotify shuffle", "shuffle on karo"],
-     "steps": [{"focus": true}, {"keys": "ctrl+s"}], "lab": {"pair": true}},
-    {"id": "repeat", "done": "Repeat badal diya.", "title": "Cycle repeat mode", "risk": "safe",
-     "phrases": ["spotify repeat", "repeat on karo"],
-     "steps": [{"focus": true}, {"keys": "ctrl+r"}], "lab": {"pair": 2}},
-    {"id": "volume_up", "done": "Spotify ki awaaz badha di.", "title": "Spotify volume up", "risk": "safe",
-     "phrases": ["spotify volume up", "spotify ki awaaz badhao"],
-     "steps": [{"focus": true}, {"keys": "ctrl+up"}]},
-    {"id": "volume_down", "done": "Spotify ki awaaz kam kar di.", "title": "Spotify volume down", "risk": "safe",
-     "phrases": ["spotify volume down", "spotify ki awaaz kam karo"],
-     "steps": [{"focus": true}, {"keys": "ctrl+down"}]},
-    {"id": "search", "done": "Spotify mein {query} khoj liya.", "title": "Search Spotify", "risk": "safe",
-     "params": {"query": {"type": "text"}},
-     "phrases": ["search {query} on spotify", "spotify pe {query} search karo", "spotify mein {query} dhoondo"],
-     "steps": [{"uri": "spotify:search:{query}"}, {"sleep": 2}], "check": {"window_open": true},
-     "drill": {"query": "lofi beats"}},
-    {"id": "go_home", "done": "Spotify Home khol diya.", "title": "Go to Spotify Home", "risk": "safe",
-     "phrases": ["spotify home", "spotify home kholo"],
-     "steps": [{"focus": true}, {"keys": "alt+shift+h", "wait": 1.5}], "check": {"ocr_contains": "Show all"}},
-    {"id": "go_playlists", "done": "Aapki playlists khol di.", "title": "Show my playlists", "risk": "safe",
-     "phrases": ["show my playlists", "meri playlists dikhao", "spotify playlists kholo"],
-     "steps": [{"focus": true}, {"keys": "alt+shift+0", "wait": 1.5}], "check": {"ocr_contains": "Your Library"}},
-    {"id": "go_liked", "done": "Liked Songs khol diye.", "title": "Show Liked Songs", "risk": "safe",
-     "phrases": ["show liked songs", "liked songs kholo"],
-     "steps": [{"focus": true}, {"keys": "alt+shift+s", "wait": 1.5}], "check": {"ocr_contains": "Liked Songs"}},
-    {"id": "go_queue", "done": "Queue khol di.", "title": "Show the queue", "risk": "safe",
-     "phrases": ["show spotify queue", "spotify queue dikhao"],
-     "steps": [{"focus": true}, {"keys": "alt+shift+q", "wait": 1.5, "unless": "Queue"}], "check": {"ocr_contains": "Queue"},
-     "note": "Alt+Shift+Q toggles the panel, so it is pressed only when the queue is not showing"},
-    {"id": "play_playlist", "done": "{name} playlist chala di.", "title": "Play one of my playlists by its exact name", "risk": "safe",
-     "params": {"name": {"type": "text"}},
-     "phrases": ["play {name} playlist", "play my {name} playlist", "play {name} playlist on spotify",
-                 "play my {name} playlist on spotify", "{name} playlist chalao", "{name} playlist bajao",
-                 "{name} wali playlist chalao", "{name} playlist play karo", "spotify pe {name} playlist chalao",
-                 "spotify pe {name} playlist play karo", "meri {name} playlist chalao"],
-     "steps": [{"focus": true}, {"keys": "alt+shift+0", "wait": 1.5},
-               {"wait_text": "{name}", "timeout": 4, "area": [0, 0.08, 0.42, 0.88]}, {"click_text": "{name}", "kind": "playlist", "double": true, "area": [0, 0.08, 0.42, 0.88]}, {"sleep": 1.5}],
-     "check": {"media_playing": true, "media_changed": true, "heading": "{name}"}, "drill": {"name": "After Party"},
-     "note": "double-clicking a row of Your Library plays it; with shuffle the song is rarely in view, so the check reads the page title"},
-    {"id": "go_made_for_you", "done": "Made For You khol diya.", "title": "Show Made For You", "risk": "safe",
-     "phrases": ["spotify made for you", "made for you kholo", "show made for you"],
-     "steps": [{"focus": true}, {"keys": "alt+shift+m", "wait": 1.5}], "check": {"ocr_contains": "Made For You"}},
-    {"id": "go_new_releases", "done": "New Releases khol diya.", "title": "Show New Releases", "risk": "safe",
-     "phrases": ["spotify new releases", "new releases dikhao", "spotify pe naye gaane dikhao"],
-     "steps": [{"focus": true}, {"keys": "alt+shift+n", "wait": 1.5}], "check": {"ocr_contains": "New Releases"}},
-    {"id": "go_artists", "done": "Aapke artists khol diye.", "title": "Show my artists", "risk": "safe",
-     "phrases": ["show my artists on spotify", "spotify artists dikhao", "mere artists dikhao"],
-     "steps": [{"focus": true}, {"keys": "alt+shift+3", "wait": 1.5}], "check": {"ocr_contains": "Artists"}},
-    {"id": "go_albums", "done": "Aapke albums khol diye.", "title": "Show my albums", "risk": "safe",
-     "phrases": ["show my albums on spotify", "spotify albums dikhao", "mere albums dikhao"],
-     "steps": [{"focus": true}, {"keys": "alt+shift+4", "wait": 1.5}], "check": {"ocr_contains": "Albums"}},
-    {"id": "go_back", "done": "Spotify mein peeche chali gayi.", "title": "Go back a page in Spotify", "risk": "safe",
-     "phrases": ["spotify back", "spotify pe peeche jao", "spotify mein wapas jao"],
-     "steps": [{"focus": true}, {"keys": "alt+left", "wait": 1}], "lab": {"setup": "go_home"}},
-    {"id": "go_forward", "done": "Spotify mein aage chali gayi.", "title": "Go forward a page in Spotify", "risk": "safe",
-     "phrases": ["spotify forward", "spotify pe aage jao"],
-     "steps": [{"focus": true}, {"keys": "alt+right", "wait": 1}]},
-    {"id": "seek_forward", "done": "Thoda aage kar diya.", "title": "Skip a few seconds ahead", "risk": "safe",
-     "phrases": ["spotify forward 5 seconds", "spotify pe thoda aage karo", "gaana thoda aage karo spotify"],
-     "steps": [{"focus": true}, {"keys": "shift+right"}]},
-    {"id": "seek_back", "done": "Thoda peeche kar diya.", "title": "Go back a few seconds", "risk": "safe",
-     "phrases": ["spotify back 5 seconds", "spotify pe thoda peeche karo", "gaana thoda peeche karo spotify"],
-     "steps": [{"focus": true}, {"keys": "shift+left"}]},
-    {"id": "play_artist", "done": "{name} ke gaane chala diye.", "title": "Play an artist from my library", "risk": "safe",
-     "params": {"name": {"type": "text"}},
-     "phrases": ["spotify pe {name} ke gaane chalao", "play songs by {name} on spotify", "play artist {name} on spotify",
-                 "play {name} songs on spotify"],
-     "steps": [{"focus": true}, {"keys": "alt+shift+3", "wait": 1.5},
-               {"wait_text": "{name}", "timeout": 4, "area": [0, 0.08, 0.42, 0.88]}, {"click_text": "{name}", "double": true, "area": [0, 0.08, 0.42, 0.88]}, {"sleep": 1.5}],
-     "check": {"media_playing": true, "media_changed": true, "heading": "{name}"}, "drill": {"name": "Arijit Singh"},
-     "note": "double-clicking an artist in Your Library opens their page and plays them; the check reads the artist page title (the media session names only the main artist); only artists saved in the library"},
-    {"id": "play_album", "done": "{name} album chala diya.", "title": "Play an album from my library", "risk": "safe",
-     "params": {"name": {"type": "text"}},
-     "phrases": ["play {name} album", "play my {name} album", "{name} album chalao", "spotify pe {name} album chalao",
-                 "play {name} album on spotify"],
-     "steps": [{"focus": true}, {"keys": "alt+shift+4", "wait": 1.5},
-               {"wait_text": "{name}", "timeout": 4, "area": [0, 0.08, 0.42, 0.88]}, {"click_text": "{name}", "kind": "album", "double": true, "area": [0, 0.08, 0.42, 0.88]}, {"sleep": 1.5}],
-     "check": {"playing_on_page": true}, "drill": {"name": "Gal Sun"}},
-    {"id": "play_liked", "done": "Liked Songs chala diye.", "title": "Play my Liked Songs", "risk": "safe",
-     "phrases": ["play liked songs", "liked songs chalao", "meri liked songs bajao"],
-     "steps": [{"focus": true}, {"keys": "alt+shift+0", "wait": 1.5},
-               {"wait_text": "Liked Songs", "timeout": 4, "area": [0, 0.08, 0.42, 0.88]}, {"click_text": "Liked Songs", "kind": "playlist", "double": true, "area": [0, 0.08, 0.42, 0.88]}, {"sleep": 1.5}],
-     "check": {"playing_on_page": true}},
-    {"id": "new_playlist", "done": "Nayi playlist bana di.", "title": "Create a new empty playlist", "risk": "changes",
-     "phrases": ["create a new spotify playlist", "nayi playlist banao"],
-     "steps": [{"focus": true}, {"keys": "ctrl+n", "wait": 1.5}], "check": {"ocr_contains": "My Playlist"}},
-    {"id": "quit", "done": "Spotify band kar diya.", "title": "Quit Spotify", "risk": "consequential",
-     "phrases": ["quit spotify", "spotify band karo"],
-     "steps": [{"focus": true}, {"keys": "ctrl+shift+q", "wait": 1}], "check": {"process_gone": true},
-     "lab": {"skip": "quitting Spotify mid-lab would stop the owner's music"}}
-  ]
+ "app": "spotify",
+ "name": "Spotify",
+ "aliases": [
+  "spotify",
+  "gaane",
+  "gaana",
+  "music",
+  "songs"
+ ],
+ "window": {
+  "exe": "Spotify.exe"
+ },
+ "launch": {
+  "start_menu": "Spotify"
+ },
+ "uri_schemes": [
+  "spotify"
+ ],
+ "sources": [
+  "https://support.spotify.com/us/article/keyboard-shortcuts/",
+  "https://developer.spotify.com/documentation/web-api/concepts/spotify-uris-ids"
+ ],
+ "actions": [
+  {
+   "id": "open",
+   "title": "Open Spotify",
+   "risk": "safe",
+   "phrases": [
+    "open spotify",
+    "spotify kholo"
+   ],
+   "route": false,
+   "steps": [
+    {
+     "focus": true
+    }
+   ],
+   "check": {
+    "window_open": true
+   }
+  },
+  {
+   "id": "pause",
+   "done": "Spotify rok diya.",
+   "title": "Pause the music",
+   "risk": "safe",
+   "phrases": [
+    "pause spotify",
+    "spotify pause karo",
+    "spotify roko"
+   ],
+   "steps": [
+    {
+     "media": "pause"
+    }
+   ],
+   "check": {
+    "media_paused": true
+   }
+  },
+  {
+   "id": "resume",
+   "done": "Spotify phir se chala diya.",
+   "title": "Resume the music",
+   "risk": "safe",
+   "phrases": [
+    "resume spotify",
+    "spotify wapas chalao",
+    "spotify resume karo"
+   ],
+   "steps": [
+    {
+     "media": "play"
+    }
+   ],
+   "check": {
+    "media_playing": true
+   }
+  },
+  {
+   "id": "next",
+   "done": "Agla gaana laga diya.",
+   "title": "Next song",
+   "risk": "safe",
+   "phrases": [
+    "next song on spotify",
+    "spotify pe agla gaana",
+    "spotify next"
+   ],
+   "steps": [
+    {
+     "media": "next"
+    },
+    {
+     "sleep": 1
+    }
+   ],
+   "check": {
+    "media_changed": true
+   }
+  },
+  {
+   "id": "previous",
+   "done": "Pichhla gaana laga diya.",
+   "title": "Previous song",
+   "risk": "safe",
+   "phrases": [
+    "previous song on spotify",
+    "spotify pe pichhla gaana",
+    "spotify previous"
+   ],
+   "steps": [
+    {
+     "media": "previous"
+    },
+    {
+     "sleep": 0.3
+    },
+    {
+     "media": "previous"
+    },
+    {
+     "sleep": 1
+    }
+   ],
+   "check": {
+    "media_changed": true
+   },
+   "lab": {
+    "setup": "next"
+   },
+   "note": "one press only restarts a song that is past 3 s"
+  },
+  {
+   "id": "shuffle",
+   "done": "Shuffle badal diya.",
+   "title": "Turn shuffle on or off",
+   "risk": "safe",
+   "phrases": [
+    "spotify shuffle",
+    "shuffle on karo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+s"
+    }
+   ],
+   "lab": {
+    "pair": true
+   }
+  },
+  {
+   "id": "repeat",
+   "done": "Repeat badal diya.",
+   "title": "Cycle repeat mode",
+   "risk": "safe",
+   "phrases": [
+    "spotify repeat",
+    "repeat on karo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+r"
+    }
+   ],
+   "lab": {
+    "pair": 2
+   }
+  },
+  {
+   "id": "volume_up",
+   "done": "Spotify ki awaaz badha di.",
+   "title": "Spotify volume up",
+   "risk": "safe",
+   "phrases": [
+    "spotify volume up",
+    "spotify ki awaaz badhao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+up"
+    }
+   ]
+  },
+  {
+   "id": "volume_down",
+   "done": "Spotify ki awaaz kam kar di.",
+   "title": "Spotify volume down",
+   "risk": "safe",
+   "phrases": [
+    "spotify volume down",
+    "spotify ki awaaz kam karo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+down"
+    }
+   ]
+  },
+  {
+   "id": "search",
+   "done": "Spotify mein {query} khoj liya.",
+   "title": "Search Spotify",
+   "risk": "safe",
+   "params": {
+    "query": {
+     "type": "text"
+    }
+   },
+   "phrases": [
+    "search {query} on spotify",
+    "spotify pe {query} search karo",
+    "spotify mein {query} dhoondo"
+   ],
+   "steps": [
+    {
+     "uri": "spotify:search:{query}"
+    },
+    {
+     "sleep": 2
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "drill": {
+    "query": "lofi beats"
+   }
+  },
+  {
+   "id": "go_home",
+   "done": "Spotify Home khol diya.",
+   "title": "Go to Spotify Home",
+   "risk": "safe",
+   "phrases": [
+    "spotify home",
+    "spotify home kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+shift+h",
+     "wait": 1.5
+    }
+   ],
+   "check": {
+    "ocr_contains": "Show all"
+   }
+  },
+  {
+   "id": "go_playlists",
+   "done": "Aapki playlists khol di.",
+   "title": "Show my playlists",
+   "risk": "safe",
+   "phrases": [
+    "show my playlists",
+    "meri playlists dikhao",
+    "spotify playlists kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+shift+0",
+     "wait": 1.5
+    }
+   ],
+   "check": {
+    "ocr_contains": "Your Library"
+   }
+  },
+  {
+   "id": "go_liked",
+   "done": "Liked Songs khol diye.",
+   "title": "Show Liked Songs",
+   "risk": "safe",
+   "phrases": [
+    "show liked songs",
+    "liked songs kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+shift+s",
+     "wait": 1.5
+    }
+   ],
+   "check": {
+    "ocr_contains": "Liked Songs"
+   }
+  },
+  {
+   "id": "go_queue",
+   "done": "Queue khol di.",
+   "title": "Show the queue",
+   "risk": "safe",
+   "phrases": [
+    "show spotify queue",
+    "spotify queue dikhao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+shift+q",
+     "wait": 1.5,
+     "unless": "Queue"
+    }
+   ],
+   "check": {
+    "ocr_contains": "Queue"
+   },
+   "note": "Alt+Shift+Q toggles the panel, so it is pressed only when the queue is not showing"
+  },
+  {
+   "id": "play_playlist",
+   "done": "{name} playlist chala di.",
+   "title": "Play one of my playlists by its exact name",
+   "risk": "safe",
+   "params": {
+    "name": {
+     "type": "text"
+    }
+   },
+   "phrases": [
+    "play {name} playlist",
+    "play my {name} playlist",
+    "play {name} playlist on spotify",
+    "play my {name} playlist on spotify",
+    "{name} playlist chalao",
+    "{name} playlist bajao",
+    "{name} wali playlist chalao",
+    "{name} playlist play karo",
+    "spotify pe {name} playlist chalao",
+    "spotify pe {name} playlist play karo",
+    "meri {name} playlist chalao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+shift+0",
+     "wait": 1.5
+    },
+    {
+     "wait_text": "{name}",
+     "timeout": 4,
+     "area": [
+      0,
+      0.08,
+      0.42,
+      0.88
+     ]
+    },
+    {
+     "click_text": "{name}",
+     "kind": "playlist",
+     "double": true,
+     "area": [
+      0,
+      0.08,
+      0.42,
+      0.88
+     ]
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "media_playing": true,
+    "media_changed": true,
+    "heading": "{name}"
+   },
+   "drill": {
+    "name": "After Party"
+   },
+   "note": "double-clicking a row of Your Library plays it; with shuffle the song is rarely in view, so the check reads the page title"
+  },
+  {
+   "id": "go_made_for_you",
+   "done": "Made For You khol diya.",
+   "title": "Show Made For You",
+   "risk": "safe",
+   "phrases": [
+    "spotify made for you",
+    "made for you kholo",
+    "show made for you"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+shift+m",
+     "wait": 1.5
+    }
+   ],
+   "check": {
+    "ocr_contains": "Made For You"
+   }
+  },
+  {
+   "id": "go_new_releases",
+   "done": "New Releases khol diya.",
+   "title": "Show New Releases",
+   "risk": "safe",
+   "phrases": [
+    "spotify new releases",
+    "new releases dikhao",
+    "spotify pe naye gaane dikhao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+shift+n",
+     "wait": 1.5
+    }
+   ],
+   "check": {
+    "ocr_contains": "New Releases"
+   }
+  },
+  {
+   "id": "go_artists",
+   "done": "Aapke artists khol diye.",
+   "title": "Show my artists",
+   "risk": "safe",
+   "phrases": [
+    "show my artists on spotify",
+    "spotify artists dikhao",
+    "mere artists dikhao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+shift+3",
+     "wait": 1.5
+    }
+   ],
+   "check": {
+    "ocr_contains": "Artists"
+   }
+  },
+  {
+   "id": "go_albums",
+   "done": "Aapke albums khol diye.",
+   "title": "Show my albums",
+   "risk": "safe",
+   "phrases": [
+    "show my albums on spotify",
+    "spotify albums dikhao",
+    "mere albums dikhao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+shift+4",
+     "wait": 1.5
+    }
+   ],
+   "check": {
+    "ocr_contains": "Albums"
+   }
+  },
+  {
+   "id": "go_back",
+   "done": "Spotify mein peeche chali gayi.",
+   "title": "Go back a page in Spotify",
+   "risk": "safe",
+   "phrases": [
+    "spotify back",
+    "spotify pe peeche jao",
+    "spotify mein wapas jao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+left",
+     "wait": 1
+    }
+   ],
+   "lab": {
+    "setup": "go_home"
+   }
+  },
+  {
+   "id": "go_forward",
+   "done": "Spotify mein aage chali gayi.",
+   "title": "Go forward a page in Spotify",
+   "risk": "safe",
+   "phrases": [
+    "spotify forward",
+    "spotify pe aage jao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+right",
+     "wait": 1
+    }
+   ]
+  },
+  {
+   "id": "seek_forward",
+   "done": "Thoda aage kar diya.",
+   "title": "Skip a few seconds ahead",
+   "risk": "safe",
+   "phrases": [
+    "spotify forward 5 seconds",
+    "spotify pe thoda aage karo",
+    "gaana thoda aage karo spotify"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "shift+right"
+    }
+   ]
+  },
+  {
+   "id": "seek_back",
+   "done": "Thoda peeche kar diya.",
+   "title": "Go back a few seconds",
+   "risk": "safe",
+   "phrases": [
+    "spotify back 5 seconds",
+    "spotify pe thoda peeche karo",
+    "gaana thoda peeche karo spotify"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "shift+left"
+    }
+   ]
+  },
+  {
+   "id": "play_artist",
+   "done": "{name} ke gaane chala diye.",
+   "title": "Play an artist from my library",
+   "risk": "safe",
+   "params": {
+    "name": {
+     "type": "text"
+    }
+   },
+   "phrases": [
+    "spotify pe {name} ke gaane chalao",
+    "play songs by {name} on spotify",
+    "play artist {name} on spotify",
+    "play {name} songs on spotify"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+shift+3",
+     "wait": 1.5
+    },
+    {
+     "wait_text": "{name}",
+     "timeout": 4,
+     "area": [
+      0,
+      0.08,
+      0.42,
+      0.88
+     ]
+    },
+    {
+     "click_text": "{name}",
+     "double": true,
+     "area": [
+      0,
+      0.08,
+      0.42,
+      0.88
+     ]
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "media_playing": true,
+    "media_changed": true,
+    "heading": "{name}"
+   },
+   "drill": {
+    "name": "Arijit Singh"
+   },
+   "note": "double-clicking an artist in Your Library opens their page and plays them; the check reads the artist page title (the media session names only the main artist); only artists saved in the library"
+  },
+  {
+   "id": "play_album",
+   "done": "{name} album chala diya.",
+   "title": "Play an album from my library",
+   "risk": "safe",
+   "params": {
+    "name": {
+     "type": "text"
+    }
+   },
+   "phrases": [
+    "play {name} album",
+    "play my {name} album",
+    "{name} album chalao",
+    "spotify pe {name} album chalao",
+    "play {name} album on spotify"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+shift+4",
+     "wait": 1.5
+    },
+    {
+     "wait_text": "{name}",
+     "timeout": 4,
+     "area": [
+      0,
+      0.08,
+      0.42,
+      0.88
+     ]
+    },
+    {
+     "click_text": "{name}",
+     "kind": "album",
+     "double": true,
+     "area": [
+      0,
+      0.08,
+      0.42,
+      0.88
+     ]
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "playing_on_page": true
+   },
+   "drill": {
+    "name": "Gal Sun"
+   }
+  },
+  {
+   "id": "play_liked",
+   "done": "Liked Songs chala diye.",
+   "title": "Play my Liked Songs",
+   "risk": "safe",
+   "phrases": [
+    "play liked songs",
+    "liked songs chalao",
+    "meri liked songs bajao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+shift+0",
+     "wait": 1.5
+    },
+    {
+     "wait_text": "Liked Songs",
+     "timeout": 4,
+     "area": [
+      0,
+      0.08,
+      0.42,
+      0.88
+     ]
+    },
+    {
+     "click_text": "Liked Songs",
+     "kind": "playlist",
+     "double": true,
+     "area": [
+      0,
+      0.08,
+      0.42,
+      0.88
+     ]
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "playing_on_page": true
+   }
+  },
+  {
+   "id": "new_playlist",
+   "done": "Nayi playlist bana di.",
+   "title": "Create a new empty playlist",
+   "risk": "changes",
+   "phrases": [
+    "create a new spotify playlist",
+    "nayi playlist banao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+n",
+     "wait": 1.5
+    }
+   ],
+   "check": {
+    "ocr_contains": "My Playlist"
+   }
+  },
+  {
+   "id": "quit",
+   "done": "Spotify band kar diya.",
+   "title": "Quit Spotify",
+   "risk": "consequential",
+   "phrases": [
+    "quit spotify",
+    "spotify band karo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+q",
+     "wait": 1
+    }
+   ],
+   "check": {
+    "process_gone": true
+   },
+   "lab": {
+    "skip": "quitting Spotify mid-lab would stop the owner's music"
+   }
+  },
+  {
+   "id": "play_public_playlist",
+   "done": "{name} playlist chala di.",
+   "title": "Find a public playlist by name and play it",
+   "risk": "safe",
+   "params": {
+    "name": {
+     "type": "text"
+    }
+   },
+   "phrases": [
+    "search and play {name} playlist",
+    "{name} playlist search karke chalao",
+    "public playlist {name} chalao",
+    "play the public {name} playlist",
+    "spotify pe {name} playlist dhoondh ke chalao"
+   ],
+   "steps": [
+    {
+     "uri": "spotify:search:{name} playlist"
+    },
+    {
+     "sleep": 2.5
+    },
+    {
+     "play_page": true
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "media_playing": true,
+    "media_changed": true
+   },
+   "drill": {
+    "name": "lofi beats"
+   },
+   "note": "2026-11-01: search '<name> playlist' and play the Top result with its own green button"
+  },
+  {
+   "id": "play_song",
+   "done": "{name} chala diya.",
+   "title": "Find a song by name and play it",
+   "risk": "safe",
+   "params": {
+    "name": {
+     "type": "text"
+    }
+   },
+   "phrases": [
+    "play {name} song",
+    "play the song {name}",
+    "{name} song chalao",
+    "{name} gaana chalao",
+    "{name} gaana bajao",
+    "play {name} song on spotify",
+    "spotify pe {name} gaana chalao"
+   ],
+   "steps": [
+    {
+     "uri": "spotify:search:{name}"
+    },
+    {
+     "sleep": 2.5
+    },
+    {
+     "play_page": true
+    },
+    {
+     "sleep": 1.5
+    }
+   ],
+   "check": {
+    "media_playing": true,
+    "media_changed": true
+   },
+   "drill": {
+    "name": "Kesariya"
+   },
+   "note": "2026-11-01: Spotify's Top result for the name, played with its own green button (titles carry suffixes like '(From \"Brahmastra\")', so an exact-name match never fired)"
+  }
+ ]
 }

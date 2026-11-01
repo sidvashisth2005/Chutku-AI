@@ -1,0 +1,84 @@
+{
+ "app": "chatgpt",
+ "name": "ChatGPT",
+ "aliases": [
+  "chatgpt",
+  "chat gpt"
+ ],
+ "window": {
+  "exe": "ChatGPT.exe"
+ },
+ "launch": {
+  "start_menu": "ChatGPT"
+ },
+ "uri_schemes": [],
+ "sources": [
+  "docs/apps/chatgpt.md"
+ ],
+ "note": "Asking ChatGPT sends text to OpenAI: not an atlas action (it asks first).",
+ "actions": [
+  {
+   "id": "open",
+   "title": "Open ChatGPT",
+   "risk": "safe",
+   "route": false,
+   "phrases": [
+    "open chatgpt",
+    "chatgpt kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    }
+   ],
+   "check": {
+    "window_open": true
+   }
+  },
+  {
+   "id": "new_chat",
+   "title": "Start a new ChatGPT chat",
+   "risk": "safe",
+   "phrases": [
+    "chatgpt new chat",
+    "chatgpt naya chat",
+    "chatgpt nayi chat kholo"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+o",
+     "wait": 0.8
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "ChatGPT mein naya chat khol diya."
+  },
+  {
+   "id": "toggle_sidebar",
+   "title": "Show or hide the ChatGPT sidebar",
+   "risk": "safe",
+   "phrases": [
+    "chatgpt sidebar",
+    "chatgpt sidebar dikhao"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "ctrl+shift+s",
+     "wait": 0.8
+    }
+   ],
+   "check": {
+    "window_open": true
+   },
+   "done": "Sidebar badal diya."
+  }
+ ]
+}

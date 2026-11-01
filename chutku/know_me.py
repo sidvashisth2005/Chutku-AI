@@ -220,12 +220,53 @@ def frequent_sites(days=30, limit=40, db=None):
     return sorted(sites.values(), key=lambda s: -s["visits"])[:limit]
 
 
+# -- recently opened files (Windows' own Recent items) ------------------------------------------------------------
+
+KINDS = {"pdf": {".pdf"}, "word": {".doc", ".docx", ".rtf", ".odt"}, "excel": {".xls", ".xlsx", ".csv", ".ods"},
+         "ppt": {".ppt", ".pptx", ".odp"}, "text": {".txt", ".md"}, "image": {".jpg", ".jpeg", ".png", ".webp", ".heic"},
+         "video": VIDEO}
+
+
+def recent_files(limit=60):
+    """[{"path", "kind", "at"}] newest first: targets of the shortcuts Windows keeps in Recent (no admin)."""
+    import subprocess
+    folder = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Recent"
+    if not folder.is_dir():
+        return []
+    links = sorted(folder.glob("*.lnk"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
+    if not links:
+        return []
+    script = ("[Console]::InputEncoding = [Text.Encoding]::UTF8; [Console]::OutputEncoding = [Text.Encoding]::UTF8; "
+              "$s = New-Object -ComObject WScript.Shell; $input | ForEach-Object { "
+              "try { $s.CreateShortcut($_).TargetPath } catch { '' } }")
+    try:   # names can hold emoji and Devanagari: UTF-8 both ways
+        done = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                              input="\n".join(str(p) for p in links), capture_output=True, text=True, timeout=30,
+                              encoding="utf-8", errors="replace",
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        targets = done.stdout.splitlines()
+    except (OSError, subprocess.SubprocessError, UnicodeError):
+        return []
+    out = []
+    for link, target in zip(links, targets):
+        target = target.strip()
+        suffix = Path(target).suffix.casefold()
+        kind = next((name for name, suffixes in KINDS.items() if suffix in suffixes), None)
+        if target and kind and Path(target).is_file():
+            out.append({"path": target, "kind": kind, "at": link.stat().st_mtime})
+    return out
+
+
+def latest_file(kind, data):
+    return next((f for f in data.get("recent_files", []) if kind in ("any", f["kind"])), None)
+
+
 # -- refresh and use ----------------------------------------------------------------------------------------------
 
 def refresh(base=None, *, roots=None):
     library = scan_media(roots if roots is not None else media_roots(base))
     data = {"refreshed": time.time(), "media": library, "progress": progress(library, vlc_history()),
-            "apps": frequent_apps(), "sites": frequent_sites()}
+            "apps": frequent_apps(), "sites": frequent_sites(), "recent_files": recent_files()}
     with _lock:
         path = _file(base)
         path.parent.mkdir(parents=True, exist_ok=True)
