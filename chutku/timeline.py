@@ -20,7 +20,8 @@ import time
 
 KEEP_DAYS = 14
 TICK_SECONDS = 5
-PRIVATE_TITLE = re.compile(r"\b(?:inprivate|incognito|private browsing|private window)\b", re.I)
+PRIVATE_TITLE = re.compile(r"\b(?:inprivate|incognito|private browsing|private window|private with tor)\b"
+                           r"|\((?:private|incognito)\)|new private tab", re.I)
 PRIVATE_APPS = {"1password.exe", "bitwarden.exe", "keepass.exe", "keepassxc.exe", "dashlane.exe", "lastpass.exe",
                 "credentialuibroker.exe", "lockapp.exe", "logonui.exe"}
 _IGNORED = {"", "program manager", "task switching", "windows input experience", "start", "search"}
@@ -67,6 +68,8 @@ def clean(app, title, private):
 def record(base, app, title, at=None):
     """Store one moment (the caller checks that the timeline is on). Returns False for ignored windows."""
     name, title = clean(app, title, private_apps(base))
+    if title == "[private]":
+        return False   # owner, 2026-11-01: private / incognito windows are not recorded at all, not even as a row
     if title.casefold() in _IGNORED or not name:
         return False
     with _lock:

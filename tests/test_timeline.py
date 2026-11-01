@@ -46,9 +46,12 @@ class TimelineTests(unittest.TestCase):
         timeline.record(self.base, r"C:\Program Files\Brave\brave.exe", "Secret thing - Brave (Incognito)")
         timeline.record(self.base, r"C:\Apps\mybank.exe", "Account 1234 balance")
         timeline.record(self.base, r"C:\Apps\keepassxc.exe", "Passwords.kdbx")
+        self.assertFalse(timeline.record(self.base, r"C:\Braverave.exe", "YouTube - Brave (Private)"))
+        timeline.record(self.base, r"C:\Braverave.exe", "Gmail - Private with Tor - Brave")
+        timeline.record(self.base, "notepad.exe", "notes.txt - Notepad")       # an ordinary window is kept
         with closing(sqlite3.connect(timeline.path(self.base))) as db:
             titles = [t for (t,) in db.execute("SELECT title FROM moments")]
-        self.assertEqual(titles, ["[private]"] * 3)
+        self.assertEqual(titles, ["notes.txt - Notepad"])   # 2026-11-01: private windows leave no row at all
         self.assertEqual(timeline.search(self.base, "account", "today")["matches"], [])
 
     def test_expiry_deletes_rows_older_than_14_days(self):
