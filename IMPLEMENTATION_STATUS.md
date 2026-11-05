@@ -16,6 +16,44 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-05: Find any file on any drive instantly (X5); CI runs the suite
+
+**X5: deep drive index**
+- `chutku/drive_index.py` stores the **names only** (folder, size, modified time; never contents) of files on every
+  fixed drive, in `data/drive-index.sqlite` (SQLite FTS5, local).
+- **Skipped:**
+  - protected system zones and Chutku's own folder (`core.paths.protected_zones`);
+  - hidden and `$` folders, and code/library folders (`files_plus._NOISE_DIRS`);
+  - links;
+  - USB, network and optical drives.
+- **New tools:**
+  - `files.locate` (R0): name words, optional drive letter, newest first;
+  - `files.index` (R0): rebuilds in the background, so it never blocks the 120 s action deadline.
+- Night Shift refreshes the index once a day, only for the real install, never for a test's temporary folder.
+- **Real path on this PC:**
+  - the build indexed 169,800 files on C: and D: in 25.4 s, complete;
+  - "resume" took 2.7 ms, "baki" on D: took 0.7 ms;
+  - independent check: 10 of 10 hits exist on disk, and a 50-hit "dll" search returned nothing under Windows or
+    Program Files.
+- **Limit:** it matches file names only, so "calculator main.py" finds nothing; the folder name is not searched.
+- **Tests:** `tests/test_drive_index_x5.py`, 4:
+  - names only;
+  - `.git`, `node_modules` and a protected zone are skipped;
+  - every word must match;
+  - filler words alone give no match;
+  - the cap marks the index incomplete;
+  - the drive filter works;
+  - the tool fails with a helpful message before any build;
+  - a bad drive letter is refused.
+- `docs/SECURITY.md`: 185 tools, and the inbox and media-folder wording updated for O1.
+
+**CI**
+- The first GitHub run failed: 247 failures and 44 errors. Nearly all were `DENIED`, because GitHub's Windows runners
+  run as Administrator and Chutku refuses every action while elevated.
+- `scripts/ci_tests.py` (CI only) reports "not elevated" for the token query and then runs normal discovery. The
+  product has no bypass, and the tests that force elevation still prove the refusal.
+- Locally through the launcher: 1,244 tests in 223 s, OK. Full suite: 1,244 OK.
+
 ### 2026-11-05: One-click install for a new PC, README for strangers, CI, release audit (O4, O5, O6)
 
 **Installer (O4)**

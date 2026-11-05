@@ -26,11 +26,11 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (183 registered, plus 136 app actions)
+### Risk levels and tools (185 registered, plus 136 app actions)
 
 | Level | Count | Meaning |
 |---|---|---|
-| R0 observation | 73 | reads only |
+| R0 observation | 75 | reads only |
 | R1 reversible | 52 | easily undone (open apps or pages, window and media control) |
 | R2 data modification | 25 | changes data, with runtime undo where available |
 | R3 external side effect | 27 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, settings.theme_restore, settings.theme_set, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close |
@@ -106,10 +106,10 @@ A test (`tests/test_taint_v2.py`) fails if any name in these lists is not a real
 - PIN again for every approval (single-use nonce bound to the step), screen view (30 min, 15 s heartbeat), control, laptop clipboard, laptop files. 5 wrong PINs revoke the phone.
 - Never from the phone: R4, power/network/process.terminate, permanent delete, code running, unknown recipients, never-rules, remote.* settings.
 - Direct control: armed only at the laptop, red border, local input wins 10 s, Ctrl+Alt+Shift+P kills, Enter/paste in command windows needs the PIN, no Ctrl+Alt+Del, nothing while locked, typed text logged only as length/script.
-- Files: phone uploads create-only in D:\ChutkuInbox (programs saved as .blocked); laptop files refused in protected zones and secret paths.
+- Files: phone uploads create-only in ChutkuInbox (`D:\ChutkuInbox` if that folder exists, else `%USERPROFILE%\ChutkuInbox`) (programs saved as .blocked); laptop files refused in protected zones and secret paths.
 
 ## 4c. What Chutku learns about the owner (2026-11-01)
-- `chutku/know_me.py` builds `data/know_me.json` locally every 6 hours: the owner's video library (D:\SID, Videos, Downloads, Telegram Desktop), VLC's recent-media history, app launch counts (Windows UserAssist) and the most-visited domains from a temporary copy of Brave's History database (30 days).
+- `chutku/know_me.py` builds `data/know_me.json` locally every 6 hours: the owner's video library (Videos, Downloads, Telegram Desktop and the folders in the `media_folders` preference), VLC's recent-media history, app launch counts (Windows UserAssist) and the most-visited domains from a temporary copy of Brave's History database (30 days).
 - It never leaves the PC: `me.profile` is a private tool, so a network step after it asks, and nothing from it is in what the cloud brain sees.
 
 ## 5. Stop and recovery

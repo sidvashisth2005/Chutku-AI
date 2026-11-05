@@ -79,7 +79,7 @@ class NightShiftTests(unittest.TestCase):
         with patch.object(nightshift, "on_ac_power", return_value=True):
             report = nightshift.run_once(self.base)
         self.assertEqual(set(report["jobs"]), {"learned_skills", "reliability", "regression_replay", "maintenance",
-                                               "fine_tune_readiness"})
+                                               "fine_tune_readiness", "drive_index"})
         self.assertTrue(all(job["ok"] for job in report["jobs"].values()), report["jobs"])
         self.assertEqual(report["jobs"]["maintenance"]["heard_lines_dropped"], 1)
         self.assertFalse(report["jobs"]["fine_tune_readiness"]["ready"])   # 1 verified turn, 300 needed

@@ -197,6 +197,42 @@ def _find(arguments, context):
                       {"count": len(matches), "matches": "[REDACTED]"})
 
 
+def _locate(arguments, context):
+    from chutku import drive_index
+    drive = arguments.get("drive")
+    if drive is not None and not (isinstance(drive, str) and len(drive.rstrip(":\\/")) == 1
+                                  and drive.rstrip(":\\/").isalpha()):
+        return ToolResult({"error": "drive must be one letter, e.g. D."}, Verification.FAIL)
+    state = drive_index.status()
+    if not state["built"]:
+        return ToolResult({"error": "The drive index is not built yet. Say 'saari drives index karo' (it takes a "
+                                    "few minutes), or use files.find for the personal folders."}, Verification.FAIL)
+    matches = drive_index.search(arguments["query"], drive=drive)
+    return ToolResult({"query": arguments["query"], "matches": matches, "count": len(matches),
+                       "index_built": state["built"], "index_complete": state["complete"]}, Verification.PASS,
+                      {"count": len(matches), "matches": "[REDACTED]"})
+
+
+_index_lock = __import__("threading").Lock()
+
+
+def _index(arguments, context):
+    """Rebuild in the background: a full scan takes minutes, longer than one action may block."""
+    import threading
+    from chutku import drive_index
+    if not _index_lock.acquire(blocking=False):
+        return ToolResult({"started": False, "note": "The drive index is already being built."}, Verification.PASS)
+
+    def run():
+        try:
+            drive_index.build()
+        finally:
+            _index_lock.release()
+    threading.Thread(target=run, daemon=True, name="drive-index").start()
+    return ToolResult({"started": True, "drives": drive_index.fixed_drives(), "previous": drive_index.status()},
+                      Verification.PASS)
+
+
 def user_folders():
     home = Path(os.environ.get("USERPROFILE", ""))
     return [home / name for name in ("Desktop", "Documents", "Downloads")]
@@ -388,6 +424,20 @@ def register_files_plus_tools(registry):
             "query": {"type": "string", "minLength": 1, "maxLength": 100}}, "required": ["query"],
             "additionalProperties": False},
         reversibility="not_applicable", success_predicate="bounded_personal_search_completed"))
+    registry.register(Tool("files.locate", "Find any file on every fixed drive by name words (e.g. 'resume pdf', "
+        "'invoice march') from Chutku's local name index: instant, newest first. Optional drive letter (e.g. 'D'). "
+        "Use files.find for the personal folders when the index is not built.", Risk.OBSERVATION, _locate,
+        _validate(("query", "drive"), required=("query",)), resource_access="observe",
+        argument_schema={"type": "object", "properties": {
+            "query": {"type": "string", "minLength": 1, "maxLength": 100},
+            "drive": {"type": "string", "minLength": 1, "maxLength": 3}}, "required": ["query"],
+            "additionalProperties": False},
+        reversibility="not_applicable", success_predicate="drive_index_searched"))
+    registry.register(Tool("files.index", "Rebuild Chutku's local index of file names on every fixed drive (system "
+        "and code folders skipped; names only, never contents). Runs in the background for a few minutes.",
+        Risk.OBSERVATION, _index, _validate((), required=()), resource_access="observe",
+        argument_schema={"type": "object", "properties": {}, "additionalProperties": False},
+        reversibility="not_applicable", success_predicate="drive_index_started"))
     registry.register(Tool("storage.cleanup_report", "Find where disk space can be recovered on the user's drive "
         "(Recycle Bin, temp files, old installers in Downloads, biggest personal files). Read-only: deletes nothing.",
         Risk.OBSERVATION, _cleanup, _validate(("path",), required=()), resource_access="observe",

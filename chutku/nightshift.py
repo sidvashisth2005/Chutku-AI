@@ -224,6 +224,18 @@ def _run_jobs(base, report, model, deadline, create_runtime):
         _job(report, "regression_replay", lambda: regression_replay(base, runtime, model, deadline))
         _job(report, "maintenance", lambda: maintenance(base, runtime))
         _job(report, "fine_tune_readiness", lambda: lora_readiness(base))
+        _job(report, "drive_index", lambda: _drive_index(base))
+
+
+def _drive_index(base):
+    """X5: refresh the file-name index once a day, only for the real install (never for a test's temporary base)."""
+    from chutku import drive_index
+    if Path(base).resolve() != drive_index.PROJECT_ROOT.resolve():
+        return {"skipped": "not the real Chutku folder"}
+    age = drive_index.status(base).get("age_hours")
+    if age is not None and age < 20:
+        return {"skipped": f"index is {age} h old"}
+    return drive_index.build(base)
 
 
 def _skills(base, runtime, reflex):

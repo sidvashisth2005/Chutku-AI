@@ -944,7 +944,7 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 
 **System governance (group 4)**
 - [ ] X4: Voice window snapping: snap left/right/top/bottom/quarters, maximize, "dono windows side by side"
-- [ ] X5: Deep drive index: file names across every fixed drive in SQLite FTS (system areas skipped), refreshed by Night Shift, used by `files.find`. "D drive mein resume.pdf kahan hai"
+- [x] X5: Deep drive index (done 2026-11-05: 169,800 files in 25 s, searches in ms): file names across every fixed drive in SQLite FTS (system areas skipped), refreshed by Night Shift, used by `files.find`. "D drive mein resume.pdf kahan hai"
 - [ ] X6: Telemetry: CPU temperature where Windows exposes it (honest "not available" otherwise), top processes, network speed
 - [ ] X7: Single-shot OS command: `system.powershell`, one command, always confirmed, output shown, never auto
 
