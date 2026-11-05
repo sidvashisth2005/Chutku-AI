@@ -474,7 +474,42 @@ def _cpu_percent(interval=0.5):
     return round(100 * busy / max(total2 - total1, 1), 1)
 
 
+# ACPI thermal zones (root/wmi often needs admin, the perf counter class does not), then 1 s of network counters.
+# Zones are the firmware's sensors near the CPU; values outside 5-125 C are firmware placeholders.
+_TELEMETRY = r'''
+$ErrorActionPreference = 'SilentlyContinue'
+$c = @(Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature | ForEach-Object { $_.CurrentTemperature / 10 - 273.15 })
+if (-not $c) { $c = @(Get-CimInstance Win32_PerfFormattedData_Counters_ThermalZoneInformation | ForEach-Object { $_.Temperature - 273.15 }) }
+$c = @($c | Where-Object { $_ -ge 5 -and $_ -le 125 })
+$s = (Get-Counter '\Network Interface(*)\Bytes Received/sec', '\Network Interface(*)\Bytes Sent/sec').CounterSamples
+$net = $null
+if ($s) { $net = [pscustomobject]@{
+  down_mbps = [math]::Round((($s | Where-Object { $_.Path -like '*received*' } | Measure-Object CookedValue -Sum).Sum) * 8 / 1e6, 2)
+  up_mbps = [math]::Round((($s | Where-Object { $_.Path -like '*sent*' } | Measure-Object CookedValue -Sum).Sum) * 8 / 1e6, 2) } }
+[pscustomobject]@{ cpu_c = $(if ($c) { [math]::Round(($c | Measure-Object -Maximum).Maximum, 1) } else { $null }); network = $net } | ConvertTo-Json -Compress
+'''
+CPU_TEMP_MISSING = "CPU temperature isn't exposed on this PC without admin."
+
+
+def _telemetry():
+    """CPU temperature (or the honest reason it is missing) and current network throughput."""
+    try:
+        from chutku.tools.everyday import _powershell
+        found = _powershell(_TELEMETRY, {}, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        found = None
+    found = found if isinstance(found, dict) else {}
+    output = {"cpu_temperature_c": found.get("cpu_c"), "network_mbps": found.get("network")}
+    if output["cpu_temperature_c"] is None:
+        output["cpu_temperature_note"] = CPU_TEMP_MISSING
+    return output
+
+
 def _performance(_arguments, _context):
+    from concurrent.futures import ThreadPoolExecutor
+    pool = ThreadPoolExecutor(1)
+    telemetry = pool.submit(_telemetry)   # its 1 s network sample overlaps the CPU sample below
+    pool.shutdown(wait=False)
     kernel = ctypes.WinDLL("kernel32")
     memory = _MEMORYSTATUSEX(dwLength=ctypes.sizeof(_MEMORYSTATUSEX))
     kernel.GlobalMemoryStatusEx(ctypes.byref(memory))
@@ -505,6 +540,7 @@ $ErrorActionPreference='Stop'
         output["top_memory_processes"] = top if isinstance(top, list) else [top]
     except OSError:
         output["top_memory_processes"] = None
+    output.update(telemetry.result())
     return ToolResult(output, Verification.PASS)
 
 

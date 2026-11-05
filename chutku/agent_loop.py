@@ -81,6 +81,7 @@ TAINTING_TOOLS = frozenset({
     "screen.act_on_visible",   # it reads screen text
     "file.extract_text", "screen.read_text", "code.run_python", "screen.understand", "screen.ask", "log.recent",
     "message.read_chat", "image.describe", "screen.click",
+    "system.powershell",   # command output is outside text
 })
 # Tools that read the user's private data. After one of these, network requests need a click,
 # because a URL built from that data could leak it. Public web content alone does not count.
@@ -88,7 +89,7 @@ PRIVATE_TOOLS = frozenset({
     "filesystem.read_text", "filesystem.search", "file.extract_text", "clipboard.read_text",
     "screen.read_text", "screen.understand", "screen.ask", "screen.capture", "uia.inspect", "windows.list",
     "memory.search",
-    "code.run_python", "log.recent", "message.read_chat", "me.profile",
+    "code.run_python", "system.powershell", "log.recent", "message.read_chat", "me.profile",
     "filesystem.list", "filesystem.largest", "files.find", "files.recent",   # names of the owner's files
     "reflex.list", "nightshift.report",   # the owner's past requests
     "timeline.search",   # what the owner had open
@@ -406,6 +407,8 @@ _EFFECT_INTENTS = [
     (("files.organize",), re.compile(r"\b(?:organi[sz]e|tidy|clean|arrange|sort|saaf|sajao)\w*\b", re.I)),
     (("files.organize_undo",), re.compile(r"\b(?:undo|restore|revert|put back|wapas|vapas)\b", re.I)),
     (("code.run_python",), re.compile(r"\b(?:run|execute|chalao|start)\b", re.I)),
+    # A free-form shell command only when the owner asks for one, never as the planner's own shortcut.
+    (("system.powershell",), re.compile(r"\b(?:powershell|command|cmdlet|terminal|shell)\b", re.I)),
     # A build needs a build verb AND something buildable: "create draft.txt with the text hello" is a file write
     # (verify_agent_chat 2026-10-04: the model chose code.build_project for it).
     (("code.build_project",), re.compile(r"^(?=.*\b(?:build|make|create|code|develop|program|write|generate|banao|bana|"

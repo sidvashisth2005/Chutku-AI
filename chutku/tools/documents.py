@@ -377,6 +377,43 @@ def _run_python(arguments, context):
     return ToolResult(output, Verification.PASS, output | {"stdout": "[REDACTED]", "stderr": "[REDACTED]"})
 
 
+MAX_COMMAND = 500
+OUTPUT_CHARS = 8000
+
+
+def _validate_powershell(arguments):
+    if set(arguments) != {"command"} or not isinstance(arguments["command"], str):
+        raise ValueError("Give one PowerShell command.")
+    command = arguments["command"]
+    if not command.strip() or len(command) > MAX_COMMAND:
+        raise ValueError(f"The command must be 1 to {MAX_COMMAND} characters.")
+    if not command.isprintable():   # newlines, tabs, NUL, U+2028...: one visible line is what the owner approves
+        raise ValueError("Only one single-line command is allowed.")
+
+
+def _powershell_command(arguments, _context):
+    executable = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+    # -EncodedCommand runs exactly the approved text (-Command would re-split its quotes); output as UTF-8.
+    script = "[Console]::OutputEncoding = [Text.Encoding]::UTF8\n" + arguments["command"]
+    try:
+        done = subprocess.run([str(executable), "-NoProfile", "-NonInteractive", "-EncodedCommand",
+                               base64.b64encode(script.encode("utf-16-le")).decode("ascii")],
+                              cwd=os.path.expanduser("~"), capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=60, stdin=subprocess.DEVNULL,
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except subprocess.TimeoutExpired:
+        return ToolResult({"error": "The command ran longer than 60 seconds and was stopped."}, Verification.FAIL)
+    except OSError as error:
+        return ToolResult({"error": f"PowerShell could not start: {error}"}, Verification.FAIL)
+    output = {"exit_code": done.returncode, "stdout": done.stdout[:OUTPUT_CHARS], "stderr": done.stderr[:OUTPUT_CHARS],
+              "truncated": len(done.stdout) > OUTPUT_CHARS or len(done.stderr) > OUTPUT_CHARS,
+              "provenance": "external_untrusted"}
+    if done.returncode != 0:
+        output["error"] = f"PowerShell reported exit code {done.returncode}."
+    return ToolResult(output, Verification.PASS if done.returncode == 0 else Verification.FAIL,
+                      output | {"stdout": "[REDACTED]", "stderr": "[REDACTED]"})
+
+
 # -- organise a folder --------------------------------------------------------------
 
 CATEGORIES = {
@@ -510,6 +547,14 @@ def register_document_tools(registry):
             "args": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 300}}},
             "required": ["path"], "additionalProperties": False},
         reversibility="none", success_predicate="script_finished_with_captured_output", runs_code=True))
+    registry.register(Tool("system.powershell", "Run ONE single-line Windows PowerShell command (max 500 characters, "
+        "60 s limit) and return its output. Always needs on-screen confirmation; use a dedicated tool when one fits.",
+        Risk.DESTRUCTIVE_OR_PRIVILEGED, _powershell_command, _validate_powershell,
+        required_capability="process.launch",
+        argument_schema={"type": "object", "properties": {
+            "command": {"type": "string", "minLength": 1, "maxLength": MAX_COMMAND}},
+            "required": ["command"], "additionalProperties": False},
+        reversibility="none", success_predicate="command_finished_with_exit_code_zero", runs_code=True))
     registry.register(Tool("files.organize", "Tidy a folder (e.g. Desktop or Downloads): move its files into "
         "Images, Documents, Videos, Music, Archives, Installers and Code subfolders. Undo with files.organize_undo.",
         Risk.EXTERNAL_SIDE_EFFECT, _organize, _validate_path, resource_access="modify", argument_schema=path_schema,
