@@ -16,6 +16,52 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-05: One-click install for a new PC, README for strangers, CI, release audit (O4, O5, O6)
+
+**Installer (O4)**
+- `Install-Chutku.cmd` runs `scripts/install.ps1`, which:
+  - finds Python 3.11+ (py launcher first);
+  - creates `.venv`;
+  - installs exactly `requirements.lock`;
+  - checks the models (`-Models` downloads them);
+  - runs `chutku.cli doctor`;
+  - with `-Autostart`, starts Chutku at sign-in.
+- `requirements.lock` was missing 14 packages the code uses (pywebview, qrcode, openwakeword and their
+  dependencies). They are now locked. `pip freeze` minus the lock is only the `[dev]` tools.
+- `scripts/setup_all.py --download` now also fetches the folder artifacts:
+  - the llama.cpp CPU and GPU runtimes: archive SHA-256, zip-slip check, then the executable or whole-folder digest;
+  - Whisper: the pinned Hugging Face revision plus a folder digest.
+  Anything that does not match is deleted. The CPU runtime was never checked before; it is now.
+- **Real path:** a fresh `git clone` into `D:\ChutkuScratch\install-test`:
+  - `Install-Chutku.cmd` finished in 215 s with exit 0, and the health check passed;
+  - `chutku.cli ask "what time is it"` in the clone answered "Thursday, 05 November 2026, 09:56 PM";
+  - in the clone, the CPU runtime fetched and verified in 2.8 s, the GPU runtime in 8.9 s, and Whisper in 3.4 s.
+- **Negative cases:**
+  - a fake Python 3.8 is refused before anything is written (exit 1);
+  - a Whisper fetch against a wrong pinned digest is refused and its folder deleted;
+  - unit tests (`tests/test_setup_all.py`, 3) cover a zip entry escaping the folder (refused) and a runtime with a
+    wrong executable digest (deleted).
+- **Not done yet:** the dashboard first-run wizard (name, brain keys, mic test). New users follow the README steps
+  instead.
+
+**README, docs and CI (O5)**
+- New `README.md` for new users: what Chutku does, the safety model, requirements, install, free brain keys, and
+  privacy.
+- The old README moved unchanged to `docs/DEVELOPER.md`.
+- New: MIT `LICENSE` (committed earlier), `CONTRIBUTING.md` (the gate plus the coding principles), and
+  `.github/workflows/tests.yml` (windows-latest, unit tests plus phrase routing). CI has not been seen running yet;
+  it is checked after the push.
+
+**Release audit (O6, report only): `docs/RELEASE_CHECKLIST.md`**
+- No API keys in the tracked files or anywhere in git history.
+- Only fake phone numbers.
+- Personal data remains in old docs and in 109 history lines. The recommendation is a fresh public repository when
+  the owner decides to publish.
+- Licence items to settle: openWakeWord's pre-trained models are CC BY-NC-SA, espeak-ng (behind Kokoro's Hindi) is
+  GPL, and the PortAudio ASIO DLLs.
+- **Not run yet:** the `security-review` skill pass over the Phase 6 diff. It runs after the builder merges.
+- Full suite: 1,240 tests in 231 s, OK. `check_phrases.py`: 135/135.
+
 ### 2026-11-05: Ponytail skills, owner paths become settings, personal names scrubbed, Phase 6 planned (O1, O2)
 
 **Ponytail** (https://github.com/DietrichGebert/ponytail, MIT, v5.3.3 `96608e0`)

@@ -46,3 +46,18 @@ attrs==26.1.0
 cloudpickle==3.1.2
 dlinfo==2.0.0
 joblib==1.6.0
+# Presence window, phone pairing QR, wake engine (used since W4/W6/F3; locked 2026-11-05).
+pywebview==6.2.1
+bottle==0.13.4
+proxy-tools==0.1.0
+pythonnet==3.2.1
+clr-loader==0.3.1
+qrcode==8.2
+openwakeword==0.6.0
+scikit-learn==1.9.1
+scipy==1.18.1
+threadpoolctl==3.7.0
+narwhals==2.27.1
+requests==2.34.2
+urllib3==2.8.0
+charset-normalizer==3.5.2
