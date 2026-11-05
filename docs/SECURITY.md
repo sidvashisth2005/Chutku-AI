@@ -26,15 +26,15 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (185 registered, plus 136 app actions)
+### Risk levels and tools (187 registered, plus 136 app actions)
 
 | Level | Count | Meaning |
 |---|---|---|
 | R0 observation | 75 | reads only |
-| R1 reversible | 52 | easily undone (open apps or pages, window and media control) |
+| R1 reversible | 53 | easily undone (open apps or pages, window and media control) |
 | R2 data modification | 25 | changes data, with runtime undo where available |
 | R3 external side effect | 27 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, settings.theme_restore, settings.theme_set, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close |
-| R4 destructive / privileged | 6 | filesystem.delete_permanent, network.adapter_restore, network.adapter_set, power.cancel, power.schedule, process.terminate |
+| R4 destructive / privileged | 7 | filesystem.delete_permanent, network.adapter_restore, network.adapter_set, power.cancel, power.schedule, process.terminate, system.powershell |
 
 **App actions** (`app.<app>.<action>`, App Mastery, `chutku/apps/atlas/*.json`) take their risk from the atlas class: safe → R1, changes → R2, consequential → R3, destructive → R4 with `deletes` (always asks). The atlas validator refuses URI schemes and programs that are not the app's own and unknown step verbs; keys and typing are sent only while the app's own window is in front; every action ends with its own check, and the kernel, never-rules, taint rules, ledger and action log apply as to any tool. Instant routing by phrase (`chutku/apps/phrases.py`) only picks actions the Action Lab has verified on this PC; anything else goes to the planner, which is offered an app's actions only when the request names that app. `apps.howto` (R0) reads only the checked-in feature maps (`docs/apps/*.md`), not web text.
 
@@ -48,7 +48,7 @@ Every tool call goes through `Runtime.run`:
 | **Owner** (default, owner's standing order 2026-10-04) | everything else | changing files (create-only tools excepted), every deletion, R4, messages to people not in memory |
 
 **In every mode, these always ask:**
-- Running code or a program with arguments (`Tool.runs_code`: `code.run_python`, `process.launch`).
+- Running code or a program with arguments (`Tool.runs_code`: `code.run_python`, `process.launch`, `system.powershell`). `system.powershell` is also R4, so its approval is never reused by a later request (a scheduled task or a re-sent task asks again).
 - Typing into a command window, opening the Run box, or launching a command-line app.
 - Changing a saved contact's phone or WhatsApp name.
 - Agent browser steps on local or private addresses.

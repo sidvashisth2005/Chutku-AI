@@ -133,6 +133,10 @@ class Desktop:
             (self.u, "ShowWindowAsync", [w.HWND, ctypes.c_int], w.BOOL),
             (self.u, "PostMessageW", [w.HWND, w.UINT, w.WPARAM, w.LPARAM], w.BOOL),
             (self.u, "GetWindow", [w.HWND, w.UINT], w.HWND),
+            (self.u, "GetWindowRect", [w.HWND, ctypes.POINTER(w.RECT)], w.BOOL),
+            (self.u, "SetWindowPos", [w.HWND, w.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                                      w.UINT], w.BOOL),
+            (self.u, "MonitorFromWindow", [w.HWND, w.DWORD], w.HMONITOR),
             (self.k, "OpenProcess", [w.DWORD, w.BOOL, w.DWORD], w.HANDLE),
             (self.k, "QueryFullProcessImageNameW", [w.HANDLE, w.DWORD, w.LPWSTR, ctypes.POINTER(w.DWORD)], w.BOOL),
             (self.k, "CloseHandle", [w.HANDLE], w.BOOL),
@@ -823,6 +827,113 @@ def _manage(arguments, _context):
     return ToolResult(output, Verification.PASS if ok else Verification.UNKNOWN)
 
 
+SNAP_POSITIONS = ("left", "right", "top", "bottom", "top_left", "top_right", "bottom_left", "bottom_right",
+                  "maximize", "center")
+_SNAP_SCHEMA = {"type": "object", "properties": _WINDOW_IDENTITY | {
+    "position": {"type": "string", "enum": list(SNAP_POSITIONS)}},
+    "required": ["window_id", "process_id", "executable", "position"], "additionalProperties": False}
+SNAP_TOLERANCE = 8   # px: some apps round their size (character cells, minimum sizes)
+
+
+def _validate_snap(arguments):
+    _validate_identity(arguments, ("position",))
+    if arguments["position"] not in SNAP_POSITIONS:
+        raise ValueError("Unsupported snap position.")
+
+
+def snap_rect(position, work, size):
+    """The visible (left, top, right, bottom) for a position inside the work area; center keeps the size."""
+    left, top, right, bottom = work
+    if position == "center":
+        width, height = min(size[0], right - left), min(size[1], bottom - top)
+        x, y = left + (right - left - width) // 2, top + (bottom - top - height) // 2
+        return x, y, x + width, y + height
+    mid_x, mid_y = (left + right) // 2, (top + bottom) // 2
+    parts = position.split("_")
+    x0, x1 = (left, mid_x) if "left" in parts else (mid_x, right) if "right" in parts else (left, right)
+    y0, y1 = (top, mid_y) if "top" in parts else (mid_y, bottom) if "bottom" in parts else (top, bottom)
+    return x0, y0, x1, y1
+
+
+def _window_rect(desktop, hwnd):
+    rect = w.RECT()
+    if not desktop.u.GetWindowRect(hwnd, ctypes.byref(rect)):
+        raise OSError("Windows did not report the window's position.")
+    return rect.left, rect.top, rect.right, rect.bottom
+
+
+def _visible_rect(hwnd, outer):
+    """The frame the owner sees: Windows 10/11 windows have invisible resize borders outside it."""
+    rect = w.RECT()
+    if ctypes.WinDLL("dwmapi").DwmGetWindowAttribute(w.HWND(hwnd), 9, ctypes.byref(rect), ctypes.sizeof(rect)):
+        return outer   # DWMWA_EXTENDED_FRAME_BOUNDS unavailable: treat the window rect as visible
+    return rect.left, rect.top, rect.right, rect.bottom
+
+
+def _work_area(desktop, hwnd):
+    from chutku.vision import _MonitorInfo
+    desktop.u.GetMonitorInfoW.argtypes = [w.HMONITOR, ctypes.POINTER(_MonitorInfo)]
+    info = _MonitorInfo(cbSize=ctypes.sizeof(_MonitorInfo))
+    if not desktop.u.GetMonitorInfoW(desktop.u.MonitorFromWindow(hwnd, 2), ctypes.byref(info)):  # 2: NEAREST
+        raise OSError("Windows did not report the window's monitor.")
+    work = info.rcWork
+    return work.left, work.top, work.right, work.bottom
+
+
+def snap_plan(desktop, hwnd, position):
+    """(work area, window rect to set) for a restored window; reads only."""
+    work = _work_area(desktop, hwnd)
+    outer = _window_rect(desktop, hwnd)
+    seen = _visible_rect(hwnd, outer)
+    target = snap_rect(position, work, (seen[2] - seen[0], seen[3] - seen[1]))
+    return work, (target[0] - (seen[0] - outer[0]), target[1] - (seen[1] - outer[1]),
+                  target[2] + (outer[2] - seen[2]), target[3] + (outer[3] - seen[3]))
+
+
+def _wait(check, seconds=2.0):
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline and not check():
+        time.sleep(0.05)
+    return bool(check())
+
+
+def _snap(arguments, _context):
+    from chutku.vision import dpi_aware
+    desktop = Desktop()
+    hwnd, position = arguments["window_id"], arguments["position"]
+    if desktop.exact(hwnd, arguments["process_id"], arguments["executable"]) is None:
+        return ToolResult({"error": "That exact window no longer exists; list windows again."}, Verification.FAIL)
+    with dpi_aware():   # physical pixels for the monitor, the window and the check alike
+        if position == "maximize":
+            desktop.u.ShowWindowAsync(hwnd, 3)
+            ok = _wait(lambda: desktop.u.IsZoomed(hwnd))
+            output = {"window_id": hwnd, "position": position, "state_observed": ok}
+            if not ok:
+                output["error"] = "Windows did not report the window as maximized."
+            return ToolResult(output, Verification.PASS if ok else Verification.UNKNOWN)
+        for _ in range(2):   # a minimized window that was maximized restores to maximized first
+            if desktop.u.IsIconic(hwnd) or desktop.u.IsZoomed(hwnd):
+                desktop.u.ShowWindowAsync(hwnd, 9)
+                _wait(lambda: not desktop.u.IsIconic(hwnd) and not desktop.u.IsZoomed(hwnd))
+        if desktop.u.IsIconic(hwnd) or desktop.u.IsZoomed(hwnd):
+            return ToolResult({"window_id": hwnd, "position": position,
+                               "error": "The window could not be restored first."}, Verification.FAIL)
+        work, (left, top, right, bottom) = snap_plan(desktop, hwnd, position)
+        # SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS: a hung app cannot block Chutku
+        desktop.u.SetWindowPos(hwnd, None, left, top, right - left, bottom - top, 0x0004 | 0x0010 | 0x4000)
+        observed = []
+
+        def placed():
+            observed[:] = _window_rect(desktop, hwnd)
+            return all(abs(a - b) <= SNAP_TOLERANCE for a, b in zip(observed, (left, top, right, bottom)))
+        ok = _wait(placed)
+    output = {"window_id": hwnd, "position": position, "work_area": list(work),
+              "requested_rect": [left, top, right, bottom], "observed_rect": observed, "state_observed": ok}
+    if not ok:
+        output["error"] = "The window did not take that position (it may have a minimum size or be elevated)."
+    return ToolResult(output, Verification.PASS if ok else Verification.UNKNOWN)
+
+
 def _close_window(arguments, _context):
     desktop = Desktop()
     if desktop.exact(arguments["window_id"], arguments["process_id"], arguments["executable"]) is None:
@@ -974,6 +1085,13 @@ def register_everyday_tools(registry):
         Risk.REVERSIBLE, _manage, _validate_manage, required_capability="desktop.input",
         argument_schema=_MANAGE_SCHEMA, prerequisites=desktop, reversibility="transient",
         success_predicate="requested_window_state_read_back"))
+    registry.register(Tool("windows.snap", "Snap one exact window from windows.list (window_id, process_id, "
+        "executable) to the left/right/top/bottom half or a corner of its own screen (top_left, top_right, "
+        "bottom_left, bottom_right), maximize or center it; two windows side by side are two snaps. Verifies the "
+        "new position.",
+        Risk.REVERSIBLE, _snap, _validate_snap, required_capability="desktop.input",
+        argument_schema=_SNAP_SCHEMA, prerequisites=desktop, reversibility="transient",
+        success_predicate="window_rect_read_back_matches_position"))
     registry.register(Tool("windows.close", "Ask one exact window from windows.list to close (the app may ask to "
         "save); verifies it disappears.",
         Risk.EXTERNAL_SIDE_EFFECT, _close_window, _validate_identity, required_capability="desktop.input",

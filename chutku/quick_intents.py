@@ -1483,7 +1483,8 @@ def _say_perf(out):
     """CPU, RAM, GPU and what uses the most memory: the instant answer to "laptop lag kar raha hai"."""
     parts = []
     if out.get("cpu_percent") is not None:
-        parts.append(f"CPU {round(out['cpu_percent'])}%")
+        parts.append(f"CPU {round(out['cpu_percent'])}%" + (f" at {round(out['cpu_temperature_c'])}°C" if out.get(
+            "cpu_temperature_c") is not None else ""))
     memory = out.get("memory") or {}
     if memory:
         parts.append(f"RAM {memory['used_percent']}% used ({memory['used_gib']} of {memory['total_gib']} GB)")
@@ -1491,7 +1492,12 @@ def _say_perf(out):
     if gpu.get("utilization_percent") is not None:
         parts.append(f"GPU {gpu['utilization_percent']}%" + (f" at {gpu['temperature_c']}°C" if gpu.get(
             "temperature_c") is not None else ""))
+    network = out.get("network_mbps") or {}
+    if network.get("down_mbps") is not None:
+        parts.append(f"network {network['down_mbps']:g} Mbps down, {network.get('up_mbps') or 0:g} up")
     text = "Your PC: " + ", ".join(parts) + "." if parts else "I could not read the PC's load."
+    if out.get("cpu_temperature_note"):
+        text += " " + out["cpu_temperature_note"]
     totals = {}
     for process in out.get("top_memory_processes") or []:   # several "Code" windows are one app
         totals[process["name"]] = totals.get(process["name"], 0) + process["memory_mib"]
@@ -1507,7 +1513,10 @@ def _say_perf(out):
         hints.append("the CPU is very busy right now")
     if gpu.get("temperature_c") and gpu["temperature_c"] >= 85:
         hints.append("the GPU is hot")
-    return text + (" " + "; ".join(hints).capitalize() + "." if hints else "")
+    if (out.get("cpu_temperature_c") or 0) >= 90:
+        hints.append("the CPU is hot")
+    hints = "; ".join(hints)
+    return text + (" " + hints[:1].upper() + hints[1:] + "." if hints else "")   # not capitalize(): it lowercases "CPU"
 
 
 def _describe_person(person):
