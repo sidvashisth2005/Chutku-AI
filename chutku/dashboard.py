@@ -940,6 +940,17 @@ class DashboardServer(ThreadingHTTPServer):
         return state
 
     PHASES = ("idle", "listening", "thinking", "running", "speaking", "confirm", "done", "clarify", "error", "paused")
+    MOODS = {"listening": "listening", "confirm": "listening", "clarify": "listening", "thinking": "thinking",
+             "running": "thinking", "speaking": "speaking", "error": "sorry", "paused": "sleepy"}
+
+    @classmethod
+    def presence_mood(cls, phase, steps):
+        """X11: the orb face's mood. Happy only when the task is done and every completed step was verified."""
+        if phase == "done":
+            completed = [s for s in steps if s.get("state") == "COMPLETED"]
+            failed = any(s.get("state") in {"FAILED", "DENIED"} for s in steps)
+            return "happy" if completed and not failed and all(s.get("verified") for s in completed) else "calm"
+        return cls.MOODS.get(phase, "calm")
 
     def presence_state(self):
         """What the presence orb shows (W4): its phase, voice levels in and out, captions and the live task."""
@@ -955,7 +966,8 @@ class DashboardServer(ThreadingHTTPServer):
         session = state.get("session") or {}
         steps = [{"tool": s.get("tool"), "purpose": str(s.get("purpose") or "")[:90], "state": s.get("state"),
                   "verified": s.get("verification") == "PASS"} for s in (session.get("steps") or [])][-8:]
-        return {"phase": phase if phase in self.PHASES else "idle",
+        phase = phase if phase in self.PHASES else "idle"
+        return {"phase": phase, "mood": self.presence_mood(phase, steps),
                 "mic_level": round(float(state.get("level") or 0.0), 4),
                 "voice_level": round(tts.speaking_level(), 3) if speaking else 0.0,
                 "heard": state.get("transcript") or "", "message": state.get("message") or "",

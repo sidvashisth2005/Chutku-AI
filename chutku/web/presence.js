@@ -24,6 +24,91 @@ const canvas = $("orb"), ctx = canvas.getContext("2d");
 const particles = Array.from({length:70}, (_, i) => ({a:Math.random()*Math.PI*2, r:0.55+Math.random()*0.4,
   s:(0.15+Math.random()*0.6)*(i%2?1:-1), z:Math.random()}));
 function accent(){return getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#22d3ee";}
+
+// ---- her face on the core (X11 eyes with moods, X12 mouth) -----------------------------------------------------
+// The mood comes from /api/presence ("mood"); each look is a target the face eases toward, so moods morph.
+// open: eye height, x/y: gaze, tilt: sad slant of the lids, smile: mouth curve at rest, blink: ms between blinks.
+const LOOKS = {
+  calm:      {open:0.85, x:0,   y:0,     tilt:0,    smile:0.5,  blink:[3500,6500]},
+  listening: {open:1.15, x:0,   y:-0.35, tilt:0,    smile:0.3,  blink:[2500,5000]},
+  thinking:  {open:0.5,  x:1,   y:-0.3,  tilt:0,    smile:0,    blink:[4000,7000]},
+  speaking:  {open:0.75, x:0,   y:0,     tilt:0,    smile:0.35, blink:[3000,5000]},
+  happy:     {open:0.85, x:0,   y:0,     tilt:0,    smile:1,    blink:null},
+  sorry:     {open:0.7,  x:0,   y:0.35,  tilt:0.8,  smile:-0.6, blink:[3000,6000]},
+  sleepy:    {open:0.04, x:0,   y:0.3,   tilt:0,    smile:0,    blink:null},
+};
+// Mouth sizes in units of the core radius: closed, slightly open, round, open, wide.
+const MOUTHS = [{w:0,h:0}, {w:0.17,h:0.05}, {w:0.1,h:0.11}, {w:0.18,h:0.13}, {w:0.26,h:0.15}];
+const INK = "#04111dea";
+const still = matchMedia("(prefers-reduced-motion: reduce)");   // then: no blinking or glancing, a static face
+const face = {open:0.85, x:0, y:0, tilt:0, smile:0.5, blinkAt:-1e9, nextBlink:1500, voice:0, shape:0, shapeAt:0, mw:0, mh:0};
+
+// Amplitude lip-sync (X12 v1): her voice's loudness (0..1) picks one of five mouth shapes; it knows no phonemes.
+// A level within 0.03 of a band edge keeps the previous shape, so the mouth does not flicker on the edge.
+function mouthShape(level, previous){
+  const edges = [0.05, 0.2, 0.4, 0.65];
+  const shape = edges.filter(edge => level >= edge).length;
+  if(Math.abs(shape - previous) === 1 && Math.abs(level - edges[Math.min(shape, previous)]) < 0.03) return previous;
+  return shape;
+}
+function drawEye(cx, cy, u, side, mood, blink){   // side: -1 her right (screen left), +1 the other
+  const w = 0.12*u, h = 0.24*u*face.open*blink;
+  ctx.fillStyle = ctx.strokeStyle = INK; ctx.lineWidth = 0.07*u; ctx.lineCap = "round";
+  if(mood==="happy"){   // smiling eyes: ^ ^
+    ctx.beginPath(); ctx.arc(cx, cy + 0.1*u, 0.15*u, Math.PI*1.2, Math.PI*1.8); ctx.stroke(); return;
+  }
+  if(h < 0.05*u){       // closed: a soft downward curve
+    ctx.beginPath(); ctx.moveTo(cx - w*1.3, cy); ctx.quadraticCurveTo(cx, cy + 0.09*u, cx + w*1.3, cy); ctx.stroke(); return;
+  }
+  ctx.save();
+  if(face.tilt > 0.02){ // sorry: the lid drops toward the outer corner
+    const inner = cx - side*w*2, outer = cx + side*w*2, top = cy - h*1.05;
+    ctx.beginPath(); ctx.moveTo(inner, top); ctx.lineTo(outer, top + face.tilt*h*1.6);
+    ctx.lineTo(outer, cy + h*2); ctx.lineTo(inner, cy + h*2); ctx.closePath(); ctx.clip();
+  }
+  ctx.beginPath(); ctx.ellipse(cx, cy, w, h, 0, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = "#ffffffcc";   // catchlight
+  ctx.beginPath(); ctx.arc(cx + w*0.35, cy - h*0.45, 0.04*u, 0, Math.PI*2); ctx.fill();
+}
+function drawFace(t, c, u){
+  const mood = LOOKS[state.mood] ? state.mood : "calm", look = LOOKS[mood], calm = still.matches;
+  const k = calm ? 1 : 0.12;
+  const glance = calm || mood!=="thinking" ? 1 : (Math.sin(t/2600) > 0 ? 1 : -1);   // thinking: looks one side, then the other
+  face.open += (look.open - face.open)*k; face.x += (look.x*glance - face.x)*k; face.y += (look.y - face.y)*k;
+  face.tilt += (look.tilt - face.tilt)*k; face.smile += (look.smile - face.smile)*k;
+  let blink = 1;
+  if(!calm && look.blink){
+    if(t >= face.nextBlink){
+      face.blinkAt = t;
+      const [low, high] = look.blink;
+      face.nextBlink = t + (Math.random() < 0.15 ? 260 : low + Math.random()*(high - low));   // sometimes a double blink
+    }
+    const e = t - face.blinkAt;
+    if(e < 160) blink = 1 - Math.sin(Math.PI*e/160);
+  }
+  const gx = face.x*0.13*u, gy = face.y*0.13*u, ey = c - 0.16*u + gy;
+  drawEye(c - 0.36*u + gx, ey, u, -1, mood, blink);
+  drawEye(c + 0.36*u + gx, ey, u, 1, mood, blink);
+  // mouth: her voice level, smoothed (fast open, slower close), then held at least 90 ms per shape
+  const speaking = state.phase==="speaking", target = speaking ? Math.min(1, state.voice_level || 0) : 0;
+  face.voice += (target - face.voice)*(target > face.voice ? 0.5 : 0.2);
+  const want = calm ? (speaking ? 1 : 0) : mouthShape(face.voice, face.shape);
+  if(want !== face.shape && t - face.shapeAt > 90){face.shape = want; face.shapeAt = t;}
+  const shape = MOUTHS[face.shape], mk = calm ? 1 : 0.4;
+  face.mw += (shape.w - face.mw)*mk; face.mh += (shape.h - face.mh)*mk;
+  const mx = c + gx*0.5, my = c + 0.36*u + gy*0.5;
+  ctx.fillStyle = ctx.strokeStyle = INK;
+  if(face.mh > 0.03){
+    ctx.beginPath(); ctx.ellipse(mx, my, face.mw*u, face.mh*u, 0, 0, Math.PI*2); ctx.fill();
+  }else{                 // at rest: a curve that smiles, stays flat or frowns with the mood
+    const half = (0.16 + 0.06*Math.max(0, face.smile))*u;
+    ctx.lineWidth = 0.065*u; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(mx - half, my - face.smile*0.04*u);
+    ctx.quadraticCurveTo(mx, my + face.smile*0.16*u, mx + half, my - face.smile*0.04*u); ctx.stroke();
+  }
+}
+
 function draw(t){
   const size = canvas.width, c = size/2, color = accent();
   const target = Math.min(1, state.phase==="speaking" ? state.voice_level : state.mic_level*14);
@@ -61,7 +146,9 @@ function draw(t){
   // core
   const core = ctx.createRadialGradient(c - size*0.04, c - size*0.05, size*0.01, c, c, size*0.16);
   core.addColorStop(0, "#ffffff"); core.addColorStop(0.25, color); core.addColorStop(1, color+"10");
-  ctx.fillStyle = core; ctx.beginPath(); ctx.arc(c,c,size*(0.11 + 0.015*breathe + shown.level*0.03),0,Math.PI*2); ctx.fill();
+  const coreRadius = size*(0.11 + 0.015*breathe + shown.level*0.03);
+  ctx.fillStyle = core; ctx.beginPath(); ctx.arc(c,c,coreRadius,0,Math.PI*2); ctx.fill();
+  drawFace(t, c, still.matches ? size*0.11 : coreRadius);
   // particles
   for(const p of particles){
     p.a += p.s*0.004*(busy?3:1);
@@ -104,7 +191,7 @@ function render(){
 }
 async function poll(){
   try{ state = await api("/api/presence"); render(); }
-  catch{ state = {...state, phase:"error", message:"Chutku is not running."}; render(); }
+  catch{ state = {...state, phase:"error", mood:"sorry", message:"Chutku is not running."}; render(); }
   setTimeout(poll, state.phase==="idle" || state.phase==="paused" ? 400 : 100);
 }
 async function decide(approve){
