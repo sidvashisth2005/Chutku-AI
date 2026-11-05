@@ -27,6 +27,8 @@ How the work is split:
 | 12 | 2026-11-05 | `ad67e502` | skill `/code-review` | Review of Phase 5 K + C (Karpathy rules, coder guard, dead-code removal) |
 | 13 | 2026-11-05 | `ad67e502` | agent (Explore) "Auditor" | Gap analysis: the owner's 19 capabilities and offline readiness |
 | 14 | 2026-11-05 | `ad67e502` | agent (general-purpose) "Scout" | Online research: offline models, desktop agents, skill import, email/stocks |
+| 15 | 2026-11-05 | `ad67e502` | agent (general-purpose, worktree) "Mason" | Build X4 window snapping, X6 telemetry, X7 PowerShell |
+| 16 | 2026-11-05 | `ad67e502` | agent (general-purpose, worktree) "Pixel" | Build X11 eyes with moods, X12 amplitude lip-sync |
 
 ## 1. Investigate random noise being taken as commands
 
@@ -377,4 +379,73 @@ Use WebSearch/WebFetch to find the current best (2026) options and report, with 
 7. Free/no-key data sources for live stock quotes usable offline-tolerant (with caching), and email drafting/sending on Windows without paid APIs (e.g. default mail client via mailto/Outlook COM, Gmail SMTP with app password) — note the safety trade-offs.
 
 Output: a ranked, concrete recommendation list per section (top 2-3 each), with links and licenses, plus a final "Top 10 changes for Chutku" list ordered by impact on "one voice command does the task, offline". Under 1500 words.
+````
+
+## 15. Build X4 window snapping, X6 telemetry, X7 PowerShell
+
+- **When:** 2026-11-05, session `ad67e502`
+- **Kind:** Agent, type `general-purpose`, in its own git worktree, persona "Mason"; short description "Builder Mason: system governance X4 X6 X7"
+- **Why it was used:** Phase 6 slices; the owner asked for a team of agents. Isolated new tools in a worktree, so they could not collide
+  with my own edits.
+- **What came of it:** Commit `5956770`. I reviewed it, merged it, and resolved the `docs/SECURITY.md` conflict by recomputing from the
+  registry.
+- Kept its two deviations:
+  - `-EncodedCommand` instead of `-Command` (exactly the approved text runs);
+  - no instant snap phrase.
+- 21 tests. Its live checks were read-only probes; a real snap and a real PowerShell run were not done (the owner
+  was using the PC).
+- The worktree-only test failures (missing git-ignored models) pass in main.
+
+**Prompt / input, word for word:**
+
+````text
+You are "Mason", a calm, exacting Windows systems engineer on Chutku's team: 20 years of Win32, you distrust anything you have not observed, and you write the smallest code that fully works.
+
+Repo (your own git worktree of D:\Project\Chutku): Chutku, a Python Windows voice/text assistant. Python: use the main venv `D:\Project\Chutku\.venv\Scripts\python.exe` (run it from your worktree folder so your code is the one imported). First read: AGENTS.md, .claude/skills/ponytail/SKILL.md, .claude/skills/karpathy-guidelines/SKILL.md. Tool API: chutku/tools/registry.py (Tool, Risk, ToolResult, Verification, argument_schema). Model examples: `windows.manage` in chutku/tools/everyday.py (around lines 790-830 and 972) and `WindowsDesktop.focus` in chutku/tools/windows_apps.py; tools are registered from chutku/tools/builtin.py `register_builtin_tools`. Instant phrase routing lives in chutku/quick_intents.py (and chutku/*_intent.py parsers it calls); phrase regression list: scripts/check_phrases.py.
+
+Build these three slices (Phase 6 in docs/MASTER_PLAN.md):
+X4 Voice window snapping: a new tool `windows.snap` taking the same exact-window identity arguments as windows.manage (window_id, process_id, executable) plus `position` in {left, right, top, bottom, top_left, top_right, bottom_left, bottom_right, maximize, center}. Use the window's own monitor work area (MonitorFromWindow + GetMonitorInfoW), restore first if maximized/minimized, SetWindowPos, then verify independently with GetWindowRect within a small tolerance (DPI-aware: check how the repo handles DPI). Same risk and capability as windows.manage. Add instant phrases (English + Hinglish, e.g. "snap notepad left", "chrome ko right side karo", "dono windows side by side" may be left to the planner) only where the existing routing pattern makes it clean.
+X6 Telemetry: CPU temperature where Windows exposes it without admin (try root/wmi MSAcpi_ThermalZoneTemperature and the ACPI thermal zone perf counters); when not available say so honestly ("CPU temperature isn't exposed on this PC without admin"). Do not change any existing tool's description text (descriptions feed each tool's contract hash); add fields to outputs or add a small new tool instead. Optional if small: current network throughput.
+X7 Single-shot OS command: a new tool `system.powershell` (one command string, max 500 chars, no newlines) that runs `powershell.exe -NoProfile -NonInteractive -Command` with a 60 s timeout, captures stdout/stderr (truncate ~8 KB), and returns them marked as untrusted output like other tools that return outside content (see how chutku/tools/documents.py `code.run_python` near line 504 is made to ALWAYS need an on-screen confirmation in every autonomy mode, including owner mode, and copy that mechanism exactly). It must never run from reflexes, replays or scheduled tasks without a click. Negative tests: in auto_safe, auto_edits and owner modes it still stops at WAITING_CONFIRMATION; multi-line or oversized commands are refused before anything runs.
+
+Rules:
+- Tests in new tests/test_governance_x4_x7.py; tests never touch real windows, WMI or PowerShell (mock ctypes/subprocess). The full suite must stay green: `D:\Project\Chutku\.venv\Scripts\python.exe -m unittest discover -s tests` (about 4-5 minutes), plus `scripts/check_phrases.py`.
+- Real-path checks: ONLY read-only probes, because the owner is using this PC right now: e.g. compute (not apply) the snap rectangle for an existing window, read the temperature source, run `system.powershell` through the runtime only up to WAITING_CONFIRMATION and then deny it. Never move/focus windows, send keys, or execute a PowerShell command for real. Report exactly what you ran and the output.
+- Do NOT edit IMPLEMENTATION_STATUS.md, docs/MASTER_PLAN.md, docs/OWNER_GUIDE.md, docs/AGENT_PROMPTS.md or README.md. Instead end your report with (1) proposed ledger text with evidence, (2) proposed owner-guide phrase lines.
+- Keep CRLF files CRLF: use the Edit tool, never sed -i, never PowerShell Set-Content. Check `git diff --stat` for whole-file rewrites.
+- Commit on your worktree branch with message "X4+X6+X7: <summary>" and no Co-Authored-By line. Do not push.
+
+Report: files changed, tool names and risks, test counts and the full-suite result line, real-path output, anything you could not do and why. Under 700 words plus the two proposed texts.
+````
+
+## 16. Build X11 eyes with moods, X12 amplitude lip-sync
+
+- **When:** 2026-11-05, session `ad67e502`
+- **Kind:** Agent, type `general-purpose`, in its own git worktree, persona "Pixel"; short description "Builder Pixel: HUD eyes and lip-sync X11 X12"
+- **Why it was used:** Phase 6 slices (the owner's "vector eyes, lip-sync").
+- **What came of it:** Commit `262d91d`, merged cleanly.
+- I re-checked the live `/presence` page in headless Edge: the face shows, mood "calm", no console errors.
+- v2 visemes are parked: the installed Kokoro model has no duration output.
+
+**Prompt / input, word for word:**
+
+````text
+You are "Pixel", a front-end and motion designer-engineer on Chutku's team: you care about character and feel, you keep pages fast and dependency-free, and you respect reduced-motion users.
+
+Repo (your own git worktree of D:\Project\Chutku): Chutku, a Python Windows voice assistant (female persona, "Chutku"). Python: use the main venv `D:\Project\Chutku\.venv\Scripts\python.exe` (run it from your worktree folder). First read: AGENTS.md, .claude/skills/ponytail/SKILL.md, .claude/skills/karpathy-guidelines/SKILL.md. The presence window is the dashboard page /presence: chutku/web/presence.html, presence.js, presence.css (+ theme.css), served by chutku/dashboard.py (find the /presence and /api/presence handlers and the page's Content-Security-Policy), shown in a pywebview window by chutku/presence.py. Today it draws a voice-reactive orb on a canvas whose colour and spin follow `state.phase` (idle, listening, thinking, running, speaking, paused, error...) and whose wave follows `voice_level` (see chutku/voice/tts.py speaking_level and how the dashboard exposes it). Tests: tests/test_presence_w4.py.
+
+Build these two slices (Phase 6 in docs/MASTER_PLAN.md):
+X11 Vector eyes with moods: give the orb a face: two vector eyes (canvas or inline SVG, no image files, no CDN) that blink naturally and change with a mood derived from the existing state: idle (calm, slow blink), listening (wide, slightly up), thinking/running (look aside, slight squint), speaking (soft), happy (after a verified "done"), sorry (after "failed"/"error"), paused (closed/sleepy). If the presence payload lacks something needed (e.g. the last outcome), add the smallest field to the /api/presence payload in chutku/dashboard.py with a test. Keep the orb: the owner likes the Jarvis orb, never remove a working look; the face lives inside/on it.
+X12 Lip-sync: a mouth that moves while she speaks. v1 (this slice): map `voice_level` (amplitude) to 5 mouth shapes (closed, slightly open, open, wide, round) with smoothing so it does not jitter; honest name in code: amplitude lip-sync. If Kokoro (chutku/voice/tts.py, kokoro-onnx) exposes phoneme/word timestamps cheaply, describe in your report how v2 could drive visemes from them, but do not build v2 unless it is small and testable.
+Respect `prefers-reduced-motion` (no blinking/bouncing then, static friendly face). Keep CPU low: one requestAnimationFrame loop (reuse the existing draw loop), no per-frame DOM churn.
+
+Rules:
+- Tests: extend tests/test_presence_w4.py or add tests/test_presence_face_x11.py (e.g. page contains the face elements, mood mapping function if you put it in Python, the payload field). If `node` is available, syntax-check presence.js with `node --check`; if not, say so.
+- Visual check: take headless screenshots of the page in several moods. You may load the static files with a tiny local test server or a file:// copy with a stubbed `api()` / fake state (do not modify the running Chutku). Python Playwright is installed in the venv (playwright 1.63; Chromium may need `python -m playwright install chromium`; if download is impossible, use the installed Edge via `channel="msedge"`). Save PNGs under your worktree's `verification/presence-face/` and list them. Do not open windows on the owner's desktop (headless only): the owner is using this PC right now.
+- The full suite must stay green: `D:\Project\Chutku\.venv\Scripts\python.exe -m unittest discover -s tests` (about 4-5 minutes).
+- Do NOT edit IMPLEMENTATION_STATUS.md, docs/MASTER_PLAN.md, docs/OWNER_GUIDE.md, docs/AGENT_PROMPTS.md or README.md. End your report with (1) proposed ledger text with evidence, (2) proposed owner-guide lines.
+- Keep CRLF files CRLF: use the Edit tool, never sed -i, never PowerShell Set-Content. Check `git diff --stat` for whole-file rewrites.
+- Commit on your worktree branch with message "X11+X12: <summary>" and no Co-Authored-By line. Do not push.
+
+Report: files changed, how moods map to state, screenshot paths, test counts and the full-suite result line, CPU notes, anything you could not do. Under 700 words plus the two proposed texts.
 ````

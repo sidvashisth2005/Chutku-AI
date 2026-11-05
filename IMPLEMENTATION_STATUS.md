@@ -16,6 +16,70 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-05: Window snapping, CPU temperature + network, PowerShell with a click, Chutku's face (X4, X6, X7, X11, X12)
+
+Built by two helper agents in their own git worktrees: "Mason" (X4/X6/X7) and "Pixel" (X11/X12). Their prompts are
+in `docs/AGENT_PROMPTS.md` #15–17. I reviewed the diffs, merged them into main, recomputed `docs/SECURITY.md` from
+the live registry (187 tools: R0 75, R1 53, R2 25, R3 27, R4 7, plus 136 app actions), and re-verified in the main
+checkout.
+
+**X4 `windows.snap`** (R1, `desktop.input`)
+- Snaps one exact window to a half or a quarter of its own monitor's work area, or maximizes or centers it.
+- DPI-aware physical pixels, inside the repo's `vision.dpi_aware()`.
+- Allows for the invisible resize borders (DWMWA_EXTENDED_FRAME_BOUNDS).
+- Restores a minimized or maximized window first, then reads `GetWindowRect` back with an 8 px tolerance
+  (otherwise UNKNOWN).
+- **Live, read-only:** work area (0,0,1920,1020) at DPI 120, VS Code's 9 px invisible border measured, and a "left"
+  snap computed to (0,0,960,1020).
+- **Not run live:** a real snap, because the owner was using the PC.
+- No instant phrase: the planner reaches it.
+
+**X6 `system.performance`** (description unchanged)
+- Adds `cpu_temperature_c` and `network_mbps`.
+- On this PC, root/wmi reports "Not supported" and the thermal-zone counter has 0 instances, so it says "CPU
+  temperature isn't exposed on this PC without admin."
+- **Live through the running Chutku** (`live_check.py`, 6/6 correct): "laptop lag kar raha hai" took 2.1–6.7 s and
+  answered "CPU 24%, RAM 63% … GPU 0% at 49°C, network 0.11 Mbps down, 0.14 up. CPU tempera…".
+- **Limit:** the network counter names are English only.
+
+**X7 `system.powershell`** (R4, `runs_code`)
+- Always a click in every mode, including owner mode. Its approval is never reused, and it never runs from reflexes
+  or replays.
+- The planner may pick it only when the request says powershell, command, cmdlet, terminal or shell.
+- One printable line of at most 500 characters, passed via `-EncodedCommand` so exactly the approved text runs.
+- 60 s limit, stdin closed, output up to 8 KB, marked untrusted, redacted in the audit. It is tainting and private.
+- **Live with a temporary state folder:**
+  - owner, auto_edits and auto_safe each stopped at WAITING_CONFIRMATION, then were DENIED;
+  - the `New-Item` marker was never created;
+  - multi-line and 501-character commands were refused before running.
+- **Limit:** a timeout kills powershell.exe but not programs it started.
+
+**X11 + X12: the face**
+- Vector eyes and a mouth are drawn on the presence orb's canvas: no images, no CDN, the same animation loop
+  (`drawFace` ≈ 2–6 µs per frame).
+- The mood comes from a new `/api/presence` field `mood`:
+  - idle → calm;
+  - listening/confirm/clarify → listening;
+  - thinking/running → thinking;
+  - speaking → speaking;
+  - done → happy only when every completed step was verified (else calm);
+  - error → sorry;
+  - paused → sleepy.
+- **Amplitude lip-sync:** 5 mouth shapes from `voice_level`, with hysteresis and a 90 ms hold.
+- `prefers-reduced-motion` gives a static face.
+- **v2 visemes parked:** the installed Kokoro ONNX has no duration output, so `create_timed` gives no timings.
+- **Live:**
+  - a headless Edge screenshot of the **real running** `/presence` page under its strict CSP shows the orb with
+    eyes and a smile;
+  - `/api/presence` returned `idle`/`calm`;
+  - no console errors.
+- Pixel's earlier headless shots covered all 7 moods, the 5 mouth shapes and reduced motion. A calm face blinked
+  within 7.5 s; with reduced motion it never blinked.
+
+**Checks in the main checkout after both merges:** the full suite gave 1,268 tests OK (232 s), and
+`check_phrases.py` 135/135. In the worktrees, 10–11 tests failed only because the git-ignored `models/` and `data/`
+were missing there; they pass in main.
+
 ### 2026-11-05: Find any file on any drive instantly (X5); CI runs the suite
 
 **X5: deep drive index**

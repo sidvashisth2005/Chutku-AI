@@ -1,6 +1,6 @@
 # Chutku — Owner's Guide
 
-Everything you need to use, control and look after Chutku. Last updated 2026-10-29 (self-healing pause after a hang, "resume" by voice after Ctrl+Alt+Space, paused answers out loud).
+Everything you need to use, control and look after Chutku. Last updated 2026-11-05 (find any file on any drive, window snapping, PowerShell with a click, CPU temperature and network speed, Chutku's face).
 
 ---
 
@@ -142,6 +142,14 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 ---
 
 ## 3. Things you can say
+
+**New on 2026-11-05**
+- "D drive mein resume kahan hai" / "where is my electricity bill" / "find invoice march": instant search of every file name on your fixed drives (the drive index; names only, never contents; system and code folders skipped). Night Shift refreshes it daily; "saari drives index karo" rebuilds it now. It matches file names, not folder names.
+- "snap notepad left" / "chrome ko right side karo" / "VS Code ko top right corner mein rakho" / "notepad ko center karo" *(model)*: snaps that window to a half or a quarter of its own screen. "dono windows side by side karo" does two snaps.
+- "laptop garam hai kya" / "cpu temperature kitna hai" / "laptop lag kar raha hai": CPU, RAM, GPU with temperature, and network speed. If Windows does not expose the CPU temperature without admin rights, Chutku says so.
+- "powershell mein ye command chalao: Get-Date" *(model)*: runs **one** single-line PowerShell command (up to 500 characters, 60 s). It **always** shows a confirm button, in every mode including owner mode, and Chutku never chooses it by herself unless you say powershell, command or terminal.
+- **Chutku's face:** the orb has eyes and a mouth. She looks calm when idle, wide-eyed while listening, glances aside while thinking, smiles (^ ^) after a task she has verified, looks sorry when something failed, and closes her eyes when paused. Her mouth follows how loud her voice is (not the exact words). If Windows "Animation effects" is off, the face stays still.
+
 
 Everything below is **instant**: matched by rules and done within about a second, without the AI model. The exceptions are marked *(model)*: those, and anything you phrase differently, are planned by the local model, or by Gemini for code and long tasks. English, Hindi and Hinglish all work.
 

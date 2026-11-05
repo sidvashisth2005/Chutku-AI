@@ -204,9 +204,12 @@ def _locate(arguments, context):
                                   and drive.rstrip(":\\/").isalpha()):
         return ToolResult({"error": "drive must be one letter, e.g. D."}, Verification.FAIL)
     state = drive_index.status()
-    if not state["built"]:
-        return ToolResult({"error": "The drive index is not built yet. Say 'saari drives index karo' (it takes a "
-                                    "few minutes), or use files.find for the personal folders."}, Verification.FAIL)
+    if not state["built"]:   # a new install: search the personal folders as files.find does, and say so
+        home = Path(os.environ.get("USERPROFILE", "")).resolve()
+        matches = find_personal([home / name for name in PERSONAL if (home / name).is_dir()], arguments["query"])
+        return ToolResult({"query": arguments["query"], "matches": matches, "count": len(matches),
+                           "index_built": None, "searched": "personal folders (the drive index is not built yet)"},
+                          Verification.PASS, {"count": len(matches), "matches": "[REDACTED]"})
     matches = drive_index.search(arguments["query"], drive=drive)
     return ToolResult({"query": arguments["query"], "matches": matches, "count": len(matches),
                        "index_built": state["built"], "index_complete": state["complete"]}, Verification.PASS,

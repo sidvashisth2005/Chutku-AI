@@ -132,7 +132,11 @@ PATTERNS = [
     ("find_in_folder", re.compile(rf"^{_POLITE}(?:search|find|look)\s+(?:in\s+|through\s+)?my\s+(?P<folder>downloads|desktop|"
                                   rf"documents|pictures|photos|music|videos)(?:\s+folder)?\s+for\s+(?P<query>[a-z0-9 ._-]{{2,60}}?)"
                                   rf"{_TAIL}", re.I)),
+    # X5: one drive ("D drive mein resume kahan hai", "find invoice on my D drive"): the drive index.
+    ("find_file", re.compile(rf"^{_POLITE}(?P<drive>[a-z])\s*(?::|\s+drive)\s+(?:mein|me|main|pe|par|on|in)\s+(?:meri\s+|mera\s+|my\s+)?(?P<query>[a-z0-9 ._-]{{2,60}}?)\s+(?:file\s+)?(?:dhundo|dhoondo|kahan hai|kaha hai|find karo){_TAIL}", re.I)),
+    ("find_file", re.compile(rf"^{_POLITE}(?:find|locate|search for)\s+(?:my\s+)?(?P<query>[a-z0-9 ._-]{{2,60}}?)\s+(?:on|in)\s+(?:my\s+|the\s+)?(?P<drive>[a-z])\s*(?::|\s+drive)(?:\s+drive)?{_TAIL}", re.I)),
     ("find_file", re.compile(rf"^{_POLITE}(?:meri\s+|mera\s+)?(?P<query>[a-z0-9 ._-]{{2,60}}?)\s+(?:file\s+)?(?:dhundo|dhoondo|kahan hai|kaha hai){_TAIL}", re.I)),
+    ("drive_index", re.compile(rf"^{_POLITE}(?:(?:saari|sab|sabhi)\s+drives?\s+(?:ka\s+)?index\s+(?:karo|banao|kar do)|(?:re)?index\s+(?:all\s+)?(?:my\s+)?(?:drives|files|pc)|(?:update|rebuild)\s+(?:the\s+)?(?:drive|file)\s+index){_TAIL}", re.I)),
     ("note_add", re.compile(rf"^{_POLITE}(?:(?:make a |take a |add a )?note|todo|to-do|add to (?:my )?(?:list|todo|to-do))\s*[:,-]\s*(?P<text>.{{1,300}}?){_TAIL}", re.I)),
     ("note_add", re.compile(rf"^{_POLITE}(?:make a |take a )?note (?:that |down )(?P<text>.{{1,300}}?){_TAIL}", re.I)),
     ("note_add", re.compile(rf"^{_POLITE}add\s+(?P<text>.{{1,300}}?)\s+to\s+(?:my\s+)?(?:list|to-?do(?: list)?|notes){_TAIL}", re.I)),
@@ -1033,8 +1037,12 @@ def _single(goal, apps=None):
                 return None  # ordering words need the model (filesystem.search with a sort)
             if query.casefold() in {"files", "file", "pc", "computer", "laptop", "phone", "keys", "glasses", "mind"}:
                 return None
-            return _proposal("files.find", {"path": home, "query": query}, f"Find files named like {query}", "",
-                             finish=False)
+            arguments = {"query": query}
+            if match.groupdict().get("drive"):
+                arguments["drive"] = match.group("drive").upper()
+            return _proposal("files.locate", arguments, f"Find files named like {query}", "", finish=False)
+        if kind == "drive_index":
+            return _proposal("files.index", {}, "Rebuild the drive index", "", finish=False)
         if kind == "note_add":
             text = match.group("text").strip(" '\"")
             return _proposal("note.add", {"text": text}, "Add to your list", f"Added to your list: {text}.") if text else None
@@ -1291,6 +1299,24 @@ def _say_found(out):
     shown = "; ".join(f"{m['name']} (in {m['folder']}, {m['modified'][:10]})" for m in out["matches"][:5])
     more = f" and {out['count'] - 5} more" if out["count"] > 5 else ""
     return f"Found {out['count']}: {shown}{more}."
+
+
+def _say_located(out):
+    where = " in your personal folders (the drive index isn't built yet; say 'saari drives index karo')" \
+        if out.get("index_built") is None else ""
+    if not out["matches"]:
+        return f"I couldn't find a file named like “{out['query']}”{where or ' on your drives'}."
+    shown = "; ".join(f"{m['name']} ({m['path'].rsplit(chr(92), 1)[0]}, {m['modified'][:10]})"
+                      for m in out["matches"][:5])
+    more = f" and {out['count'] - 5} more" if out["count"] > 5 else ""
+    return f"Found {out['count']}{where}: {shown}{more}."
+
+
+def _say_index(out):
+    if not out.get("started"):
+        return out.get("note", "The drive index is already being built.")
+    return ("Building the file index of " + ", ".join(d.rstrip("\\") for d in out["drives"]) +
+            " in the background (a few minutes). After that, 'X kahan hai' is instant.")
 
 
 def _say_net(out):
@@ -1632,7 +1658,7 @@ def _say_installed(out):
 # Quick tools whose failures are final (no device, no such routine...): report them instead of re-planning.
 FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk_space", "files.recent",
                                "storage.cleanup_report", "routine.save", "routine.list", "log.recent",
-                               "image.describe", "note.done", "note.add", "files.find", "files.open",
+                               "image.describe", "note.done", "note.add", "files.find", "files.locate", "files.open",
                                "games.install", "message.send", "message.open_chat", "message.read_chat", "settings.theme_set", "apps.launch", "filesystem.list",
                                "file.extract_text", "mind.person", "mind.add",
                                "mind.done", "mind.fact", "mind.feedback", "mind.map", "settings.offline_mode",
@@ -1655,7 +1681,7 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,
                  "image.describe": _say_image, "screen.understand": _say_screen, "screen.ask": _say_screen, "media.play_series": _say_show, "media.library": _say_library, "me.profile": _say_profile, "remote.status": _say_remote, "remote.enable": _say_remote, "remote.disable": _say_remote, "remote.pair": _say_remote, "remote.revoke": _say_remote, "remote.arm": _say_remote,
-                 "note.list": _say_notes, "files.find": _say_found,
+                 "note.list": _say_notes, "files.find": _say_found, "files.locate": _say_located, "files.index": _say_index,
                  "net.check": _say_net, "net.ping": _say_ping,
                  "message.send": _say_message, "system.gpu_status": _say_gpu,
                  "system.environment": _say_environment, "system.volume_status": _say_volume,

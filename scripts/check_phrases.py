@@ -51,7 +51,9 @@ CASES = [
     ("free up space on my C drive", "storage.cleanup_report"), ("is my internet working", "net.check"),
     ("internet chal raha hai kya", "net.check"), ("whats my ip", "net.check"), ("ping google", "net.ping"),
     # files
-    ("find my resume", "files.find"), ("meri resume file dhundo", "files.find"), ("open my downloads", "files.open"),
+    ("find my resume", "files.locate"), ("meri resume file dhundo", "files.locate"),
+    ("D drive mein resume kahan hai", "files.locate"), ("find invoice on my D drive", "files.locate"),
+    ("saari drives index karo", "files.index"), ("open my downloads", "files.open"),
     ("d drive kholo", "files.open"), ("what was I working on?", "files.recent"),
     ("organize my Downloads folder", "files.organize"),
     # day

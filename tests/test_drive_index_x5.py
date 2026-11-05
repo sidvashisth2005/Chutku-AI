@@ -54,12 +54,17 @@ class DriveIndexTests(unittest.TestCase):
 
 
 class LocateToolTests(unittest.TestCase):
-    def test_locate_explains_a_missing_index_and_then_answers(self):
+    def test_without_an_index_it_searches_the_personal_folders_and_says_so(self):
         with tempfile.TemporaryDirectory() as temp, create_runtime(Path(temp) / "state") as runtime:
-            with patch.object(drive_index, "PROJECT_ROOT", Path(temp) / "state"):
+            home = Path(temp) / "home"
+            (home / "Documents").mkdir(parents=True)
+            (home / "Documents" / "My Resume.pdf").write_text("x", encoding="utf-8")
+            with patch.object(drive_index, "PROJECT_ROOT", Path(temp) / "state"), \
+                    patch.dict(os.environ, {"USERPROFILE": str(home)}):
                 missing = runtime.run("files.locate", {"query": "resume"}, provenance="delegated", autonomy="owner")
-                self.assertEqual(str(missing["state"]), "FAILED")
-                self.assertIn("not built yet", str(missing))
+                self.assertEqual(str(missing["state"]), "COMPLETED", missing)
+                self.assertIn("not built yet", missing["output"]["searched"])
+                self.assertEqual(missing["output"]["matches"][0]["name"], "My Resume.pdf")
                 disk = Path(temp) / "disk"
                 disk.mkdir()
                 (disk / "Resume.pdf").write_text("x", encoding="utf-8")

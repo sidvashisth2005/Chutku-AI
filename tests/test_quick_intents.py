@@ -110,6 +110,9 @@ class QuickIntentTests(unittest.TestCase):
             "net.ping": {"host": "google.com", "sent": 4, "received": 4, "average_ms": 60, "unknown_host": False},
             "files.find": {"query": "resume", "count": 1, "matches": [
                 {"name": "Resume.pdf", "folder": "Downloads", "modified": "2026-10-01 10:00"}]},
+            "files.locate": {"query": "resume", "count": 1, "index_built": "2026-11-05 22:06", "matches": [
+                {"name": "Resume.pdf", "path": "D:\\Docs\\Resume.pdf", "folder": "Docs", "modified": "2026-10-01 10:00"}]},
+            "files.index": {"started": True, "drives": ["C:\\", "D:\\"], "previous": {"built": None}},
             "storage.cleanup_report": {"drive": "C:\\", "suggestions": [
                 "Empty the Recycle Bin on C: (2 GB, 10 items)", "Recycle 2 old installer(s) in Downloads (1 GB)",
                 "Your own files are small here: most of the drive is Windows, your programs and app caches"]},

@@ -106,8 +106,11 @@ class FilesPlusTests(unittest.TestCase):
         step = lambda t: (lambda p: p and (p["next_steps"][0]["tool"], p["next_steps"][0]["arguments"]))(quick_proposal(t, apps=[]))
         self.assertEqual(step("open my downloads"), ("files.open", {"path": os.path.join(home, "Downloads")}))
         self.assertEqual(step("d drive kholo"), ("files.open", {"path": "D:\\"}))
-        self.assertEqual(step("find my resume"), ("files.find", {"path": home, "query": "resume"}))
-        self.assertEqual(step("meri resume file dhundo"), ("files.find", {"path": home, "query": "resume"}))
+        self.assertEqual(step("find my resume"), ("files.locate", {"query": "resume"}))   # X5: the drive index
+        self.assertEqual(step("meri resume file dhundo"), ("files.locate", {"query": "resume"}))
+        self.assertEqual(step("D drive mein resume kahan hai"), ("files.locate", {"query": "resume", "drive": "D"}))
+        self.assertEqual(step("find invoice on my D drive"), ("files.locate", {"query": "invoice", "drive": "D"}))
+        self.assertEqual(step("saari drives index karo"), ("files.index", {}))
         for text in ("find my newest pdf", "where is my latest invoice", "find my keys"):
             self.assertIsNone(quick_proposal(text, apps=[]), text)
 

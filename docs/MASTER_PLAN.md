@@ -943,10 +943,10 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [ ] X3: One-command acceptance set: 12 multi-step goals (e.g. "meri last PDF ka summary notes mein save karo", "open last PDF, summarise it, draft an email to Ravi"), run with the internet off and on, with seconds and an independent check per goal
 
 **System governance (group 4)**
-- [ ] X4: Voice window snapping: snap left/right/top/bottom/quarters, maximize, "dono windows side by side"
+- [ ] X4 (built + merged 2026-11-05; a real snap not yet run live: the owner was using the PC): Voice window snapping: snap left/right/top/bottom/quarters, maximize, "dono windows side by side"
 - [x] X5: Deep drive index (done 2026-11-05: 169,800 files in 25 s, searches in ms): file names across every fixed drive in SQLite FTS (system areas skipped), refreshed by Night Shift, used by `files.find`. "D drive mein resume.pdf kahan hai"
-- [ ] X6: Telemetry: CPU temperature where Windows exposes it (honest "not available" otherwise), top processes, network speed
-- [ ] X7: Single-shot OS command: `system.powershell`, one command, always confirmed, output shown, never auto
+- [x] X6 (done 2026-11-05): Telemetry: CPU temperature where Windows exposes it (honest "not available" otherwise), top processes, network speed
+- [x] X7 (done 2026-11-05; real path up to the click, then denied): Single-shot OS command: `system.powershell`, one command, always confirmed, output shown, never auto
 
 **Memory and intelligence (group 7)**
 - [ ] X8: Email: draft-first (mailto / Outlook `Display()`), the owner presses Send; optional Gmail SMTP app password in Credential Manager, and every send confirms recipient + body
@@ -954,8 +954,8 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [ ] X10: Phone control live (W6), once Tailscale is installed (owner)
 
 **HUD (group 5)**
-- [ ] X11: Vector eyes with moods (idle, listening, thinking, happy, sorry) in the presence window
-- [ ] X12: Lip-sync: mouth shapes from Kokoro phoneme timings (amplitude fallback)
+- [x] X11 (done 2026-11-05): Vector eyes with moods (idle, listening, thinking, happy, sorry) in the presence window
+- [x] X12 (v1 amplitude done 2026-11-05; phoneme v2 parked: no Kokoro durations): Lip-sync: mouth shapes from Kokoro phoneme timings (amplitude fallback)
 - [ ] X13: YouTube inside the HUD (embedded player, online only, says so offline)
 
 **Web autopilot (group 2)**
