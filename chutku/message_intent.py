@@ -1,7 +1,7 @@
 """Understand "send a message" requests instantly, in the owner's words or the voice model's rewrite.
 
-Handles typed English/Hinglish ("send hi to UB on whatsapp", "UB ko whatsapp pe hi bhejo") and the
-Gemini Live rewrites seen in real sessions ("In WhatsApp, find the chat titled "UB" and send the
+Handles typed English/Hinglish ("send hi to AK on whatsapp", "AK ko whatsapp pe hi bhejo") and the
+Gemini Live rewrites seen in real sessions ("In WhatsApp, find the chat titled "AK" and send the
 message "hi" to it."). Returns {"app", "to", "text"} or None when anything is unclear, so the model
 (and, in any case, the on-screen approval card) handles it.
 """
@@ -14,14 +14,14 @@ _QUOTED = re.compile(r"[\"“”'‘’]([^\"“”'‘’]{1,300})[\"“”'‘
 _NAMED = re.compile(r"\b(?:chat|user|contact|person|group)\s+(?:named|titled|called)\s+[\"“”'‘’]?([^\"“”'‘’,.]{1,40}?)[\"“”'‘’]?"
                     r"(?=\s+(?:and|on|in|via|saying)\b|[,.]|$)", re.I)
 _TYPED = [
-    # send hi to UB on whatsapp / send a message "hi" to UB on whatsapp
+    # send hi to AK on whatsapp / send a message "hi" to AK on whatsapp
     re.compile(r"^(?:please\s+)?(?:send|text|message)\s+(?:a\s+)?(?:message\s+|msg\s+)?(?:saying\s+)?(?P<text>.{1,300}?)\s+"
                r"to\s+(?P<to>[^,.]{1,40}?)\s+(?:on|in|via|using)\s+(?P<app>whats\s?app|telegram)[\s.!]*$", re.I),
-    # message UB on whatsapp saying hi / whatsapp UB: hi
+    # message AK on whatsapp saying hi / whatsapp AK: hi
     re.compile(r"^(?:please\s+)?(?:message|text|ping)\s+(?P<to>[^,.]{1,40}?)\s+(?:on|in|via)\s+(?P<app>whats\s?app|telegram)"
                r"\s*(?:saying|that|:|-)\s*(?P<text>.{1,300}?)[\s.!]*$", re.I),
     re.compile(r"^(?P<app>whats\s?app|telegram)\s+(?P<to>[^:,]{1,40}?)\s*[:,-]\s*(?P<text>.{1,300}?)[\s.!]*$", re.I),
-    # UB ko whatsapp pe hi bhejo / UB ko hi bhej do whatsapp pe
+    # AK ko whatsapp pe hi bhejo / AK ko hi bhej do whatsapp pe
     re.compile(r"^(?P<to>[^,.]{1,40}?)\s+ko\s+(?P<app>whats\s?app|telegram)\s+(?:pe|par|par\s+se|se)\s+(?P<text>.{1,300}?)\s+"
                r"(?:bhejo|bhej\s+do|bhejdo|send\s+karo|send\s+kar\s+do)[\s.!]*$", re.I),
     re.compile(r"^(?P<to>[^,.]{1,40}?)\s+ko\s+(?P<text>.{1,300}?)\s+(?:bhejo|bhej\s+do|bhejdo)\s+(?P<app>whats\s?app|telegram)"
@@ -145,7 +145,7 @@ _READ_CHAT = [
 
 
 def parse_read_chat(goal: str):
-    """'what did Pita Shri say' / 'did mammi reply' / 'UB ne kya bola' -> {"app", "to"} (read the chat)."""
+    """'what did Pita Shri say' / 'did mammi reply' / 'AK ne kya bola' -> {"app", "to"} (read the chat)."""
     from chutku.translit import roman
     text = " ".join(roman(goal).split())
     for pattern in _READ_CHAT:

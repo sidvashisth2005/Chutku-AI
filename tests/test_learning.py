@@ -156,11 +156,11 @@ class MindMapTests(unittest.TestCase):
     def test_map_data_and_recent_topics(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            Mind(base).remember_person("UB", aliases=["mammi"])
+            Mind(base).remember_person("AK", aliases=["mammi"])
             for hour in (9, 10):
                 recall.log_conversation("Latent season 2 episode chalao", "Playing.", base=base, at=at(4, hour))
             view = recall.mind_map(base, now=at(4, 12))
-            self.assertEqual(view["people"][0]["name"], "UB")
+            self.assertEqual(view["people"][0]["name"], "AK")
             self.assertIn("latent", view["topics"])
             self.assertEqual(set(view["lists"]) >= {"assignments", "schedule"}, True)
 

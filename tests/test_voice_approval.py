@@ -20,8 +20,8 @@ class VoiceApprovalTests(unittest.TestCase):
             self.assertIsNone(decide(heard), heard)
 
     def test_questions_say_exactly_what_will_happen(self):
-        self.assertEqual(spoken_question({"tool": "message.send", "arguments": {"app": "whatsapp", "to": "Ub", "text": "hi"}}),
-                         "Send “hi” to Ub on WhatsApp? Haan ya na?")
+        self.assertEqual(spoken_question({"tool": "message.send", "arguments": {"app": "whatsapp", "to": "Ak", "text": "hi"}}),
+                         "Send “hi” to Ak on WhatsApp? Haan ya na?")
         self.assertIn("Recycle Bin", spoken_question({"tool": "filesystem.recycle", "arguments": {"path": r"D:\a\report.pdf"}}))
         self.assertIn("cannot be undone", spoken_question({"tool": "filesystem.delete_permanent", "arguments": {"path": "x"}}))
         self.assertTrue(spoken_question({"tool": "web.open", "consequence": "Open a website."}).endswith("Haan ya na?"))
@@ -32,7 +32,7 @@ class FakeSession:
         self.id, self.status = "s1", "waiting_confirmation"
 
     def snapshot(self):
-        approval = {"tool": "message.send", "arguments": {"app": "whatsapp", "to": "Ub", "text": "hi"}}
+        approval = {"tool": "message.send", "arguments": {"app": "whatsapp", "to": "Ak", "text": "hi"}}
         return {"status": self.status, "pending": {"approval": approval} if self.status == "waiting_confirmation" else None}
 
 
@@ -55,7 +55,7 @@ class HandsFreeApprovalFlowTests(unittest.TestCase):
         result, spoken, decided = self.run_flow(["haan bhej do"])
         self.assertTrue(result)
         self.assertEqual(decided, [True])
-        self.assertEqual(spoken[0], "Send “hi” to Ub on WhatsApp? Haan ya na?")
+        self.assertEqual(spoken[0], "Send “hi” to Ak on WhatsApp? Haan ya na?")
 
     def test_spoken_no_cancels(self):
         result, spoken, decided = self.run_flow(["nahi"])

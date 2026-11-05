@@ -902,8 +902,8 @@ License: MIT.
 - [ ] V4: Live `screen.ask` answer check
 - [ ] V5: pywebview + qrcode installed; presence/dashboard screenshots
 - [ ] V6: GPU Whisper turbo, W3 live timings, two-stage wake training gate
-- [ ] O1: Configuration instead of owner values (projects folder, VS Code path, names)
-- [ ] O2: Personal examples replaced with generic ones
+- [x] O1: Configuration instead of owner values (projects folder, VS Code path, names) — done 2026-11-05
+- [x] O2: Personal examples replaced with generic ones — done 2026-11-05 (tool descriptions kept: they are part of each tool's contract hash)
 - [ ] O3: No-GPU / non-Vulkan fallback (cloud-first + CPU Whisper), clear message
 - [ ] O4: One-click `Install-Chutku.cmd` + first-run wizard; fresh-clone install test
 - [ ] O5: MIT `LICENSE`, README for strangers, `CONTRIBUTING.md`, CI workflow
@@ -911,6 +911,63 @@ License: MIT.
 
 Owner-only, never faked: entering a Gemini or Groq key when one is missing or rejected, installing Tailscale for
 the phone, voice enrollment and calibration, custom voice clips, and the decision to publish.
+
+---
+# Phase 6: One voice command does any PC task, offline-first (planned 2026-11-05)
+The owner asked for:
+- the 19 capabilities below;
+- the ponytail skill;
+- a team of agents;
+- "any task in the PC with a single voice command, with minimal or no internet".
+
+The gap analysis (Auditor) and the online research (Scout) are in `docs/AGENT_PROMPTS.md` #13–14. The order is by
+impact on that goal. Each slice is small, tested and checked live (breadth first).
+
+**Team.**
+- **Builder** agents write isolated new modules in git worktrees, following AGENTS.md and the ponytail ladder.
+- A **Reviewer** agent runs `ponytail-review` on each diff.
+- I integrate, run the live check, write the ledger and commit.
+- Every prompt goes in `docs/AGENT_PROMPTS.md`.
+
+**Boundaries that stay.** Every one of these slices respects them:
+- the browser is the owner's own, automated in plain sight: no bot-detection evasion, fingerprint spoofing or CAPTCHA
+  bypass;
+- self-written or imported code runs only after its tests pass and the owner approves it on screen. It never touches
+  the policy kernel, grants or logs;
+- email and OS commands keep their confirmations;
+- stock prices always say "as of".
+
+**Offline core (the single-command path)**
+- [ ] X1: Local planner picks valid tools fast: JSON-schema tool-name `enum` in llama-server + top-k tool retrieval; then A/B Qwen3.5-4B vs Qwen3-4B (switch only if faster AND more correct on `eval_planner` + `live_check`)
+- [ ] X2: STT upgrade: faster-whisper large-v3-turbo int8 on the GPU (V6), A/B vs small on the owner's real clips
+- [ ] X3: One-command acceptance set: 12 multi-step goals (e.g. "meri last PDF ka summary notes mein save karo", "open last PDF, summarise it, draft an email to Ravi"), run with the internet off and on, with seconds and an independent check per goal
+
+**System governance (group 4)**
+- [ ] X4: Voice window snapping: snap left/right/top/bottom/quarters, maximize, "dono windows side by side"
+- [ ] X5: Deep drive index: file names across every fixed drive in SQLite FTS (system areas skipped), refreshed by Night Shift, used by `files.find`. "D drive mein resume.pdf kahan hai"
+- [ ] X6: Telemetry: CPU temperature where Windows exposes it (honest "not available" otherwise), top processes, network speed
+- [ ] X7: Single-shot OS command: `system.powershell`, one command, always confirmed, output shown, never auto
+
+**Memory and intelligence (group 7)**
+- [ ] X8: Email: draft-first (mailto / Outlook `Display()`), the owner presses Send; optional Gmail SMTP app password in Credential Manager, and every send confirms recipient + body
+- [ ] X9: Stocks: quotes via Yahoo's public chart endpoint (stdlib, no key), SQLite cache, "as of HH:MM" always; watchlist + alerts through scheduled tasks
+- [ ] X10: Phone control live (W6), once Tailscale is installed (owner)
+
+**HUD (group 5)**
+- [ ] X11: Vector eyes with moods (idle, listening, thinking, happy, sorry) in the presence window
+- [ ] X12: Lip-sync: mouth shapes from Kokoro phoneme timings (amplitude fallback)
+- [ ] X13: YouTube inside the HUD (embedded player, online only, says so offline)
+
+**Web autopilot (group 2)**
+- [ ] X14: A dedicated, signed-in Chutku browser profile (Brave/Chrome) over CDP on 127.0.0.1; form fill + table/data extraction (`browser.extract`); `browser.input` grant is the owner's step
+
+**Self-coding and skills (groups 1, 3, 6)**
+- [ ] X15: Skill format: SKILL.md + `tool.py` + `test_tool.py` in `data/skills/<name>`. Runs in a subprocess with a timeout, declares its risk; listed with "tumhari skills"
+- [ ] X16: Self-coding: "ye kaam karne ka skill bana lo". The coder (cloud maker, local fallback) writes the skill; its tests must pass; the owner approves; it then registers as `skill.<name>`
+- [ ] X17: GitHub skill import: "github.com/x/y se skill seekho". Pinned commit + licence shown; SKILL.md repos become procedures; CLI repos become wrapped skills (X15 rules); no install scripts run by themselves
+- [ ] X18: Software builder upgrade: multi-file web apps with a run/preview step and a production checklist (README, tests, no CDN), plus the Karpathy/ponytail rules already in the coder
+
+**Release work still open:** V1–V6 and O3–O6 above. They come after X1–X3, before publishing.
 
 ---
 # Parked (needs a later owner decision)

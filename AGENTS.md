@@ -23,7 +23,17 @@ These are adapted from Andrej Karpathy's notes on LLM coding mistakes. The full 
    decisions: changing or deleting the owner's files, publishing, R4 actions, and unknown recipients. Otherwise state
    the assumption in one line and proceed.
 2. **Simplicity first.** Write the minimum code that solves the request. No speculative features, single-use
-   abstractions or unrequested configuration. If 200 lines could be 50, rewrite it.
+   abstractions or unrequested configuration. If 200 lines could be 50, rewrite it. Take the first rung of this
+   ladder that fully works (from `.claude/skills/ponytail`, MIT):
+   1. Is it needed at all?
+   2. Is there already a helper in this repo?
+   3. Does the standard library do it?
+   4. Does an installed dependency do it?
+   5. Does one clear line do it?
+   6. Otherwise, write the minimum code.
+
+   Never cut validation at trust boundaries, data-loss handling, security or anything the owner asked for. A known
+   limit gets a `# shortcut: <the limit>, <when to upgrade>` comment.
 3. **Surgical changes.** Every changed line traces to the request. Match the surrounding style. Remove what your own
    change made unused. Remove pre-existing dead code only when the owner asks for a cleanup, and only after grepping
    for both symbol and string references (tools are registered and reached by name). Never turn off a working

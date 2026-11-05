@@ -23,6 +23,7 @@ license for Chutku's own source; no project-source license has been declared.
 | faster-whisper-small (CTranslate2 conversion of OpenAI Whisper small) | revision `536b0662742c02347bc0e980a01041f333bce120` | https://huggingface.co/Systran/faster-whisper-small | MIT (OpenAI Whisper weights are MIT) | Directory digest `73f633e435cae94022618aab68c326c61fbe2b4c5bc149faf8b9df67f4ca0296` checked before loading (`models/manifest.json` → `stt`). |
 | pypdf | 6.19.0 | https://github.com/py-pdf/pypdf | BSD-3-Clause | Locked in `requirements.lock`; used only to read PDF text locally. |
 | andrej-karpathy-skills (Karpathy coding guidelines) | copied 2026-11-05 | https://github.com/forrestchang/andrej-karpathy-skills | MIT | Text in `.claude/skills/karpathy-guidelines/SKILL.md` (adapted section marked), summarised in `AGENTS.md`. Development guidance only, not runtime code. |
+| Ponytail skills (ponytail, -review, -audit, -debt) | v5.3.3, commit `96608e0`, copied 2026-11-05 | https://github.com/DietrichGebert/ponytail | MIT | Text in `.claude/skills/ponytail*/SKILL.md`, license in `.claude/skills/ponytail/LICENSE.txt`. Its hooks, task ledger and webhook are not used. Development guidance only. |
 
 Checked additions on 2026-09-30. Gemini (Google) is an optional network service,
 not a distributed component; it is used only if the owner grants `cloud.gemini`.

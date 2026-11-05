@@ -64,9 +64,9 @@ class OwnerModeTests(unittest.TestCase):
     def test_messages_go_out_only_to_people_in_memory(self):
         send = {"app": "whatsapp", "to": "mammi", "text": "hi"}
         self.assertEqual(self.decide("message.send", send), Decision.CONFIRM)        # nobody saved yet
-        mind.default().remember_person("UB", aliases=["mammi"])
+        mind.default().remember_person("AK", aliases=["mammi"])
         self.assertEqual(self.decide("message.send", send), Decision.ALLOW)
-        self.assertEqual(self.decide("message.send", send | {"to": "UB"}), Decision.ALLOW)
+        self.assertEqual(self.decide("message.send", send | {"to": "AK"}), Decision.ALLOW)
         self.assertEqual(self.decide("message.send", send | {"to": "Rahul"}), Decision.CONFIRM)
         self.assertEqual(self.decide("message.send", send | {"to": "+919999999999"}), Decision.CONFIRM)  # new number
         # After reading a web page or a message, even a known person needs a click (prompt-injection guard).

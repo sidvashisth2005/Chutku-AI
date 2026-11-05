@@ -28,9 +28,9 @@ class ParseTests(unittest.TestCase):
             "send continue in claude chat every 15 minutes": ("send continue in claude chat", "06 09:45", 15),
             "har ghante paani peene ka bolo": ("paani peene ka bolo", "06 10:30", 60),
             "har 2 ghante mein weather batao": ("weather batao", "06 11:30", 120),
-            "30 min baad UB ko hi bhej dena": ("UB ko hi bhej dena", "06 10:00", None),
-            "after 30 minutes send hi to UB": ("send hi to UB", "06 10:00", None),
-            "send hi to UB in 2 hours": ("send hi to UB", "06 11:30", None),
+            "30 min baad AK ko hi bhej dena": ("AK ko hi bhej dena", "06 10:00", None),
+            "after 30 minutes send hi to AK": ("send hi to AK", "06 10:00", None),
+            "send hi to AK in 2 hours": ("send hi to AK", "06 11:30", None),
             "12 baje bday boy ko wish kar dena": ("bday boy ko wish", "07 00:00", None),   # birthday: midnight
             "raat 12 baje Rahul ko happy birthday bhejna": ("Rahul ko happy birthday bhejna", "07 00:00", None),
             "12 baje spotify kholo": ("spotify kholo", "06 12:00", None),                 # otherwise the next 12
@@ -78,7 +78,7 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(scheduled.take_due(self.base, later + timedelta(hours=1)), [])
 
     def test_a_one_off_more_than_6_hours_late_is_reported_missed_not_run(self):
-        scheduled.add(self.base, "send hi to UB", datetime.now() + timedelta(minutes=1))
+        scheduled.add(self.base, "send hi to AK", datetime.now() + timedelta(minutes=1))
         self.assertEqual(scheduled.take_due(self.base, datetime.now() + timedelta(hours=8)), [])
         job = scheduled.load(self.base)[0]
         self.assertEqual((job["active"], job["ended"], job["history"][-1]["status"]), (False, "missed", "missed"))
@@ -151,10 +151,10 @@ class ToolTests(unittest.TestCase):
 
     def test_schedule_list_cancel_through_the_runtime(self):
         at = (datetime.now() + timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%S")
-        result = self.runtime.run("task.schedule", {"goal": "send hi to UB", "at": at, "every_minutes": 15})
+        result = self.runtime.run("task.schedule", {"goal": "send hi to AK", "at": at, "every_minutes": 15})
         self.assertEqual(result["state"], "COMPLETED", result)
         job = scheduled.active(self.state)[0]
-        self.assertEqual((job["goal"], job["mode"], job["every_minutes"]), ("send hi to UB", "owner", 15))
+        self.assertEqual((job["goal"], job["mode"], job["every_minutes"]), ("send hi to AK", "owner", 15))
         listed = self.runtime.run("task.list", {})
         self.assertEqual(listed["output"]["count"], 1)
         self.assertEqual(self.runtime.run("task.cancel", {"id": job["id"]})["state"], "COMPLETED")

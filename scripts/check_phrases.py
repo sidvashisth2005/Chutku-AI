@@ -17,13 +17,13 @@ APPS = [{"name": "Spotify", "app_id": "Spotify.App"}, {"name": "WhatsApp", "app_
 
 CASES = [
     # messages (typed, Hinglish, and the live voice rewrites from 2026-10-03)
-    ("send hi to UB on whatsapp", "message.send"),
-    ('send "hi" to UB on whatsapp', "message.send"),
-    ("UB ko whatsapp pe hi bhejo", "message.send"),
-    ("message UB on whatsapp saying hi", "message.send"),
-    ('In WhatsApp, find the chat titled "UB" and send the message "hi" to it.', "message.send"),
-    ('Open WhatsApp and send the message "Hi" to the user named UB.', "message.send"),
-    ('Retry sending the message "Hi" to UB on WhatsApp.', "message.send"),
+    ("send hi to AK on whatsapp", "message.send"),
+    ('send "hi" to AK on whatsapp', "message.send"),
+    ("AK ko whatsapp pe hi bhejo", "message.send"),
+    ("message AK on whatsapp saying hi", "message.send"),
+    ('In WhatsApp, find the chat titled "AK" and send the message "hi" to it.', "message.send"),
+    ('Open WhatsApp and send the message "Hi" to the user named AK.', "message.send"),
+    ('Retry sending the message "Hi" to AK on WhatsApp.', "message.send"),
     # Night Shift report (owner, 2026-10-07: asked by voice and got a made-up answer)
     ("Have you prepared the night report, bhai?", "nightshift.report"), ("raat ko kya kiya", "nightshift.report"),
     ("नाइट शिफ्ट रिपोर्ट", "nightshift.report"), ("night shift ka report batao", "nightshift.report"),
@@ -78,7 +78,7 @@ CASES = [
     # small talk: an instant friendly reply, no tool
     ("Hi Chutku, how are you?", "(reply)"), ("kaise ho", "(reply)"), ("thank you", "(reply)"),
     # personal memory (2026-10-04)
-    ("UB is my gf", "mind.person"), ("UB meri gf hai", "mind.person"), ("remember Sharma Sir is my DL wale sir", "mind.person"),
+    ("AK is my gf", "mind.person"), ("AK meri gf hai", "mind.person"), ("remember Sharma Sir is my DL wale sir", "mind.person"),
     ("mammi ka number +91 98765 43210 hai", "mind.person"), ("mera ghar Pune mein hai", "mind.fact"),
     ("add assignment: DBMS report by Friday", "mind.add"), ("my skills are python, react", "mind.add"),
     ("assignment 1 done", "mind.done"), ("mere assignments dikhao", "mind.show"), ("what do you know about me", "mind.show"),

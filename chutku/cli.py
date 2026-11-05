@@ -99,7 +99,8 @@ def _voice_command(namespace):
                 break
             print(f"    only {seconds:.1f} s of speech heard; once more, a little louder")
     if namespace.voice_action == "record":
-        folder = Path(namespace.folder or r"D:\ChutkuScratch\voicelock\owner")
+        from chutku.core.paths import user_folder
+        folder = Path(namespace.folder or Path(user_folder("ChutkuScratch")) / "voicelock" / "owner")
         folder.mkdir(parents=True, exist_ok=True)
         for index, pcm in enumerate(clips):
             with wave.open(str(folder / f"owner-{index}.wav"), "wb") as stream:

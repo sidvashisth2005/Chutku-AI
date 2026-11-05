@@ -63,11 +63,11 @@ class TaintV2Tests(unittest.TestCase):
                          Decision.ALLOW)
 
     def test_changing_a_saved_contact_asks(self):
-        mind.default().remember_person("UB", aliases=["mammi"], phone="+919876543210", whatsapp="Ub")
-        self.assertEqual(self.decide("mind.person", {"name": "UB", "phone": "+911111111111"}), Decision.CONFIRM)
-        self.assertEqual(self.decide("mind.person", {"name": "UB", "whatsapp": "Someone Else"}), Decision.CONFIRM)
-        self.assertEqual(self.decide("mind.person", {"name": "UB", "phone": "+91 98765 43210"}), Decision.ALLOW)
-        self.assertEqual(self.decide("mind.person", {"name": "UB", "aliases": ["maa"]}), Decision.ALLOW)
+        mind.default().remember_person("AK", aliases=["mammi"], phone="+919876543210", whatsapp="Ak")
+        self.assertEqual(self.decide("mind.person", {"name": "AK", "phone": "+911111111111"}), Decision.CONFIRM)
+        self.assertEqual(self.decide("mind.person", {"name": "AK", "whatsapp": "Someone Else"}), Decision.CONFIRM)
+        self.assertEqual(self.decide("mind.person", {"name": "AK", "phone": "+91 98765 43210"}), Decision.ALLOW)
+        self.assertEqual(self.decide("mind.person", {"name": "AK", "aliases": ["maa"]}), Decision.ALLOW)
         self.assertEqual(self.decide("mind.person", {"name": "Ravi", "phone": "+912222222222"}), Decision.ALLOW)
 
     def test_changing_a_saved_contact_note_asks(self):

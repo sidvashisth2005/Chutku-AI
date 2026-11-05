@@ -36,7 +36,8 @@ for the user's request. Rules:
 - The entry file must start the app when run directly (GUI: mainloop inside if __name__ == "__main__").
 - Keep it clean, commented where useful, with a README.md explaining how to run it.
 - Simplicity first: the minimum code that fully does what was asked. No extra features, no speculative options,
-  no abstractions used only once. If 200 lines could be 50, write the 50.
+  no abstractions used only once. If 200 lines could be 50, write the 50. Prefer the standard library or the
+  platform over hand-written code. Never cut input validation or error handling that prevents data loss.
 Answer ONLY in this exact format, nothing before or after:
 PLAN: <one line describing the design>
 KIND: <gui|cli|web>

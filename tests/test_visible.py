@@ -102,7 +102,7 @@ class ActTests(unittest.TestCase):
             {"text": "After Party", "rect": (1123, 571, 1220, 589)},
             {"text": "Song • Don Toliver", "rect": (1124, 593, 1300, 607)}]
     PLAYLIST = [{"text": "After Party", "rect": (1123, 300, 1220, 318)},
-                {"text": "Playlist • Siddhant", "rect": (1124, 322, 1300, 336)}]
+                {"text": "Playlist • Alex", "rect": (1124, 322, 1300, 336)}]
     PAGE = [{"text": "After Party", "rect": (1000, 200, 1300, 260)},
             {"text": "Kesariya", "rect": (1050, 500, 1200, 520)}, {"text": "Raataan Lambiyan", "rect": (1050, 560, 1250, 580)}]
     PLAY = {"elements": [{"id": "e1", "label": "Play", "kind": "button", "rect": (1000, 280, 1060, 340)}]}

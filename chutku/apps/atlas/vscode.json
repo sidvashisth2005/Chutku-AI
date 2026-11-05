@@ -14,7 +14,7 @@
  },
  "uri_schemes": [],
  "cli": {
-  "code": "C:\\Users\\siddh\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe"
+  "code": "%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\Code.exe"
  },
  "sources": [
   "docs/apps/vscode.md"

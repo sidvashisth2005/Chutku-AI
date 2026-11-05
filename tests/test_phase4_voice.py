@@ -64,7 +64,7 @@ class PlausibleTests(unittest.TestCase):
         for said in ("Spotify kholo", "After Party chalao", "kitne baje hain", "what time is it", "next song",
                      "YouTube", "volume 30", "Good evening.", "मम्मी को गुड नाइट भेजो", "is it raining?"):
             self.assertTrue(plausible(said), said)
-        self.assertTrue(plausible("UB ko hi", known_names=["UB"]))
+        self.assertTrue(plausible("AK ko hi", known_names=["AK"]))
 
 
 class GateTests(unittest.TestCase):

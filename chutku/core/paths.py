@@ -188,3 +188,12 @@ def atomic_write_text(path: Path, content: str) -> None:
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def user_folder(name: str) -> str:
+    """Chutku's own working folder (projects, phone inbox, scratch): D:/<name> when that folder already exists
+    (the original owner's setup, whose C: is nearly full), otherwise %USERPROFILE%/<name> for everyone else."""
+    second_drive = Path("D:\\") / name
+    if second_drive.is_dir():
+        return str(second_drive)
+    return str(Path(os.environ.get("USERPROFILE") or Path.home()) / name)

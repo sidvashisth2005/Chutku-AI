@@ -163,7 +163,7 @@ class PreferencesTests(unittest.TestCase):
                                         "voice_lock": False, "voice_lock_threshold": 0.55, "timeline": False,
                                         "timeline_private": [], "voice_engine": "kokoro", "stt_language": "en",
                                         "heard_ambient_until": 0.0, "brain": "cloud_first", "follow_up_seconds": 8.0,
-                                        "presence_overlay": True})
+                                        "presence_overlay": True, "media_folders": []})
             for bad in ({"handsfree_mode": "yolo"}, {"wake_word": "yes"}, {"conversation": 1}, {"other": 1}, {}):
                 with self.assertRaises(ValueError):
                     prefs.update(bad)
@@ -175,7 +175,7 @@ class PreferencesTests(unittest.TestCase):
                                                               "voice_lock": False, "voice_lock_threshold": 0.55, "timeline": False,
                                         "timeline_private": [], "voice_engine": "kokoro", "stt_language": "en",
                                         "heard_ambient_until": 0.0, "brain": "cloud_first", "follow_up_seconds": 8.0,
-                                        "presence_overlay": True})
+                                        "presence_overlay": True, "media_folders": []})
             with self.assertRaises(ValueError):
                 prefs.update({"browser": "netscape"})
             for bad in ({"stt_language": "fr"}, {"brain": "gpt"}, {"heard_ambient_until": -1}, {"follow_up_seconds": 99},

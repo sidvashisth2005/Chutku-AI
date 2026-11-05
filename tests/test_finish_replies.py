@@ -7,7 +7,7 @@ from chutku.quick_intents import QUICK_ANSWERS, quick_proposal
 
 PHRASES = ["play lofi on youtube", "play Latent season 2 latest episode on youtube in brave", "open spotify",
            "open youtube.com in brave browser", "search lofi on youtube in brave", "next song", "pause", "mute",
-           "volume up", "set volume to 30", "switch to dark mode", "UB is my mammi", "note: buy milk",
+           "volume up", "set volume to 30", "switch to dark mode", "AK is my mammi", "note: buy milk",
            "remind me in 20 minutes to drink water", "brave browser kholo", "lock my pc"]
 
 

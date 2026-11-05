@@ -657,7 +657,7 @@ def _search_shows(lines, rect, pane_x, name, point=None):
 
 def _result_rows(shot, lines, rect):
     """Each chat row in the list (one per timestamp), with its name read from an enlarged, contrast-normalised
-    crop. Search highlights (green) and short names such as "Ub" are missed by plain OCR of the whole window."""
+    crop. Search highlights (green) and short names such as "Ak" are missed by plain OCR of the whole window."""
     from chutku import vision
     listed, pane_x = _split_panes(lines, rect)
     left, top, right, bottom = rect
@@ -676,7 +676,7 @@ def _result_rows(shot, lines, rect):
 def highlight_share(shot, box):
     """Share of the text in ``box`` drawn in WhatsApp's green search highlight. WhatsApp colours the letters that
     match the search, so a whole name in green means the chat's name is exactly the searched text (any length,
-    which plain OCR cannot read reliably for short names such as "Ub")."""
+    which plain OCR cannot read reliably for short names such as "Ak")."""
     import numpy as np
     left, top, right, bottom = box
     crop = shot.pixels[max(0, top - shot.top):max(0, bottom - shot.top),

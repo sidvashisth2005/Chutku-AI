@@ -157,7 +157,7 @@ SEARCH_RECT = (460, 82, 1460, 1020)
 SEARCH_LINES = [{"text": t, "rect": r} for t, r in (
     ("calculatorl", (572, 125, 647, 149)), ("Apps", (629, 194, 669, 210)), ("Best match", (518, 257, 605, 270)),
     ("Calculator", (562, 309, 640, 322)), ("Folders 2", (521, 389, 596, 402)), ("Web", (825, 193, 860, 206)),
-    ("Open", (1001, 500, 1037, 514)), ("Calculator", (1119, 384, 1219, 401)), ("calculator - in siddh", (562, 439, 703, 453)),
+    ("Open", (1001, 500, 1037, 514)), ("Calculator", (1119, 384, 1219, 401)), ("calculator - in alex", (562, 439, 703, 453)),
     ("Search the web 10+", (521, 543, 675, 556)), ("Q calculator app", (530, 644, 672, 662)),
     ("Documents 27+", (521, 851, 646, 864)), ("calculator", (562, 901, 637, 915)), ("Uninstall", (1001, 733, 1058, 745)))]
 
@@ -174,7 +174,7 @@ class WindowsSearchTests(unittest.TestCase):
 
     def test_never_picks_web_folders_documents_uninstallers_or_unknown_names(self):
         apps = [{"name": "Calculator", "app_id": "Calc"}, {"name": "Uninstall Foo", "app_id": "UnFoo"}]
-        self.assertIsNone(everyday.pick_search_result(["calculator - in siddh", "Uninstall Foo", "Q calculator app"],
+        self.assertIsNone(everyday.pick_search_result(["calculator - in alex", "Uninstall Foo", "Q calculator app"],
                                                       apps))
         lines = [{"text": "Search the web", "rect": (521, 300, 600, 310)},
                  {"text": "Calculator", "rect": (562, 330, 640, 340)}]

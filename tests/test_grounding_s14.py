@@ -11,7 +11,7 @@ SCHEMAS = {
     "message.send": {"type": "object", "properties": {"to": {"type": "string"}, "text": {"type": "string"}}},
     "system.get_time": {"type": "object", "properties": {}},
 }
-FOUND = {"apps": ["Calculator", "Spotify"], "contacts": ["UB", "mammi"]}
+FOUND = {"apps": ["Calculator", "Spotify"], "contacts": ["AK", "mammi"]}
 
 
 class GroundingTests(unittest.TestCase):
@@ -22,7 +22,7 @@ class GroundingTests(unittest.TestCase):
         self.assertIn("photoshop", apps)
         self.assertIn("Photoshop", apps)          # the owner's word, capitalised
         self.assertNotIn("Photoshop CC", apps)    # nothing invented
-        self.assertEqual(set(grounded["message.send"]["properties"]["to"]["enum"]) & {"UB", "mammi"}, {"UB", "mammi"})
+        self.assertEqual(set(grounded["message.send"]["properties"]["to"]["enum"]) & {"AK", "mammi"}, {"AK", "mammi"})
         self.assertNotIn("enum", grounded["message.send"]["properties"]["text"])   # message text stays free
 
     def test_the_tools_own_schemas_are_not_changed(self):

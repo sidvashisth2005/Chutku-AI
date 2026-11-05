@@ -77,7 +77,7 @@ You picked the new neural voice in the blind listening test (10 of 10 times over
 - **One request is started once,** even if it is heard twice within 2 seconds.
 - **Words that come out in Spanish** ("Sí, un poco") are treated as misheard and start nothing. Say it again.
 - **Her replies no longer repeat** or run into each other in the conversation log.
-- **Names come from your memory.** She writes your saved people's names exactly as saved ("remember UB is my mammi"); no names are built into the code.
+- **Names come from your memory.** She writes your saved people's names exactly as saved ("remember AK is my mammi"); no names are built into the code.
 
 ### Voice lock: only your voice gives tasks (since 2026-10-06, off until you set it up)
 
@@ -129,7 +129,7 @@ Pick a level under the chat box. Each browser remembers its own choice; a new br
 
 Everything is still logged ("what did you do today"), the Stop / Pause buttons still work, and Windows system folders are never touched.
 
-**Approving by voice:** Answer in Hindi or English, Chutku understands both (हाँ, हम्म, जी, ठीक है, भेज दो, haan, hnn, yes, ok...). Any "no / nahi / नहीं / ruko / cancel" cancels; "hmm" in the middle of a long sentence is not taken as a yes. when you started the request by voice (hotkey, wake phrase or conversation), Chutku says what it is about to do, for example *"Send 'hi' to Ub on WhatsApp? Haan ya na?"*, and listens.
+**Approving by voice:** Answer in Hindi or English, Chutku understands both (हाँ, हम्म, जी, ठीक है, भेज दो, haan, hnn, yes, ok...). Any "no / nahi / नहीं / ruko / cancel" cancels; "hmm" in the middle of a long sentence is not taken as a yes. when you started the request by voice (hotkey, wake phrase or conversation), Chutku says what it is about to do, for example *"Send 'hi' to Ak on WhatsApp? Haan ya na?"*, and listens.
 - **"haan" / "yes" / "hnn" / "bhej do" / "kar do"** approves.
 - **"nahi" / "no" / "ruko" / "cancel"** cancels.
 - A yes counts only if it is short and has no no-word in it, so background talk can't approve anything.
@@ -183,13 +183,13 @@ Everything below is **instant**: matched by rules and done within about a second
 - "search Pita Shri in WhatsApp" / "WhatsApp pe Pita Shri ki chat kholo" / "open Pita Shri's chat on whatsapp": opens that chat and asks what to send; then just say "hi bhej do" (within 2 minutes) and it goes to that chat.
 - Works from any WhatsApp screen: Archived, Calls, Status, Settings. Chutku goes back to the main Chats list first, because the search bar is only there. Chats in **Locked chats** are hidden by WhatsApp and need your PIN or fingerprint; open those yourself.
 - Hindi script is fine: "पिता श्री" is read as "Pita Shri", "मम्मी" as "mammi".
-- Read replies: "Pita Shri ne kya bola?" / "did mammi reply?" / "UB ka last message kya hai" / "what did Pita Shri say". Chutku opens the chat, reads the latest messages from the screen (locally) and tells you who said what. Photos, stickers and voice notes can't be read. If WhatsApp on the PC says "Syncing paused", Chutku tells you; open WhatsApp on your phone so recent messages appear.
+- Read replies: "Pita Shri ne kya bola?" / "did mammi reply?" / "AK ka last message kya hai" / "what did Pita Shri say". Chutku opens the chat, reads the latest messages from the screen (locally) and tells you who said what. Photos, stickers and voice notes can't be read. If WhatsApp on the PC says "Syncing paused", Chutku tells you; open WhatsApp on your phone so recent messages appear.
 - If WhatsApp on the PC is logged out (QR-code screen), Chutku says so straight away: link it again from your phone (WhatsApp > Linked devices > Link a device).
 
 **Messages** (always asks before sending)
-- "send hi to UB on whatsapp" / "UB ko whatsapp pe hi bhejo" / "message UB on whatsapp saying hi there"
-- Chutku searches your chats and opens only a chat whose name is *exactly* what you said (it uses WhatsApp's own green highlight, so short names like "Ub" work). If no chat or several chats match, it sends nothing and tells you the closest names.
-- Fastest: save a number once with "remember contact_ub = +91…", and messages to UB skip the search.
+- "send hi to AK on whatsapp" / "AK ko whatsapp pe hi bhejo" / "message AK on whatsapp saying hi there"
+- Chutku searches your chats and opens only a chat whose name is *exactly* what you said (it uses WhatsApp's own green highlight, so short names like "Ak" work). If no chat or several chats match, it sends nothing and tells you the closest names.
+- Fastest: save a number once with "remember contact_ub = +91…", and messages to AK skip the search.
 
 **Your to-do list**
 - "note: buy milk" / "note that the meeting is at 5" / "add call mom to my list" / "likh lo: pay the bill"
@@ -238,7 +238,7 @@ Everything below is **instant**: matched by rules and done within about a second
 - "install hollow knight on steam" / "steam pe stardew valley install karo": opens Steam's own install window; you pick the drive (D: has the space) and click Install there
 
 **Your memory (people, facts about you, your lists)**: stored only on this PC in `data/mind.json`
-- Teach people: "UB is my gf" / "UB meri gf hai" / "remember Sharma Sir is my DL wale sir" / "mammi ka number +91 98765 43210 hai"
+- Teach people: "AK is my gf" / "AK meri gf hai" / "remember Sharma Sir is my DL wale sir" / "mammi ka number +91 98765 43210 hai"
 - Then message them by nickname, no app needed: "send hi to my gf" / "gf ko good night bhejo" / "mammi ko khana kha liya bolo" (goes on WhatsApp). "mom", "mummy", "mammi" and "mother" all mean the same person; "mama" does not (uncle). If two people fit (two "bhai"), Chutku won't guess.
 - About you: "my home is in Pune" / "mera ghar Pune mein hai"
 - Lists (assignments, schedule, skills, domains, projects, goals): "add assignment: DBMS report by Friday" / "my skills are python, react" / "add hackathon prep to my goals" / "assignment 1 done"
@@ -350,7 +350,7 @@ Chutku now has a fixed recipe for each thing she can do in an app (`chutku/apps/
   - "whatsapp unread dikhao" / "whatsapp favourites dikhao" / "whatsapp saare chats dikhao";
   - "whatsapp new chat" / "whatsapp search kholo" / "whatsapp profile kholo" / "whatsapp panel band karo".
 
-  Sending and reading messages work as before ("UB ko bolo …", "UB ka last message padho").
+  Sending and reading messages work as before ("AK ko bolo …", "AK ka last message padho").
 - **Brave and YouTube** (since 2026-10-09):
   - "brave history kholo" / "brave downloads kholo" / "bookmarks dikhao" / "brave new tab";
   - "page bada karo" / "page chhota karo" / "page normal size karo";
@@ -377,7 +377,7 @@ Give the order once. Chutku saves it, keeps talking and working normally, does t
 
 | Say | What happens |
 |---|---|
-| "30 min baad UB ko hi bhej dena" / "send hi to UB in 2 hours" | once, after that long |
+| "30 min baad AK ko hi bhej dena" / "send hi to AK in 2 hours" | once, after that long |
 | "raat 12 baje Rahul ko happy birthday bhejna" / "at 9 pm send good night to mammi" / "kal subah 8 baje news sunao" | once, at that time |
 | "har 15 min weather batao" / "har ghante paani peene ka bolo" / "check my internet every 30 minutes" | again and again until you cancel |
 | "scheduled tasks dikhao" / "what's scheduled" | the list, with each task's id |

@@ -22,7 +22,7 @@ class RecallTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.base = Path(self.tmp.name)
         mind = Mind(self.base)
-        mind.remember_person("UB", aliases=["mammi"])
+        mind.remember_person("AK", aliases=["mammi"])
         mind.remember_person("Rahul Sharma", aliases=["DL sir"], relation="teacher")
         mind.set_fact("home", "Pune")
         mind.set_fact("college", "MIT WPU")

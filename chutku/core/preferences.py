@@ -12,9 +12,16 @@ import threading
 DEFAULTS = {"handsfree_mode": "owner", "wake_word": False, "conversation": False, "browser": "brave", "heard_log": True,
             "offline_mode": False, "earned_autonomy_relax": False, "voice_lock": False, "voice_lock_threshold": 0.55,
             "timeline": False, "timeline_private": [], "voice_engine": "kokoro", "stt_language": "en",
-            "heard_ambient_until": 0.0, "brain": "cloud_first", "follow_up_seconds": 8.0, "presence_overlay": True}
+            "heard_ambient_until": 0.0, "brain": "cloud_first", "follow_up_seconds": 8.0, "presence_overlay": True,
+            "media_folders": []}
 STT_LANGUAGES = {"en", "en|hi"}
 BRAINS = {"cloud_first", "local"}
+
+
+def _folders(value):
+    """Extra folders Chutku looks in for the owner's videos ("baki chalao"): absolute paths, at most 20."""
+    return isinstance(value, list) and len(value) <= 20 and all(
+        isinstance(v, str) and 3 <= len(v) <= 260 and Path(v).is_absolute() for v in value)
 
 
 def _number(value):
@@ -55,6 +62,8 @@ class Preferences:
                 values["timeline"] = raw["timeline"]
             if type(raw.get("presence_overlay")) is bool:
                 values["presence_overlay"] = raw["presence_overlay"]
+            if _folders(raw.get("media_folders")):
+                values["media_folders"] = list(raw["media_folders"])
             if isinstance(raw.get("timeline_private"), list):
                 values["timeline_private"] = [str(v)[:80] for v in raw["timeline_private"][:50]]
             if raw.get("voice_engine") in {"kokoro", "sapi"}:
@@ -94,6 +103,8 @@ class Preferences:
             raise ValueError("voice_lock_threshold must be between 0.2 and 0.95.")
         if "voice_engine" in changes and changes["voice_engine"] not in {"kokoro", "sapi"}:
             raise ValueError("voice_engine must be kokoro or sapi.")
+        if "media_folders" in changes and not _folders(changes["media_folders"]):
+            raise ValueError("media_folders must be a list of up to 20 full folder paths (e.g. D:\\Videos).")
         if "timeline_private" in changes and not (isinstance(changes["timeline_private"], list) and all(
                 isinstance(v, str) and 0 < len(v) <= 80 for v in changes["timeline_private"])
                                                   and len(changes["timeline_private"]) <= 50):

@@ -86,7 +86,7 @@ class RewindTests(unittest.TestCase):
     def test_volume_is_restored_and_a_message_is_listed_as_irreversible(self):
         before, after = {"level": 50, "muted": False}, {"level": 20, "muted": False}
         self.log(tool="audio.volume", arguments={"action": "set", "level": 20}, state_before=before, state_after=after)
-        self.log(tool="message.send", risk=3, arguments={"app": "whatsapp", "to": "UB", "text": "[REDACTED]"})
+        self.log(tool="message.send", risk=3, arguments={"app": "whatsapp", "to": "AK", "text": "[REDACTED]"})
         current = {"value": dict(after)}
         with patch.object(rewind, "read_setting", side_effect=lambda name: current["value"]), \
                 patch.object(rewind, "write_setting", side_effect=lambda name, value: current.update(value=value)), \

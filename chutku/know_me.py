@@ -46,8 +46,10 @@ def load(base=None):
 # -- media --------------------------------------------------------------------------------------------------------
 
 def media_roots(base=None, extra=()):
+    from chutku.core.preferences import Preferences
     home = Path(os.environ.get("USERPROFILE", "C:/Users/Public"))
-    roots = [home / "Videos", home / "Downloads", home / "Downloads" / "Telegram Desktop", Path("D:/SID"),
+    own = Preferences(Path(base or PROJECT_ROOT)).load()["media_folders"]   # e.g. the owner's D:\SID
+    roots = [home / "Videos", home / "Downloads", home / "Downloads" / "Telegram Desktop", *map(Path, own),
              Path("D:/Videos"), Path("D:/Movies"), Path("D:/Anime"), *map(Path, extra)]
     for path in vlc_recent_paths():            # wherever the owner actually plays things from
         roots.append(path.parent.parent if path.parent.parent != path.parent else path.parent)

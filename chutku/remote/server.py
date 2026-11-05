@@ -22,6 +22,7 @@ import threading
 import time
 from urllib.parse import parse_qs, urlsplit
 
+from chutku.core.paths import user_folder
 from chutku.remote.auth import RemoteDenied, RemoteStore
 
 WEB = Path(__file__).resolve().parents[1] / "web" / "phone"
@@ -32,7 +33,7 @@ MAX_BODY = 2 * 1024 * 1024                 # JSON and voice clips
 MAX_UPLOAD = 200 * 1024 * 1024             # P8 phone -> laptop files
 SCREEN_MAX = 30 * 60
 SCREEN_BEAT = 15.0
-INBOX = Path("D:/ChutkuInbox")
+INBOX = Path(user_folder("ChutkuInbox"))
 BLOCKED_SUFFIXES = {".exe", ".msi", ".bat", ".cmd", ".ps1", ".vbs", ".js", ".scr", ".lnk", ".com", ".hta", ".jar"}
 # Steps that may never be approved from the phone, whatever the PIN: they wait for the laptop's own card.
 LAPTOP_ONLY_PREFIXES = ("never.", "remote.", "power.", "filesystem.delete_permanent", "process.terminate",

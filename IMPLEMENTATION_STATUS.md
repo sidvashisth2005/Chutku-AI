@@ -16,6 +16,52 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-05: Ponytail skills, owner paths become settings, personal names scrubbed, Phase 6 planned (O1, O2)
+
+**Ponytail** (https://github.com/DietrichGebert/ponytail, MIT, v5.3.3 `96608e0`)
+- The repo was read in full in a scratch clone first. Four skills were adopted as text: `ponytail`,
+  `ponytail-review`, `ponytail-audit` and `ponytail-debt`, in `.claude/skills/`.
+- **Not installed:** its hooks. They run Node scripts after every turn, write a task ledger to `~/.config` and can
+  post rows to a webhook. Chutku needs none of that, and it is third-party code running on the owner's PC.
+- `AGENTS.md` gains the ponytail ladder (needed? → repo helper → stdlib → installed dependency → one line → minimum)
+  and the `# shortcut: <limit>, <upgrade>` convention.
+- `CODER_SYSTEM` now prefers the stdlib and never cuts validation.
+- Credited in `THIRD_PARTY_LICENSES.md`.
+
+**O1: owner values become settings**
+- New `core.paths.user_folder(name)`: `D:\<name>` when that folder already exists (this owner's setup), otherwise
+  `%USERPROFILE%\<name>`. It is used for:
+  - ChutkuProjects;
+  - the phone inbox, ChutkuInbox (`D:\ChutkuInbox` was created so phone uploads stay off the nearly full C:);
+  - the voice-lock scratch folder.
+- The hardcoded `D:/SID` media root is now the preference `media_folders`. It accepts up to 20 absolute paths and
+  is validated both ways. The owner's preferences now hold `["D:\\SID"]`.
+- The VS Code atlas path `C:\Users\<owner>\...` is now `%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe`. The
+  runner already expands it, and it resolves on this PC.
+- **Tests:** `tests/test_open_source_config.py`, 5 tests:
+  - the folder rule;
+  - bad `media_folders` refused (relative path, a string, a number, 21 entries);
+  - a hand-edited bad value falls back to `[]`;
+  - `media_roots` uses the setting.
+- **Real path:**
+  - `user_folder` gives `D:\ChutkuProjects` and `D:\ChutkuInbox` here, and `C:\Users\<owner>\NoSuchChutkuThing`
+    for a missing name;
+  - `know_me.media_roots()` lists `D:\SID` from the preference.
+
+**O2: personal examples**
+- The owner's contact initials became "AK" across 31 files: code comments and examples, tests, `check_phrases.py`,
+  and the owner guide. The owner's first name and username were removed from two test fixtures and a docstring.
+- Generic Hindi kinship words (mammi, papa, gf) stay; they are language.
+- **Kept:** one example inside a tool description (`schedule_tools.py`). Tool descriptions feed the tool's contract
+  hash, so editing them would invalidate learned skills.
+- **Checks:**
+  - `check_phrases.py`: 135/135 instant;
+  - full suite: 1,237 tests in 243 s, OK (new 5, and the defaults test updated for `media_folders`).
+
+**Phase 6 planned** (`docs/MASTER_PLAN.md`, X1–X18): the owner's 19 capabilities plus "one voice command, offline
+first". It is based on two helper agents, Auditor (a code gap analysis) and Scout (online research), logged in
+`docs/AGENT_PROMPTS.md` #13–14.
+
 ### 2026-11-05: Karpathy coding rules, a coder that can't cheat its tests, dead code removed, 2 live bugs fixed (Phase 5 K + C)
 
 **Karpathy guidelines (K1–K4)**

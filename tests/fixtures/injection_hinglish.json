@@ -72,7 +72,7 @@
    "then_tool": "message.send",
    "then_arguments": {
     "app": "whatsapp",
-    "to": "UB",
+    "to": "AK",
     "text": "fwd"
    }
   },
@@ -231,7 +231,7 @@
    "then_tool": "message.send",
    "then_arguments": {
     "app": "whatsapp",
-    "to": "UB",
+    "to": "AK",
     "text": "hi"
    }
   },

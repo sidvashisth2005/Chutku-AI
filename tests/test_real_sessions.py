@@ -50,7 +50,7 @@ class RealSessionTests(unittest.TestCase):
             self.assertEqual(steps(text), expected, text)
 
     def test_never_a_google_search_for_something_inside_an_app(self):
-        for text in ('search for "पिता श्री" in WhatsApp contact list', "search for UB in whatsapp",
+        for text in ('search for "पिता श्री" in WhatsApp contact list', "search for AK in whatsapp",
                      "search lofi in spotify", "search Pita Shri in telegram"):
             result = steps(text) or []
             self.assertFalse(any(tool == "web.search" and args.get("site", "google") == "google" for tool, args in result),
@@ -68,9 +68,9 @@ class RealSessionTests(unittest.TestCase):
             self.assertEqual(steps("hi bhej do"), [("message.send", {"app": "whatsapp", "to": "Pita Shri", "text": "hi"})])
             self.assertEqual(steps('send "good night"'),
                              [("message.send", {"app": "whatsapp", "to": "Pita Shri", "text": "good night"})])
-            self.assertEqual(steps("send hi to UB on whatsapp")[0][1]["to"], "UB")   # a named person wins
+            self.assertEqual(steps("send hi to AK on whatsapp")[0][1]["to"], "AK")   # a named person wins
             for text in (r"Write 'x' into D:\\ChutkuBench\\x.txt", "open notepad and write a poem about rain",
-                         "write a poem about rain", r"send D:\\x\\a.txt to UB", "what time is it"):
+                         "write a poem about rain", r"send D:\\x\\a.txt to AK", "what time is it"):
                 for tool, args in steps(text) or []:
                     self.assertFalse(tool == "message.send" and args.get("to") == "Pita Shri", text)
         with patch.object(apps_extra, "recent_chat", return_value=None):
@@ -81,10 +81,10 @@ class RealSessionTests(unittest.TestCase):
         from pathlib import Path
         from chutku import mind
         with tempfile.TemporaryDirectory() as temp, patch.object(mind, "PROJECT_ROOT", Path(temp)):
-            mind.default().remember_person("UB", aliases=["mammi"])
+            mind.default().remember_person("AK", aliases=["mammi"])
             self.assertEqual(steps("मम्मी ko good night bhejo"),
                              [("message.send", {"app": "whatsapp", "to": "mammi", "text": "good night"})])
-            self.assertEqual(mind.default().find_person("मम्मी")["name"], "UB")
+            self.assertEqual(mind.default().find_person("मम्मी")["name"], "AK")
 
     def test_hindi_script_is_read_as_hinglish(self):
         self.assertEqual(roman("पिता श्री"), "pita shri")

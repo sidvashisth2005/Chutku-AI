@@ -128,8 +128,8 @@ class NamedChatTests(unittest.TestCase):
         listed, pane_x = _split_panes(self.BASE, self.RECT)
         self.assertEqual(pane_x, 563)  # right edge of the chat list's timestamps
         self.assertEqual(_search_box(self.BASE, self.RECT, pane_x), (277, 151))  # between "Chats" and the chips
-        self.assertEqual(_header_matches(self.lines(("UB", (620, 30, 660, 50))), self.RECT, "UB"), 563)
-        self.assertIsNone(_header_matches(self.lines(("UB Office", (620, 30, 700, 50))), self.RECT, "UB"))
+        self.assertEqual(_header_matches(self.lines(("AK", (620, 30, 660, 50))), self.RECT, "AK"), 563)
+        self.assertIsNone(_header_matches(self.lines(("AK Office", (620, 30, 700, 50))), self.RECT, "AK"))
 
     def run_flow(self, screens, *, dry_run=True, row_light=None, text="hi"):
         from unittest.mock import patch
@@ -175,12 +175,12 @@ class NamedChatTests(unittest.TestCase):
                 patch.object(apps_extra, "_result_rows", side_effect=fake_rows), \
                 patch.object(apps_extra, "_row_brightness", side_effect=row_light or brightness), \
                 patch.object(vision, "read_strips", return_value=[""]):
-            result = apps_extra._send_to_named_chat("UB", text, dry_run=dry_run)
+            result = apps_extra._send_to_named_chat("AK", text, dry_run=dry_run)
         return result, typed, clicks, keys
 
     def test_chat_already_open_in_front_gets_the_message_without_searching_again(self):
         """Owner 2026-10-05: a second message to the open chat searched and reopened it every time."""
-        open_ub = self.BASE + [{"text": "UB", "rect": (620, 30, 660, 50)}]
+        open_ub = self.BASE + [{"text": "AK", "rect": (620, 30, 660, 50)}]
         sent = open_ub + [{"text": "hi", "rect": (900, 600, 930, 615)}]
         result, typed, clicks, _keys = self.run_flow([open_ub, sent], dry_run=False)
         self.assertEqual(result.verification.name, "PASS", result.output)
@@ -190,12 +190,12 @@ class NamedChatTests(unittest.TestCase):
 
     def test_a_different_chat_in_front_still_goes_through_search(self):
         other_open = self.BASE + [{"text": "Mata Shri", "rect": (620, 30, 700, 50)}]
-        searched = self.lines(("UB", (120, 145, 140, 160)), ("UB", (190, 330, 215, 347)))
-        opened = searched + [{"text": "UB", "rect": (620, 30, 660, 50)}]
+        searched = self.lines(("AK", (120, 145, 140, 160)), ("AK", (190, 330, 215, 347)))
+        opened = searched + [{"text": "AK", "rect": (620, 30, 660, 50)}]
         result, typed, clicks, _keys = self.run_flow([other_open, searched, opened])
         self.assertEqual(result.verification.name, "PASS", result.output)
         self.assertFalse(result.output["chat_was_open"])
-        self.assertEqual(typed, ["UB"])          # searched for the right chat first
+        self.assertEqual(typed, ["AK"])          # searched for the right chat first
         self.assertEqual(clicks[0], (277, 151))
 
     def test_emoji_only_message_is_confirmed_by_a_new_bubble_in_the_chat_area(self):
@@ -212,26 +212,26 @@ class NamedChatTests(unittest.TestCase):
         self.assertFalse(_area_changed(before, vision.Shot(typing, 0, 0, 200, 100), area))
 
     def test_exact_chat_is_opened_and_confirmed_without_typing_a_message(self):
-        searched = self.lines(("UB", (120, 145, 140, 160)), ("UB", (190, 330, 215, 347)))
-        opened = searched + [{"text": "UB", "rect": (620, 30, 660, 50)}]
+        searched = self.lines(("AK", (120, 145, 140, 160)), ("AK", (190, 330, 215, 347)))
+        opened = searched + [{"text": "AK", "rect": (620, 30, 660, 50)}]
         result, typed, clicks, _keys = self.run_flow([self.BASE, searched, opened])
         self.assertEqual(result.verification.name, "PASS", result.output)
         self.assertTrue(result.output["chat_confirmed"])
-        self.assertEqual(typed, ["UB"])                       # only the search text, never the message
+        self.assertEqual(typed, ["AK"])                       # only the search text, never the message
         self.assertEqual(clicks, [(277, 151), (202, 338)])     # search box, then the exact row
 
     def test_short_name_found_by_whatsapps_green_highlight_not_ocr(self):
-        """Owner's screenshot 2026-10-03: "Ub" is the 4th result, drawn in green; OCR could not read it."""
+        """Owner's screenshot 2026-10-03: "Ak" is the 4th result, drawn in green; OCR could not read it."""
         results = self.lines(("Pushkar Dubey ICMME Team JU...", (190, 327, 488, 346)),
                              ("Train With Shubham", (189, 422, 367, 437)), ("Tech Clubs (All)", (189, 516, 328, 537)),
                              ("", (189, 612, 215, 627)), ("Pankaj Dubey Sir", (190, 707, 491, 726)))
-        results[-2]["green"] = True                                    # the unreadable, fully highlighted "Ub"
+        results[-2]["green"] = True                                    # the unreadable, fully highlighted "Ak"
         searched = [{"text": "x", "rect": (538, 148, 553, 163)}] + results
         opened = searched + [{"text": "", "rect": (620, 30, 660, 50)}]  # header not OCR-readable either
         result, typed, clicks, _keys = self.run_flow([self.BASE, searched, opened])
         self.assertEqual(result.verification.name, "PASS", result.output)
         self.assertEqual(clicks[-1], (202, 619))                       # the 4th row, not the top one
-        self.assertEqual(typed, ["UB"])
+        self.assertEqual(typed, ["AK"])
 
     def unreadable_ub(self):
         results = self.lines(("Pushkar Dubey ICMME Team JU...", (190, 327, 488, 346)), ("", (189, 612, 215, 627)))
@@ -240,12 +240,12 @@ class NamedChatTests(unittest.TestCase):
         return searched, searched + [{"text": "", "rect": (620, 30, 660, 50)}]
 
     def test_chat_already_open_is_confirmed_by_being_the_highlighted_row(self):
-        """Live 2026-10-04: a second send to Ub right after the first failed (its row was already selected)."""
+        """Live 2026-10-04: a second send to Ak right after the first failed (its row was already selected)."""
         searched, opened = self.unreadable_ub()
         result, typed, _clicks, _keys = self.run_flow(
             [self.BASE, searched, opened], row_light=lambda _shot, box: 50 if box[1] == 612 else 30)
         self.assertEqual(result.verification.name, "PASS", result.output)
-        self.assertEqual(typed, ["UB"])
+        self.assertEqual(typed, ["AK"])
 
     def test_unreadable_header_with_no_distinct_selected_row_sends_nothing(self):
         searched, opened = self.unreadable_ub()
@@ -253,25 +253,25 @@ class NamedChatTests(unittest.TestCase):
                                                      row_light=lambda _shot, _box: 50)   # every row looks alike
         self.assertEqual(result.verification.name, "FAIL")
         self.assertIn("nothing was sent", result.output["error"])
-        self.assertEqual(typed, ["UB"])                                           # never the message
+        self.assertEqual(typed, ["AK"])                                           # never the message
 
     def test_wrong_chat_means_nothing_is_typed_or_sent(self):
-        searched = self.lines(("UB", (120, 145, 140, 160)), ("UB", (190, 330, 215, 347)))
+        searched = self.lines(("AK", (120, 145, 140, 160)), ("AK", (190, 330, 215, 347)))
         wrong = searched + [{"text": "Mata Shri", "rect": (620, 30, 700, 50)}]
         result, typed, _clicks, _keys = self.run_flow([self.BASE, searched, wrong], dry_run=False)
         self.assertEqual(result.verification.name, "FAIL")
         self.assertIn("nothing was sent", result.output["error"])
-        self.assertEqual(typed, ["UB"])
+        self.assertEqual(typed, ["AK"])
 
     def test_missing_search_box_or_chat_types_nothing(self):
         bare = [{"text": "Yesterday", "rect": (493, 425, 558, 440)}]
         result, typed, _clicks, _keys = self.run_flow([bare], dry_run=False)
         self.assertEqual(result.verification.name, "FAIL")
         self.assertEqual(typed, [])
-        searched = self.lines(("UB", (120, 145, 140, 160)))     # search ran, but no chat row matches
+        searched = self.lines(("AK", (120, 145, 140, 160)))     # search ran, but no chat row matches
         result, typed, _clicks, keys = self.run_flow([self.BASE, searched], dry_run=False)
         self.assertIn("No WhatsApp chat is named exactly", result.output["error"])
-        self.assertEqual(typed, ["UB"])
+        self.assertEqual(typed, ["AK"])
         self.assertIn([0x1B], keys)                            # the search is cleared again
 
 
@@ -308,11 +308,11 @@ class OpenChatTests(unittest.TestCase):
             return ToolResult({"chat_confirmed": True}, Verification.PASS)
         apps_extra.LAST_CHAT.update(app=None, to=None, at=0.0)
         with patch.object(apps_extra, "_send_to_named_chat", side_effect=fake), \
-                patch.object(apps_extra, "recipient", return_value=("", "UB", "UB")):
+                patch.object(apps_extra, "recipient", return_value=("", "AK", "AK")):
             result = apps_extra._open_chat({"app": "whatsapp", "to": "mammi"}, None)
         self.assertEqual(result.verification, Verification.PASS)
-        self.assertEqual(calls, [("UB", "", True, True)])                 # opened, never typed, Esc not pressed
-        self.assertEqual(apps_extra.recent_chat(), ("whatsapp", "UB"))
+        self.assertEqual(calls, [("AK", "", True, True)])                 # opened, never typed, Esc not pressed
+        self.assertEqual(apps_extra.recent_chat(), ("whatsapp", "AK"))
 
     def test_failed_open_remembers_nothing(self):
         from unittest.mock import patch
@@ -356,10 +356,10 @@ class WhatsAppViewTests(unittest.TestCase):
 
     def test_not_found_mentions_locked_chats(self):
         flow = NamedChatTests()
-        searched = flow.lines(("UB", (120, 145, 140, 160)))
+        searched = flow.lines(("AK", (120, 145, 140, 160)))
         result, typed, _clicks, _keys = flow.run_flow([flow.BASE, searched], dry_run=False)
         self.assertIn("Locked chats", result.output["error"])
-        self.assertEqual(typed, ["UB"])
+        self.assertEqual(typed, ["AK"])
 
 
 class ReadChatTests(unittest.TestCase):

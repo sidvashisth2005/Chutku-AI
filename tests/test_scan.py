@@ -49,9 +49,9 @@ class SavedTextTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.mind.set_fact("roll number", bad)
         with self.assertRaises(ValueError):
-            self.mind.remember_person("UB", relation="mummy", note=f"likes{ZWSP} tea")
+            self.mind.remember_person("AK", relation="mummy", note=f"likes{ZWSP} tea")
         self.assertEqual((self.base / "data" / "mind.json").read_bytes(), before)   # nothing changed
-        self.mind.remember_person("UB", relation="mummy", note="चाय पसंद है")
+        self.mind.remember_person("AK", relation="mummy", note="चाय पसंद है")
 
     def test_lists_allow_orders_but_not_hidden_text_or_duplicates(self):
         self.mind.add("notes", "open https://example.com and pay the fee")
@@ -88,7 +88,7 @@ class SavedTextTests(unittest.TestCase):
 
     def test_memory_meter(self):
         self.mind.set_fact("city", "Pune")
-        self.mind.remember_person("UB", relation="mummy")
+        self.mind.remember_person("AK", relation="mummy")
         usage = recall.memory_usage(self.base, budget=600)
         full = recall.about_you("", budget=10 ** 9, base=self.base, include_earlier=False)
         self.assertEqual(usage["chars"], len(json.dumps(full, ensure_ascii=False)))
@@ -97,7 +97,7 @@ class SavedTextTests(unittest.TestCase):
         self.assertIn(f"{usage['chars']}/600", usage["summary"])
         self.assertFalse(recall.memory_usage(self.base, budget=10)["all_fits"])
         from chutku.quick_intents import QUICK_ANSWERS
-        said = QUICK_ANSWERS["mind.show"]({"part": "all", "people": [{"name": "UB"}], "memory_meter": usage["summary"]})
+        said = QUICK_ANSWERS["mind.show"]({"part": "all", "people": [{"name": "AK"}], "memory_meter": usage["summary"]})
         self.assertIn(usage["summary"], said)
 
 

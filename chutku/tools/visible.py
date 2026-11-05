@@ -56,7 +56,7 @@ KINDS = KINDS_SCHEMA
 
 
 def kind_of(line, lines):
-    """The item type shown on the small line just under a title ("Playlist • Siddhant", "Song • Don Toliver"),
+    """The item type shown on the small line just under a title ("Playlist • Alex", "Song • Don Toliver"),
     or None when no such line says it. Spotify lists songs, playlists and albums with the same title text."""
     x0, _y0, x1, y1 = line["rect"]
     for other in lines:

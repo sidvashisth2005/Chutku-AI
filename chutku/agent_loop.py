@@ -1468,9 +1468,9 @@ def default_context(router):
 
 
 def projects_folder():
-    """Where code.build_project puts new projects: D:\\ChutkuProjects (C: is nearly full), else the profile."""
-    import os
-    return "D:\\ChutkuProjects" if os.path.isdir("D:\\") else os.path.join(os.environ.get("USERPROFILE", "C:\\"), "ChutkuProjects")
+    """Where code.build_project puts new projects (core.paths.user_folder)."""
+    from chutku.core.paths import user_folder
+    return user_folder("ChutkuProjects")
 
 
 def _user_facts(runtime, limit_chars=1500):

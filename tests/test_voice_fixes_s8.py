@@ -99,7 +99,7 @@ class LiveRequestTests(unittest.TestCase):
         self.assertTrue(any("did not hear a clear yes" in text for text in injected))
 
     def test_no_personal_names_are_built_in(self):
-        for name in ("UB", "Pita Shri", "mammi"):
+        for name in ("AK", "Pita Shri", "mammi"):
             self.assertNotIn(name, PERSONA)
 
 

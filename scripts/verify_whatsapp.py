@@ -1,6 +1,6 @@
 """Dry run of the WhatsApp named-chat path on the owner's PC: never types or sends a message.
 
-Usage: .venv\\Scripts\\python.exe scripts\\verify_whatsapp.py --chat "UB"
+Usage: .venv\\Scripts\\python.exe scripts\\verify_whatsapp.py --chat "AK"
 Searches the chat, clicks the exact match, confirms the header shows the name, then presses Esc.
 """
 from __future__ import annotations

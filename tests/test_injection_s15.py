@@ -21,7 +21,7 @@ class InjectionTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.mind_root = patch.object(mind, "PROJECT_ROOT", Path(self.temp.name) / "mind")
         self.mind_root.start()
-        mind.default().remember_person("UB", aliases=["mammi"])   # known people: messages to them go out unasked
+        mind.default().remember_person("AK", aliases=["mammi"])   # known people: messages to them go out unasked
         self.foreground = patch.object(free_input, "_foreground", return_value=(
             None, {"executable": "C:/Windows/notepad.exe", "title": "Untitled - Notepad"}, "notepad.exe"))
         self.foreground.start()

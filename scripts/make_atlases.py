@@ -80,7 +80,7 @@ def main():
     C = ["vs code", "vscode"]
     write("vscode", {"app": "vscode", "name": "Visual Studio Code", "aliases": ["vs code", "vscode", "visual studio code"],
         "window": {"exe": "Code.exe"}, "launch": {"start_menu": "Visual Studio Code"}, "uri_schemes": [],
-        "cli": {"code": "C:\\Users\\siddh\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe"},
+        "cli": {"code": "%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\Code.exe"},
         "sources": ["docs/apps/vscode.md"], "actions": [
         act("open", "Open VS Code", ["open vs code", "vs code kholo"], [{"focus": True}], route=False),
         act("open_folder", "Open a folder or file in VS Code", ["open {path} in vs code", "vs code mein {path} kholo"],

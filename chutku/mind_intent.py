@@ -1,6 +1,6 @@
 """Instant phrases for the owner's personal memory (chutku/mind.py), English and Hinglish.
 
-    "UB is my gf" / "UB meri gf hai" / "remember Sharma Sir is my DL wale sir"   -> mind.person (nickname)
+    "AK is my gf" / "AK meri gf hai" / "remember Sharma Sir is my DL wale sir"   -> mind.person (nickname)
     "mammi ka number +91 98xxx xxxxx hai" / "save mammi's number +91..."         -> mind.person (phone)
     "my home is in Pune" / "I live in Pune" / "mera ghar Pune mein hai"          -> mind.fact
     "add assignment: DBMS report by Friday" / "my skills: python, react"         -> mind.add

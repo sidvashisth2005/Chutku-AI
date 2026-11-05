@@ -4,7 +4,7 @@ Stored locally in data/mind.json (never sent anywhere by this module). Lookups a
 ("my gf", "meri gf", "GF" and "girlfriend" are the same key), never fuzzy: a message must never reach the wrong
 person because two names looked alike.
 
-    people: [{"name": "UB", "aliases": ["gf"], "relation": "girlfriend", "whatsapp": "UB", "phone": ""}]
+    people: [{"name": "AK", "aliases": ["gf"], "relation": "girlfriend", "whatsapp": "AK", "phone": ""}]
     facts:  {"home": "Pune, Maharashtra", ...}
     lists:  {"assignments": [{"id": 1, "text": "...", "done": false, "added": "2026-10-04"}], "schedule": [...], ...}
 """

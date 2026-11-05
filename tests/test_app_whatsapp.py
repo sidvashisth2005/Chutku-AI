@@ -35,7 +35,7 @@ class UnreadTests(unittest.TestCase):
         line = lambda t: {"text": t}
         self.assertEqual(extras.unread_from([line("All"), line("Unread 26"), line("Favourites")]), 26)
         self.assertEqual(extras.unread_from([line("Unread")]), 0)
-        self.assertIsNone(extras.unread_from([line("Unread messages from Ub")]))   # chat text, not the chip
+        self.assertIsNone(extras.unread_from([line("Unread messages from Ak")]))   # chat text, not the chip
         self.assertIsNone(extras.unread_from([line("Edit profile")]))
 
     def run_tool(self, driver):
@@ -70,7 +70,7 @@ class UnreadTests(unittest.TestCase):
         tool = registry.get("message.unread_count")
         self.assertEqual(int(tool.base_risk), 0)
         with self.assertRaises(ValueError):
-            tool.validate_arguments({"to": "Ub"})
+            tool.validate_arguments({"to": "Ak"})
 
 
 class AtlasTests(unittest.TestCase):

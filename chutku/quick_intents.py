@@ -1519,7 +1519,7 @@ def _describe_person(person):
 
 def _say_who(out):
     if not out["known"]:
-        return (f"I don't know who {out['name']} is yet. Tell me, e.g. “UB is my {out['name']}”, "
+        return (f"I don't know who {out['name']} is yet. Tell me, e.g. “AK is my {out['name']}”, "
                 f"or “{out['name']} ka number +91… hai”.")
     return f"{out['name']} is {_describe_person(out['person'])}."
 
@@ -1538,7 +1538,7 @@ def _say_mind(out):
         parts.append(f"{name.capitalize()}: {shown}.")
     if parts and out.get("memory_meter"):
         parts.append(out["memory_meter"])   # how much of it fits in one prompt (Phase 3b H3)
-    return " ".join(parts) or "I don't know anything about you yet. Tell me: “UB is my gf”, “my home is in Pune”, " \
+    return " ".join(parts) or "I don't know anything about you yet. Tell me: “AK is my gf”, “my home is in Pune”, " \
                               "“add assignment: DBMS report by Friday”."
 
 

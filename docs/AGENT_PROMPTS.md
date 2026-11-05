@@ -25,6 +25,8 @@ How the work is split:
 | 10 | 2026-10-29 | `42e77248` | agent (Explore) | Audit 2026-10-29, part 2 of 3: real-session failures from the logs |
 | 11 | 2026-10-29 | `42e77248` | agent (Explore) | Audit 2026-10-29, part 3 of 3: plans, status and test health |
 | 12 | 2026-11-05 | `ad67e502` | skill `/code-review` | Review of Phase 5 K + C (Karpathy rules, coder guard, dead-code removal) |
+| 13 | 2026-11-05 | `ad67e502` | agent (Explore) "Auditor" | Gap analysis: the owner's 19 capabilities and offline readiness |
+| 14 | 2026-11-05 | `ad67e502` | agent (general-purpose) "Scout" | Online research: offline models, desktop agents, skill import, email/stocks |
 
 ## 1. Investigate random noise being taken as commands
 
@@ -298,4 +300,81 @@ Keep the report under ~1000 words.
 
 ````text
 high
+````
+
+## 13. Gap analysis: the owner's 19 capabilities and offline readiness
+
+- **When:** 2026-11-05, session `ad67e502`
+- **Kind:** Agent, type `Explore`, persona "Auditor"; short description "Auditor: gap analysis vs 19 capabilities"
+- **Why it was used:** The owner asked for 19 capabilities in 7 groups, and for a team of agents. I needed to know from the code which of
+  the 19 exist before planning Phase 6.
+- **What came of it:** Of the 19, 8 are missing: self-coding, GitHub skill import, the eyes, lip-sync, in-HUD YouTube, email, stocks and a
+  deep drive scan.
+- Partial: web autopilot (fresh profile; `browser.input` is not granted), window snapping (no snap), telemetry (no
+  CPU temperature), OS commands (no PowerShell tool) and phone control (unit-tested only).
+- Strong: app building and memory.
+- Offline: the hotkey, STT, TTS and local planning (4B, then the 8B) work. Web tools don't, and the trained wake
+  model is missing.
+- It listed 5 reasons "open my last PDF, summarise it and email it to Ravi" fails: no email tool, an unknown
+  contact, an 8,000/3,500-character text cap, tight rounds, and unproven voice approval.
+- Spot-checked in code before it shaped the Phase 6 plan.
+
+**Prompt / input, word for word:**
+
+````text
+You are "Auditor", a meticulous, skeptical senior engineer on Chutku's team. You trust code, not docs. Read-only.
+
+Repo: D:\Project\Chutku. Chutku is a Windows voice/text assistant in Python (chutku/ ~34k lines, ~230 typed tools registered via registry.register(Tool("name", ...)), app "atlases" in chutku/apps/atlas/*.json, a deterministic quick router chutku/quick_intents.py + chutku/*_intent.py, an agent loop chutku/agent_loop.py, cloud planner chutku/cloud_planner.py (Groq/Gemini), local Qwen via chutku/brain_service.py, voice in chutku/voice/, HUD chutku/hud.py + presence window chutku/presence.py + chutku/web/presence.*, phone remote chutku/remote/, project builder chutku/tools/builder.py + chutku/coder.py). Ledger: IMPLEMENTATION_STATUS.md (newest first). Plan: docs/MASTER_PLAN.md.
+
+The owner wants these 19 capabilities (7 groups). For EACH one, report: status = present-verified-live / present-unit-tested-only / partial / missing; the exact files + tool names that implement it (cite file:line); what is missing; and whether it works OFFLINE (no internet) today.
+1 Self-coding & auto-upgrade: Chutku writes and installs its own new code (a new tool/skill) when a new requirement comes up.
+2 Web autopilot: operates a real Chrome/Brave browser like a human; fills forms/boxes automatically; smart search and data extraction.
+3 Skills injection: reads an open-source GitHub project and turns its abilities into a Chutku ability with one command.
+4 System governance: deep scan of every connected drive; voice-controlled window snapping; hardware telemetry (CPU/RAM/GPU/temps); single-shot OS command execution.
+5 HUD media & expressions: vector eyes reacting to mood; cartoon lip-sync while speaking; live YouTube playback inside the HUD.
+6 Instant software development: idea -> production-ready HTML/JS/Python web apps and tools.
+7 Memory & intelligence: remembers conversations and preferences; drafts and sends emails; tracks live stocks; controls the phone wirelessly.
+
+Also answer: (a) Offline readiness: with internet unplugged, which parts of the path "single voice command -> any PC task" still work (wake/hotkey, STT model, local planner, TTS, tools)? Which models are on disk (models/manifest.json, models/ dir listing) and what is the local planner's fallback path when cloud is unavailable (look at preferences "offline_mode", brain "cloud_first", chutku/online.py, provider fallback)? (b) The 5 biggest reasons a single complex voice command ("open my last PDF, summarise it and email it to Ravi") would fail today, with evidence from code.
+
+Output: a compact table for the 19 items, then (a) and (b). Under 1200 words. Cite file paths with line numbers.
+````
+
+## 14. Online research: offline models, desktop agents, skill import, email/stocks
+
+- **When:** 2026-11-05, session `ad67e502`
+- **Kind:** Agent, type `general-purpose` (with web search), persona "Scout"; short description "Scout: online research for offline assistant"
+- **Why it was used:** The owner asked to take inspiration from resources online and to make one voice command work with little or no
+  internet.
+- **What came of it:** A ranked list with links and licences. Top ideas taken into Phase 6:
+  - JSON-schema-constrained tool choice in llama-server, plus top-k tool retrieval;
+  - an A/B of Qwen3.5-4B (BFCL-V4 50.3) against today's Qwen3-4B before any switch;
+  - faster-whisper large-v3-turbo;
+  - Kokoro phoneme timestamps for lip-sync;
+  - UFO-style multi-action plans;
+  - a cloud "tool maker" with a local "tool user", and SKILL.md skills with tests and approval;
+  - a dedicated signed-in browser profile over CDP;
+  - draft-first email;
+  - cached stock quotes labelled "as of".
+- Licence warnings kept: xLAM is non-commercial, Piper is GPL, espeak-ng is GPL, Open Interpreter and Skyvern are
+  AGPL (ideas only).
+- Unverified items are marked as such in the plan.
+
+**Prompt / input, word for word:**
+
+````text
+You are "Scout", a curious, pragmatic research engineer on Chutku's team. You read primary sources (GitHub READMEs, official docs, model cards), not listicles, and you say plainly when something is unproven. Research only: do not modify any files.
+
+Context: Chutku (D:\Project\Chutku) is a Python Windows assistant meant to do ANY PC task from a single voice command, offline-first (internet optional), on modest hardware: RTX 3050 Laptop 4 GB VRAM, 24 GB RAM, Windows 11, C: nearly full (models live on D:). Today it uses faster-whisper small (CPU int8), Kokoro TTS (onnx), Qwen3-4B Q4_K_M via llama.cpp Vulkan as the local planner (median ~15 s, p90 ~58 s, picks wrong tools sometimes), Groq/Gemini free tiers when online, Playwright for web, UI Automation + OCR for desktop apps, openwakeword for wake word. It will be open-sourced under MIT, so every recommended component must have a license compatible with redistribution or be an optional download.
+
+Use WebSearch/WebFetch to find the current best (2026) options and report, with links, license, size and a one-line "why":
+1. Local tool-calling LLMs that fit 4 GB VRAM (or CPU+RAM) and are strong at function calling / JSON tool selection (e.g. Qwen3 small variants, Llama 3.x 3B, Phi-4-mini, Hammer, xLAM/ToolACE, Gemma 3n, FunctionGemma or newer). Prefer published function-calling benchmarks (BFCL etc.). Include speculative decoding / grammar-constrained (GBNF/JSON schema) decoding tips for llama.cpp that make small-model tool calls fast and valid.
+2. Offline STT for English+Hindi+Hinglish on that GPU: faster-whisper large-v3-turbo / distil variants, Moonshine, Parakeet, IndicConformer/AI4Bharat; latency and accuracy notes.
+3. Offline TTS with Hindi+English and low latency (Kokoro, Piper, Indic Parler-TTS, others) and simple lip-sync/viseme output for an animated avatar (e.g. Rhubarb Lip Sync, phoneme timestamps).
+4. Open-source desktop/OS agents to take inspiration from (Open Interpreter, UFO/UFO2 from Microsoft, OS-Copilot, Agent-S, browser-use, Skyvern, Windows-Use, Leon, OpenJarvis-style projects): for each, the one architectural idea worth copying (e.g. UIA-tree grounding, skill libraries, self-written tools with tests, planner/executor split).
+5. Browser autopilot in the user's own real browser (Playwright connect_over_cdp to Chrome/Brave/Edge profile, browser-use) for form filling and data extraction. Note: we will NOT do bot-detection evasion/fingerprint spoofing or CAPTCHA bypass; only automate the user's own normal browser.
+6. "Skill import from a GitHub repo": how projects like Voyager (skill library), Anthropic Agent Skills (SKILL.md), MCP servers, or tool-maker papers (LATM, CRAFT, ToolMaker) turn external code/docs into reusable tools safely (sandboxing, tests, human approval).
+7. Free/no-key data sources for live stock quotes usable offline-tolerant (with caching), and email drafting/sending on Windows without paid APIs (e.g. default mail client via mailto/Outlook COM, Gmail SMTP with app password) — note the safety trade-offs.
+
+Output: a ranked, concrete recommendation list per section (top 2-3 each), with links and licenses, plus a final "Top 10 changes for Chutku" list ordered by impact on "one voice command does the task, offline". Under 1500 words.
 ````

@@ -23,10 +23,10 @@ class MindTestCase(unittest.TestCase):
 
 class MindStoreTests(MindTestCase):
     def test_nicknames_relations_and_hinglish_find_the_same_person(self):
-        self.mind.remember_person("UB", aliases=["gf"])
+        self.mind.remember_person("AK", aliases=["gf"])
         self.mind.remember_person("Mummy", aliases=["mammi"], phone="+91 98765 43210")
         self.mind.remember_person("Sharma Sir", aliases=["DL wale sir"])
-        for said, name in (("gf", "UB"), ("my GF", "UB"), ("meri gf", "UB"), ("girlfriend", "UB"), ("UB", "UB"),
+        for said, name in (("gf", "AK"), ("my GF", "AK"), ("meri gf", "AK"), ("girlfriend", "AK"), ("AK", "AK"),
                            ("mammi", "Mummy"), ("mom", "Mummy"), ("mother", "Mummy"), ("mammi ko", "Mummy"),
                            ("DL waale sir", "Sharma Sir"), ("mere DL vale sir", "Sharma Sir")):
             self.assertEqual(self.mind.find_person(said)["name"], name, said)
@@ -42,14 +42,14 @@ class MindStoreTests(MindTestCase):
         self.assertIsNone(self.mind.find_person(""))
 
     def test_newest_nickname_wins_and_data_is_merged_not_lost(self):
-        self.mind.remember_person("UB", aliases=["gf"], note="likes coffee")
+        self.mind.remember_person("AK", aliases=["gf"], note="likes coffee")
         self.mind.remember_person("Riya", aliases=["gf"])
         self.assertEqual(self.mind.find_person("gf")["name"], "Riya")
-        self.mind.remember_person("ub", phone="+919999999999")
+        self.mind.remember_person("ak", phone="+919999999999")
         people = self.mind.load()["people"]
         self.assertEqual(len(people), 2)
-        ub = next(p for p in people if p["name"] == "UB")
-        self.assertEqual((ub["phone"], ub["notes"]), ("+919999999999", ["likes coffee"]))
+        ak = next(p for p in people if p["name"] == "AK")
+        self.assertEqual((ak["phone"], ak["notes"]), ("+919999999999", ["likes coffee"]))
 
     def test_facts_lists_done_and_forget(self):
         self.mind.set_fact("Home", "Pune")
@@ -67,9 +67,9 @@ class MindStoreTests(MindTestCase):
             self.mind.forget("person", "nobody")
 
     def test_store_is_plain_local_json_and_survives_a_corrupt_file(self):
-        self.mind.remember_person("UB", aliases=["gf"])
+        self.mind.remember_person("AK", aliases=["gf"])
         stored = json.loads((Path(self.temp.name) / "data" / "mind.json").read_text(encoding="utf-8"))
-        self.assertEqual(stored["people"][0]["name"], "UB")
+        self.assertEqual(stored["people"][0]["name"], "AK")
         (Path(self.temp.name) / "data" / "mind.json").write_text("{broken", encoding="utf-8")
         self.assertEqual(self.mind.load()["people"], [])
 
@@ -80,8 +80,8 @@ class MindPhraseTests(MindTestCase):
         return None if found is None else (found[0], found[1])
 
     def test_teaching_phrases(self):
-        self.assertEqual(self.tool("UB is my gf"), ("mind.person", {"name": "UB", "aliases": ["gf"]}))
-        self.assertEqual(self.tool("UB meri gf hai"), ("mind.person", {"name": "UB", "aliases": ["gf"]}))
+        self.assertEqual(self.tool("AK is my gf"), ("mind.person", {"name": "AK", "aliases": ["gf"]}))
+        self.assertEqual(self.tool("AK meri gf hai"), ("mind.person", {"name": "AK", "aliases": ["gf"]}))
         self.assertEqual(self.tool("remember Sharma Sir is my DL wale sir"),
                          ("mind.person", {"name": "Sharma Sir", "aliases": ["DL wale sir"]}))
         self.assertEqual(self.tool("mammi ka number +91 98765 43210 hai")[1]["phone"], "+919876543210")
@@ -100,7 +100,7 @@ class MindPhraseTests(MindTestCase):
 
     def test_messages_without_an_app_only_for_people_already_known(self):
         self.assertIsNone(self.tool("send hi to my gf"))              # nobody saved yet: never a guess
-        self.mind.remember_person("UB", aliases=["gf"])
+        self.mind.remember_person("AK", aliases=["gf"])
         self.assertEqual(self.tool("send hi to my gf"), ("message.send", {"app": "whatsapp", "to": "gf", "text": "hi"}))
         self.assertEqual(self.tool("gf ko good night bhejo"),
                          ("message.send", {"app": "whatsapp", "to": "gf", "text": "good night"}))
@@ -110,21 +110,21 @@ class MindPhraseTests(MindTestCase):
 
     def test_recipient_maps_nickname_to_chat_or_number(self):
         from chutku.tools.apps_extra import recipient, resolve_contact
-        self.mind.remember_person("UB", aliases=["gf"])
+        self.mind.remember_person("AK", aliases=["gf"])
         self.mind.remember_person("Mummy", aliases=["mammi"], phone="+919876543210")
-        self.assertEqual(recipient("my gf"), ("", "UB", "UB"))
+        self.assertEqual(recipient("my gf"), ("", "AK", "AK"))
         self.assertEqual(resolve_contact("mammi", None), ("+919876543210", "Mummy"))
         self.assertIsNone(recipient("Rahul"))
         with self.assertRaises(ValueError):
-            resolve_contact("gf", None)   # UB has no number: the named-chat path is used instead
+            resolve_contact("gf", None)   # AK has no number: the named-chat path is used instead
 
 
 class MindToolTests(MindTestCase):
     def test_tools_store_read_and_forgetting_asks_first(self):
         with tempfile.TemporaryDirectory() as temp, create_runtime(Path(temp)) as runtime:
-            self.assertEqual(runtime.run("mind.person", {"name": "UB", "aliases": ["gf"]})["state"], "COMPLETED")
+            self.assertEqual(runtime.run("mind.person", {"name": "AK", "aliases": ["gf"]})["state"], "COMPLETED")
             who = runtime.run("mind.who", {"name": "gf"})
-            self.assertEqual(who["output"]["person"]["name"], "UB")
+            self.assertEqual(who["output"]["person"]["name"], "AK")
             self.assertEqual(runtime.run("mind.add", {"list": "skills", "text": "python"})["state"], "COMPLETED")
             self.assertEqual(runtime.run("mind.show", {"part": "skills"})["output"]["lists"]["skills"][0]["text"],
                              "python")
@@ -151,8 +151,8 @@ class MindSessionTests(MindTestCase):
         with tempfile.TemporaryDirectory() as temp, create_runtime(Path(temp)) as runtime:
             router = RuntimeRouter(runtime)
             try:
-                for goal, expected in (("UB is my gf", "gf = UB"), ("add assignment: DBMS report by Friday", "Added"),
-                                       ("who is my gf", "gf is UB"), ("show my assignments", "1. DBMS report by Friday")):
+                for goal, expected in (("AK is my gf", "gf = AK"), ("add assignment: DBMS report by Friday", "Added"),
+                                       ("who is my gf", "gf is AK"), ("show my assignments", "1. DBMS report by Friday")):
                     session = AgentSession(goal, mode="auto_safe", context=default_context(router))
                     session.quick = QuickPlanner()
                     snapshot = session.advance(router, NoModel())
