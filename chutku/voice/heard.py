@@ -70,9 +70,6 @@ class NoiseGate:
         self.preroll.append(chunk)
         return []
 
-    def reset_speech(self):
-        self.speech_seconds = 0.0
-
 
 # -- what speech-to-text invents from noise --------------------------------------------------------------
 

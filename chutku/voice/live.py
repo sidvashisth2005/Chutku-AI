@@ -135,12 +135,6 @@ def saved_names(limit=20):
     return names[:limit]
 
 
-def approval_words(heard):
-    """'yes' only for a clear yes with no no/stop word in the owner's own words (Hindi script included)."""
-    from chutku.voice.approval import decide
-    return decide(heard) is True
-
-
 def describe_pending(pending):
     approval = (pending or {}).get("approval", {})
     args = approval.get("arguments") or {}

@@ -24,6 +24,7 @@ How the work is split:
 | 9 | 2026-10-29 | `42e77248` | agent (Explore) | Audit 2026-10-29, part 1 of 3: architecture and request flow |
 | 10 | 2026-10-29 | `42e77248` | agent (Explore) | Audit 2026-10-29, part 2 of 3: real-session failures from the logs |
 | 11 | 2026-10-29 | `42e77248` | agent (Explore) | Audit 2026-10-29, part 3 of 3: plans, status and test health |
+| 12 | 2026-11-05 | `ad67e502` | skill `/code-review` | Review of Phase 5 K + C (Karpathy rules, coder guard, dead-code removal) |
 
 ## 1. Investigate random noise being taken as commands
 
@@ -270,4 +271,31 @@ Report:
 5. Test suite shape: number of test files in tests/, any tests marked skip/expectedFailure, and the most recent recorded full-suite result in IMPLEMENTATION_STATUS (count, pass/fail, date).
 6. The dashboard UI: what tech it uses (chutku/dashboard.py, chutku/web/*) and what it looks like (pages/panels), roughly how polished.
 Keep the report under ~1000 words.
+````
+
+## 12. Review of Phase 5 K + C (built-in /code-review skill)
+
+- **When:** 2026-11-05, session `ad67e502`
+- **Kind:** Skill `/code-review` (built in; it brings its own instructions and reviews the uncommitted diff). Only my input is recorded.
+- **Why it was used:** Plan step C5. The diff changed the project builder's repair loop (a new guard against rewriting
+  tests) and removed code, so a second look was due before committing.
+- **What came of it:** 10 findings. Each was checked in the code:
+  - **Fixed:**
+    - The guard locked the generated tests forever, but the same LLM wrote them and they can be wrong. Now only
+      the first repair after a failed assertion is locked.
+    - The coder was never told its edit was dropped. The next fix prompt now says so.
+    - The trigger was a plain "AssertionError" substring. It is now unittest's `FAIL:` line.
+    - The test-file rule was defined twice. It is now one `is_test_file`.
+    - The error text was joined twice.
+    - A leftover `import hashlib` in `local_vision.py`.
+    - Dead compact/`fit()` code in `presence.js` and `presence.css`.
+  - **Known limit, not fixed:** helper modules imported by tests are not protected. They are rare in these small
+    generated projects, and later repairs may change tests anyway.
+  - **No change needed:** `beat(note)` dropping the note. Only tests ever read it, so behavior is unchanged.
+  - **Ledger finding:** done in the same change.
+
+**Prompt / input, word for word:**
+
+````text
+high
 ````

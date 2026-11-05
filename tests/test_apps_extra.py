@@ -124,15 +124,10 @@ class NamedChatTests(unittest.TestCase):
         return self.BASE + [{"text": text, "rect": rect} for text, rect in extra]
 
     def test_layout_is_read_from_the_screen(self):
-        from chutku.tools.apps_extra import _chat_rows, _header_matches, _search_box, _split_panes
+        from chutku.tools.apps_extra import _header_matches, _search_box, _split_panes
         listed, pane_x = _split_panes(self.BASE, self.RECT)
         self.assertEqual(pane_x, 563)  # right edge of the chat list's timestamps
         self.assertEqual(_search_box(self.BASE, self.RECT, pane_x), (277, 151))  # between "Chats" and the chips
-        searched = self.lines(("UB", (120, 145, 140, 160)), ("UB", (190, 330, 215, 347)), ("hi there", (190, 360, 300, 376)))
-        rows, names = _chat_rows(searched, self.RECT, "ub")
-        self.assertEqual([row["rect"] for row in rows], [(190, 330, 215, 347)])  # the search box text is ignored
-        two = searched + [{"text": "U.B.", "rect": (190, 400, 220, 417)}]
-        self.assertEqual(len(_chat_rows(two, self.RECT, "UB")[0]), 2)
         self.assertEqual(_header_matches(self.lines(("UB", (620, 30, 660, 50))), self.RECT, "UB"), 563)
         self.assertIsNone(_header_matches(self.lines(("UB Office", (620, 30, 700, 50))), self.RECT, "UB"))
 

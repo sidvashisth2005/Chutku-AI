@@ -697,30 +697,6 @@ def _row_brightness(shot, box):
     return float(np.median(crop.max(axis=2))) if crop.size else 0.0
 
 
-def _chat_names(lines, rect):
-    """Chat names in the list: the text that shares its row with a timestamp (message previews do not)."""
-    listed, _pane_x = _split_panes(lines, rect)
-    stamps = [line["rect"] for line in listed if _TIMESTAMP.match(line["text"].strip())]
-    names = []
-    for line in listed:
-        y0, y1 = line["rect"][1], line["rect"][3]
-        if not _TIMESTAMP.match(line["text"].strip()) and any(min(y1, s[3]) - max(y0, s[1]) > 3 for s in stamps):
-            names.append(line["text"].strip())
-    return names
-
-
-def _chat_rows(lines, rect, name):
-    """Chat-list rows whose text is exactly ``name`` (the search box at the top is ignored)."""
-    left, top, right, bottom = rect
-    listed, _pane_x = _split_panes(lines, rect)
-    chips = [line["rect"][3] for line in listed if _FILTER_CHIPS.match(line["text"].strip())]
-    floor = max(chips) if chips else top + (bottom - top) * 0.2  # the search box and chips sit above this
-    rows = [line for line in listed if line["rect"][1] > floor]
-    wanted = _normalise(name)
-    matches = [line for line in rows if wanted and _normalise(line["text"]) == wanted]
-    return matches, [line["text"] for line in rows]
-
-
 def _header_matches(lines, rect, name):
     """The chat pane's header shows exactly ``name``; returns the pane's left x when it does."""
     left, top, right, bottom = rect

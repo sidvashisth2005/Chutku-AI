@@ -1,6 +1,6 @@
 {
- "generated_at": "2026-10-01T06:16:14.453532+00:00",
- "source_digest": "dd97bd734045c4548fcd49bf3c3e0930944ea71560697d094d43edb9055dcd16",
+ "generated_at": "2026-11-05T12:23:49.074333+00:00",
+ "source_digest": "8cda14985e15cb98ac00c3d7865f583c25b92fb8afcf7e186e10b075f5190e0b",
  "passed": true,
  "checks": [
   {
@@ -17,23 +17,23 @@
   {
    "case": "build me a calculator app",
    "status": "done",
-   "seconds": 122.2,
+   "seconds": 214.5,
    "max_heartbeat_gap_seconds": 1.0,
    "reply": "Built calculator app. [Verified: 1 of 1 steps completed.]",
-   "folder": "D:\\ChutkuProjects\\calculator-app-7",
+   "folder": "D:\\ChutkuProjects\\calculator-app-8",
    "build": {
     "kind": "gui",
     "entry_file": "main.py",
-    "design": "Build a modern, responsive desktop calculator app using Python's tkinter library, featuring a decoupled CalculatorEngine for full testability, keyboard support, and a sleek dark theme.",
+    "design": "Python Tkinter desktop calculator with modern dark theme, rich logic engine, keyboard bindings, and unittest test suite.",
     "files": [
      ".chutku_build.json",
      "README.md",
-     "engine.py",
+     "calc_logic.py",
      "main.py",
      "test_app.py"
     ],
     "coder": "gemini",
-    "model": "gemini-3.5-flash",
+    "model": "gemini-3.6-flash",
     "attempts": [
      {
       "attempt": 1,
@@ -43,15 +43,15 @@
     ],
     "checks": [
      "compiled 3 Python file(s)",
-     "unit tests passed (12 tests)",
+     "unit tests passed (18 tests)",
      "app window appeared: 'Calculator'"
     ],
     "vscode": {
      "opened": true,
-     "title": "main.py - calculator-app-7 - Visual Studio Code"
+     "title": "main.py - calculator-app-8 - Visual Studio Code"
     },
     "app_running": true,
-    "seconds": 120.7,
+    "seconds": 212.9,
     "error": null,
     "note": null
    },

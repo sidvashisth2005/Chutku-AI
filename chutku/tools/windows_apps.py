@@ -185,6 +185,14 @@ class WindowsDesktop:
                     attached.append(thread)
             self.u.BringWindowToTop(hwnd)
             self.u.SetForegroundWindow(hwnd)
+            if self.u.GetForegroundWindow() != hwnd:
+                # Windows only lets the process that had the last input take focus. Scheduled tasks, the phone
+                # and the API have none (live 2026-11-05: Settings stayed in front of Notepad), so one Alt tap
+                # counts as that input, then try again.
+                keybd_event = ctypes.windll.user32.keybd_event
+                keybd_event(0x12, 0, 0, 0)        # VK_MENU down
+                keybd_event(0x12, 0, 0x0002, 0)   # KEYEVENTF_KEYUP
+                self.u.SetForegroundWindow(hwnd)
         finally:
             for thread in attached:
                 self.u.AttachThreadInput(current_thread, thread, False)

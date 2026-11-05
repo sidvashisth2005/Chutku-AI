@@ -66,24 +66,6 @@ class WindowTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 presence.presence_url(bad)
 
-    def test_bridge_shrinks_and_grows_in_the_corner(self):
-        moves = []
-
-        class Window:
-            def resize(self, w, h):
-                moves.append(("size", w, h))
-
-            def move(self, x, y):
-                moves.append(("move", x, y))
-        bridge = presence.Bridge()
-        bridge.window = Window()
-        with patch.object(presence, "work_area", return_value=(0, 0, 1920, 1040)):
-            bridge.size(True)
-            bridge.size(True)                      # no change: nothing moves
-            bridge.size(False)
-        self.assertEqual(moves, [("size", 112, 112), ("move", 1920 - 112 - 18, 1040 - 112 - 18),
-                                 ("size", 360, 600), ("move", 1920 - 360 - 18, 1040 - 600 - 18)])
-
     def test_the_test_install_never_opens_a_window(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory

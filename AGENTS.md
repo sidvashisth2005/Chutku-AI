@@ -14,6 +14,23 @@ Do not describe unexecuted code as implemented, verified, safe, or complete. Do 
 
 For safety-sensitive behavior, verification must include a negative case that proves the boundary fails closed where practical.
 
+## Engineering principles
+
+These are adapted from Andrej Karpathy's notes on LLM coding mistakes. The full text is in
+`.claude/skills/karpathy-guidelines/SKILL.md` (MIT, forrestchang/andrej-karpathy-skills).
+
+1. **Think before coding.** State your assumptions, and name any tradeoff or simpler route. Ask only about owner
+   decisions: changing or deleting the owner's files, publishing, R4 actions, and unknown recipients. Otherwise state
+   the assumption in one line and proceed.
+2. **Simplicity first.** Write the minimum code that solves the request. No speculative features, single-use
+   abstractions or unrequested configuration. If 200 lines could be 50, rewrite it.
+3. **Surgical changes.** Every changed line traces to the request. Match the surrounding style. Remove what your own
+   change made unused. Remove pre-existing dead code only when the owner asks for a cleanup, and only after grepping
+   for both symbol and string references (tools are registered and reached by name). Never turn off a working
+   user-facing mode as a side effect.
+4. **Goal-driven execution.** Turn each task into a check that can fail: a test that reproduces the bug, or the gate
+   above. Loop until it passes.
+
 ## Helper-agent prompts
 
 Every prompt given to a helper agent (sub-agent) or a skill with your own input is recorded in `docs/AGENT_PROMPTS.md`: word for word, with the date, why it was used and what came of it. Add the entry in the same change that uses the agent's result.

@@ -1,9 +1,10 @@
-"""Chutku's presence window (W4, 2026-10-29): a frameless, always-on-top orb in the corner of the screen that
-listens, thinks and speaks with her, shows live captions and each step of the current task, and takes approvals.
+"""Chutku's presence window (W4, 2026-10-29): the "Chutku Assistant" window in the corner of the screen. Its orb
+listens, thinks and speaks with her, and it shows live captions and each step of the current task, and takes
+approvals. Since 2026-11-01 it is a normal app window (Windows title bar, its own taskbar button, not on top).
 
 It is the dashboard's own page /presence (same token, same origin, same CSP) shown in a WebView2 window through
-pywebview, run as a child process of Chutku's core, so it closes with her. When idle it shrinks to a small orb;
-when anything happens it grows into a panel. Without pywebview the Tk HUD (chutku/hud.py) is used as before.
+pywebview, run as a child process of Chutku's core, so it closes with her. Without pywebview the Tk HUD
+(chutku/hud.py) is used as before.
 
     python -m chutku.presence [dashboard link]
 """
@@ -15,7 +16,6 @@ import sys
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FULL = (360, 600)
-COMPACT = (112, 112)
 MARGIN = 18
 TITLE = "Chutku Assistant"   # unique: the core's hidden tray window is also called "Chutku"
 
@@ -51,47 +51,6 @@ def work_area():
 def corner(size):
     left, top, right, bottom = work_area()
     return right - size[0] - MARGIN, bottom - size[1] - MARGIN
-
-
-class Bridge:
-    """Called from presence.js (window.pywebview.api): grow into the panel or shrink to the orb."""
-
-    def __init__(self):
-        self.window = None
-        self.compact = None
-
-    # js_api calls arrive while the page waits; touching the window from that call froze it ("Python is not
-    # responding", owner 2026-10-30), so every window change runs on its own thread.
-    def _later(self, action):
-        import threading
-        threading.Thread(target=action, daemon=True).start()
-
-    def size(self, compact):
-        compact = bool(compact)
-        if self.window is None or compact == self.compact:
-            return {"compact": self.compact}
-        self.compact = compact
-        width, height = COMPACT if compact else FULL
-        x, y = corner((width, height))
-
-        def apply():
-            self.window.resize(width, height)
-            self.window.move(x, y)
-        self._later(apply)
-        return {"compact": compact}
-
-    def minimize(self):
-        """pywebview's minimize does nothing on a frameless window (owner, 2026-10-31): ask Windows directly."""
-        def run():
-            import ctypes
-            hwnd = ctypes.windll.user32.FindWindowW(None, TITLE)
-            if hwnd:
-                ctypes.windll.user32.ShowWindow(hwnd, 6)   # SW_MINIMIZE
-        self._later(run)
-
-    def close(self):
-        if self.window is not None:
-            self._later(self.window.destroy)   # closing the window quits Chutku (see on_closed)
 
 
 def window_exists(title=TITLE):
@@ -149,13 +108,11 @@ def main(argv=None):
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Chutku.Assistant")
     except Exception:
         pass
-    bridge = Bridge()
     x, y = corner(FULL)
-    bridge.window = webview.create_window(TITLE, presence_url(link), js_api=bridge, width=FULL[0], height=FULL[1],
-                                          x=x, y=y, frameless=False, on_top=False, resizable=True, min_size=(300, 420),
-                                          background_color="#070b12")
-    bridge.compact = False
-    bridge.window.events.closed += quit_chutku
+    window = webview.create_window(TITLE, presence_url(link), width=FULL[0], height=FULL[1], x=x, y=y,
+                                   frameless=False, on_top=False, resizable=True, min_size=(300, 420),
+                                   background_color="#070b12")
+    window.events.closed += quit_chutku
     webview.start(show_in_taskbar, private_mode=True)
 
 

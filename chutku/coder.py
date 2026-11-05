@@ -35,6 +35,8 @@ for the user's request. Rules:
   (the tests must not open a window).
 - The entry file must start the app when run directly (GUI: mainloop inside if __name__ == "__main__").
 - Keep it clean, commented where useful, with a README.md explaining how to run it.
+- Simplicity first: the minimum code that fully does what was asked. No extra features, no speculative options,
+  no abstractions used only once. If 200 lines could be 50, write the 50.
 Answer ONLY in this exact format, nothing before or after:
 PLAN: <one line describing the design>
 KIND: <gui|cli|web>
@@ -46,11 +48,14 @@ RUN: <entry file, e.g. main.py or index.html>
 
 FIX_SYSTEM = """You are an expert software engineer fixing a project that failed its checks.
 Given the files and the exact error output, return ONLY the files you change, each complete, in this format:
-PLAN: <one line: what was wrong and the fix>
+PLAN: <one line: the failing check, what caused it, and the fix>
 === FILE: <relative/path> ===
 <full new file content>
 === END FILE ===
-Keep the same rules: standard library only for Python, plain HTML/CSS/JS for web, no input() prompts."""
+Keep the same rules: standard library only for Python, plain HTML/CSS/JS for web, no input() prompts.
+Surgical fix: change only what the error points to and leave every other line as it was. The tests define success:
+when a test assertion fails, fix the program first (a test edit in that first repair is discarded). Change a test
+only if its expected value is really wrong for the request."""
 
 _BLOCK = re.compile(r"^=== FILE: (.+?) ===[ \t]*\r?\n(.*?)^=== END FILE ===[ \t]*$", re.M | re.S)
 _HEADER = re.compile(r"^(PLAN|KIND|RUN):[ \t]*(.+?)[ \t]*$", re.M)

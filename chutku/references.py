@@ -22,7 +22,6 @@ _SECRET_PARTS = (r"\.ssh\\", r"\.aws\\", r"\.kube\\", r"\.gnupg\\", r"\\microsof
 _SECRET_NAMES = re.compile(r"^(?:\.env(?:\..*)?|\.netrc|\.npmrc|\.pypirc|\.git-credentials|id_(?:rsa|dsa|ecdsa|ed25519)"
                            r"(?:\.pub)?|login data|cookies|web data|.*\.kdbx|.*\.pfx|.*\.p12|.*\.pem|.*\.key)$", re.I)
 TOOLS = {"file": "file.extract_text", "folder": "filesystem.list", "url": "web.read", "clip": "clipboard.read_text"}
-PRIVATE = {"file", "folder", "clip"}
 
 
 class ReferenceError(ValueError):

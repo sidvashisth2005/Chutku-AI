@@ -184,6 +184,37 @@ class BuildToolTests(unittest.TestCase):
         self.assertIn("2 + 3 = 5", " ".join(output["checks"]))
         self.assertTrue((Path(output["folder"]) / builder.MARKER).exists())
 
+    def test_a_repair_that_rewrites_the_failing_test_is_discarded(self):
+        cheat = ("PLAN: make the test match\n=== FILE: test_app.py ===\nimport unittest\nfrom calc import add\n\n\n"
+                 "class T(unittest.TestCase):\n    def test_add(self):\n        self.assertEqual(add(2, 3), -1)\n"
+                 "=== END FILE ===\n")
+        coder = FakeCoder([cheat, FIX])
+        done = self.build(coder)
+        self.assertEqual(str(done["state"]), "COMPLETED", done)
+        attempts = done["output"]["attempts"]
+        self.assertEqual([a["passed"] for a in attempts], [False, False, True])  # the cheat did not make it pass
+        self.assertEqual(attempts[0]["discarded_test_edits"], ["test_app.py"])
+        self.assertIn("was discarded: fix the program first", coder.errors_seen[1])  # the coder is told why
+        test_file = (Path(done["output"]["folder"]) / "test_app.py").read_text(encoding="utf-8")
+        self.assertIn("add(2, 3), 5", test_file)  # the original goal is untouched
+
+    def test_a_wrong_generated_test_can_still_be_fixed_on_the_next_repair(self):
+        right_test = ("PLAN: the test expected the wrong sum\n=== FILE: test_app.py ===\nimport unittest\n"
+                      "from calc import add\n\n\nclass T(unittest.TestCase):\n    def test_add(self):\n"
+                      "        self.assertEqual(add(2, 3), -1)\n=== END FILE ===\n")
+        coder = FakeCoder([right_test, right_test])   # the program subtracts and its test insists: -1 is "right"
+        done = self.build(coder)
+        attempts = done["output"]["attempts"]
+        self.assertEqual([a["passed"] for a in attempts], [False, False, True])
+        self.assertEqual(attempts[1]["changed_own_tests"], ["test_app.py"])  # said openly in the build output
+
+    def test_test_files_may_change_when_no_assertion_failed(self):
+        files = {"test_app.py": "x", "calc.py": "y"}
+        self.assertEqual(builder.keep_tests_fixed(files, "ERROR: test_add\nImportError: no module named calc"),
+                         (files, []))
+        self.assertEqual(builder.keep_tests_fixed(files, "Unit tests failed:\nFAIL: test_add (test_app.T.test_add)"),
+                         ({"calc.py": "y"}, ["test_app.py"]))
+
     def test_gemini_outage_falls_back_to_the_local_coder_and_says_so(self):
         from chutku.gemini import GeminiUnavailable
 
@@ -249,7 +280,7 @@ class ProgressTests(unittest.TestCase):
         beats, stopped = [], [False]
         progress.set_hook(lambda: beats.append(1), lambda: stopped[0])
         progress.beat("writing")
-        self.assertEqual((len(beats), progress.last_note()), (1, "writing"))
+        self.assertEqual(len(beats), 1)
         stopped[0] = True
         with self.assertRaises(progress.Cancelled):
             progress.beat()

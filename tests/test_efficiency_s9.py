@@ -45,10 +45,19 @@ class ErrorIdTests(unittest.TestCase):
 
 class EvidenceTests(unittest.TestCase):
     def test_cached_digest_matches_and_follows_changes(self):
-        root = Path(__file__).resolve().parents[1]
-        self.assertEqual(evidence.cached_source_digest(root), evidence.source_digest(root))
-        with patch.object(evidence, "source_digest", side_effect=AssertionError("should be cached")):
-            evidence.cached_source_digest(root)   # unchanged files: no re-hash
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:   # its own tree: edits to the real repo during a run can't flake it
+            root = Path(temp)
+            (root / "chutku").mkdir()
+            source = root / "chutku" / "a.py"
+            source.write_text("x = 1\n", encoding="utf-8")
+            (root / "AGENTS.md").write_text("gate\n", encoding="utf-8")
+            first = evidence.cached_source_digest(root)
+            self.assertEqual(first, evidence.source_digest(root))
+            with patch.object(evidence, "source_digest", side_effect=AssertionError("should be cached")):
+                evidence.cached_source_digest(root)   # unchanged files: no re-hash
+            source.write_text("x = 22\n", encoding="utf-8")   # a different size, so the listing changes
+            self.assertNotEqual(evidence.cached_source_digest(root), first)
 
 
 class PackagingTests(unittest.TestCase):

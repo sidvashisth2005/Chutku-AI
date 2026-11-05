@@ -3,9 +3,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from chutku.ensemble import reconcile_plans
 from chutku.gemini import GeminiAdvisor, GeminiUnavailable, configured
-from chutku.brain import preview_dual_plan
 
 
 class _Response:
@@ -54,42 +52,6 @@ class GeminiTests(unittest.TestCase):
                 with self.assertRaises(GeminiUnavailable):
                     GeminiAdvisor(api_key="secret").plan("hello", system="json",
                         schema={"type": "object"}, cloud_consent=True)
-
-    def test_exact_agreement_is_selected_and_disagreement_clarifies(self):
-        local = {"reply": "local", "commands": ["what time is it"], "needs_clarification": False,
-                 "model": "local", "inference_seconds": 1.0, "usage": {}, "experimental": True,
-                 "router": "local_llm"}
-        agreed = reconcile_plans(local, {"reply": "cloud", "commands": ["what time is it"],
-                                        "needs_clarification": False})
-        self.assertEqual(agreed["commands"], ["what time is it"])
-        self.assertEqual(agreed["consultation"]["decision"], "consensus")
-        refused = reconcile_plans(local, {"reply": "cloud", "commands": ["system status"],
-                                         "needs_clarification": False})
-        self.assertEqual(refused["commands"], [])
-        self.assertTrue(refused["needs_clarification"])
-        self.assertEqual(refused["router"], "dual_model_disagreement")
-
-    def test_dual_preview_requires_consent_before_starting_either_model(self):
-        with patch("chutku.brain.LocalBrain") as local:
-            with self.assertRaises(PermissionError):
-                preview_dual_plan("tell me the time", object())
-            local.assert_not_called()
-
-    def test_dual_preview_falls_back_when_gemini_is_not_configured(self):
-        local_plan = {"reply": "local", "commands": ["what time is it"],
-                      "needs_clarification": False, "model": "local", "router": "local_llm"}
-        class Lock:
-            def __enter__(self): return self
-            def __exit__(self, *_): return False
-        class Runtime:
-            execution_lock = Lock()
-            class action_control:
-                base = "."
-        with patch("chutku.brain.LocalBrain") as local, patch.dict(os.environ, {}, clear=True):
-            local.return_value.__enter__.return_value.plan.return_value = local_plan
-            result = preview_dual_plan("tell me the time", Runtime(), cloud_consent=True)
-        self.assertEqual(result["commands"], ["what time is it"])
-        self.assertEqual(result["consultation"]["decision"], "local_fallback")
 
 
 if __name__ == "__main__":

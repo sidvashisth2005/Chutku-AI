@@ -158,10 +158,6 @@ def ranked_models(api_key, purpose="plan"):
     return list(_chosen[cache_key])
 
 
-def pick_model(api_key, purpose="plan"):
-    return ranked_models(api_key, purpose)[0]
-
-
 def _quota_details(error):
     """(daily_quota_hit, retry_after_seconds) from a Gemini error body."""
     try:

@@ -63,7 +63,8 @@ class PhraseTests(unittest.TestCase):
             self.assertEqual(steps("open spotify"), [("apps.launch", {"name": "Spotify"})])
             # Negative: an unverified action is not routed instantly.
             self.assertNotIn("app.spotify.new_playlist", str(steps("nayi playlist banao")))
-        with patch("chutku.apps.lab.verified_actions", return_value={}):
+        # Owner data must not leak in: a playlist that once played (data/apps/known.json) is routed on purpose (F6).
+        with patch("chutku.apps.lab.verified_actions", return_value={}), patch("chutku.apps.known.load", return_value={}):
             self.assertNotIn("app.spotify", str(steps("After Party wali playlist chalao")))
 
 

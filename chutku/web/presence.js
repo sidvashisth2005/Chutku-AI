@@ -5,7 +5,6 @@ const $ = id => document.getElementById(id);
 const fromLink = new URLSearchParams(location.hash.slice(1)).get("token");
 if(fromLink){try{sessionStorage.setItem("chutku-token",fromLink);}catch{}history.replaceState(null,"",location.pathname);}
 let token = fromLink || ""; try{token = token || sessionStorage.getItem("chutku-token") || "";}catch{}
-const compact = new URLSearchParams(location.search).get("compact") === "1";
 const LABELS = {idle:"Ready",listening:"Listening",thinking:"Thinking",running:"Working",speaking:"Speaking",
   confirm:"Needs your OK",done:"Done",clarify:"Question",error:"Problem",paused:"Paused"};
 let state = {phase:"idle",mic_level:0,voice_level:0,steps:[]};
@@ -103,10 +102,8 @@ function render(){
   $("foot").textContent = state.mic_muted ? "Mic is muted (Ctrl+Alt+X)" : state.phone ? "📱 Phone connected" :
     "Ctrl+Alt+Space to talk · press again while I speak to cut me off";
 }
-// 2026-11-01 (owner): a normal app window. It never shrinks, moves or stays on top by itself.
-function fit(){}
 async function poll(){
-  try{ state = await api("/api/presence"); render(); fit(); }
+  try{ state = await api("/api/presence"); render(); }
   catch{ state = {...state, phase:"error", message:"Chutku is not running."}; render(); }
   setTimeout(poll, state.phase==="idle" || state.phase==="paused" ? 400 : 100);
 }
@@ -119,6 +116,5 @@ async function decide(approve){
 $("approve").addEventListener("click", () => decide(true));
 $("reject").addEventListener("click", () => decide(false));
 $("talk").addEventListener("click", () => api("/api/presence/talk", {}).catch(() => {}));
-if(compact) document.body.classList.add("compact");
 requestAnimationFrame(draw);
 poll();

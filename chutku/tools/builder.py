@@ -126,6 +126,20 @@ def write_files(folder, files):
         path.write_text(content, encoding="utf-8", newline="\n")
 
 
+def is_test_file(path):
+    return Path(path).name.startswith("test") and str(path).endswith(".py")
+
+
+def keep_tests_fixed(files, errors):
+    """After a failed test assertion (unittest "FAIL:"), the first repair must fix the program, not rewrite the test
+    to pass, so its test-file edits are dropped. The same coder wrote those tests and can be wrong, so later repairs
+    may change them; the build output then says so."""
+    if not re.search(r"^FAIL: ", errors, re.M):
+        return files, []
+    dropped = sorted(p for p in files if is_test_file(p))
+    return {p: c for p, c in files.items() if p not in dropped}, dropped
+
+
 def vscode_executable():
     candidates = []
     found = shutil.which("code")
@@ -196,7 +210,7 @@ def check_python(folder, spec, launch):
     if code != 0:
         return [f"Compile error:\n{output}"], checks, None
     checks.append(f"compiled {len(sources)} Python file(s)")
-    tests = [s for s in sources if Path(s).name.startswith("test")]
+    tests = [s for s in sources if is_test_file(s)]
     if tests:
         beat("running the project's tests")
         code, output = _run([python, "-E", "-s", "-B", "-m", "unittest", "-v", *[Path(t).with_suffix("").as_posix().replace("/", ".") for t in tests]], folder, 90)
@@ -296,7 +310,7 @@ def _build(arguments, context):
     (folder / MARKER).write_text(json.dumps({"request": request, "coder": coder.name, "kind": spec["kind"],
                                              "run": spec["run"]}, indent=1), encoding="utf-8")
     vscode = open_in_vscode(folder, spec["run"])
-    history, process, checks, errors = [], None, [], []
+    history, process, checks, errors, discarded = [], None, [], [], []
     for attempt in range(1, MAX_REPAIRS + 2):
         beat(f"checking attempt {attempt}")
         if spec["kind"] == "web":
@@ -310,9 +324,17 @@ def _build(arguments, context):
         current = {p.relative_to(folder).as_posix(): p.read_text(encoding="utf-8", errors="replace")
                    for p in sorted(folder.rglob("*")) if p.is_file() and p.name != MARKER
                    and "__pycache__" not in p.parts and p.stat().st_size <= 200_000}
-        repair, coder, note = _ask_with_fallback(coder, note,
-                                                 lambda c: c.fix(request, current, "\n\n".join(errors)))
-        write_files(folder, repair["files"])
+        error_text = "\n\n".join(errors)
+        if discarded:
+            error_text += (f"\n\nYour last edit to {', '.join(discarded)} was discarded: fix the program first. "
+                           "Change a test only if its expected value is really wrong for the request.")
+        repair, coder, note = _ask_with_fallback(coder, note, lambda c: c.fix(request, current, error_text))
+        files, dropped = keep_tests_fixed(repair["files"], error_text) if not discarded else (repair["files"], [])
+        if dropped:
+            history[-1]["discarded_test_edits"] = discarded = dropped
+        elif discarded and any(is_test_file(p) for p in files):
+            history[-1]["changed_own_tests"] = sorted(p for p in files if is_test_file(p))
+        write_files(folder, files)
     if not errors and spec["kind"] == "web":
         os.startfile(str(folder / spec["run"]))  # show it in the default browser
     output = {"folder": str(folder), "request": request, "kind": spec["kind"], "entry_file": spec["run"],

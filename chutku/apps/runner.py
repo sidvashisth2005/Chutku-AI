@@ -350,7 +350,7 @@ def _check(check, params, driver, window, hwnd, before, out):
             results[name] = not current or str(value).casefold() not in (driver.title(current) or "").casefold()
         elif name == "title_has_file":
             # A window of the app shows this file or folder's name in its title (VS Code: "README.md - Chutku").
-            wanted = os.path.basename(str(value).rstrip("\/")).casefold()
+            wanted = os.path.basename(str(value).rstrip("\\/")).casefold()
             deadline = time.monotonic() + 5
             while True:
                 titles = driver.titles(window) if hasattr(driver, "titles") else [driver.title(hwnd)]

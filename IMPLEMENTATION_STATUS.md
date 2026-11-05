@@ -1,6 +1,6 @@
 # Chutku Implementation Status
 
-**Last updated:** 2026-10-30
+**Last updated:** 2026-11-05
 **Source of truth for scope:** [docs/DESIGN.md](docs/DESIGN.md)
 
 This file is the implementation ledger. Update it in the same change as every code, configuration, benchmark, or documentation change. A checked item means it exists and has been verified to the stated degree; it does not imply a broader roadmap phase is complete.
@@ -15,6 +15,87 @@ Stage 5 still needs the owner's consented live microphone run and 200 human tria
 Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
+
+### 2026-11-05: Karpathy coding rules, a coder that can't cheat its tests, dead code removed, 2 live bugs fixed (Phase 5 K + C)
+
+**Karpathy guidelines (K1–K4)**
+- The downloaded `andrej-karpathy-skills-main/` was nested twice, untracked and installed nowhere.
+- It is now:
+  - the project skill `.claude/skills/karpathy-guidelines/SKILL.md`, with a "Chutku adaptation" section;
+  - a compact "Engineering principles" section in `AGENTS.md`.
+- The adaptation resolves three conflicts with house rules:
+  - "ask when unsure" now means ask only about owner decisions;
+  - dead code may be removed when the owner asks, after grepping symbol **and** string references;
+  - "success criteria" is the delivery gate.
+- MIT credit is in `THIRD_PARTY_LICENSES.md`. The folder and the blank `Untitled-6.txt` went to the Recycle Bin.
+- **Inside Chutku's coder:** `CODER_SYSTEM` asks for the minimum code, and `FIX_SYSTEM` asks for surgical fixes that
+  name the failing check.
+- **New guard** (`builder.keep_tests_fixed`):
+  - the first repair after a failed test assertion (unittest `FAIL:`) cannot rewrite the tests to pass;
+  - the coder is told its edit was discarded;
+  - later repairs may fix a genuinely wrong generated test, and the build output then records `changed_own_tests`.
+- **Tests:** 3 new builder tests use real unittest runs, including the negative case where a "make the test expect
+  -1" repair is discarded and the build passes only after the program is fixed.
+- **Real path:** `scripts/verify_builder.py` passed 3/3:
+  - "build me a calculator app" took 214.5 s on Gemini `gemini-3.6-flash`, passing on the first attempt;
+  - the generated project's 18 tests, re-run independently, gave 18/18 OK;
+  - declining writes nothing;
+  - `C:\Windows` is refused.
+- **Limit:** one build cannot show "simplicity" working. This calculator is 505 lines, against 378 for the previous
+  one. Test helper modules other than `test*.py` are not protected by the guard.
+
+**Dead code (C1–C5)**
+- **Baseline:** 1,232 tests in 253 s, with 2 failures, both fixed. Neither was a product bug:
+  - `test_app_phrases` read the owner's real `data/apps/known.json`;
+  - the source-digest test hashed the live repo, so any edit during a run flaked it. It now uses its own temp tree.
+- **Tools:** `vulture` 2.16 (MIT) and `coverage` 7.17.2 (Apache-2.0). Every candidate was cross-checked by symbol and
+  by string. Framework callbacks (`do_GET`, `service_actions`, `handle_starttag`…) stay.
+- **Removed:**
+  - `brain.preview_dual_plan`, plus the whole `chutku/ensemble.py` it alone used, and their 3 tests;
+  - `gemini.pick_model` (test-only);
+  - `progress.last_note`;
+  - two unused `_sha256` helpers;
+  - `heard.reset_speech` and `live.approval_words`;
+  - WhatsApp `_chat_names` / `_chat_rows`;
+  - `presence.Bridge`, `COMPACT`, and the dead compact/`fit()` code in `presence.js` and `presence.css` (no JS caller
+    since the normal-window change on 11-01);
+  - 7 unused constants;
+  - `verify_long_tasks.calc_closed`.
+- **Fixed:** an invalid `"\/"` escape in `apps/runner.py`. It is a SyntaxWarning, and everything now compiles with
+  `-W error`.
+- **Not merged:** duplicates found by AST hashing are 3–10-line Win32 and path helpers in separate classes, where
+  merging adds coupling for no gain.
+- **Coverage:** 74% of 23,109 statements. The 0% modules are subprocess entry points (`cli.py`,
+  `remote/border.py`), not dead code.
+- **Review:** `/code-review` (high) found 10 issues: 7 fixed, 1 known limit, 1 no change, and the ledger. See
+  `docs/AGENT_PROMPTS.md` #12.
+
+**Two bugs found by the live check after the cleanup**
+- **Double typing:**
+  - "open notepad and type hello" typed `hellohello`: the next round's model typed the same text again, and the
+    reply said 4/4 verified;
+  - fix: `agent_loop.NO_BACK_TO_BACK`. The same `keyboard.type_text` right after itself is dropped unless the goal
+    says twice/again/do baar/dobara;
+  - test: 1 → 1 typed, "type hello twice" → 2. The test fails with the guard disabled.
+- **False claim:**
+  - a run whose focus failed replied "I opened Notepad and typed 'hello' for you" with no typing step;
+  - fix: "typed / type kar diya / likh diya" is now in `_CLAIMS` and needs a completed typing-type step;
+  - tested both ways.
+- **Focus from the background:**
+  - with Settings in front, `windows.manage focus` failed ("Windows did not report the requested window state");
+  - `WindowsDesktop.focus` now taps Alt once and retries, but only when the first `SetForegroundWindow` did not take.
+    Windows grants focus only to the process with the last input, which scheduled tasks, the phone and the API lack;
+  - live, partly verified: 1 run with Settings in front ended "typed 'hello', 2 of 2 verified". The owner was using
+    the PC, so further keyboard runs were stopped. Two runs waiting for a click were denied and cancelled, and
+    nothing more was typed.
+
+**Checks**
+- Full suite: see the line below.
+- `check_phrases.py`: 135/135 instant.
+- `live_check.py` on the redeployed Chutku: 16/16 correct, median 1.1 s, slowest 5.2 s. Groq and Gemini both answer;
+  the Gemini key works again.
+- "bluetooth settings kholo": 3.6 s via `app.settings.bluetooth`, and the window in front was "Settings".
+- The presence window started without `Bridge`.
 
 ### 2026-11-01: Visible like a normal app, faster planning, recipes for 6 more apps (A7, A8, A11-A13)
 

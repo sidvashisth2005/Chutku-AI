@@ -52,7 +52,7 @@ risk or confirmation field cannot grant permission.
 | `core/operation_journal.py`, `core/paths.py` | Sandboxed text changes, before/after journal, conflict-aware undo |
 | `guard.py` | Separate Windows supervisor, heartbeat/action deadlines, owned process tree termination |
 | `brain.py` | Pinned, evaluated local language adapter; never execution or authorization authority |
-| `gemini.py`, `ensemble.py` | Consent-gated Gemini advice and fail-closed dual-model reconciliation |
+| `gemini.py` | Consent-gated Gemini advice, model ranking and quota-aware fallback |
 | `tools/processes.py` | Capability-gated process observation and exact approved launch/termination with identity recheck |
 | `voice/session.py`, `voice/recognition.py`, `tools/speech.py` | Exclusive audio state, bounded local STT/TTS, cancellation and review-only transcript |
 | `dashboard.py`, `web/` | Local presentation and explicit review controls |

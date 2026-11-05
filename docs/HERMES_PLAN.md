@@ -897,7 +897,8 @@ This is a second remote path next to the phone app (P1–P4). It works without T
 ### H22: Second opinion ("pakka?")
 **From Hermes:** `/review` (a reviewer sub-agent) and `/moa` (mixture of agents: several models, then a synthesis).
 
-- Chutku's `ensemble.py` already reconciles *plans*. This slice adds an *answer* check:
+- This slice adds an *answer* check, in a new `ensemble.py`. (The old plan-reconciling `ensemble.py` was never
+  wired into a live path and was removed as dead code on 2026-11-05; it is in git history before that date.)
   - "pakka?" / "double check karo" / "sure ho?" → the last factual or research answer is re-checked by the other brain (local ↔ Gemini) plus `web.read` of up to 2 sources.
   - The reply says "dono sahmat hain", or "yahan fark hai: …" with the sources.
 - "sab se poocho: X" → MoA-lite: local and Gemini answer independently, a short synthesis is made, and disagreements are listed. Cloud only, with ≤ 2 Gemini calls.

@@ -17,7 +17,6 @@ import threading
 from chutku.app import PROJECT_ROOT
 from chutku.tools.registry import EMPTY_ARGUMENT_SCHEMA, Risk, Tool, ToolResult, Verification
 
-TASK_FOLDER = "\\Chutku\\"
 _lock = threading.Lock()
 
 _REGISTER = r'''

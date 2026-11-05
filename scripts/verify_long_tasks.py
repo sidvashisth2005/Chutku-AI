@@ -35,11 +35,6 @@ def text_of(path):
         return ""
 
 
-def calc_closed():
-    from chutku.tools.apps_extra import matching_windows
-    return not matching_windows("Calculator")
-
-
 TASKS = [
     dict(id="research-report", goal=r"Research the 3 best budget laptops under 70000 rupees in India right now, compare "
          r"their price, processor and RAM, and save a short comparison report to D:\ChutkuLong\laptops.txt",

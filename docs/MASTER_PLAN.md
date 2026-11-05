@@ -882,6 +882,37 @@ Full spec: `docs/WORLD_CLASS_PLAN.md` (diagnosis with evidence, owner decisions 
 - [ ] W6: Phone remote with full control (P1–P9 from HERMES_PLAN) — code done 2026-10-30; live run after Tailscale is installed
 
 ---
+# Phase 5: Karpathy rules, cleanup, finish verification, open-source ready (planned 2026-11-05)
+The owner asked for the best free assistant, set up so anyone can install it, and for the Karpathy guidelines to
+be fixed and implemented. Order (owner): fix first, then open source. **Prepare only: nothing is published.**
+License: MIT.
+
+- [x] K1: Karpathy guidelines installed as the project skill `.claude/skills/karpathy-guidelines`, with a Chutku adaptation (few asks, dead-code rule, gate = success criteria)
+- [x] K2: Engineering principles merged into `AGENTS.md`
+- [x] K3: Chutku's coder follows them: simplicity in `CODER_SYSTEM`, surgical fixes in `FIX_SYSTEM`; a repair can't rewrite a test whose assertion failed — done 2026-11-05 (live builder 3/3)
+- [x] K4: MIT credit in `THIRD_PARTY_LICENSES.md`; the downloaded folder and `Untitled-6.txt` sent to the Recycle Bin
+- [x] C1: Baseline full suite recorded (count, time, failures fixed first)
+- [x] C2: Dev tools `vulture` + `coverage` (pinned, `[dev]` extra)
+- [x] C3: Dead-code candidates found and cross-checked by symbol **and** string (tools are reached by name)
+- [x] C4: Confirmed dead code removed (no duplicate merged: the few duplicates are 3–10-line helpers in separate classes) — done 2026-11-05
+- [x] C5: `code-review` (high) on the K + C diff, 7 of 10 findings fixed — done 2026-11-05 (`simplify` not run: the review already covered reuse and simplification)
+- [ ] V1: Brain health: Gemini key, Gemini Live (owner's main flow), `eval_planner` on keyed providers
+- [ ] V2: Live heal test (a watchdog pause heals; an owner pause stays)
+- [ ] V3: Spotify 5/5 verified plays
+- [ ] V4: Live `screen.ask` answer check
+- [ ] V5: pywebview + qrcode installed; presence/dashboard screenshots
+- [ ] V6: GPU Whisper turbo, W3 live timings, two-stage wake training gate
+- [ ] O1: Configuration instead of owner values (projects folder, VS Code path, names)
+- [ ] O2: Personal examples replaced with generic ones
+- [ ] O3: No-GPU / non-Vulkan fallback (cloud-first + CPU Whisper), clear message
+- [ ] O4: One-click `Install-Chutku.cmd` + first-run wizard; fresh-clone install test
+- [ ] O5: MIT `LICENSE`, README for strangers, `CONTRIBUTING.md`, CI workflow
+- [ ] O6: Release audit (security, supply chain, insecure defaults, secret and personal-data scan of history) → `docs/RELEASE_CHECKLIST.md`
+
+Owner-only, never faked: entering a Gemini or Groq key when one is missing or rejected, installing Tailscale for
+the phone, voice enrollment and calibration, custom voice clips, and the decision to publish.
+
+---
 # Parked (needs a later owner decision)
 - **Hermes features not taken** (2026-10-07; reasons in `docs/HERMES_PLAN.md` section 3): smart/LLM approvals, yolo and "approve always", container backends (D5), execute_code, MCP client, plugins and hooks, Skills Hub installs, local API server/ACP, extra chat gateways, FAL image generation, external memory providers, mascot/skins, multi-profile agents, bot-to-bot peer, coding-agent tools (worktree, LSP, /init, /plan).
 - **Sandboxed code runner (D5 original choice):** run scripts and builds at reduced Windows privileges automatically, and ask only for full rights. It could not be specified in this session. Until it exists, S1's "always confirm" stays in force.

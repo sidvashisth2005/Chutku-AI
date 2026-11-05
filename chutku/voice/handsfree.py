@@ -18,7 +18,6 @@ from array import array
 
 from chutku.voice.session import voice_session
 
-HOTKEY_LABEL = "Ctrl+Alt+Space"
 # The command-biasing Hinglish prompt made Whisper hear "Chotu" as "Chutku"
 # (verification/wake-benchmark.json); wake detection uses this neutral prompt.
 WAKE_PROMPT = "Hinglish speech: kholo, chalao, roko, batao, open, search, time."

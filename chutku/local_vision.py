@@ -11,7 +11,6 @@ and pictures works offline and nothing leaves the PC. Gemini vision stays as the
 from __future__ import annotations
 
 import base64
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -34,11 +33,6 @@ _verified = {}
 
 class VisionUnavailable(OSError):
     pass
-
-
-def _sha256(path):
-    with open(path, "rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
 def files(base=PROJECT_ROOT):

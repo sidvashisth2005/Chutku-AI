@@ -577,7 +577,6 @@ BROWSERS = {  # name -> (exe file name, usual install folders under Program File
     "edge": ("msedge.exe", (r"Microsoft\Edge\Application",)),
     "firefox": ("firefox.exe", (r"Mozilla Firefox",)),
 }
-BROWSER_NAMES = tuple(BROWSERS)
 
 
 def browser_exe(name):

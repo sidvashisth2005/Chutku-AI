@@ -107,13 +107,13 @@ class ModelChoiceTests(unittest.TestCase):
                  "gemini-3.8-flash-tts", "gemini-3.8-flash-lite", "gemini-embedding-001", "gemini-3.8-pro"]
         with patch.object(gemini, "available_models", return_value=names), patch.dict("os.environ", {}, clear=False):
             gemini._chosen.clear()
-            self.assertEqual(gemini.pick_model("k" * 30, "code"), "gemini-3.8-pro")  # same version: Pro wins
+            self.assertEqual(gemini.ranked_models("k" * 30, "code")[0], "gemini-3.8-pro")  # same version: Pro wins
             # planning uses lite models first: the free tier gives the big ones ~20 requests a day
-            self.assertEqual(gemini.pick_model("k" * 30, "plan"), "gemini-3.8-flash-lite")
+            self.assertEqual(gemini.ranked_models("k" * 30, "plan")[0], "gemini-3.8-flash-lite")
             self.assertEqual(gemini.ranked_models("k" * 30, "plan")[1], "gemini-3.8-flash")
             gemini._chosen.clear()
         with patch.object(gemini, "available_models", return_value=names[:4]):
-            self.assertEqual(gemini.pick_model("j" * 30, "code"), "gemini-3.8-flash")  # newer beats older Pro
+            self.assertEqual(gemini.ranked_models("j" * 30, "code")[0], "gemini-3.8-flash")  # newer beats older Pro
             gemini._chosen.clear()
 
 

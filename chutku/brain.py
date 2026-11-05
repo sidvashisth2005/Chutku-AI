@@ -114,11 +114,6 @@ def semantic_command(message):
     return next(iter(candidates)) if len(candidates) == 1 else None
 
 
-def _sha256(path):
-    with Path(path).open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
-
-
 def verify_local_artifacts(base=PROJECT_ROOT):
     """Verify the exact pinned executable and model before starting inference."""
     base = Path(base)
@@ -523,24 +518,6 @@ def validate_bound_tool_plan(plan, runtime):
                 or step["required_capability"] != tool.required_capability):
             raise ValueError(f"Tool contract for step {index} changed after review.")
     return plan
-
-
-def preview_dual_plan(message, runtime, *, cloud_consent=False):
-    """Consult local and Gemini planners; neither response can execute here."""
-    if cloud_consent is not True:
-        raise PermissionError("Dual planning requires explicit consent to send the request text to Gemini.")
-    with runtime.execution_lock:
-        with LocalBrain(runtime.action_control.base) as brain:
-            local = brain.plan(message)
-        try:
-            from chutku.gemini import GeminiAdvisor
-            advised = GeminiAdvisor().plan(message, system=SYSTEM, schema=SCHEMA, cloud_consent=True)
-        except __import__("chutku.gemini", fromlist=["GeminiUnavailable"]).GeminiUnavailable:
-            return {**local, "consultation": {"local": "used", "gemini": "unavailable",
-                    "decision": "local_fallback"}}
-        cloud = validate_plan(advised["plan"])
-        from chutku.ensemble import reconcile_plans
-        return reconcile_plans(local, cloud, gemini_model=advised["model"], gemini_usage=advised["usage"])
 
 
 def execute_plan(plan, runtime):

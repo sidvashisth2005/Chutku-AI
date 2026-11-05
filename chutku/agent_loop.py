@@ -100,6 +100,10 @@ REPEATABLE_TOOLS = frozenset({
     "screen.click", "screen.scroll", "screen.understand", "keyboard.shortcut", "keyboard.press_enter",
     "keyboard.type_text", "keyboard.edit", "media.control", "audio.volume", "display.brightness",
 })
+# ...but typing the same text into the same window right after it was typed is a re-planning slip, not a request
+# (live 2026-11-05: "open notepad and type hello" typed "hellohello" when the next round's model typed it again).
+NO_BACK_TO_BACK = frozenset({"keyboard.type_text"})
+_AGAIN = re.compile(r"\b(?:twice|again|two times|2 times|do baar|dobara|phir se|fir se)\b", re.I)
 # Hidden from the planner: recursive mic capture, and the Notepad/Calculator-only tools that
 # apps.launch / windows.manage / windows.list / windows.close supersede (still available to exact commands).
 EXCLUDED_TOOLS = frozenset({"voice.listen_command", "apps.open", "apps.focus", "apps.status", "apps.close"})
@@ -328,6 +332,11 @@ _CLAIMS = [
     (re.compile(r"\b(?:deleted|removed|recycled|erased|trashed)\b", re.I), ("filesystem.recycle", "filesystem.delete")),
     (re.compile(r"\b(?:shut (?:it )?down|restarted|rebooted|powered off)\b", re.I), ("power.",)),
     (re.compile(r"\b(?:sent|messaged)\b", re.I), ("message.", "keyboard.press_enter", "screen.click_risky")),
+    # live 2026-11-05: "I opened Notepad and typed 'hello' for you" when no typing step had run (focus failed).
+    # Claim shapes only: "3 typed" (requests typed, not spoken) in a weekly summary is not a claim.
+    (re.compile(r"\b(?:i(?:'ve| have)?|and|has been|have been|was)\s+typed\b|\btyped\s+(?:['\"“‘]|in(?:to)?\b|it\b)|"
+                r"\btype kar (?:diya|di|diye)\b|\blikh (?:diya|di)\b", re.I),
+     ("keyboard.type_text", "keyboard.edit", "input.", "uia.set_value", "app.")),
     # benchmark 2026-10-04: "The file draft.txt has been renamed to final.txt" after only files.recent ran.
     # About files only: "the meeting was moved to Friday" is not a file action (audit 2026-10-06).
     (re.compile(r"\b(?:renamed|moved)\b(?=.{0,60}(?:\b(?:file|folder|document|directory|recycle bin|it|them)\b|"
@@ -1021,8 +1030,11 @@ class AgentSession:
                                                          "exact name the owner said (app if named, action play/open/"
                                                          "click), or screen.understand then screen.click.")
                     retried = [s for s in proposal["next_steps"] if _signature(s) in failed_calls]
+                    last_done = (_signature(self.steps[-1]) if self.steps and self.steps[-1]["state"] == "COMPLETED"
+                                 and not _AGAIN.search(self.goal) else None)
                     fresh = [s for s in proposal["next_steps"]
                              if _signature(s) not in failed_calls
+                             and not (s["tool"] in NO_BACK_TO_BACK and _signature(s) == last_done)
                              and (s["tool"] in REPEATABLE_TOOLS
                                   or (s["tool"], json.dumps(s["arguments"], sort_keys=True)) not in done_calls)]
                     if retried and not fresh:
