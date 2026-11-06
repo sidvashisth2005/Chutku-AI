@@ -844,17 +844,17 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [ ] H16: Telegram remote control with pairing + handoff
 - [x] H17 (done 2026-11-06): Reply style presets
 - [ ] H18: Busy mode: queue / steer / side question
-- [ ] H19: Sentence-by-sentence speech for Kokoro (mostly already done by the S10 Kokoro service: verify, then add only what is missing)
-- [ ] H20: Voice polish (phantom filter, exact stop, barge-in)
-- [ ] H21: Think harder / answer fast
-- [ ] H22: Second opinion ("pakka?")
+- [x] H19 (verified 2026-11-06: Kokoro sentence pipeline + streamed first sentences + SAPI fallback; splitting pinned by tests): Sentence-by-sentence speech for Kokoro (mostly already done by the S10 Kokoro service: verify, then add only what is missing)
+- [x] H20 (done 2026-11-06: phantom filter existed; exact stop words chup/that's all/bas itna hi added; follow-up listening ends on silence; Live barge-in): Voice polish (phantom filter, exact stop, barge-in)
+- [x] H21 (done 2026-11-07: per-request think flag; Gemini full budget; local stays grammar-bound): Think harder / answer fast
+- [x] H22 (done 2026-11-07: read-only re-check against 2 web sources; 'sab se poocho'): Second opinion ("pakka?")
 - [ ] H23: Blueprints + my shortcuts
 - [x] H24 (done 2026-11-06): Standing goals
 - [x] H25 (done 2026-11-06; restore from the CLI with Chutku stopped): Backup & restore
 - [ ] H26: Doctor that can repair
 - [ ] H27: Learn on request ("ye seekh lo")
 - [ ] H28: Learning journey view
-- [ ] H29: Conversation tools + context gauge
+- [x] H29 (done 2026-11-07: forget/unforget last exchange, search skips hidden, Brain view gauge; resume via earlier-context): Conversation tools + context gauge
 - [ ] H30: Phase 3b release: evidence, docs, reviews
 
 **Planned, built only on the owner's word ("phone control banao"):**

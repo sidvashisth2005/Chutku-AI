@@ -13,7 +13,8 @@ import re
 from chutku.intents.lexicon import LEAD as _P, TAIL as _T   # one Hinglish vocabulary for every parser
 _KINDS = [
     ("stop", r"(?:stop|stop it|stop that|stop everything|cancel|cancel it|cancel that|abort|ruko|ruk jao|ruk ja|bas|bas karo|"
-             r"rehne do|chhodo|chodo|band karo sab|sab band karo|stop karo|cancel karo)"),
+             r"rehne do|chhodo|chodo|band karo sab|sab band karo|stop karo|cancel karo|"
+             r"chup|chup karo|chup ho jao|bas itna hi|that'?s all|that is all)"),   # H20: exact stop words
     ("pause", r"(?:pause (?:all )?actions|pause everything|pause chutku|freeze|sab rok do|actions rok do)"),
     ("resume", r"(?:resume|resume (?:actions|everything|chutku)|unpause|chalu ho jao|chalu ho ja|wapas chalu (?:ho jao|karo)|"
                r"kaam chalu karo|actions chalu karo)"),

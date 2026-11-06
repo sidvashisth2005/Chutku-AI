@@ -145,18 +145,64 @@ def log_voice(transcript, base=None):
         log_conversation(pending, "", origin="voice", status="said", base=base)
 
 
-def turns(base=None, limit=2000):
+def turns(base=None, limit=2000, *, include_hidden=False):
+    """The newest conversation turns. Turns the owner asked to forget ("ye baat bhool jao", H29) are left out unless
+    include_hidden: the log itself is append-only, so they stay in the file, listed in data/hidden-turns.json."""
     try:
         lines = conversations_path(base).read_text(encoding="utf-8").splitlines()[-limit:]
     except OSError:
         return []
+    hidden = set() if include_hidden else hidden_turns(base)
     rows = []
     for line in lines:
         try:
-            rows.append(json.loads(line))
+            row = json.loads(line)
         except ValueError:
             continue
+        if row.get("at") not in hidden:
+            rows.append(row)
     return rows
+
+
+# -- forgetting a turn (H29) ---------------------------------------------------------------------------------
+def _hidden_path(base=None):
+    return Path(base or PROJECT_ROOT) / "data" / "hidden-turns.json"
+
+
+def hidden_turns(base=None):
+    try:
+        return set(json.loads(_hidden_path(base).read_text(encoding="utf-8")))
+    except (OSError, ValueError, TypeError):
+        return set()
+
+
+def _set_hidden(base, ats):
+    path = _hidden_path(base)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(sorted(ats)), encoding="utf-8")
+
+
+def forget_last(base=None):
+    """Hide the latest owner turn from recall, search, learning and review; the row stays in the log."""
+    last = next((t for t in reversed(turns(base, 200)) if owner_turn(t)), None)
+    if last is None:
+        return None
+    _set_hidden(base, hidden_turns(base) | {last["at"]})
+    from chutku import history_index
+    history_index.set_hidden(base or PROJECT_ROOT, last["at"], True)
+    return last
+
+
+def unforget_last(base=None):
+    """Bring back the most recently hidden turn ("wapas yaad karo")."""
+    hidden = hidden_turns(base)
+    if not hidden:
+        return None
+    latest = max(hidden)
+    _set_hidden(base, hidden - {latest})
+    from chutku import history_index
+    history_index.set_hidden(base or PROJECT_ROOT, latest, False)
+    return next((t for t in turns(base, 2000, include_hidden=True) if t.get("at") == latest), {"at": latest})
 
 
 def earlier(goal, base=None, *, now=None):

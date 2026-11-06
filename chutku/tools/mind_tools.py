@@ -145,6 +145,25 @@ def _reply_style(arguments, _context):
                       Verification.FAIL)
 
 
+def _forget_last(_arguments, _context):
+    """H29 "ye baat bhool jao": the last exchange is hidden from memory and search (kept in the log, can come back)."""
+    from chutku import recall
+    turn = recall.forget_last(mind.PROJECT_ROOT)
+    if turn is None:
+        return ToolResult({"error": "There is nothing to forget yet."}, Verification.FAIL)
+    gone = turn["at"] in recall.hidden_turns(mind.PROJECT_ROOT)
+    return ToolResult({"forgot": str(turn.get("said", ""))[:80]}, Verification.PASS if gone else Verification.FAIL,
+                      {"forgot": "[REDACTED]"})
+
+
+def _unforget(_arguments, _context):
+    from chutku import recall
+    turn = recall.unforget_last(mind.PROJECT_ROOT)
+    if turn is None:
+        return ToolResult({"error": "Nothing was forgotten."}, Verification.FAIL)
+    return ToolResult({"remembered": str(turn.get("said", ""))[:80]}, Verification.PASS, {"remembered": "[REDACTED]"})
+
+
 def _check(required, optional=()):
     def validate(arguments):
         if not isinstance(arguments, dict) or not set(required) <= set(arguments) or set(arguments) - set(required) - set(optional):
@@ -204,6 +223,12 @@ def register_mind_tools(registry):
         _check(("setting", "on")), argument_schema=_schema({"setting": {"type": "string", "enum": sorted(SWITCHES)},
                                                             "on": {"type": "boolean"}}, ("setting", "on")),
         reversibility="compensatable", success_predicate="preference_written"))
+    registry.register(Tool("memory.forget_last", "Forget the last exchange (\"ye baat bhool jao\"): it is hidden from "
+        "memory, search and learning, kept in the log and can come back.", Risk.REVERSIBLE, _forget_last, _check(()),
+        argument_schema=_schema({}, ()), reversibility="compensatable", success_predicate="turn_hidden"))
+    registry.register(Tool("memory.unforget", "Bring back the most recently forgotten exchange (\"wapas yaad karo\").",
+        Risk.REVERSIBLE, _unforget, _check(()), argument_schema=_schema({}, ()), reversibility="compensatable",
+        success_predicate="turn_visible"))
     registry.register(Tool("settings.reply_style", "How replies sound: normal, formal (respectful, no slang), short "
         "(one sentence) or masti (playful).", Risk.REVERSIBLE, _reply_style, _check(("style",)),
         argument_schema=_schema({"style": {"type": "string", "enum": ["normal", "formal", "short", "masti"]}},

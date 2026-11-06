@@ -63,5 +63,14 @@ class GoalTests(unittest.TestCase):
             self.assertEqual(str(listed["state"]), "COMPLETED")
 
 
+class AnswerTests(unittest.TestCase):
+    def test_goals_and_backups_answer_from_the_tool_output_not_a_model(self):
+        """Live 2026-11-07: "mere goals" got "I don't have the list visible" from the cloud model."""
+        from chutku.quick_intents import QUICK_ANSWERS
+        self.assertEqual(QUICK_ANSWERS["goals.list"]({"summary": "1. notes: 2/3"}), "1. notes: 2/3")
+        self.assertIn("Abhi koi backup nahi hai", QUICK_ANSWERS["backup.list"]({"backups": [], "folder": "D:/B"}))
+        self.assertIn("2 KB", QUICK_ANSWERS["backup.list"]({"backups": [{"name": "a.zip", "bytes": 2048}], "folder": "D:/B"}))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -202,6 +202,16 @@ class CloudAgentPlanner:
 
     def propose(self, session, runtime, check=None):
         from chutku import providers
+        if getattr(session, "think", False) and self.gemini is not None:
+            # H21 "dhyan se socho": Gemini with its full budget (60 s, 8K tokens) instead of the fast free models.
+            careful = GeminiAgentPlanner(self.gemini.key, self.gemini.model, self.gemini.transport, careful=True)
+            try:
+                proposal, meta = careful.propose(session, runtime, check)
+                self.name = "gemini:careful"
+                return proposal, {**meta, "planner": self.name}
+            except OSError as error:   # Gemini is busy or refuses: the fast cloud models still answer (not local)
+                import logging
+                logging.getLogger("chutku.cloud").warning("careful Gemini plan failed: %s", str(error)[:200])
         schemas, catalog = planner_catalog(runtime, session)
         catalog = compact_catalog(catalog)
         system = AGENT_SYSTEM.replace(" /no_think", "") + JSON_CONTRACT + "TOOL_CATALOG=" + catalog
@@ -227,8 +237,11 @@ class CloudAgentPlanner:
 class GeminiAgentPlanner:
     name = "gemini"
 
-    def __init__(self, key, model=None, transport=None, *, fast=False):
+    def __init__(self, key, model=None, transport=None, *, fast=False, careful=False):
         self.key = key
+        # careful (H21 "dhyan se socho"): the goal's own tools like fast (the full catalog's enum gets HTTP 400), with
+        # the full budget: 60 s, 8K tokens, one retry.
+        self.careful = careful
         self.model = model  # None: the newest Flash model this key can use, chosen on first call
         self.transport = transport  # tests inject a fake network call
         # fast (W2, leading the brain): only the tools relevant to the goal, 20 s, no retries, 3 models at most.
@@ -237,7 +250,7 @@ class GeminiAgentPlanner:
 
     def propose(self, session, runtime, check=None):
         from chutku.gemini import GeminiUnavailable
-        schemas, catalog = planner_catalog(runtime, session if self.fast else None)
+        schemas, catalog = planner_catalog(runtime, session if (self.fast or self.careful) else None)
         system = AGENT_SYSTEM.replace(" /no_think", "") + "TOOL_CATALOG=" + catalog
         try:
             envelope = (self.transport or self._call)(system, cloud_view(session, runtime), cloud_schema(schemas))
@@ -248,7 +261,10 @@ class GeminiAgentPlanner:
 
     def _call(self, system, user, schema):
         from chutku.gemini import GeminiUnavailable, generate, generate_best
-        if self.model is None and self.fast:
+        if self.model is None and self.careful:
+            text, version = generate_best(self.key, "plan", system, user, schema=schema, max_tokens=8192,
+                                          timeout=60, temperature=0, retries=1, models=3)
+        elif self.model is None and self.fast:
             text, version = generate_best(self.key, "plan", system, user, schema=schema, max_tokens=2048,
                                           timeout=20, temperature=0, retries=0, models=3)
         elif self.model is None:  # best available Flash, with a short retry / next-model fallback

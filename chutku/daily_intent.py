@@ -42,6 +42,10 @@ _PATTERNS = [
     ("os_keys", re.compile(_P + r"(?P<k>show\s+(?:the\s+)?desktop|desktop\s+dikhao|switch\s+(?:the\s+)?windows?|"
                            r"window\s+switch\s+karo|alt\s+tab|task\s+view(?:\s+(?:kholo|dikhao|open karo))?|"
                            r"saari\s+windows\s+dikhao|show\s+all\s+windows)" + _T, re.I)),
+    # H29: forget the last exchange, or bring it back.
+    ("forget_last", re.compile(_P + r"(?:ye(?:h)?\s+baat\s+bhool\s+jao|(?:last|pichli|aakhri)\s+(?:wali\s+)?baat\s+"
+                               r"(?:bhool\s+jao|hata\s+do)|forget\s+(?:that|what\s+i\s+(?:just\s+)?said))" + _T, re.I)),
+    ("unforget", re.compile(_P + r"(?:wapas\s+yaad\s+karo|(?:remember|unforget)\s+that\s+again)" + _T, re.I)),
     # H24: standing goals. "goal: ...", "mere goals", "goal 2 ho gaya", "goal 2 hatao".
     ("goal_add", re.compile(_P + r"(?:goal|mera\s+goal\s+(?:hai|ye\s+hai)|naya\s+goal|new\s+goal|set\s+(?:a\s+)?goal)\s*[:\-]"
                             r"\s*(?P<text>.{3,300}?)" + _T, re.I)),
@@ -119,6 +123,10 @@ def parse_daily(goal, now=None):
         if not match:
             continue
         g = match.groupdict()
+        if kind == "forget_last":
+            return "memory.forget_last", {}, "Forget the last exchange", "Theek hai, wo baat bhool gayi.", True
+        if kind == "unforget":
+            return "memory.unforget", {}, "Remember it again", "Wapas yaad aa gaya.", True
         if kind == "goal_add":
             return "goals.add", {"text": g["text"].strip()}, "Set a standing goal", "", False
         if kind == "goal_list":

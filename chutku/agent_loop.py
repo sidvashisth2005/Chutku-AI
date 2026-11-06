@@ -808,6 +808,7 @@ class AgentSession:
         self.lock = threading.RLock()
         self.cancelled = threading.Event()   # set by cancel(); the running loop checks it after every step
         self.observe_only = False            # Y3: a question answered beside a running task may only look
+        self.think = False                   # H21: "dhyan se socho": this request gets the strongest brain
 
     # -- planner view -----------------------------------------------------
     def planner_input(self, profile=None):
@@ -827,6 +828,14 @@ class AgentSession:
             "STEPS": self._steps_view(profile.steps_chars if profile is not None else 60000),
             **({"FEEDBACK": self.feedback} if self.feedback else {}),
         }, ensure_ascii=False, separators=(",", ":"))
+
+    def context_sizes(self):
+        """H29 context gauge: characters of each part the planner reads (GOAL, every CONTEXT entry, STEPS)."""
+        sizes = {"GOAL": len(self.goal)}
+        for key, value in self.context.items():
+            sizes[key] = len(json.dumps(value, ensure_ascii=False, separators=(",", ":")))
+        sizes["STEPS"] = len(json.dumps(self._steps_view(60000), ensure_ascii=False, separators=(",", ":")))
+        return sizes
 
     def _steps_view(self, budget):
         """STEPS for the planner within a total budget of observed data: the newest steps keep theirs whole, older
@@ -860,7 +869,7 @@ class AgentSession:
                 "status": self.status, "reply": self.reply, "declared_plan": self.declared_plan,
                 "steps": [{k: v for k, v in s.items() if k != "observation"} for s in self.steps],
                 "queued": self.queue, "tainted": self.tainted, "suspicious": self.suspicious, "speaker_verified": self.speaker_verified, "rounds": self.rounds,
-                "planners": self.planners,
+                "planners": self.planners, "context_chars": self.context_sizes(),
                 "pending": None if self.pending is None else {
                     "step": self.pending["step"], "approval": {
                         k: self.pending["approval"].get(k) for k in

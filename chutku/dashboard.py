@@ -1269,6 +1269,10 @@ class DashboardServer(ThreadingHTTPServer):
                                                                  "ya dashboard ya tray mein Resume dabao.")
             ActionControl(self.base).resume()
             return self._control_session(goal, mode, origin, "Chalu ho gayi. Ab bolo, kya karna hai?")
+        from chutku import second_opinion
+        recheck = second_opinion.rewrite(goal, self.base, origin)   # H22 "pakka?": a read-only re-check
+        if recheck:
+            goal = recheck
         if origin == "voice" and voice_source == "local" and control is None:
             from chutku.voice.plausible import plausible, read_back
             if not plausible(goal, known_names=self._known_names()):
@@ -1311,6 +1315,9 @@ class DashboardServer(ThreadingHTTPServer):
         if origin == "voice" and speaker_check:   # a scheduled task was checked when it was ordered
             session.speaker_verified = self._speaker_check(voice_source)
         session.silent = silent   # set before any work starts: a live conversation narrates its own results
+        session.observe_only = session.observe_only or bool(recheck)   # a re-check only reads
+        from chutku.intents.tone import thinks
+        session.think = thinks(goal)   # H21 "dhyan se socho": the strongest brain, with its full budget
         if self.planner_factory is None:
             from chutku.quick_intents import QuickPlanner
             from chutku.reflex import ReflexPlanner

@@ -143,6 +143,13 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 
 ## 3. Things you can say
 
+**New on 2026-11-07: think, double-check, forget**
+- **"dhyan se socho …" / "soch ke batao …":** that request goes to the strongest brain with more time.
+- **"pakka?" / "double check karo":** re-checks the last answer on the web and says "dono sahmat hain" or what differs. "sab se poocho: <question>" compares sources.
+- **"ye baat bhool jao":** the last exchange is forgotten (memory and search). "wapas yaad karo" brings it back.
+- **"chup" / "that's all"** stop her too.
+- In the dashboard, a finished task shows "Brain view": what the brain read, part by part.
+
 **New on 2026-11-06: reply style and backups**
 - **Goals:**
   - "goal: is hafte 5 chapter ke notes, D:\Study\DBMS mein" sets a goal; Chutku counts the files there.

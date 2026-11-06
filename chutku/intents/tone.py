@@ -26,6 +26,18 @@ CAUTION = re.compile(r"\b(?:dhyan\s+se|dhyaan\s+se|carefully|careful|savdhani|pu
                      r"ask\s+me\s+(?:first|before)|confirm\s+(?:karke|first|with\s+me))\b", re.I)
 
 
+# H21 (Hermes /reasoning): "think harder" for this one request.
+THINK = re.compile(r"\b(?:dhyan\s+se\s+soch(?:o|na|ke)?|dhyaan\s+se\s+soch(?:o|na|ke)?|soch\s*(?:ke|kar|samajh\s+ke)\s+"
+                   r"(?:batao|bolo|karo|jawab\s+do)|achhe\s+se\s+soch(?:o|ke)?|think\s+(?:carefully|hard(?:er)?|it\s+through)|"
+                   r"take\s+your\s+time)\b", re.I)
+
+
+def thinks(goal):
+    """True when the owner asks Chutku to think harder about this request."""
+    from chutku.translit import roman
+    return bool(THINK.search(" ".join(roman(goal or "").split())))
+
+
 def autonomy_for(goal, mode):
     """The mode this request runs in: the chosen mode, raised to "trusted" by a pre-approval or lowered to
     "auto_safe" by a caution. "review" (the owner chose to approve every step) is never raised."""

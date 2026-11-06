@@ -16,6 +16,56 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: Voice polish (H19/H20), think harder (H21), second opinion (H22), forget and context gauge (H29)
+
+**H19 (verified)**
+- Kokoro speaks sentence by sentence (the S10 pipeline), and the first sentences are streamed while the rest is written. On a Kokoro error the rest falls back to SAPI.
+- Pinned by a test: the splitting handles Hinglish and the danda and never splits "3.5" or URLs.
+
+**H20**
+- The Whisper phantom filter already existed and is now pinned by tests.
+- Exact stop words were added: "chup", "chup karo", "that's all", "bas itna hi". A task with a stop word in it ("stop the music", "chup chap kaam karo") is not a stop.
+- Follow-up listening already ends on silence, and Live has barge-in.
+
+**H21**
+- `tone.thinks()` recognises "dhyan se socho", "soch ke batao", "think carefully" and sets `session.think` for that request only.
+- `CloudAgentPlanner` then goes straight to Gemini with its full budget (60 s, 8K tokens; a new planner object, so the shared fast one is untouched).
+- Local thinking is not used: the local model's output is grammar-bound JSON, so it has no room to think (the spec's fallback).
+- **Found while checking:** a heredoc had turned `` into backspace characters, so the phrases never matched. Fixed, and every file edited today was scanned: no others.
+
+**H22**
+- `chutku/second_opinion.py`:
+  - "pakka?", "sure ho?", "double check karo", "are you sure" turn into a research task over the last owner question and answer: check up to 2 web sources, then "Dono sahmat hain" or "Yahan fark hai: …" with the sources;
+  - "sab se poocho: X" answers from at least 2 independent sources, with any disagreement.
+- It is `observe_only`: only R0 tools can run.
+- It is rewritten before the voice plausibility check, so a bare "pakka?" is not read as noise.
+
+**H29**
+- "ye baat bhool jao" / "last wali baat hata do" / "forget that" hides the latest owner turn in `data/hidden-turns.json`. `recall.turns()` and the FTS search (its `hidden` column) skip it, which covers about_you, Night Shift, Evolve and learning.
+- The log itself stays append-only. "wapas yaad karo" brings it back.
+- The context gauge: every session snapshot has `context_chars` (GOAL, each CONTEXT part, STEPS), and the dashboard shows "Brain view" under finished tasks.
+- **Real, on the owner's data:** the last turn was found 1 → hidden 0 → back 1, with nothing left hidden.
+
+**Tests (all pass):** `test_voice_polish_h19_h20` (3), `test_think_h21` (2), `test_second_opinion_h22` (2), `test_forget_h29` (3).
+
+**Live battery on the restarted Chutku (synthetic origin, not learned from) found 4 bugs the unit tests had missed. All fixed, each with a regression test, then rechecked live:**
+1. "pakka?" re-checked the owner's last real turn ("bye bye") instead of the question just asked. `rewrite()` now matches the requester's origin.
+2. The re-check named `web.search`, which opens a browser (R1), so `observe_only` refused it. It now uses `web.results` + `web.read` (R0).
+3. The careful Gemini call got HTTP 400: in full mode it sent the whole catalog's enum. A `careful` mode now keeps the goal's tools with the full budget. Before, a failure fell to the local model (32 s); now the fast cloud models answer.
+4. "mere goals" and "backups dikhao" got a muddled model sentence ("I don't have the list…"). They now answer from the tool output (`QUICK_ANSWERS`).
+
+**After the fixes, live:**
+
+| Request | Result | Time |
+|---|---|---|
+| "formal ho jao" / "normal ho jao" | `settings.reply_style` | 0.98 s / 0.62 s |
+| "Who wrote the book Godaan?" | "Munshi Premchand" | 2.3 s |
+| "pakka?" | `web.results` + `web.read`: "Dono sahmat hain. Sources: Wikipedia (Godaan) and Testbook." Correct | 9.9 s |
+| "soch ke batao: 2^10 or 10 cubed?" | `gemini:careful`, "1024 … bigger". Correct | 2.7 s |
+| "mere goals" | "Koi goal nahi hai…" | 0.62 s |
+| "backups dikhao" | "1 backup(s) in D:\ChutkuBackups: … (1701 KB)" | 0.62 s |
+| "ye baat bhool jao" / "wapas yaad karo" | done | 0.6 s each |
+
 ### 2026-11-06: Standing goals (H24)
 - `chutku/goals.py` keeps goals in `data/goals.json`. Each goal has one criterion, checked from the PC without a model:
   - `folder_count`: a number plus a folder path in the goal;

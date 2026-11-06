@@ -1777,6 +1777,18 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
+def _say_backups(out):
+    rows = out.get("backups") or []
+    if not rows:
+        return f"Abhi koi backup nahi hai ({out.get('folder')}). Bolo \"backup bana lo\"."
+    return f"{len(rows)} backup(s) in {out.get('folder')}: " + ", ".join(
+        f"{r['name']} ({r['bytes'] // 1024} KB)" for r in rows[:4])
+
+
+def _say_backup(out):
+    return f"Backup bana diya: {out['files']} files, {out['bytes'] // 1024} KB, {out['path']}."
+
+
 def _say_howto(out):
     from chutku.apps.howto import say
     return say(out)
@@ -1805,7 +1817,9 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "finance.quote": lambda out: out["reply"],
                  "skill.list": lambda out: out["skill_reply"], "skill.create": lambda out: out["skill_reply"],
                  "evolve.list": lambda out: out["skill_reply"], "evolve.review": lambda out: out["skill_reply"],
-                 "skill.import": lambda out: out["skill_reply"]}
+                 "skill.import": lambda out: out["skill_reply"],
+                 "goals.list": lambda out: out["summary"], "goals.add": lambda out: "Goal set. " + out["progress"],
+                 "goals.done": lambda out: out["summary"], "backup.list": _say_backups, "backup.create": _say_backup}
 
 
 def quick_answer(session):

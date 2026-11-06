@@ -84,6 +84,11 @@ function renderSession(bubble,s){
     bubble.append(list);
   }
   if(s.reply&&(TERMINAL.has(s.status)||s.status==="waiting_confirmation"||s.status==="running"))bubble.append(node("p","reply",s.reply));
+  if(s.context_chars&&TERMINAL.has(s.status)){   // H29 context gauge: what the brain read, part by part
+    const parts=Object.entries(s.context_chars).filter(([,n])=>n>2).sort((a,b)=>b[1]-a[1]),total=parts.reduce((t,[,n])=>t+n,0);
+    const gauge=node("details","brain-view");gauge.append(node("summary","small-title","Brain view: "+total.toLocaleString()+" characters"));
+    parts.forEach(([k,n])=>gauge.append(node("div","small",k+": "+n.toLocaleString()+" ("+Math.round(100*n/Math.max(total,1))+"%)")));
+    bubble.append(gauge);}
   if(s.pending){bubble.append(approvalCard({...s.pending.approval},async approved=>{
     try{const next=await api("/api/agent/confirm",{id:s.id,approve:approved});renderSession(bubble,next.session);follow(bubble,s.id);}catch(e){error(e.message);}
   }));}

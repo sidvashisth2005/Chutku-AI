@@ -99,6 +99,13 @@ def sync(base) -> int:
         return added
 
 
+def set_hidden(base, at, hidden: bool):
+    """H29: mark an indexed turn hidden (or visible again); search skips hidden turns."""
+    sync(base)
+    with _LOCK, _Db(base) as db:
+        db.execute("UPDATE turns SET hidden = ? WHERE at = ?", (1 if hidden else 0, float(at)))
+
+
 def terms(query: str) -> list[str]:
     """Topic words of a question, in Roman letters, safe to quote into an FTS5 query."""
     words = re.findall(r"\w+", roman(str(query)).casefold())

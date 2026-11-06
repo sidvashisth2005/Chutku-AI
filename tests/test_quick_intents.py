@@ -151,6 +151,11 @@ class QuickIntentTests(unittest.TestCase):
         samples["evolve.list"] = {"skill_reply": "1 improvement idea(s) waiting for you.\n\n" + idea}
         samples["evolve.review"] = {"skill_reply": "I studied the last 7 days: 40 requests, 90 actions. 1 new idea(s). "
                                                    + idea}
+        samples["goals.list"] = {"summary": "1. 5 notes D:\\Study: 3/5, 2 din bache"}
+        samples["goals.add"] = {"progress": "1. 5 notes D:\\Study: 0/5"}
+        samples["goals.done"] = {"summary": "2. viva: pura!"}
+        samples["backup.list"] = {"backups": [{"name": "chutku-20261107-0100.zip", "bytes": 4096}], "folder": "D:\\B"}
+        samples["backup.create"] = {"path": "D:\\B\\chutku-20261107-0100.zip", "files": 119, "bytes": 1742023}
         samples_empty = {"apps.installed": {"query": "Steam", "apps": [], "count": 0, "truncated": False}}
         samples_empty["mind.who"] = {"name": "mammi", "known": False}
         samples_empty["mind.show"] = {"part": "all", "people": [], "facts": {}, "lists": {}}
