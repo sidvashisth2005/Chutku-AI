@@ -24,7 +24,7 @@ class RuntimeTests(unittest.TestCase):
         register_builtin_tools(self.registry)
         self.log = EventLog(Path(self.temp.name) / "events.db")
         self.journal = OperationJournal(Path(self.temp.name) / "operations.db")
-        self.sandbox = Path(self.temp.name) / "sandbox"
+        self.sandbox = Path(self.temp.name).resolve() / "sandbox"   # as Runtime stores it; CI's TEMP is RUNNER~1
         self.sandbox.mkdir()
         self.runtime = Runtime(self.registry, PolicyKernel(), self.log, self.journal, self.sandbox)
 

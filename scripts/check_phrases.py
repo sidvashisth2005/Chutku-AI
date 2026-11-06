@@ -107,15 +107,21 @@ CASES = [
 
 
 def run():
+    from unittest.mock import patch
+    from chutku.apps import lab
     from chutku.quick_intents import quick_proposal
     misses, slow = [], 0.0
-    for phrase, expected in CASES:
-        started = time.perf_counter()
-        proposal = quick_proposal(phrase, apps=APPS)
-        slow = max(slow, time.perf_counter() - started)
-        tool = None if proposal is None else (proposal["next_steps"][0]["tool"] if proposal["next_steps"] else "(reply)")
-        if tool != expected:
-            misses.append((phrase, expected, tool))
+    # The cases assume the owner's PC, where the Action Lab has verified Spotify's play_playlist (data/apps/, which
+    # a fresh clone does not have); without it those phrases rightly go to screen.act_on_visible.
+    with patch.object(lab, "verified", side_effect=lambda _b, app, action: (app, action) == ("spotify", "play_playlist")), \
+            patch.object(lab, "verified_actions", return_value={"spotify": {"play_playlist"}}):
+        for phrase, expected in CASES:
+            started = time.perf_counter()
+            proposal = quick_proposal(phrase, apps=APPS)
+            slow = max(slow, time.perf_counter() - started)
+            tool = None if proposal is None else (proposal["next_steps"][0]["tool"] if proposal["next_steps"] else "(reply)")
+            if tool != expected:
+                misses.append((phrase, expected, tool))
     return misses, slow
 
 

@@ -89,7 +89,7 @@ class PathTests(unittest.TestCase):
 class OrganizeTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()   # a real root is resolved; CI's TEMP is an 8.3 alias (RUNNER~1)
         self.records = patch.object(documents, "_records_dir", return_value=self.root / "records")
         (self.root / "records").mkdir()
         self.records.start()

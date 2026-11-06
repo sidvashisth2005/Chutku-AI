@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
+import openwakeword
 
 from chutku.voice import wakeword
 from chutku.voice.handsfree import WakeListener
@@ -26,7 +27,14 @@ def model(folder, bias, two_stage=False):
     return path
 
 
+_FEATURES = Path(openwakeword.__file__).parent / "resources" / "models"
+needs_features = unittest.skipUnless(
+    all((_FEATURES / name).is_file() for name in ("melspectrogram.onnx", "embedding_model.onnx")),
+    "openWakeWord's feature models are not installed (downloaded, not pip-installed); runs on a full install")
+
+
 class DetectorTests(unittest.TestCase):
+    @needs_features
     def test_fires_once_then_waits_two_seconds(self):
         with tempfile.TemporaryDirectory() as temp:
             detector = wakeword.Detector(model(temp, 10.0))
@@ -34,6 +42,7 @@ class DetectorTests(unittest.TestCase):
             fired = [detector.feed(silence) for _ in range(20)]     # 2 s of audio in 100 ms chunks
         self.assertEqual(fired.count(True), 1)
 
+    @needs_features
     def test_never_fires_below_threshold(self):
         with tempfile.TemporaryDirectory() as temp:
             detector = wakeword.Detector(model(temp, -10.0))
@@ -82,6 +91,7 @@ class ListenerTests(unittest.TestCase):
             listener.join(2)
         return woke, transcribed, listener, logged
 
+    @needs_features
     def test_detector_wakes_without_whisper(self):
         with tempfile.TemporaryDirectory() as temp:
             woke, transcribed, listener, logged = self.run_listener(model(temp, 10.0))
@@ -91,6 +101,7 @@ class ListenerTests(unittest.TestCase):
         self.assertEqual(transcribed, [])                # Whisper never ran
         self.assertEqual(logged.call_args[0][:3], ("wake", "(Oye Chutku)", "wake"))
 
+    @needs_features   # without them the listener falls back to Whisper and these two pass without the detector
     def test_two_stage_wakes_only_when_whisper_hears_the_name(self):
         with tempfile.TemporaryDirectory() as temp:
             woke, transcribed, listener, _logged = self.run_listener(model(temp, 10.0, two_stage=True),
@@ -99,6 +110,7 @@ class ListenerTests(unittest.TestCase):
         self.assertTrue(all(0 < len(pcm) <= wakeword.CONTEXT_SAMPLES * 2 for pcm in transcribed))
         self.assertTrue(woke)
 
+    @needs_features
     def test_two_stage_rejects_a_look_alike(self):
         with tempfile.TemporaryDirectory() as temp:
             woke, transcribed, _listener, _logged = self.run_listener(model(temp, 10.0, two_stage=True),

@@ -5,7 +5,11 @@ safety rule: chutku/core/elevation.py). Without this launcher almost every runti
 
 Here, and only here, the token query reports "not elevated". The product code has no bypass. The tests that force
 `is_elevated` to True (tests/test_elevation.py and others) still prove the refusal, because their patches take
-precedence while they run. On a normal PC run the tests directly:
+precedence while they run.
+
+A CI clone has no git-ignored models/, data/ or sandbox/, no audio device, and its TEMP is an 8.3 alias
+(C:\Users\RUNNER~1\...). Tests must not depend on those: only the ones that really need a git-ignored model or a
+playback device skip, and say so. On a normal PC run the tests directly:
     .venv\Scripts\python.exe -m unittest discover -s tests
 """
 from pathlib import Path

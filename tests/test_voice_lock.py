@@ -33,10 +33,14 @@ class Base(unittest.TestCase):
         self.base = Path(self.temp.name) / "state"
         self.mind_root = patch.object(mind, "PROJECT_ROOT", self.base)
         self.mind_root.start()
+        # The speaker model (models/speaker/, git-ignored) is only used by embed(), which these tests replace.
+        self.model_ready = patch.object(speaker, "available", return_value=True)
+        self.model_ready.start()
         self.runtime = create_runtime(self.base)
 
     def tearDown(self):
         self.runtime.close()
+        self.model_ready.stop()
         self.mind_root.stop()
         self.temp.cleanup()
 

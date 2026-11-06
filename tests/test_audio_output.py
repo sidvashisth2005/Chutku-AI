@@ -8,6 +8,24 @@ DEVICES = [{"name": "Speakers (Realtek(R) Audio)", "id": "a", "default": True},
            {"name": "LG TV (NVIDIA High Definition Audio)", "id": "c", "default": False}]
 
 
+def _windows_has_an_active_playback_device():
+    """Asked of the registry, not of audio_output, so a broken outputs() still fails the test on a real PC."""
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                            r"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render") as render:
+            for index in range(winreg.QueryInfoKey(render)[0]):
+                try:
+                    with winreg.OpenKey(render, winreg.EnumKey(render, index)) as device:
+                        if winreg.QueryValueEx(device, "DeviceState")[0] == 1:   # DEVICE_STATE_ACTIVE
+                            return True
+                except OSError:
+                    continue
+    except OSError:
+        return False
+    return False
+
+
 class AudioOutputTests(unittest.TestCase):
     def test_match_by_words_and_aliases(self):
         self.assertEqual(audio_output.match(DEVICES, "headphones")["id"], "b")
@@ -53,6 +71,8 @@ class AudioOutputTests(unittest.TestCase):
         self.assertIn("No playback device matches", snapshot["reply"])
 
     def test_real_devices_and_policy_interface(self):
+        if not _windows_has_an_active_playback_device():
+            self.skipTest("Windows reports no active playback device (e.g. a CI runner); runs on a real PC")
         devices = audio_output.outputs()
         self.assertTrue(devices)
         self.assertEqual(sum(d["default"] for d in devices), 1)

@@ -19,11 +19,11 @@ CONTEXT_SAMPLES = 16000 * 5 // 2   # the last 2.5 s of sound, handed to Whisper 
 
 class Detector:
     def __init__(self, path: Path = MODEL, threshold: float | None = None):
-        data = np.load(path, allow_pickle=False)
-        self.w1, self.b1, self.w2, self.b2 = data["w1"], data["b1"], data["w2"], data["b2"]
-        self.mean, self.std = data["mean"], data["std"]
-        self.threshold = float(threshold if threshold is not None else data["threshold"])
-        self.meta = json.loads(str(data["meta"]))
+        with np.load(path, allow_pickle=False) as data:   # closed here: an open .npz stays locked on Windows
+            self.w1, self.b1, self.w2, self.b2 = data["w1"], data["b1"], data["w2"], data["b2"]
+            self.mean, self.std = data["mean"], data["std"]
+            self.threshold = float(threshold if threshold is not None else data["threshold"])
+            self.meta = json.loads(str(data["meta"]))
         from openwakeword.utils import AudioFeatures
         self.features = AudioFeatures(inference_framework="onnx")
         self._pending = np.zeros(0, dtype=np.int16)

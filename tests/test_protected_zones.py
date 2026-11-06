@@ -51,11 +51,15 @@ class ProtectedZoneTests(unittest.TestCase):
                 self.assertEqual(str(result["state"]), "DENIED", relative)
                 self.assertFalse(target.exists())
             allowed = Path(PROJECT_ROOT) / "sandbox" / f"chutku-self-test-{os.getpid()}.txt"
+            made = not allowed.parent.exists()   # a fresh clone has no sandbox/ until Chutku first starts
+            allowed.parent.mkdir(exist_ok=True)
             try:
                 result = runtime.run("filesystem.write_text", {"path": str(allowed), "content": "ok"})
                 self.assertEqual(str(result["state"]), "COMPLETED", result)
             finally:
                 allowed.unlink(missing_ok=True)
+                if made:
+                    allowed.parent.rmdir()
 
     def test_move_or_recycle_out_of_system_area_denied(self):
         source = WINDOWS / "win.ini"
