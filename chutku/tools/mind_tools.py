@@ -132,6 +132,19 @@ def _switch(arguments, _context):
                       Verification.PASS if now == wanted else Verification.FAIL)
 
 
+def _reply_style(arguments, _context):
+    """H17: how replies sound (normal / formal / short / masti); the persona and identity stay the same."""
+    from chutku.core.preferences import REPLY_STYLES, Preferences
+    if arguments.get("style") not in REPLY_STYLES:
+        return ToolResult({"error": "Choose normal, formal, short or masti."}, Verification.FAIL)
+    prefs = Preferences(mind.PROJECT_ROOT)
+    before = prefs.load()["reply_style"]
+    prefs.update({"reply_style": arguments["style"]})
+    now = prefs.load()["reply_style"]
+    return ToolResult({"reply_style": now, "was": before}, Verification.PASS if now == arguments["style"] else
+                      Verification.FAIL)
+
+
 def _check(required, optional=()):
     def validate(arguments):
         if not isinstance(arguments, dict) or not set(required) <= set(arguments) or set(arguments) - set(required) - set(optional):
@@ -191,6 +204,10 @@ def register_mind_tools(registry):
         _check(("setting", "on")), argument_schema=_schema({"setting": {"type": "string", "enum": sorted(SWITCHES)},
                                                             "on": {"type": "boolean"}}, ("setting", "on")),
         reversibility="compensatable", success_predicate="preference_written"))
+    registry.register(Tool("settings.reply_style", "How replies sound: normal, formal (respectful, no slang), short "
+        "(one sentence) or masti (playful).", Risk.REVERSIBLE, _reply_style, _check(("style",)),
+        argument_schema=_schema({"style": {"type": "string", "enum": ["normal", "formal", "short", "masti"]}},
+                                ("style",)), reversibility="compensatable", success_predicate="preference_written"))
     registry.register(Tool("mind.forget", "Forget a person, a fact, or a list item ('assignments:3') from the owner's "
         "memory.", Risk.DATA_MODIFICATION, _forget, _check(("kind", "key")),
         argument_schema=_schema({"kind": {"type": "string", "enum": ["person", "fact", "item"]}, "key": _SHORT},

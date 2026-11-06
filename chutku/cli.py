@@ -240,6 +240,10 @@ def main() -> None:
     subparsers.add_parser("open", help="Open the running Chutku dashboard in your browser")
     subparsers.add_parser("setup", help="First-run setup: your assistant's name, your name, a free brain key, a mic "
                                         "check, how much it does alone, the phone app account")
+    backup = subparsers.add_parser("backup", help="Back up Chutku's memory, list backups, or restore one (stopped)")
+    backup.add_argument("backup_action", nargs="?", default="create", choices=("create", "list", "restore"))
+    backup.add_argument("zip", nargs="?", help="the backup zip to restore")
+    backup.add_argument("--voice", action="store_true", help="also include voice clips and the voiceprint")
     account = subparsers.add_parser("account", help="Phone app account: status, login, logout, change ID/password, PIN")
     account.add_argument("account_action", choices=("status", "login", "logout", "change", "pin"))
     night = subparsers.add_parser("nightshift", help="Night Shift: nightly self-improvement jobs (run, install, report)")
@@ -276,6 +280,21 @@ def main() -> None:
             setup(root)
         except (EOFError, KeyboardInterrupt):
             print("Setup stopped; run it again any time.")
+        return
+    if namespace.command == "backup":
+        from chutku import backup
+        from chutku.app import PROJECT_ROOT as root
+        try:
+            if namespace.backup_action == "list":
+                print(json.dumps(backup.listing(), indent=1))
+            elif namespace.backup_action == "restore":
+                if not namespace.zip:
+                    parser.error("Name the backup zip to restore (chutku.cli backup list).")
+                print(json.dumps(backup.restore(root, namespace.zip), indent=1))
+            else:
+                print(json.dumps(backup.create(root, voice=namespace.voice), indent=1))
+        except (RuntimeError, ValueError, OSError) as error:
+            parser.exit(1, f"Not done: {error}\n")
         return
     if namespace.command == "account":
         from chutku.app import PROJECT_ROOT as root

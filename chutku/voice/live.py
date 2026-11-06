@@ -279,6 +279,13 @@ class LiveConversation(threading.Thread):
         except Exception:
             known = {}
         parts = []
+        try:   # H17: the owner's reply style ("formal ho jao", "chhota jawab do")
+            from chutku.persona import style_note
+            note = style_note(self.server.preferences.load()["reply_style"])
+            if note:
+                parts.append("\nReply style the owner chose: " + note)
+        except (AttributeError, OSError, ValueError, KeyError):
+            pass
         names = saved_names()
         if names:   # the owner's people come from their memory, never from this file (audit 2026-10-06)
             parts.append("\nSaved people (write these exactly): " + ", ".join(names))

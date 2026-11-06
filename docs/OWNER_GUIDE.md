@@ -143,6 +143,17 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 
 ## 3. Things you can say
 
+**New on 2026-11-06: reply style and backups**
+- **Goals:**
+  - "goal: is hafte 5 chapter ke notes, D:\Study\DBMS mein" sets a goal; Chutku counts the files there.
+  - "mere goals" shows the progress, for example "3/5, 2 din bache".
+  - "goal 2 ho gaya" marks it done, and "goal 2 hatao" removes it (asks first).
+- **Reply style:** "formal ho jao", "chhota jawab do", "masti mode", "normal ho jao".
+- **Backups:**
+  - "backup bana lo" (or `chutku.cli backup`) saves Chutku's memory to `D:\ChutkuBackups`, keeping the last 4.
+  - "backups dikhao" lists them.
+  - To restore, stop Chutku (`Stop-Chutku.cmd`), then `chutku.cli backup restore <zip>`. A safety backup is made first.
+
 **New on 2026-11-06: your own name for the assistant, and the phone app (APK)**
 - **Setup** (`.venv\Scripts\python.exe -m chutku.cli setup`) now first asks for the assistant's name and personality: gender (female / male / neutral), language (hinglish / english / hindi) and style (warm / professional / witty / calm).
   - They are saved in `.env`.

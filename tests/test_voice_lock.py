@@ -188,7 +188,8 @@ class PrivacyTests(unittest.TestCase):
     def test_the_voiceprint_is_only_read_by_local_code(self):
         readers = sorted(str(p.relative_to(ROOT)) for p in (ROOT / "chutku").rglob("*.py")
                          if re.search(r"load_voiceprint|voiceprint_path|voiceprint\.npy", p.read_text(encoding="utf-8")))
-        self.assertEqual(readers, [str(Path("chutku/cli.py")), str(Path("chutku/dashboard.py")),
+        # backup.py names it only to leave it out of backups (included with an explicit --voice; the zip stays local)
+        self.assertEqual(readers, [str(Path("chutku/backup.py")), str(Path("chutku/cli.py")), str(Path("chutku/dashboard.py")),
                                    str(Path("chutku/tools/voice_lock_tools.py")), str(Path("chutku/voice/speaker.py"))])
         for module in ("chutku/cloud_planner.py", "chutku/voice/live.py", "chutku/tools/internet.py"):
             self.assertNotIn("voiceprint", (ROOT / module).read_text(encoding="utf-8"))

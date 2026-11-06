@@ -42,6 +42,24 @@ _PATTERNS = [
     ("os_keys", re.compile(_P + r"(?P<k>show\s+(?:the\s+)?desktop|desktop\s+dikhao|switch\s+(?:the\s+)?windows?|"
                            r"window\s+switch\s+karo|alt\s+tab|task\s+view(?:\s+(?:kholo|dikhao|open karo))?|"
                            r"saari\s+windows\s+dikhao|show\s+all\s+windows)" + _T, re.I)),
+    # H24: standing goals. "goal: ...", "mere goals", "goal 2 ho gaya", "goal 2 hatao".
+    ("goal_add", re.compile(_P + r"(?:goal|mera\s+goal\s+(?:hai|ye\s+hai)|naya\s+goal|new\s+goal|set\s+(?:a\s+)?goal)\s*[:\-]"
+                            r"\s*(?P<text>.{3,300}?)" + _T, re.I)),
+    ("goal_list", re.compile(_P + r"(?:mere\s+goals?(?:\s+(?:dikhao|batao|kya\s+hain))?|(?:show|list)\s+(?:my\s+)?goals|"
+                             r"goals?\s+(?:dikhao|status|kahan\s+tak))" + _T, re.I)),
+    ("goal_done", re.compile(_P + r"goal\s+(?P<n>\d{1,4})\s+(?:ho\s+gaya|pura\s+(?:ho\s+gaya|hua)|done|complete)" + _T, re.I)),
+    ("goal_remove", re.compile(_P + r"goal\s+(?P<n>\d{1,4})\s+(?:hatao|hata\s+do|remove\s+karo|delete\s+karo)|"
+                               r"remove\s+goal\s+(?P<n2>\d{1,4})" + _T, re.I)),
+    # H25: memory backups. Restoring is never by voice: it needs Chutku stopped (chutku.cli backup restore).
+    ("backup", re.compile(_P + r"(?P<b>(?:ek\s+)?backup\s+(?:bana\s+lo|banao|bana\s+do|le\s+lo|lo|karo|kar\s+do)|"
+                          r"(?:take|make)\s+a\s+backup|back\s+up\s+(?:your|chutku'?s?)\s+memory)|(?P<l>backups?\s+"
+                          r"(?:dikhao|list)|(?:show|list)\s+(?:my\s+)?backups)|(?P<r>backup\s+se\s+wapas\s+lao.*|"
+                          r"restore\s+(?:a\s+|the\s+)?backup.*)" + _T, re.I)),
+    # H17: reply style. "formal ho jao", "chhota jawab do", "masti mode", "normal ho jao".
+    ("style", re.compile(_P + r"(?:(?P<formal>formal(?:\s+(?:ho\s+jao|bano|mode|baat\s+karo|raho))?|be\s+formal|"
+                         r"talk\s+formally)|(?P<short>(?:chhota|chota|short)\s+jawab\s+(?:do|dena)|short\s+answers?|"
+                         r"short\s+mode|be\s+brief)|(?P<masti>masti\s+(?:mode|karo|wali\s+baat)|be\s+playful|"
+                         r"fun\s+mode)|(?P<normal>normal\s+(?:ho\s+jao|mode|baat\s+karo)|talk\s+normally))" + _T, re.I)),
     ("spotify", re.compile(_P + r"(?:spotify\s+(?:pe|par|mein|me)\s+(?P<q>.{2,150}?)\s+(?:chalao|bajao|lagao|play karo|sunao)|"
                            r"play\s+(?P<q2>.{2,150}?)\s+on\s+spotify|(?P<q3>.{2,150}?)\s+spotify\s+(?:pe|par)\s+(?:chalao|bajao|lagao))" + _T, re.I)),
     ("time", re.compile(_P + r"(?:mujhe\s+)?(?:batao|bata do|bolo)?\s*(?:abhi\s+)?(?:time|samay|kitne baje)\s+(?:kya|kitna)?\s*"
@@ -101,6 +119,28 @@ def parse_daily(goal, now=None):
         if not match:
             continue
         g = match.groupdict()
+        if kind == "goal_add":
+            return "goals.add", {"text": g["text"].strip()}, "Set a standing goal", "", False
+        if kind == "goal_list":
+            return "goals.list", {}, "Show the goals", "", False
+        if kind == "goal_done":
+            return "goals.done", {"id": int(g["n"])}, f"Goal {g['n']} done", "", False
+        if kind == "goal_remove":
+            number = int(g.get("n") or g.get("n2"))
+            return "goals.remove", {"id": number}, f"Remove goal {number}", f"Goal {number} hata diya.", True
+        if kind == "backup":
+            if g.get("r"):
+                return "", {}, "", ("Restore sirf laptop pe hota hai, Chutku band karke: Stop-Chutku.cmd, phir "
+                                    "`chutku.cli backup list` aur `chutku.cli backup restore <zip>`. Pehle ek safety "
+                                    "backup apne aap banta hai."), True
+            if g.get("l"):
+                return "backup.list", {}, "List the backups", "", False
+            return "backup.create", {}, "Back up Chutku's memory", "Backup bana diya.", False
+        if kind == "style":
+            style = next(k for k in ("formal", "short", "masti", "normal") if g.get(k))
+            return "settings.reply_style", {"style": style}, f"Reply style: {style}", {
+                "formal": "Ji, ab se formal baat karungi.", "short": "Theek hai, chhote jawab.",
+                "masti": "Masti mode on! 😄", "normal": "Theek hai, normal ho gayi."}[style], True
         if kind == "window":
             word = g["w"].casefold().split()[0]
             action = {"minimize": "minimize", "minimise": "minimize", "chhota": "minimize", "chota": "minimize",

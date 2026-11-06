@@ -16,6 +16,53 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Standing goals (H24)
+- `chutku/goals.py` keeps goals in `data/goals.json`. Each goal has one criterion, checked from the PC without a model:
+  - `folder_count`: a number plus a folder path in the goal;
+  - `file_exists`: a file path, which ends at its extension;
+  - `said_done`: "goal N ho gaya".
+- Due dates come from "is hafte" / "aaj" / "kal tak" / "N din mein". An overdue goal asks "aage badhaun ya hata dun?".
+- Tools:
+  - `goals.add` (R1), `goals.list` (R0, live progress), `goals.done` (R1);
+  - `goals.remove` (R2, `deletes`: it **always asks**, tested in owner mode).
+- Phrases: "goal: …", "mere goals", "goal 2 ho gaya", "goal 2 hatao".
+- **Real, on the live install:** "goal: 3 test files D:\ChutkuScratch\goal mein" routed to `goals.add` (0.06 s). With 2 files it showed "2/3"; with the 3rd the status was "done", and `os.listdir` independently counted 3. The test goal and files were removed afterwards.
+- A path that ran on into the next words ("cv.pdf ready") was caught while checking and fixed.
+- Tests: `tests/test_goals_h24.py` (3).
+- Two expectations were updated deliberately:
+  - the preferences defaults now include `reply_style`;
+  - the voiceprint privacy test allows `backup.py`, which names the voiceprint only to exclude it (included with `--voice`; local only).
+
+### 2026-11-06: Reply styles (H17) and memory backup and restore (H25)
+
+**H17**
+- A `reply_style` preference: normal / formal / short / masti.
+- Set by phrase in one instant step through `settings.reply_style` (R1): "formal ho jao", "chhota jawab do", "masti mode", "normal ho jao", "be brief".
+- The style note goes into every brain's CONTEXT (`default_context` -> `reply_style`) and into the Live persona.
+- "short" is guaranteed whatever the model writes: `_finish` keeps the first sentence plus the verified line, still in female forms.
+- Tests: `tests/test_reply_style_h17.py` (3).
+
+**H25**
+- `chutku/backup.py`: a zip in ChutkuBackups (`D:\ChutkuBackups` on this PC) with a SHA-256 manifest.
+  - SQLite is copied through the backup API, so a copy taken during writes is consistent (tested with an open uncommitted transaction).
+  - Not included: logs, voice clips, the voiceprint (opt in with `--voice`), rebuildable indexes and locks. Keys are in Credential Manager, never in `data/`.
+  - The newest 4 are kept; older ones go to the Recycle Bin.
+- Restore (`chutku.cli backup restore <zip>`):
+  - only with Chutku stopped;
+  - verifies every hash first, refusing path tricks;
+  - makes a safety backup first.
+  - By voice, "backup se wapas lao" only explains how.
+- Tools `backup.create` (R1) and `backup.list` (R0); `chutku.cli backup [list|restore]`.
+- **Bug found by the tests:** two backups in the same second collided (a restore's safety copy right after a backup). It now adds a suffix.
+- **Real:** `chutku.cli backup` on the live install made 119 files, 1.74 MB, in 0.6 s while Chutku ran. `verify()` checked every file against its manifest, and no key-like text was in the zip.
+- **Also found:** a heredoc had mangled a `
+` in `cli.py` (a SyntaxError), caught by this real run before any commit.
+- Tests: `tests/test_backup_h25.py` (4):
+  - round trip plus safety copy;
+  - a tampered zip, a running Chutku and an unsafe path all change nothing (negative);
+  - a consistent copy during a write;
+  - keeping 4 with old ones going to the Recycle Bin.
+
 ### 2026-11-06: Review of the new code; Chutku restarted on it and rechecked live
 
 **Review fixes in the relay**

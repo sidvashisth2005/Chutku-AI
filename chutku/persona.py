@@ -36,6 +36,27 @@ def _fix(part):
     return re.sub(r"\b(rahi|rhi|gayi|chuki|sakti|leti|deti|karti|rehti|samjhi) tha\b", r"\1 thi", part, flags=re.I)
 
 
+# H17 (Hermes personality presets): how replies sound, on top of IDENTITY. "normal" adds nothing.
+STYLE_NOTES = {
+    "formal": "Reply politely and formally, in respectful Hindi/English (aap, ji), with no slang or jokes.",
+    "short": "Reply in at most one short sentence unless the owner asks for more.",
+    "masti": "Reply in a playful, fun, friendly way (light jokes are fine), still accurate and useful.",
+}
+
+
+def style_note(style):
+    return STYLE_NOTES.get(style, "")
+
+
+def styled(reply, style):
+    """"short" is guaranteed, whatever the model wrote: the first sentence, plus the verified line if there is one."""
+    if style != "short" or not reply:
+        return reply
+    body, sep, verified = reply.partition(" [Verified")
+    first = re.split(r"(?<=[.!?।])\s+", body.strip(), maxsplit=1)[0]
+    return first + (sep + verified if sep else "")
+
+
 def feminine(text):
     """Chutku's own Hinglish in feminine forms; quoted text (the owner's words) is never changed. An assistant set up
     as male or neutral keeps its words as written."""

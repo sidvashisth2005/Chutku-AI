@@ -872,6 +872,9 @@ class AgentSession:
         from chutku.persona import feminine
         self.status, self.reply, self.queue, self.pending = status, reply, [], None
         self.reply = feminine((reply or "").strip())   # Chutku is female: her own Hinglish in feminine forms
+        if self.context.get("reply_style", "").startswith("Reply in at most one short sentence"):
+            from chutku.persona import styled
+            self.reply = styled(self.reply, "short")
         claim = self._unsupported_claim(self.reply) if status == "done" else None
         if claim:  # never repeat a model's claim of something that did not happen
             self.reply = (f"(The model's summary claimed '{claim}', which no step did, so it was withheld.) "
@@ -1480,7 +1483,19 @@ def default_context(router):
                       "ProgramData, AppData) can be read but never changed."),
         "projects_folder": projects_folder(),
         "user_facts": _user_facts(router.default),
+        **_reply_style(router.default),
     }
+
+
+def _reply_style(runtime):
+    """H17: the owner's reply style as one CONTEXT line every brain reads (nothing for "normal")."""
+    from chutku.core.preferences import Preferences
+    from chutku.persona import style_note
+    try:
+        note = style_note(Preferences(runtime.granted_root.parent).load()["reply_style"])
+    except (OSError, ValueError, AttributeError):
+        note = ""
+    return {"reply_style": note} if note else {}
 
 
 def projects_folder():

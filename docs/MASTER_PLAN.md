@@ -807,13 +807,13 @@ Full spec: `docs/APP_MASTERY_PLAN.md`.
 - [x] A4: Spotify — done 2026-10-09 (28 actions, 26 verified on the live PC; play artist/album/playlist ~7 s by phrase; 'play song X' from search parked)
 - [x] A5: WhatsApp — done 2026-10-09 (8/8 verified safe actions, unread count; mute/pin/archive/send_file not yet)
 - [x] A6: Brave (+YouTube) — done 2026-10-09 (23 actions, 15 verified; YouTube keys only on a YouTube tab)
-- [ ] A7: VS Code
-- [ ] A8: Windows Settings
-- [ ] A9: ChatGPT
-- [ ] A10: Discord
-- [ ] A11: VLC
-- [ ] A12: Telegram
-- [ ] A13: File Explorer + Notepad
+- [x] A7: VS Code (atlas 14 actions; 3 lab-verified, the plain shortcuts route by the Z3 shortcut rule; the lab is not run inside the owner's working VS Code)
+- [x] A8: Windows Settings (13/13 lab-verified)
+- [x] A9: ChatGPT (3/3 lab-verified)
+- [x] A10: Discord (4/4 lab-verified)
+- [x] A11: VLC (12/15 lab-verified; pause/resume go through media.control)
+- [x] A12: Telegram (7/7 lab-verified)
+- [x] A13: File Explorer + Notepad (12/12 + 7/7 lab-verified)
 - [ ] A14: Cross-app recipes
 - [ ] A15: Teach mode
 - [ ] A16: Screen survey (later)
@@ -825,10 +825,10 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [x] H1: owner "never" rules — done 2026-10-07 (reduced: the built-in blocked-command list is parked, see HERMES_PLAN H1)
 - [x] H2: Pause switch for background work — done 2026-10-07 (tray item and HUD badge not built)
 - [x] H3: Content scanner + memory meter — done 2026-10-07 (exfiltration patterns, doc/reflex scan and dashboard panel not built)
-- [ ] P1: Phone access: Tailscale HTTPS + QR pairing + phone PIN
-- [ ] P2: Phone app: chat, live progress, approvals (installable PWA)
-- [ ] P3: Phone voice: push-to-talk + spoken replies
-- [ ] P4: Live screen view (view-only) + keep-awake
+- [x] P1: Phone access: Tailscale HTTPS + QR pairing + phone PIN (built in W6; account relay + APK added in Z8/Z9)
+- [x] P2: Phone app: chat, live progress, approvals (W6; APK Z9, emulator end to end)
+- [x] P3: Phone voice: push-to-talk + spoken replies (W6; approvals spoken too, Z5)
+- [x] P4: Live screen view (view-only) + keep-awake (W6)
 - [x] H4: Fast chat-history search (FTS5) — done 2026-10-07 (gate not met for recall.earlier: word overlap kept there)
 - [x] H5: Step summaries instead of dropping — done 2026-10-07 (live long-session check pending: real sessions are still short)
 - [x] H6: `@file` / `@folder` / `@url` / `@clip` references in typed chat — done 2026-10-07 (@clipimg and autocomplete not built)
@@ -842,15 +842,15 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [ ] H14: For-each steps
 - [ ] H15: Task board + background research workers
 - [ ] H16: Telegram remote control with pairing + handoff
-- [ ] H17: Reply style presets
+- [x] H17 (done 2026-11-06): Reply style presets
 - [ ] H18: Busy mode: queue / steer / side question
 - [ ] H19: Sentence-by-sentence speech for Kokoro (mostly already done by the S10 Kokoro service: verify, then add only what is missing)
 - [ ] H20: Voice polish (phantom filter, exact stop, barge-in)
 - [ ] H21: Think harder / answer fast
 - [ ] H22: Second opinion ("pakka?")
 - [ ] H23: Blueprints + my shortcuts
-- [ ] H24: Standing goals
-- [ ] H25: Backup & restore
+- [x] H24 (done 2026-11-06): Standing goals
+- [x] H25 (done 2026-11-06; restore from the CLI with Chutku stopped): Backup & restore
 - [ ] H26: Doctor that can repair
 - [ ] H27: Learn on request ("ye seekh lo")
 - [ ] H28: Learning journey view
@@ -858,11 +858,11 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [ ] H30: Phase 3b release: evidence, docs, reviews
 
 **Planned, built only on the owner's word ("phone control banao"):**
-- [ ] P5: Tap and pointer control
-- [ ] P6: Keyboard (Hindi too) + shortcut bar
-- [ ] P7: Clipboard sync
-- [ ] P8: File transfer phone <-> laptop
-- [ ] P9: Point-and-ask
+- [x] P5: Tap and pointer control (W6; trackpad Z5)
+- [x] P6: Keyboard (Hindi too) + shortcut bar (W6; live keyboard Z5)
+- [x] P7: Clipboard sync (W6)
+- [x] P8: File transfer phone <-> laptop (W6)
+- [x] P9: Point-and-ask (W6)
 ---
 # Phase 4: Make it work, then world-class (planned 2026-10-29) — comes before A7 and H9
 Full spec: `docs/WORLD_CLASS_PLAN.md` (diagnosis with evidence, owner decisions 2026-10-29, slice details, verification).
@@ -940,7 +940,7 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 **Offline core (the single-command path)**
 - [ ] X1 (A/B done 2026-11-06: Qwen3.5 better on first rounds, worse end to end; not switched): Local planner picks valid tools fast: JSON-schema tool-name `enum` in llama-server + top-k tool retrieval; then A/B Qwen3.5-4B vs Qwen3-4B (switch only if faster AND more correct on `eval_planner` + `live_check`)
 - [ ] X2: STT upgrade: faster-whisper large-v3-turbo int8 on the GPU (V6), A/B vs small on the owner's real clips
-- [ ] X3: One-command acceptance set: 12 multi-step goals (e.g. "meri last PDF ka summary notes mein save karo", "open last PDF, summarise it, draft an email to Ravi"), run with the internet off and on, with seconds and an independent check per goal
+- [x] X3 (first runs 2026-11-06, see the ledger): One-command acceptance set: 12 multi-step goals (e.g. "meri last PDF ka summary notes mein save karo", "open last PDF, summarise it, draft an email to Ravi"), run with the internet off and on, with seconds and an independent check per goal
 
 **System governance (group 4)**
 - [ ] X4 (built + merged 2026-11-05; a real snap not yet run live: the owner was using the PC): Voice window snapping: snap left/right/top/bottom/quarters, maximize, "dono windows side by side"

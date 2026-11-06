@@ -13,9 +13,10 @@ DEFAULTS = {"handsfree_mode": "owner", "wake_word": False, "conversation": False
             "offline_mode": False, "earned_autonomy_relax": False, "voice_lock": False, "voice_lock_threshold": 0.55,
             "timeline": False, "timeline_private": [], "voice_engine": "kokoro", "stt_language": "en",
             "heard_ambient_until": 0.0, "brain": "cloud_first", "follow_up_seconds": 8.0, "presence_overlay": True,
-            "media_folders": [], "evolve_push": False}
+            "media_folders": [], "evolve_push": False, "reply_style": "normal"}
 STT_LANGUAGES = {"en", "en|hi"}
 BRAINS = {"cloud_first", "local"}
+REPLY_STYLES = {"normal", "formal", "short", "masti"}   # H17
 
 
 def _folders(value):
@@ -74,6 +75,8 @@ class Preferences:
                 values["browser"] = raw["browser"]
             if raw.get("stt_language") in STT_LANGUAGES:
                 values["stt_language"] = raw["stt_language"]
+            if raw.get("reply_style") in REPLY_STYLES:
+                values["reply_style"] = raw["reply_style"]
             if raw.get("brain") in BRAINS:
                 values["brain"] = raw["brain"]
             if _number(raw.get("heard_ambient_until")) and raw["heard_ambient_until"] >= 0:
@@ -87,6 +90,8 @@ class Preferences:
             raise ValueError("Only these can be changed: " + ", ".join(DEFAULTS) + ".")
         if "stt_language" in changes and changes["stt_language"] not in STT_LANGUAGES:
             raise ValueError("stt_language must be en or en|hi.")
+        if "reply_style" in changes and changes["reply_style"] not in REPLY_STYLES:
+            raise ValueError("reply_style must be normal, formal, short or masti.")
         if "brain" in changes and changes["brain"] not in BRAINS:
             raise ValueError("brain must be cloud_first or local.")
         if "heard_ambient_until" in changes and not (_number(changes["heard_ambient_until"])

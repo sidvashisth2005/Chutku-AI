@@ -42,4 +42,8 @@ def create_runtime(base: Path = PROJECT_ROOT, grant_id: str = "sandbox") -> Runt
     register_import_tools(registry, base)
     from chutku.evolve import register_evolve_tools   # Y2: improvement ideas; only the owner approves one
     register_evolve_tools(registry, base)
+    from chutku.goals import register_goal_tools   # H24: standing goals, checked from the PC
+    register_goal_tools(registry, base)
+    from chutku.backup import register_backup_tools   # H25: memory backups (restore only from the CLI, Chutku stopped)
+    register_backup_tools(registry, base)
     return runtime
