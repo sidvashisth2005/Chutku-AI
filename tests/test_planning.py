@@ -60,6 +60,9 @@ class PlanningTests(unittest.TestCase):
             "remove never rule a1b2c3": ("REMOVE_NEVER_RULE", "never.remove"),
             "list windows": ("LIST_WINDOWS", "windows.list"),
             "skill approve word_count": ("APPROVE_SKILL", "skill.approve"),
+            "evolve approve 3f9a1c": ("APPROVE_IMPROVEMENT", "evolve.approve"),
+            "evolve reject 3f9a1c": ("REJECT_IMPROVEMENT", "evolve.reject"),
+            "evolve push on": ("SET_EVOLVE_PUSH", "settings.evolve_push"),
         }
         self.assertEqual(len(cases), len(INTENT_BY_TOOL))
         for request, (intent, tool) in cases.items():

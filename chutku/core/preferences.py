@@ -13,7 +13,7 @@ DEFAULTS = {"handsfree_mode": "owner", "wake_word": False, "conversation": False
             "offline_mode": False, "earned_autonomy_relax": False, "voice_lock": False, "voice_lock_threshold": 0.55,
             "timeline": False, "timeline_private": [], "voice_engine": "kokoro", "stt_language": "en",
             "heard_ambient_until": 0.0, "brain": "cloud_first", "follow_up_seconds": 8.0, "presence_overlay": True,
-            "media_folders": []}
+            "media_folders": [], "evolve_push": False}
 STT_LANGUAGES = {"en", "en|hi"}
 BRAINS = {"cloud_first", "local"}
 
@@ -62,6 +62,8 @@ class Preferences:
                 values["timeline"] = raw["timeline"]
             if type(raw.get("presence_overlay")) is bool:
                 values["presence_overlay"] = raw["presence_overlay"]
+            if type(raw.get("evolve_push")) is bool:
+                values["evolve_push"] = raw["evolve_push"]
             if _folders(raw.get("media_folders")):
                 values["media_folders"] = list(raw["media_folders"])
             if isinstance(raw.get("timeline_private"), list):
@@ -110,7 +112,7 @@ class Preferences:
                                                   and len(changes["timeline_private"]) <= 50):
             raise ValueError("timeline_private must be a list of app names (e.g. mybank.exe).")
         for flag in ("wake_word", "conversation", "heard_log", "offline_mode", "earned_autonomy_relax", "voice_lock",
-                     "timeline", "presence_overlay"):
+                     "timeline", "presence_overlay", "evolve_push"):
             if flag in changes and type(changes[flag]) is not bool:
                 raise ValueError(f"{flag} must be true or false.")
         from chutku.core.jsonstore import lock_for, write_json

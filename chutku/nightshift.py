@@ -11,6 +11,8 @@
    hash chain is checked.
 5. Fine-tune readiness (approved plan, data-gated): with 300+ verified turns and no adapter in the last 7 days,
    data/nightshift/lora-ready.json is written. Training itself is S20b and needs the owner's go-ahead.
+6. Evolve review (Y2): the week's evidence, the owner profile refreshed, at most 3 improvement ideas as full plans
+   (chutku/evolve.py). Nothing is applied: only the owner's typed "evolve approve <id>" does that.
 
 It runs from Task Scheduler (``chutku.cli nightshift install``): from 04:00 every day, on mains power, Chutku waits
 until the PC has had no keyboard or mouse input for 30 minutes, then runs once that day. It refuses to work on
@@ -225,6 +227,13 @@ def _run_jobs(base, report, model, deadline, create_runtime):
         _job(report, "maintenance", lambda: maintenance(base, runtime))
         _job(report, "fine_tune_readiness", lambda: lora_readiness(base))
         _job(report, "drive_index", lambda: _drive_index(base))
+        from chutku import evolve
+        _job(report, "evolve_review", lambda: _evolve(evolve.review(base, runtime.registry, compile_skills=False)))
+
+
+def _evolve(out):
+    return {"new_proposals": out["new_proposals"], "open": out["open"], "drafted_by": out["drafted_by"],
+            "requests": out["evidence"]["requests"], "profile": out["profile"]}
 
 
 def _drive_index(base):
@@ -267,6 +276,9 @@ def morning_line(base):
              f"{counts.get('same', 0)} same"]
     if weak:
         parts.append(f"{weak} baar-baar fail hone wale kaam")
+    ideas = len((jobs.get("evolve_review") or {}).get("new_proposals") or [])
+    if ideas:
+        parts.append(f"{ideas} naye improvement ideas ('improvement ideas' bolo)")
     replay = jobs.get("regression_replay") or {}
     if replay.get("enough_real_use") is False:
         parts.append(f"sirf {replay.get('distinct_goals', 0)} asli request is hafte, isliye check adhoora")

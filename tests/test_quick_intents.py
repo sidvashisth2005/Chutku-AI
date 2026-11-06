@@ -140,6 +140,15 @@ class QuickIntentTests(unittest.TestCase):
                                                      [{"name": "c_to_f", "tests": "passed (OK)"}])}
         samples["skill.create"] = {"skill_reply": "Skill c_to_f is written and its tests pass. It is pending: type "
                                                   "'skill approve c_to_f' (then click) to turn it on."}
+        from chutku import evolve
+        idea = evolve.describe(evolve._proposal(
+            "phrase", "k", "Instant phrase: 'spotify chalu' -> apps.launch", {"summary": "Planned 3 times.", "count": 3,
+                                                                              "examples": ["spotify chalu"]},
+            {"lane": "data", "areas": ["data/reflexes.json"], "detail": "no code"}, ["Save the phrase."],
+            {"unit": ["reflex checks"], "real_check": "say it"}, "low", "say 'galat kiya'", {}))
+        samples["evolve.list"] = {"skill_reply": "1 improvement idea(s) waiting for you.\n\n" + idea}
+        samples["evolve.review"] = {"skill_reply": "I studied the last 7 days: 40 requests, 90 actions. 1 new idea(s). "
+                                                   + idea}
         samples_empty = {"apps.installed": {"query": "Steam", "apps": [], "count": 0, "truncated": False}}
         samples_empty["mind.who"] = {"name": "mammi", "known": False}
         samples_empty["mind.show"] = {"part": "all", "people": [], "facts": {}, "lists": {}}

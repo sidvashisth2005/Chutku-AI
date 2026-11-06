@@ -1744,7 +1744,8 @@ INSTANT_TOOLS = frozenset({
     "filesystem.restore_last_recycled", "screen.undo_last_capture", "screen.displays",
     "voice.list_voices", "voice.recognition_status", "voice.audio_input_status", "voice.speak",
     "settings.earned_autonomy", "settings.voice_lock", "settings.timeline",
-    "never.add", "never.list", "never.remove", "skill.approve",
+    "never.add", "never.list", "never.remove", "skill.approve", "evolve.approve", "evolve.reject",
+    "settings.evolve_push",
     "background.pause", "background.resume", "background.status",
 })
 
