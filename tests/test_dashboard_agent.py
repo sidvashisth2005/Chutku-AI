@@ -71,6 +71,31 @@ class DashboardAgentTests(unittest.TestCase):
         self.assertEqual([s["tool"] for s in session["steps"]], ["system.get_time"])
         self.assertIn("It is noon.", session["reply"])
 
+    def test_a_question_is_answered_while_another_task_runs_but_only_by_looking(self):
+        """Y3 (2026-11-06): a plain question does not wait in line behind a running task."""
+        self.assertTrue(self.server.action_lock.acquire(blocking=False))   # a long task is running
+        try:
+            self.script(proposal(steps=[("system.get_time", {})]), proposal("done", reply="It is noon."))
+            _, body, _ = self.request("/api/chat", {"message": "which hour of the day is it right now?",
+                                                    "mode": "owner"})
+            session = self.wait(body["session"]["id"])
+            self.assertEqual((session["status"], [s["tool"] for s in session["steps"]]), ("done", ["system.get_time"]))
+
+            # The side lane only looks: a step that changes the PC is not run, it is left for after the task.
+            self.script(proposal(steps=[("apps.launch", {"name": "Notepad"})]))
+            _, body, _ = self.request("/api/chat", {"message": "what is notepad, can you show me?", "mode": "owner"})
+            session = self.wait(body["session"]["id"])
+            self.assertEqual(session["steps"], [])   # nothing was launched (the pure-question rule or observe_only)
+            self.assertIn(session["status"], {"clarify", "done"})
+
+            # An order to do something still waits in line.
+            self.script(proposal("done", reply="ok"))
+            _, body, _ = self.request("/api/chat", {"message": "open the settings app for me", "mode": "owner"})
+            self.assertEqual(body["session"]["status"], "queued")
+        finally:
+            self.server.action_lock.release()
+            self.server._next_work()
+
     def test_confirmation_flow_and_cancel_has_no_effect(self):
         target = self.base / "sandbox" / "agent-note.txt"
         self.script(proposal(steps=[("filesystem.write_text", {"path": "agent-note.txt", "content": "hi"})]))

@@ -967,7 +967,15 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [ ] X17: GitHub skill import: "github.com/x/y se skill seekho". Pinned commit + licence shown; SKILL.md repos become procedures; CLI repos become wrapped skills (X15 rules); no install scripts run by themselves
 - [ ] X18: Software builder upgrade: multi-file web apps with a run/preview step and a production checklist (README, tests, no CDN), plus the Karpathy/ponytail rules already in the coder
 
-**Release work still open:** V1–V6 and O3–O6 above. They come after X1–X3, before publishing.
+**Release work still open:** V1–V6 and O3–O6 above.
+
+---
+# Phase 7: Minimal, autonomous, self-improving (owner requests 2026-11-06)
+- [x] Y0: Voice approvals fixed + trusted tasks ("bina puche kar do": only very risky steps ask) — done 2026-11-06
+- [ ] Y1: Compact Chutku: a small rounded bar at the top-middle with reactive eyes, an expand icon opens the full window
+- [ ] Y2: Evolve: nightly/online self-review of logs -> full improvement plans proposed to the owner -> on typed approval, built on a git branch, full test suite, merged and pushed if green, discarded if not; never edits policy/grants/guard/runtime/evolve itself
+- [x] Y3 (done 2026-11-06: questions beside a running task; desktop actions stay serial): Parallel lanes: read-only research tasks and agents run at the same time; desktop input stays one at a time
+- [ ] Y4: Understanding the owner: Evolve refreshes habits, mind map and preferences from real use (local only) They come after X1–X3, before publishing.
 
 ---
 # Parked (needs a later owner decision)

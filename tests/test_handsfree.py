@@ -220,7 +220,8 @@ class HandsfreeServerTests(unittest.TestCase):
         self.server.planner_factory = lambda: (planner, None)
         self.server.action_lock.acquire()                        # another order is running
         with patch.object(handsfree, "chime") as chime, patch("chutku.dashboard.speak_result"):
-            self.server.handsfree_request("what time is it")       # returns at once: never blocks the listener
+            # An order waits in line (a plain question would be answered beside the task, Y3 2026-11-06).
+            self.server.handsfree_request("open the clock app for me")   # returns at once: never blocks the listener
             chime.assert_called_with("listen")
             session = self.server.agent_sessions.get(self.server.latest_session_id)
             self.assertEqual(session.status, "queued")

@@ -295,6 +295,8 @@ class DashboardServer(ThreadingHTTPServer):
         if self.action_lock.acquire(blocking=False):
             self._run_work(session, action)
             return
+        if queue and self._parallel_question(session):
+            return
         if not queue:
             raise ExecutionBusy("Another action is running. Wait for it to finish.")
         with self.queue_lock:
@@ -304,6 +306,44 @@ class DashboardServer(ThreadingHTTPServer):
         with session.lock:
             session.status = "queued"
         self._next_work()  # the running order may have finished in the meantime
+
+    MAX_PARALLEL = 2
+
+    def _parallel_question(self, session):
+        """Y3 (2026-11-06): while a task runs, a plain question ("D drive mein kitni jagah hai?") is answered at once
+        on its own thread instead of waiting in line. It may only observe (AgentSession.observe_only); it takes no
+        action lock and never touches the running task's progress/Stop hook."""
+        from chutku.agent_loop import _ACTION_WORDS, _QUESTION
+        if not _QUESTION.search(session.goal) or _ACTION_WORDS.search(session.goal):
+            return False
+        with self.queue_lock:
+            if getattr(self, "parallel_running", 0) >= self.MAX_PARALLEL:
+                return False
+            self.parallel_running = getattr(self, "parallel_running", 0) + 1
+        session.observe_only = True
+
+        def work():
+            try:
+                with create_runtime(self.base) as runtime:
+                    runtime.approvals = self.approvals
+                    router = RuntimeRouter(runtime, opener=lambda grant_id: create_runtime(self.base, grant_id))
+                    planner, fallback = self.planners()
+                    try:
+                        session.advance(router, planner, fallback=fallback, heartbeat=lambda: None)
+                        speak_result(session, router)
+                    finally:
+                        router.close()
+                        from chutku import recall
+                        recall.log_session(session.snapshot(), base=self.base)
+            except Exception as error:   # a failed side question never disturbs the running task
+                with session.lock:
+                    session._finish("failed", f"Stopped: {error}"[:400])
+            finally:
+                with self.queue_lock:
+                    self.parallel_running -= 1
+
+        threading.Thread(target=work, name="chutku-side-question", daemon=True).start()
+        return True
 
     def queued_ids(self):
         with self.queue_lock:

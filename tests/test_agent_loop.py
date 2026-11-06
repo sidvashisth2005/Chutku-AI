@@ -483,6 +483,20 @@ class ClaimAndWriteIntentTests(unittest.TestCase):
         self.assertNotIn("has been formatted as per", session.reply)
         self.assertIn("withheld", session.reply)
 
+    def test_an_observe_only_session_never_changes_the_pc(self):
+        """Y3: a side task beside a running one may look but not act, whatever the planner proposes."""
+        import tempfile as _t
+        with _t.TemporaryDirectory() as temp, create_runtime(Path(temp)) as runtime:
+            edits = []
+            runtime.registry.register(Tool("test.edit", "edit", Risk.DATA_MODIFICATION,
+                lambda a, c: (edits.append(1), ToolResult({}, Verification.PASS))[1], argument_schema=SCHEMA,
+                reversibility="journaled"))
+            session = AgentSession("tidy the notes then", mode="owner")
+            session.observe_only = True
+            snap = session.advance(runtime, ScriptedPlanner(proposal(steps=[step("test.edit")])))
+            self.assertEqual((edits, snap["status"]), ([], "clarify"))
+            self.assertIn("kaam chal raha", snap["reply"])
+
     def test_a_reply_that_only_repeats_the_request_is_refused(self):
         session = AgentSession("2 ki power 10 aur 10 ka cube, kaun bada hai", mode="auto_edits")
         with self.assertRaisesRegex(ValueError, "only repeats the request"):

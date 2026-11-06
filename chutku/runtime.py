@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from contextvars import ContextVar
 import json
 from pathlib import Path
@@ -280,7 +281,9 @@ class Runtime:
             autonomy: str | None = None, tainted: bool = False, exposed: bool | None = None,
             suspicious: bool = False) -> dict[str, Any]:
         try:
-            with self.execution_lock:
+            # Y3 (2026-11-06): a plain observation changes nothing, so it does not take the exclusive lock and a
+            # question can be answered while another task runs. Every other step still runs one at a time.
+            with (contextlib.nullcontext() if self._observation(tool_name) else self.execution_lock):
                 unlogged = self._log_not_ready(tool_name)
                 if unlogged is not None:
                     return unlogged
@@ -296,6 +299,12 @@ class Runtime:
             self._transition(task, TaskState.FAILED)
             self.event_log.append(task.task_id, "runtime_error", {"type": "ExecutionBusy", "message": str(error)})
             return {"task_id": task.task_id, "state": TaskState.FAILED, "error": str(error)}
+
+    def _observation(self, tool_name):
+        try:
+            return self.registry.get(tool_name).base_risk == 0
+        except KeyError:
+            return False
 
     def _log_not_ready(self, tool_name):
         """Fail closed when a change could not be written to the action log: nothing runs unlogged."""

@@ -805,6 +805,7 @@ class AgentSession:
         self.updated = time.time()
         self.lock = threading.RLock()
         self.cancelled = threading.Event()   # set by cancel(); the running loop checks it after every step
+        self.observe_only = False            # Y3: a question answered beside a running task may only look
 
     # -- planner view -----------------------------------------------------
     def planner_input(self, profile=None):
@@ -1070,6 +1071,11 @@ class AgentSession:
                                                               proposal["reply"] or "No new action was needed."))
                         else:
                             self._finish("clarify", proposal["reply"] or "No new action was needed.")
+                        break
+                    if self.observe_only and any(_risk(runtime, s["tool"]) > 0 for s in fresh):
+                        # Y3: the parallel lane only looks; changing the PC waits for the one running task
+                        self._finish("clarify", "Iske liye PC par kuch badalna padega, aur abhi ek kaam chal raha "
+                                                "hai. Woh khatam hote hi dobara bolo.")
                         break
                     self.queue = fresh
                     self.reply = proposal["reply"]

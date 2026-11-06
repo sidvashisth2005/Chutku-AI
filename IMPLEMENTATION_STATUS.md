@@ -16,6 +16,29 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Ask a question while a task runs (Y3, parallel lane)
+
+- **Before:** every request waited in one line behind the running task, even "D drive mein kitni jagah hai?".
+- **Now:**
+  - A plain question (question-shaped, no action words) is answered at once on its own thread beside the running
+    task, at most 2 at a time.
+  - It is `observe_only`: if its plan wants to change anything, it stops with "Iske liye PC par kuch badalna padega,
+    aur abhi ek kaam chal raha hai…". Any order to do something still waits in line.
+  - The side lane takes no action lock and never touches the running task's progress or Stop hook.
+  - Plain observations (R0 tools) no longer take the exclusive per-call lock (`Runtime._observation`). Every other
+    step still runs one at a time.
+- **Tests:**
+  - `test_dashboard_agent`: a question answered while the lock is held; a side question's launch is never run; an
+    order stays `queued`;
+  - `test_agent_loop`: observe_only never runs a data change;
+  - the hands-free queue test now uses an order ("open the clock app for me"), because a question no longer waits.
+- **Real path** (in-process server, task lock held as if a long task were running):
+  - "which is bigger, 2 to the power 10 or 10 cubed?" was answered in 2.7 s by `cloud:groq`: "2^10 = 1024 and 10^3
+    = 1000, so 2 to the power 10 is bigger.";
+  - "open notepad for me" stayed `queued` (then cancelled; nothing opened).
+- **Limit:** desktop actions (mouse, keyboard, windows) stay one at a time, because there is one mouse. "Many tasks
+  at once" means many questions and research beside one hands-on task.
+
 ### 2026-11-06: Voice "yes" works again; "bina puche kar do" runs a whole task, asking only for very risky steps
 
 **The live bug (from `data/heard.jsonl`, 2026-11-05)**
