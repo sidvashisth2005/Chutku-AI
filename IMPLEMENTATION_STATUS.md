@@ -16,6 +16,49 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Several tasks really run at the same time, and Live reports each one (Z1 + Z2, reworks Y3)
+
+The owner said: "it still can't do multiple tasks simultaneously". Gemini also said a task was done while it was still running, or didn't know a task had finished.
+
+**Dashboard**
+- While a task runs, up to `MAX_PARALLEL` = 2 more orders start at once on their own threads (`DashboardServer._parallel`). Before, only plain questions did this, and everything else waited in line.
+  - Questions stay observe-only.
+  - Orders keep their full rights and the same policy and approvals.
+  - Only past the 2 side slots does an order wait in line.
+
+**Runtime**
+- Steps that change something still take turns on the execution lock.
+  - Each task's runtime has `step_wait` set to 180 s, so a step waits for the other task's step instead of failing.
+  - `run()` and `approve()` share `_taking_turns`, and the retry happens only before anything runs (the token is taken inside the lock).
+  - The CLI keeps `step_wait` 0 (fail fast).
+- `core/progress` hooks are now per thread, so each task keeps its own Stop and heartbeat.
+
+**Live**
+- One conversation runs up to `MAX_TASKS` = 3 tasks.
+- Each task has its own follower, so a task that ends while a newer one runs is still reported. Before, the follower gave up as soon as a new task started.
+- Every `[Task update]` names its goal and says what is still running.
+- Approvals go to the task that is waiting; "stop" stops them all; `task_status` lists the tasks.
+- A "done" claim is corrected unless a done update came after the newest task started.
+- The persona says several tasks can run together ("never say both cannot be done together").
+
+**Tests**
+- New `tests/test_live_parallel_y3.py` (5 tests):
+  - two tasks, each reported, with the older one finishing first (1.02 s);
+  - the cap of 3 holds (negative case), and stop stops all 3;
+  - a done claim is corrected;
+  - an approval reaches the waiting older task;
+  - the persona.
+- The dashboard test now checks a side-by-side order that really writes `side.txt`, and that with both slots full the next order is "queued".
+- New runtime test: a step waits 0.5 s for another runtime's lock, then completes. The old fail-fast test is the negative case and still passes.
+- The queue tests set `MAX_PARALLEL` 0 to test the line itself.
+
+**Real path**
+- `y3_real_path.py`: two orders through a real `DashboardServer` HTTP API and the real filesystem tool. The first had a 4 s plan.
+- Result: `second done 0.93 s`, `first done 4.67 s`, and both files had the right contents. Before, the second order would have waited until about 5 s.
+- Full suite: 1,366 tests OK in 274 s.
+
+**Limit:** two UI tasks can still alternate window focus between their steps (`# shortcut` in `_parallel`).
+
 ### 2026-11-06: Built apps must pass a production checklist (X18)
 
 - `builder.production_checklist` runs first in both project checks. It requires:

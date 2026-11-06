@@ -90,7 +90,7 @@ class LiveAnswerTests(unittest.TestCase):
         live = LiveConversation.__new__(LiveConversation)
         live.server, live.gate, live.task_id = Server(), Gate(), "t1"
         live.speech_at_question = 0.0
-        live._snapshot = lambda: {"status": "waiting_confirmation"}
+        live._snapshot = lambda task_id=None: {"id": "t1", "status": "waiting_confirmation"}
         live._log_heard = lambda *a: None
         live._follow = lambda *a: None
         live.heard_since_question = " Ah! hmm kuch aur bolo tum"      # unclear

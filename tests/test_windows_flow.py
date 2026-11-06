@@ -129,6 +129,20 @@ class WindowsFlowTests(unittest.TestCase):
                 pass
             self.assertEqual(second.run("system.get_time", {})["state"], "COMPLETED")
 
+    def test_a_step_waits_for_a_side_by_side_tasks_step_when_asked(self):
+        """Y3: the dashboard's tasks set step_wait, so a step waits for the other task's step instead of failing."""
+        import threading
+        import time
+        with create_runtime(self.base) as second:
+            second.step_wait = 5
+            self.runtime.execution_lock.__enter__()
+            threading.Timer(0.5, self.runtime.execution_lock.__exit__).start()   # the other step ends in 0.5 s
+            started = time.monotonic()
+            result = second.run("filesystem.write_text", {"path": "waited.txt", "content": "x"})
+            self.assertEqual(result["state"], "COMPLETED", result)
+            self.assertGreaterEqual(time.monotonic() - started, 0.4)
+            self.assertEqual((self.runtime.granted_root / "waited.txt").read_text(encoding="utf-8"), "x")
+
     def test_workflow_can_reenter_its_owned_execution_lock(self):
         with self.runtime.execution_lock:
             self.assertEqual(run_project(project_plan("Nested", self.runtime.granted_root), self.runtime)["state"], "COMPLETED")

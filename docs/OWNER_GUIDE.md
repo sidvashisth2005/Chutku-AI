@@ -143,6 +143,11 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 
 ## 3. Things you can say
 
+**New on 2026-11-06: several tasks at once**
+- Give a new order while she works ("aur notepad bhi khol do"): it starts at once. Up to 3 tasks run together, and a 4th waits in line.
+- She reports each task by name when it finishes, and says what is still running. "Ruko" stops all of them. "Kya chal raha hai?" lists them.
+- Steps that click or type still take turns, so two tasks never act in the same instant.
+
 **New on 2026-11-06: YouTube in Chutku**
 - "youtube pe lofi yahin chalao" / "play lofi here": the video plays inside Chutku's full window (it opens by itself), with ✕ to close. "youtube pe ... chalao" without "yahin" still opens your browser.
 - **Tables from websites:** ask her to compare prices or rankings from a page; she pulls the tables and lists out of it (browser.extract).

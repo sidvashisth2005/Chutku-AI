@@ -35,6 +35,7 @@ ACTIVITY_DETECTION = {"automaticActivityDetection": {
 # running, then "gadbad ho gayi" when an early check came back: the PC is slower than the conversation.
 WAIT_NOTE = ("Running now, NOT finished yet. Say only that you are doing it ('bhej rahi hoon', 'kar rahi hoon'). "
              "Do not say it is done, sent or failed, and do not check the screen yourself: wait for the [Task update].")
+MAX_TASKS = 3                  # tasks one conversation may run side by side (the dashboard runs 1 + MAX_PARALLEL)
 MIN_SPEECH_FOR_TASK = 0.4      # seconds of clearly-above-noise audio before Chutku acts on a heard request
 
 # Matched on the owner's words AFTER Hindi script is turned into Roman letters (chutku.translit.roman): the voice
@@ -80,7 +81,10 @@ Websites, YouTube and searches open in Brave unless the owner names another brow
 is open, ask what to send, then call do_task with: send "<their words>" to <name> on whatsapp.
 You are a woman: about yourself always say "kar rahi hoon", "kar dungi", "samajh gayi", "main sakti hoon", never
 "raha", "dunga", "gaya", "sakta". Say a short natural line like "Ho jayega, kar rahi hoon" and keep
-talking while it runs. You will receive [Task update] messages: tell them the result in your own words, honestly
+talking while it runs. Several tasks can run at the same time: when the owner asks for something new while a task
+runs, call do_task for it at once (never say both cannot be done together). Each task gets its own [Task update]
+naming its goal; say which one finished. You will receive [Task update] messages: tell them the result in your own
+words, honestly
 (if something failed, say so). Never claim something was done before an update says so: PC work (opening
 apps, WhatsApp, browsers) takes several seconds, longer than you take to answer, so until the [Task update] arrives
 it is still running, not failed. Never ask to look at the screen to check on a running task.
@@ -99,9 +103,9 @@ TOOLS = [{"functionDeclarations": [
                     "required": ["goal"]}},
     {"name": "answer_approval", "description": "Pass on the owner's spoken answer to the pending approval question.",
      "parameters": {"type": "OBJECT", "properties": {"approve": {"type": "BOOLEAN"}}, "required": ["approve"]}},
-    {"name": "stop_task", "description": "Stop the task that is running now.",
+    {"name": "stop_task", "description": "Stop the tasks that are running now.",
      "parameters": {"type": "OBJECT", "properties": {}}},
-    {"name": "task_status", "description": "What Chutku is doing right now.",
+    {"name": "task_status", "description": "What Chutku is doing right now (every task this conversation started).",
      "parameters": {"type": "OBJECT", "properties": {}}},
     {"name": "end_conversation", "description": "End the voice conversation.",
      "parameters": {"type": "OBJECT", "properties": {}}},
@@ -169,7 +173,7 @@ class LiveConversation(threading.Thread):
         self.gate = NoiseGate(CHUNK_SECONDS)
         self.speech_at_question = 0.0     # gate speech seconds when the approval question was asked
         self.speech_at_task = 0.0
-        self.task_id = None
+        self.task_id = None               # the latest task this conversation started
         self.announced_pending = None
         self.last_activity = time.monotonic()
         self._playback = bytearray()
@@ -429,6 +433,8 @@ class LiveConversation(threading.Thread):
         snapshot = self._snapshot()
         if (snapshot is not None and snapshot["status"] == "done") or (with_task_only and snapshot is None):
             return None
+        if snapshot is not None and self.done_at > self.started_at:
+            return None   # an update said "done" since the latest task started (another task side by side)
         state = "no task was run at all" if snapshot is None else f"the task is {snapshot['status']}"
         note = (f"[Chutku] You just said it was done, but {state}: NOTHING is confirmed done. Correct yourself right "
                 "now in one short sentence (\"Sorry, galat bola, abhi hua nahi hai\") and say only what the latest "
@@ -496,20 +502,25 @@ class LiveConversation(threading.Thread):
                 self.recent_goals[key] = time.monotonic()
                 self._log_heard(self.heard_since_task, "task: " + goal[:120])
                 self.heard_since_task, self.speech_at_task = "", self.gate.speech_seconds
-                if self._task_running():
-                    return {"error": "A task is still running; wait for its update or stop it first."}
+                running = self._running()
+                if len(running) >= MAX_TASKS:
+                    return {"error": f"{len(running)} tasks are already running; wait for one to finish or stop "
+                                     "them first."}
                 session = self.server.live_task(goal)
-                self.task_id = session.id
+                self.task_id, self.started_at = session.id, time.monotonic()
+                self.task_ids = [*self.task_ids, session.id]
                 self.announced_pending = None
                 threading.Thread(target=self._follow, args=(session.id,), daemon=True).start()
                 return {"status": "started", "goal": goal, "note": WAIT_NOTE}
             if name == "answer_approval":
                 return self._answer_approval(bool(args.get("approve")))
             if name == "stop_task":
-                if not self._task_running():
+                running = self._running()
+                if not running:
                     return {"status": "nothing is running"}
-                self.server.stop_session(self.task_id)
-                return {"status": "stopped"}
+                for snapshot in running:
+                    self.server.stop_session(snapshot["id"])
+                return {"status": "stopped", "tasks": [snapshot["goal"][:80] for snapshot in running]}
             if name == "task_status":
                 return self._status()
             if name == "end_conversation":
@@ -544,8 +555,8 @@ class LiveConversation(threading.Thread):
         log_heard("live", " ".join(str(text or "").split()), decision, level=self.gate.floor)
 
     def _answer_approval(self, approve):
-        snapshot = self._snapshot()
-        if not snapshot or snapshot["status"] != "waiting_confirmation":
+        snapshot = self._waiting()
+        if not snapshot:
             return {"error": "Nothing is waiting for approval."}
         if approve and snapshot.get("speaker_verified") is False:
             # Voice lock (S19): a voice that is not the owner's cannot approve its own request by saying "haan".
@@ -566,10 +577,10 @@ class LiveConversation(threading.Thread):
             return {"error": "I did not hear a clear yes from the owner. Ask again: haan ya na?"}
         self._log_heard(heard, "approval: " + ("yes" if approve else "no"))
         if approve:
-            self._trust_if_asked(heard)
-        self.server.confirm_session(self.task_id, approve)
+            self._trust_if_asked(heard, snapshot["id"])
+        self.server.confirm_session(snapshot["id"], approve)
         self.heard_since_question = ""
-        threading.Thread(target=self._follow, args=(self.task_id,), daemon=True).start()
+        threading.Thread(target=self._follow, args=(snapshot["id"],), daemon=True).start()
         return {"status": "approved", "note": WAIT_NOTE} if approve else {"status": "declined"}
 
     LATE_WORDS_SECONDS = 2.0
@@ -581,8 +592,8 @@ class LiveConversation(threading.Thread):
         while not self.heard_since_question.strip() and time.monotonic() < deadline:
             time.sleep(0.05)
         heard = self.heard_since_question
-        snapshot = self._snapshot()
-        if not snapshot or snapshot["status"] != "waiting_confirmation":
+        snapshot = self._waiting()
+        if not snapshot:
             return
         if snapshot.get("speaker_verified") is False:   # voice lock: not the owner's voice, screen only
             self.inject("[Approval] This request did not come from the owner's voice; it can only be approved on "
@@ -597,18 +608,18 @@ class LiveConversation(threading.Thread):
             self.inject("[Approval] I did not hear a clear yes from the owner. Ask once more: haan ya na?")
             return
         self._log_heard(heard, "approval: yes (late words)")
-        self._trust_if_asked(heard)
-        self.server.confirm_session(self.task_id, True)
+        self._trust_if_asked(heard, snapshot["id"])
+        self.server.confirm_session(snapshot["id"], True)
         self.heard_since_question = ""
-        threading.Thread(target=self._follow, args=(self.task_id,), daemon=True).start()
+        threading.Thread(target=self._follow, args=(snapshot["id"],), daemon=True).start()
         self.inject("[Approval] The owner said yes; it is running now. " + WAIT_NOTE)
 
-    def _trust_if_asked(self, heard):
+    def _trust_if_asked(self, heard, task_id):
         """"Haan, aur baar baar mat pucho": the rest of this task asks only for very risky steps (2026-11-06)."""
         from chutku.translit import roman
         from chutku.voice.approval import DONT_ASK
         if DONT_ASK.search(roman(heard)) and hasattr(self.server, "trust_session"):
-            self.server.trust_session(self.task_id)
+            self.server.trust_session(task_id)
 
     def _fresh_answer(self):
         """After an unclear answer the next one is judged alone (live 2026-11-05: every later "haan" was appended to an
@@ -616,31 +627,57 @@ class LiveConversation(threading.Thread):
         self.heard_since_question = ""
         self.speech_at_question = self.gate.speech_seconds
 
-    def _snapshot(self):
-        if not self.task_id:
+    RUNNING = {"planning", "running", "queued", "waiting_confirmation"}
+    task_id = None       # the latest task this conversation started
+    task_ids = ()        # Y3: every task it started; several can run side by side
+    done_at = 0.0        # when the last "done" [Task update] was given (F5 claim check)
+    started_at = 0.0     # when the latest task started
+
+    def _snapshot(self, task_id=None):
+        task_id = task_id or self.task_id
+        if not task_id:
             return None
         try:
-            return self.server.agent_sessions.get(self.task_id).snapshot()
+            return self.server.agent_sessions.get(task_id).snapshot()
         except (KeyError, ValueError):
             return None
 
+    def _snapshots(self):
+        """Every task this conversation started (the latest last)."""
+        earlier = [self._snapshot(task_id) for task_id in self.task_ids if task_id != self.task_id]
+        return [s for s in earlier + [self._snapshot()] if s is not None]
+
+    def _running(self):
+        return [s for s in self._snapshots() if s["status"] in self.RUNNING]
+
     def _task_running(self):
-        snapshot = self._snapshot()
-        return bool(snapshot and snapshot["status"] in {"planning", "running", "waiting_confirmation"})
+        return bool(self._running())
+
+    def _waiting(self):
+        """The task that waits for the owner's yes or no (the latest one if several do)."""
+        return next((s for s in reversed(self._snapshots()) if s["status"] == "waiting_confirmation"), None)
 
     def _status(self):
-        snapshot = self._snapshot()
-        if not snapshot:
+        snapshots = self._snapshots()
+        if not snapshots:
             return {"status": "idle"}
-        return {"status": snapshot["status"], "goal": snapshot["goal"],
-                "steps": [f"{s['tool']}: {s['state']}" for s in snapshot["steps"]][-6:]}
+        latest = snapshots[-1]
+        return {"status": latest["status"], "goal": latest["goal"],
+                "steps": [f"{s['tool']}: {s['state']}" for s in latest["steps"]][-6:],
+                "tasks": [{"goal": s["goal"][:80], "status": s["status"]} for s in snapshots[-5:]]}
+
+    def _others_running(self, session_id):
+        others = [s["goal"][:60] for s in self._running() if s["id"] != session_id]
+        return f" Still running: {'; '.join(others)}." if others else " Nothing else is running."
 
     def _follow(self, session_id):
-        """Wait for the task to finish or ask for approval, then tell the model what happened."""
+        """Wait for this task to finish or ask for approval, then tell the model what happened. Each task has its own
+        follower, so a task that ends while a newer one runs is still reported (Y3, owner 2026-11-06: "done and
+        Gemini is unaware")."""
         while self.active.is_set():
             time.sleep(0.5)
-            snapshot = self._snapshot()
-            if snapshot is None or snapshot["id"] != session_id:
+            snapshot = self._snapshot(session_id)
+            if snapshot is None:
                 return
             if snapshot["status"] == "waiting_confirmation":
                 key = json.dumps(snapshot.get("pending"), sort_keys=True, default=str)
@@ -652,8 +689,10 @@ class LiveConversation(threading.Thread):
                                 "Read it out exactly and ask haan ya na.")
                 return
             if snapshot["status"] in {"done", "clarify", "failed", "stopped", "cancelled"}:
+                if snapshot["status"] == "done":
+                    self.done_at = time.monotonic()
                 self.inject(f"[Task update] Task '{snapshot['goal']}' finished with status {snapshot['status']}: "
-                            f"{snapshot['reply'][:900]}")
+                            f"{snapshot['reply'][:900]}" + self._others_running(session_id))
                 return
 
     def inject(self, text):

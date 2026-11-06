@@ -70,7 +70,7 @@ class LiveRequestTests(unittest.TestCase):
 
     def test_a_yes_before_its_words_waits_for_them(self):
         self.live.task_id = "s1"
-        self.live._snapshot = lambda: {"status": "waiting_confirmation"}
+        self.live._snapshot = lambda task_id=None: {"id": "s1", "status": "waiting_confirmation"}
         self.live.speech_at_question = self.live.gate.speech_seconds
         self.live.heard_since_question = ""                  # the model answered before "हां" was transcribed
         injected = []
@@ -86,7 +86,7 @@ class LiveRequestTests(unittest.TestCase):
 
     def test_a_late_breath_is_not_a_yes(self):
         self.live.task_id = "s1"
-        self.live._snapshot = lambda: {"status": "waiting_confirmation"}
+        self.live._snapshot = lambda task_id=None: {"id": "s1", "status": "waiting_confirmation"}
         self.live.speech_at_question = self.live.gate.speech_seconds
         self.live.heard_since_question = ""
         injected = []

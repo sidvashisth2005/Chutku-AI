@@ -219,8 +219,9 @@ class HandsfreeServerTests(unittest.TestCase):
         planner = Scripted(proposal(steps=[("system.get_time", {})]), proposal("done", reply="noon"))
         self.server.planner_factory = lambda: (planner, None)
         self.server.action_lock.acquire()                        # another order is running
+        self.server.parallel_running = self.server.MAX_PARALLEL  # and the side-by-side slots are full (Y3)
         with patch.object(handsfree, "chime") as chime, patch("chutku.dashboard.speak_result"):
-            # An order waits in line (a plain question would be answered beside the task, Y3 2026-11-06).
+            # With every slot busy, an order waits in line.
             self.server.handsfree_request("open the clock app for me")   # returns at once: never blocks the listener
             chime.assert_called_with("listen")
             session = self.server.agent_sessions.get(self.server.latest_session_id)
@@ -239,6 +240,7 @@ class HandsfreeServerTests(unittest.TestCase):
         ran, announced = [], []
         self.server.planner_factory = lambda: (Scripted(proposal(steps=[("system.get_time", {})]),
                                                         proposal("done", reply="ok")), None)
+        self.server.MAX_PARALLEL = 0   # the line itself (side-by-side tasks are tested in test_dashboard_agent)
         self.server.action_lock.acquire()
         with patch("chutku.dashboard.speak_result"),                 patch.object(self.server, "_announce_batch", side_effect=lambda batch: announced.append(
                     [item.goal for item in batch])):
@@ -247,7 +249,8 @@ class HandsfreeServerTests(unittest.TestCase):
             self.assertEqual(self.server.queued_ids(), [item.id for item in sessions])
             sessions[1].status = "cancelled"                       # stopped while waiting
             original = self.server._run_work
-            self.server._run_work = lambda session, action: (ran.append(session.goal), original(session, action))
+            self.server._run_work = lambda session, action, **kw: (ran.append(session.goal),
+                                                                   original(session, action, **kw))
             self.server.action_lock.release()
             self.server._next_work()
             for _ in range(200):
@@ -273,6 +276,7 @@ class HandsfreeServerTests(unittest.TestCase):
         from tests.test_dashboard_agent import Scripted, proposal
         self.server.planner_factory = lambda: (Scripted(proposal(steps=[("system.get_time", {})]),
                                                         proposal("done", reply="ok")), None)
+        self.server.MAX_PARALLEL = 0
         self.server.action_lock.acquire()                               # an order is running
         try:
             waiting = [self.server.begin_session(goal, "auto_safe", "text") for goal in ("first", "second")]

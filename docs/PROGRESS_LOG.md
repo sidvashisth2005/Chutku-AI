@@ -3,11 +3,11 @@
 This log says what was done, what is finished, and what remains of the plan, so the next session can start at once.
 
 - Evidence for every item is in `IMPLEMENTATION_STATUS.md` (newest first).
-- The plan with tick boxes is in `docs/MASTER_PLAN.md`, Phases 5, 6 and 7.
+- The plan with tick boxes is in `docs/MASTER_PLAN.md`, Phases 5, 6, 7 and 8.
 - Every helper-agent prompt is in `docs/AGENT_PROMPTS.md` (#12–#21).
 - Repo: `sidvashisth2005/Chutku-AI`, branch `main`, pushed after every slice.
 - CI: `.github/workflows/tests.yml`, green since the Sentinel merge.
-- Last full suite: 1,351 tests OK (2026-11-06).
+- Last full suite: 1,366 tests OK (2026-11-06, after Z1+Z2).
 
 ## What the owner asked for (all requests in these two sessions)
 
@@ -72,9 +72,27 @@ This log says what was done, what is finished, and what remains of the plan, so 
 - **Y3:** questions are answered beside a running task; desktop actions stay one at a time.
 - **Y2/Y4 Evolve:** nightly self-review → full-plan proposals → typed approve → branch + full tests → merge or discard. Safety code is protected. The owner profile is refreshed.
 
+**Phase 8** (owner, the evening of 2026-11-06)
+- **Z1:** several orders run at the same time (1 + 2 side slots), and the steps that change something take turns.
+  Real path: the second order was done in 0.93 s while the first was still planning (4.67 s).
+- **Z2:** Live reports every task by name, says what still runs, sends approvals to the right task, and stops all of
+  them on "ruko". The persona no longer says "ek saath nahi ho payega".
+
 **Team used:** Auditor, Scout, Mason, Pixel, Quill, Sentinel, Forge, Sage.
 
 ## Not finished: the rest of the plan, in order
+
+0. **Phase 8, next (owner, 2026-11-06 evening). Tick boxes are in `docs/MASTER_PLAN.md` Phase 8.**
+   - **Z3:** instant app actions. "pause youtube in brave" went through the planner (keys, screen, windows) and took
+     too long; it should go straight to media keys or app tools. Feed many more app phrases.
+   - **Z4:** the wake word took about 4 s; measure each stage and cut it.
+   - **Z5:** the phone as a remote:
+     - a live screen view;
+     - control Chutku;
+     - approvals and her voice play on the phone, so the laptop stays silent;
+     - an option to speak through the laptop speakers (her voice, or the owner's voice from the phone mic);
+     - a trackpad and a keyboard on the phone that drive the PC directly.
+   - **Z6:** web automation in the owner's signed-in Brave profile (Gmail etc.).
 
 1. **Y2 Evolve: DONE 2026-11-06.** Merged and tested (13 Evolve tests, full suite 1,344). A real offline review on a copy of the logs produced one proposal. Still to do: the first owner-approved code proposal, live.
 2. **Live checks that need the owner at the PC:**

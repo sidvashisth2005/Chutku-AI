@@ -12,19 +12,18 @@ class Cancelled(RuntimeError):
     pass
 
 
-_state = {"beat": None, "cancelled": None}
-_lock = threading.Lock()
+# Y3 (2026-11-06): one hook per worker thread, so tasks running side by side each keep their own Stop button.
+# A task's steps run on its worker thread; helper threads (a model request) do not beat.
+_state = threading.local()
 
 
 def set_hook(beat=None, cancelled=None):
-    with _lock:
-        _state.update(beat=beat, cancelled=cancelled)
+    _state.beat, _state.cancelled = beat, cancelled
 
 
 def beat(note=None):
     """Signal progress; raises Cancelled if the owner stopped the task."""
-    with _lock:
-        hook, cancelled = _state["beat"], _state["cancelled"]
+    hook, cancelled = getattr(_state, "beat", None), getattr(_state, "cancelled", None)
     if hook is not None:
         hook()
     if cancelled is not None and cancelled():

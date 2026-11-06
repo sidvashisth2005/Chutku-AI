@@ -32,7 +32,13 @@ class DashboardAgentTests(unittest.TestCase):
         # Let a background agent worker release its databases before cleanup.
         if self.server.action_lock.acquire(timeout=10):
             self.server.action_lock.release()
+        self.side_tasks_end()
         self._base.tearDown(self)
+
+    def side_tasks_end(self):
+        deadline = time.monotonic() + 10
+        while self.server.parallel_running and time.monotonic() < deadline:
+            time.sleep(0.02)
 
     def script(self, *items):
         planner = Scripted(*items)
@@ -88,10 +94,22 @@ class DashboardAgentTests(unittest.TestCase):
             self.assertEqual(session["steps"], [])   # nothing was launched (the pure-question rule or observe_only)
             self.assertIn(session["status"], {"clarify", "done"})
 
-            # An order to do something still waits in line.
+            # An order runs at once beside the task too, with its full rights (it is not observe-only).
+            self.script(proposal(steps=[("filesystem.write_text", {"path": "side.txt", "content": "hi"})]),
+                        proposal("done", reply="saved"))
+            _, body, _ = self.request("/api/chat", {"message": "save hi into side.txt for me",
+                                                    "mode": "auto_edits"})
+            session = self.wait(body["session"]["id"])
+            self.assertEqual(session["status"], "done", session)
+            self.assertEqual((self.base / "sandbox" / "side.txt").read_text(encoding="utf-8"), "hi")
+
+            # With both side slots busy, the next order waits in line.
+            self.side_tasks_end()
+            self.server.parallel_running = self.server.MAX_PARALLEL
             self.script(proposal("done", reply="ok"))
             _, body, _ = self.request("/api/chat", {"message": "open the settings app for me", "mode": "owner"})
             self.assertEqual(body["session"]["status"], "queued")
+            self.server.parallel_running = 0
         finally:
             self.server.action_lock.release()
             self.server._next_work()
@@ -141,6 +159,7 @@ class HudFeedTests(unittest.TestCase):
     _base = DashboardAgentTests._base
     setUp, request, tearDown = DashboardAgentTests.setUp, DashboardAgentTests.request, DashboardAgentTests.tearDown
     script, wait = DashboardAgentTests.script, DashboardAgentTests.wait
+    side_tasks_end = DashboardAgentTests.side_tasks_end
 
     def test_hud_follows_the_session_and_shows_pause(self):
         from chutku.core.action_control import ActionControl

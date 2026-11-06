@@ -86,6 +86,7 @@ class Runtime:
             "direct", self.granted_root, frozenset({"observe", "modify"}), "runtime", False, True, "direct")
         control_root = (state_root or self.granted_root.parent).resolve()
         self.execution_lock = ExecutionLock(control_root / "data" / "execution.lock")
+        self.step_wait = 0.0   # seconds a step waits for another task's step (parallel tasks); 0: fail fast (CLI)
         self.action_control = ActionControl(control_root)
         self.approvals = ApprovalStore()
         self.action_log = ActionLog(control_root / "data" / "actions.log.jsonl")
@@ -281,24 +282,47 @@ class Runtime:
             autonomy: str | None = None, tainted: bool = False, exposed: bool | None = None,
             suspicious: bool = False) -> dict[str, Any]:
         try:
-            # Y3 (2026-11-06): a plain observation changes nothing, so it does not take the exclusive lock and a
-            # question can be answered while another task runs. Every other step still runs one at a time.
-            with (contextlib.nullcontext() if self._observation(tool_name) else self.execution_lock):
-                unlogged = self._log_not_ready(tool_name)
-                if unlogged is not None:
-                    return unlogged
-                started = time.perf_counter()
-                result = self._run(tool_name, arguments, provenance=provenance, autonomy=autonomy, tainted=tainted,
-                                   exposed=exposed, suspicious=suspicious)
-                self._log_action(tool_name, arguments, result, provenance, autonomy)
-                self._record_outcome(tool_name, arguments, result, autonomy, time.perf_counter() - started)
-                return result
-        except ExecutionBusy as error:
-            task = Task(command=tool_name)
-            self.event_log.append(task.task_id, "task_received", {"tool": tool_name, "arguments": {}})
-            self._transition(task, TaskState.FAILED)
-            self.event_log.append(task.task_id, "runtime_error", {"type": "ExecutionBusy", "message": str(error)})
-            return {"task_id": task.task_id, "state": TaskState.FAILED, "error": str(error)}
+            return self._taking_turns(
+                lambda: self._run_locked(tool_name, arguments, provenance, autonomy, tainted, exposed, suspicious))
+        except ExecutionBusy:
+            pass
+        task = Task(command=tool_name)
+        self.event_log.append(task.task_id, "task_received", {"tool": tool_name, "arguments": {}})
+        self._transition(task, TaskState.FAILED)
+        self.event_log.append(task.task_id, "runtime_error", {"type": "ExecutionBusy",
+                                                               "message": "Another Chutku action is running."})
+        return {"task_id": task.task_id, "state": TaskState.FAILED,
+                "error": "Another Chutku action is running. Try again after it completes."}
+
+    def _taking_turns(self, call):
+        """Y3: tasks run side by side but their steps take turns. call raises ExecutionBusy before it does anything
+        while another step holds the lock; it is retried for up to step_wait seconds (0: fail at once)."""
+        deadline = None
+        while True:
+            try:
+                return call()
+            except ExecutionBusy:
+                if not self.step_wait:
+                    raise
+                deadline = deadline or time.monotonic() + self.step_wait
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.2)
+
+    def _run_locked(self, tool_name, arguments, provenance, autonomy, tainted, exposed, suspicious):
+        """One step; raises ExecutionBusy when another step holds the lock (run() waits and retries)."""
+        # Y3 (2026-11-06): a plain observation changes nothing, so it does not take the exclusive lock and a
+        # question can be answered while another task runs. Every other step still runs one at a time.
+        with (contextlib.nullcontext() if self._observation(tool_name) else self.execution_lock):
+            unlogged = self._log_not_ready(tool_name)
+            if unlogged is not None:
+                return unlogged
+            started = time.perf_counter()
+            result = self._run(tool_name, arguments, provenance=provenance, autonomy=autonomy, tainted=tainted,
+                               exposed=exposed, suspicious=suspicious)
+            self._log_action(tool_name, arguments, result, provenance, autonomy)
+            self._record_outcome(tool_name, arguments, result, autonomy, time.perf_counter() - started)
+            return result
 
     def _observation(self, tool_name):
         try:
@@ -324,7 +348,10 @@ class Runtime:
                     "error": f"The action log cannot be written ({error}); nothing ran. Run doctor."}
 
     def approve(self, token: str, *, cancel: bool = False) -> dict[str, Any]:
-        with self.execution_lock:
+        return self._taking_turns(lambda: self._approve_locked(token, cancel))
+
+    def _approve_locked(self, token, cancel):
+        with self.execution_lock:   # the token is taken only once the lock is held, so a busy retry is safe
             pending = self.approvals.take(token)
             if pending["root"] != str(self.granted_root):
                 raise ValueError("Approval belongs to a different granted root.")

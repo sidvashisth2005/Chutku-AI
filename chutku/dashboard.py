@@ -182,6 +182,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.work_queue = []           # orders given while another runs: (session, action), oldest first
         self.queue_lock = threading.Lock()
         self.batch = []                # sessions of the current back-to-back run, for the summary
+        self.parallel_running = 0      # side-by-side tasks now running (Y3, at most MAX_PARALLEL)
         self.enroll_clips = []         # Owner Voice Lock enrollment in progress (memory only)
         super().__init__(("127.0.0.1", port), DashboardHandler)
         self.origin = f"http://127.0.0.1:{self.server_port}"
@@ -295,7 +296,7 @@ class DashboardServer(ThreadingHTTPServer):
         if self.action_lock.acquire(blocking=False):
             self._run_work(session, action)
             return
-        if queue and self._parallel_question(session):
+        if queue and self._parallel(session, action):
             return
         if not queue:
             raise ExecutionBusy("Another action is running. Wait for it to finish.")
@@ -308,41 +309,22 @@ class DashboardServer(ThreadingHTTPServer):
         self._next_work()  # the running order may have finished in the meantime
 
     MAX_PARALLEL = 2
+    STEP_WAIT = 180   # seconds a step waits for the other task's step before it gives up
 
-    def _parallel_question(self, session):
-        """Y3 (2026-11-06): while a task runs, a plain question ("D drive mein kitni jagah hai?") is answered at once
-        on its own thread instead of waiting in line. It may only observe (AgentSession.observe_only); it takes no
-        action lock and never touches the running task's progress/Stop hook."""
+    def _parallel(self, session, action):
+        """Y3 (2026-11-06, owner: "multiple tasks simultaneously"): while a task runs, up to MAX_PARALLEL more start
+        at once on their own threads instead of waiting in line. A plain question may only observe
+        (AgentSession.observe_only). Steps that change something still run one at a time (the runtime's execution
+        lock; a side task's step waits for it), so two tasks never act in the same instant."""
+        # shortcut: two side-by-side UI tasks can still alternate focus between their steps; add per-window
+        # ownership if the owner sees keys land in the wrong window.
         from chutku.agent_loop import _ACTION_WORDS, _QUESTION
-        if not _QUESTION.search(session.goal) or _ACTION_WORDS.search(session.goal):
-            return False
         with self.queue_lock:
-            if getattr(self, "parallel_running", 0) >= self.MAX_PARALLEL:
+            if self.parallel_running >= self.MAX_PARALLEL:
                 return False
-            self.parallel_running = getattr(self, "parallel_running", 0) + 1
-        session.observe_only = True
-
-        def work():
-            try:
-                with create_runtime(self.base) as runtime:
-                    runtime.approvals = self.approvals
-                    router = RuntimeRouter(runtime, opener=lambda grant_id: create_runtime(self.base, grant_id))
-                    planner, fallback = self.planners()
-                    try:
-                        session.advance(router, planner, fallback=fallback, heartbeat=lambda: None)
-                        speak_result(session, router)
-                    finally:
-                        router.close()
-                        from chutku import recall
-                        recall.log_session(session.snapshot(), base=self.base)
-            except Exception as error:   # a failed side question never disturbs the running task
-                with session.lock:
-                    session._finish("failed", f"Stopped: {error}"[:400])
-            finally:
-                with self.queue_lock:
-                    self.parallel_running -= 1
-
-        threading.Thread(target=work, name="chutku-side-question", daemon=True).start()
+            self.parallel_running += 1
+        session.observe_only = bool(_QUESTION.search(session.goal)) and not _ACTION_WORDS.search(session.goal)
+        self._run_work(session, action, side=True)
         return True
 
     def queued_ids(self):
@@ -377,9 +359,11 @@ class DashboardServer(ThreadingHTTPServer):
         except Exception:
             pass  # the dashboard still shows every task
 
-    def _run_work(self, session, action):
-        """The caller holds the action lock; it is released when the work ends, then the next order starts."""
-        self.action_started = time.monotonic()
+    def _run_work(self, session, action, *, side=False):
+        """The caller holds the action lock; it is released when the work ends, then the next order starts.
+        A side task (side=True, see _parallel) holds a parallel slot instead and leaves the guard's timer alone."""
+        if not side:
+            self.action_started = time.monotonic()
         with self.queue_lock:
             self.batch.append(session)
         with session.lock:
@@ -387,13 +371,16 @@ class DashboardServer(ThreadingHTTPServer):
                 session.status = "planning"
 
         def beat():
-            self.action_started = time.monotonic()
+            if not side:
+                self.action_started = time.monotonic()
 
         def work():
-            record_last_task(self.base, session.goal, "running")
+            if not side:   # the heal message names the main task only
+                record_last_task(self.base, session.goal, "running")
             try:
                 with create_runtime(self.base) as runtime:
                     runtime.approvals = self.approvals
+                    runtime.step_wait = self.STEP_WAIT   # a step waits for a side-by-side task's step to finish
                     router = RuntimeRouter(runtime, opener=lambda grant_id: create_runtime(self.base, grant_id))
                     progress.set_hook(beat, lambda: session.status == "cancelled" or session.cancelled.is_set())
                     try:
@@ -415,12 +402,16 @@ class DashboardServer(ThreadingHTTPServer):
                     if session.status != "cancelled":  # the owner's "stop" already ended it: keep "cancelled"
                         session._finish("failed", message[:400])
             finally:
-                record_last_task(self.base, session.goal, session.status)
-                self.action_started = None
-                self.action_lock.release()
-                self._next_work()
+                if side:
+                    with self.queue_lock:
+                        self.parallel_running -= 1
+                else:
+                    record_last_task(self.base, session.goal, session.status)
+                    self.action_started = None
+                    self.action_lock.release()
+                    self._next_work()
 
-        threading.Thread(target=work, name="chutku-agent", daemon=True).start()
+        threading.Thread(target=work, name="chutku-side-task" if side else "chutku-agent", daemon=True).start()
 
     def stop_session(self, session_id):
         session = self.agent_sessions.get(session_id)

@@ -135,7 +135,7 @@ class LiveGuardTests(unittest.TestCase):
 
     def test_noise_hmm_does_not_approve_but_spoken_haan_does(self):
         self.live.task_id = "s1"
-        self.live._snapshot = lambda: {"status": "waiting_confirmation"}
+        self.live._snapshot = lambda task_id=None: {"id": "s1", "status": "waiting_confirmation"}
         self.live.speech_at_question = self.live.gate.speech_seconds
         self.live.heard_since_question = " hmm"                     # no loud audio behind it
         self.assertIn("error", self.live.dispatch("answer_approval", {"approve": True}))
