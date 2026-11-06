@@ -55,7 +55,7 @@ $("forget").addEventListener("click", () => { store.credential = ""; show("pair"
 // ---- tabs ----------------------------------------------------------------------------------------------------------
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
-  for (const name of ["chat", "screen", "files"]) $("tab-" + name).hidden = name !== b.dataset.tab;
+  for (const name of ["chat", "screen", "pad", "files"]) $("tab-" + name).hidden = name !== b.dataset.tab;
 }));
 
 // ---- P2: chat, live progress, approvals ----------------------------------------------------------------------------
@@ -84,6 +84,8 @@ async function follow(box, id) {
     render(box, s);
     if (["done", "clarify", "failed", "stopped", "cancelled", "waiting_confirmation"].includes(s.status)) {
       if (s.status === "done" || s.status === "clarify") speak(id, s.reply);
+      // Z5: the approval question is spoken here too, so the laptop at home stays silent
+      if (s.status === "waiting_confirmation" && s.pending) speak(id, "Ek approval chahiye: " + (s.pending.consequence || s.pending.tool));
       return;
     }
     await new Promise(r => setTimeout(r, 700));
@@ -132,6 +134,27 @@ async function startTalk() {
 $("talk").addEventListener("pointerdown", startTalk);
 for (const ev of ["pointerup", "pointerleave", "pointercancel"]) $("talk").addEventListener(ev, () => recorder && recorder.state === "recording" && recorder.stop());
 
+// ---- Z5: sound on the laptop, only on purpose ------------------------------------------------------------------------
+$("laptop-say").addEventListener("click", async () => {
+  const text = $("laptop-text").value.trim(); if (!text) return;
+  try { await api("/api/laptop/say", { text }); $("laptop-text").value = ""; status("Laptop pe bol rahi hoon"); } catch (e) { status(e.message); }
+});
+let laptopRecorder = null;
+$("laptop-talk").addEventListener("pointerdown", async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true }), parts = [];
+    laptopRecorder = new MediaRecorder(stream);
+    laptopRecorder.ondataavailable = e => parts.push(e.data);
+    laptopRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop()); $("laptop-talk").classList.remove("rec");
+      try { const r = await api("/api/laptop/voice", new Blob(parts, { type: laptopRecorder.mimeType || "audio/webm" }), true); status(`Laptop pe chal raha hai (${r.playing_seconds} s)`); } catch (e) { status(e.message); }
+    };
+    laptopRecorder.start(); $("laptop-talk").classList.add("rec");
+    setTimeout(() => laptopRecorder && laptopRecorder.state === "recording" && laptopRecorder.stop(), 30000);
+  } catch { status("Microphone not allowed"); }
+});
+for (const ev of ["pointerup", "pointerleave", "pointercancel"]) $("laptop-talk").addEventListener(ev, () => laptopRecorder && laptopRecorder.state === "recording" && laptopRecorder.stop());
+
 // ---- P4: live screen, P9: point-and-ask, P5: tap control ---------------------------------------------------------------
 let viewing = false, lastHash = "";
 async function frames() {
@@ -161,8 +184,53 @@ $("frame").addEventListener("pointerup", async e => {
 $("frame").addEventListener("wheel", e => { if ($("tap-mode").value === "control") { e.preventDefault(); send([{ kind: "scroll", ...point(e), dy: e.deltaY > 0 ? -3 : 3 }]); } }, { passive: false });
 let controlling = false;
 async function send(events) { try { await api("/api/control/input", { events }); } catch (e) { status(e.message); } }
-$("control-go").addEventListener("click", async () => { const pin = await askPin("PIN to control the laptop"); if (!pin) return; try { await api("/api/control/start", { pin }); controlling = true; $("tap-mode").value = "control"; status("Controlling"); } catch (e) { status(e.message); } });
-$("control-stop").addEventListener("click", () => { controlling = false; api("/api/control/stop", {}).catch(() => {}); status("Control ended"); });
+async function startControl() { const pin = await askPin("PIN to control the laptop"); if (!pin) return; try { await api("/api/control/start", { pin }); controlling = true; $("tap-mode").value = "control"; status("Controlling"); } catch (e) { status(e.message); } }
+function stopControl() { controlling = false; api("/api/control/stop", {}).catch(() => {}); status("Control ended"); }
+$("control-go").addEventListener("click", startControl);
+$("control-stop").addEventListener("click", stopControl);
+$("pad-go").addEventListener("click", startControl);
+$("pad-stop").addEventListener("click", stopControl);
+
+// ---- Z5: trackpad (moves from where the cursor is) and a live keyboard ---------------------------------------------------
+let inputs = Promise.resolve();
+function queued(path, data) { inputs = inputs.then(() => api(path, data)).catch(e => status(e.message)); return inputs; }   // in order
+const here = kind => queued("/api/control/input", { events: [{ kind, at: "cursor" }] });
+const SPEED = 2.2, touches = new Map();
+let moved = { dx: 0, dy: 0 }, flushing = null, gesture = null, dragging = false;
+function flush() {
+  flushing = null; const dx = Math.round(moved.dx), dy = Math.round(moved.dy); if (!dx && !dy) return;
+  moved = { dx: 0, dy: 0 };
+  queued("/api/control/input", { events: [{ kind: "nudge", dx: Math.max(-400, Math.min(400, dx)), dy: Math.max(-400, Math.min(400, dy)) }] });
+}
+$("pad").addEventListener("pointerdown", e => {
+  $("pad").setPointerCapture(e.pointerId); touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (touches.size === 1) gesture = { at: Date.now(), travel: 0, fingers: 1 }; else if (gesture) gesture.fingers = Math.max(gesture.fingers, touches.size);
+});
+$("pad").addEventListener("pointermove", e => {
+  const last = touches.get(e.pointerId); if (!last || !gesture) return;
+  const dx = e.clientX - last.x, dy = e.clientY - last.y; touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  gesture.travel += Math.abs(dx) + Math.abs(dy);
+  if (touches.size >= 2) { gesture.scroll = (gesture.scroll || 0) + dy; if (Math.abs(gesture.scroll) > 24) { queued("/api/control/input", { events: [{ kind: "scroll", at: "cursor", dy: gesture.scroll > 0 ? 2 : -2 }] }); gesture.scroll = 0; } return; }
+  moved.dx += dx * SPEED; moved.dy += dy * SPEED; if (!flushing) flushing = setTimeout(flush, 30);
+});
+for (const ev of ["pointerup", "pointercancel"]) $("pad").addEventListener(ev, e => {
+  touches.delete(e.pointerId); if (touches.size || !gesture) return;
+  const tap = Date.now() - gesture.at < 250 && gesture.travel < 12; if (tap) here(gesture.fingers >= 2 ? "right" : "tap"); gesture = null;
+});
+$("pad-left").addEventListener("click", () => here("tap"));
+$("pad-right").addEventListener("click", () => here("right"));
+$("pad-up").addEventListener("click", () => queued("/api/control/input", { events: [{ kind: "scroll", at: "cursor", dy: 3 }] }));
+$("pad-down").addEventListener("click", () => queued("/api/control/input", { events: [{ kind: "scroll", at: "cursor", dy: -3 }] }));
+$("pad-drag").addEventListener("click", () => { dragging = !dragging; here(dragging ? "down" : "up"); $("pad-drag").textContent = "Drag: " + (dragging ? "on" : "off"); $("pad").classList.toggle("drag", dragging); });
+// Phone keyboards rarely report keys, so the field keeps two spaces: shorter = Backspace, longer = new text.
+const KEEP = "  "; $("live-keys").value = KEEP;
+async function key(combo) { try { await queued("/api/control/keys", { combo }); } catch {} }
+$("live-keys").addEventListener("input", () => {
+  const value = $("live-keys").value; $("live-keys").value = KEEP;
+  if (value.length < KEEP.length) { for (let i = value.length; i < KEEP.length; i++) key("backspace"); return; }
+  const text = value.slice(KEEP.length); if (text) queued("/api/control/text", { text });
+});
+$("live-keys").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); key("enter"); } });
 
 // ---- P6: typing and shortcut bar ---------------------------------------------------------------------------------------
 async function typeText(enter) {

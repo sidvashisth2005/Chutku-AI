@@ -143,6 +143,19 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 
 ## 3. Things you can say
 
+**New on 2026-11-06: the phone as a remote (after the Tailscale setup in "Your phone (W6)")**
+- **Trackpad tab:**
+  - "Start control (PIN)" first.
+  - Move with one finger; tap to click; tap with two fingers to right-click; drag two fingers to scroll.
+  - "Drag: on" holds the left button down until you turn it off.
+  - Watch the result on the Screen tab.
+- **Keyboard:** every letter typed in the Trackpad tab's keyboard box is typed on the laptop, and Backspace and Enter work too. In a terminal, Enter still asks for your PIN.
+- **Silent laptop:** replies to phone requests and approval questions are spoken on the phone. The laptop makes no sound for them.
+- **"Laptop pe awaaz"** (Chat tab):
+  - type a line and press "Chutku bole" to have Chutku say it on the laptop speakers;
+  - or hold "meri awaaz laptop pe" to play your own voice there (up to 30 s).
+  - These are the only two things that play sound on the laptop.
+
 **New on 2026-11-06: several tasks at once**
 - Give a new order while she works ("aur notepad bhi khol do"): it starts at once. Up to 3 tasks run together, and a 4th waits in line.
 - She reports each task by name when it finishes, and says what is still running. "Ruko" stops all of them. "Kya chal raha hai?" lists them.

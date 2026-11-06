@@ -24,7 +24,7 @@
 </section>
 
 <main id="app" hidden>
-  <nav class="tabs"><button data-tab="chat" class="on">Chat</button><button data-tab="screen">Screen</button><button data-tab="files">Files</button></nav>
+  <nav class="tabs"><button data-tab="chat" class="on">Chat</button><button data-tab="screen">Screen</button><button data-tab="pad">Trackpad</button><button data-tab="files">Files</button></nav>
 
   <section id="tab-chat" class="tab">
     <div id="paused" class="banner" hidden>Chutku is paused. <button id="resume">Resume (PIN)</button></div>
@@ -34,7 +34,20 @@
       <button type="button" id="talk" class="talk" aria-label="Hold to talk">🎙</button>
       <button type="submit" class="primary">Send</button>
     </form>
-    <p class="muted small">Hold 🎙 to talk. Replies are spoken here, not on the laptop.</p>
+    <p class="muted small">Hold 🎙 to talk. Replies and approval questions are spoken here, not on the laptop.</p>
+    <div class="card"><h2>Laptop pe awaaz</h2>
+      <div class="row"><input id="laptop-text" placeholder="Chutku laptop pe kya bole?" maxlength="500"><button id="laptop-say">Chutku bole</button></div>
+      <button id="laptop-talk" class="talk wide">Hold: meri awaaz laptop pe</button>
+      <p class="muted small">Only these two play sound on the laptop.</p></div>
+  </section>
+
+  <section id="tab-pad" class="tab" hidden>
+    <div class="row"><button id="pad-go" class="primary">Start control (PIN)</button><button id="pad-stop">End control</button></div>
+    <div id="pad" class="pad" aria-label="Trackpad">Move: one finger · Click: tap · Right click: two-finger tap · Scroll: two fingers</div>
+    <div class="row"><button id="pad-left">Left</button><button id="pad-right">Right</button><button id="pad-drag">Drag: off</button><button id="pad-up">▲</button><button id="pad-down">▼</button></div>
+    <label>Keyboard: every letter you type here is typed on the laptop
+      <input id="live-keys" class="live-keys" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+    <p class="muted small">Watch the result on the Screen tab. The laptop shows a red border while you control it.</p>
   </section>
 
   <section id="tab-screen" class="tab" hidden>

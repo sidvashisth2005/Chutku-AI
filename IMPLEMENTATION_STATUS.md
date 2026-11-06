@@ -16,6 +16,50 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: The phone as a remote: trackpad, live keyboard, a silent laptop, and laptop sound on purpose (Z5, built on W6)
+
+**Owner's asks**
+- Control the PC from the phone with a trackpad and a keyboard.
+- Approvals and audio on the phone, so the laptop at home stays silent.
+- An option to speak through the laptop speakers: in Chutku's voice, or the owner's own voice from the phone mic.
+
+**Trackpad**
+- `ControlSession.pointer` accepts `{"kind": "nudge", "dx", "dy"}`, which moves from the real cursor position (`cursor_pos`, GetCursorPos).
+- `"at": "cursor"` clicks, right-clicks, scrolls or presses/releases where the cursor is.
+- Moves are bounded to ±400 px, numbers only. The cursor is clamped to the streamed monitor.
+- All W6 rules still apply: armed at the laptop, PIN, red border, the laptop wins for 10 s, the kill hotkey, and logging.
+
+**Phone page**
+- A new Trackpad tab:
+  - one finger moves (batched every 30 ms);
+  - a tap clicks, a two-finger tap right-clicks, two fingers scroll;
+  - buttons for Left, Right, a drag toggle, and ▲/▼.
+- A live keyboard field: every typed letter is sent as it is typed. Backspace is detected by length, because phone keyboards rarely report keys. Enter is sent as a key.
+- Inputs go in order through one promise queue.
+
+**Silent laptop**
+- `spoken_text` (server): the phone's `/api/say` now also speaks the approval question ("Ek approval chahiye: …").
+- `phone.js` speaks it when a task waits.
+- Phone tasks were already never spoken on the laptop (`speak_result` speaks only `origin == "voice"`).
+
+**Laptop sound on purpose**
+- `POST /api/laptop/say` (1–500 characters): Chutku's TTS on the laptop.
+- `POST /api/laptop/voice`: the owner's recording, decoded and played once.
+  - At most 30 s.
+  - It plays inside `voice_session "speaking"`, so the wake listener can't be triggered by it.
+- Both need the phone session plus CSRF, like every W6 call, and both are logged (length or seconds only).
+
+**Tests**
+- `tests/test_phone_z5.py` (7 tests): nudges and cursor clicks; clamping and refused moves (negative); spoken approval text; laptop say with auth, CSRF and the length limit (negatives); a laptop voice clip and the 30 s limit; page elements; `node --check`.
+- W6's 16 tests still pass. Full suite: 1,379 tests OK in 272 s.
+
+**Real paths, this PC**
+- `cursor_pos` gave (1115, 521) on monitor (0, 0, 1920, 1080) in 0.13 s.
+- A real 0 px nudge through the real `Injector` returned done 1 and left the cursor where it was. The local-input "laptop wins" check passed, so nothing was moved on the owner's screen.
+- `play_on_laptop` played 0.5 s of silence through the real speakers in 0.98 s.
+- A headless render of the phone page at 390 px showed the Trackpad tab, no page errors and no horizontal scroll.
+- The live phone check needs Tailscale (owner setup).
+
 ### 2026-11-06: The wake word answers about 1.1 s sooner (Z4, first cut)
 
 The owner said the wake word took about 4 s.

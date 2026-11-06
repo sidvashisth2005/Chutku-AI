@@ -94,10 +94,11 @@ class ControlSession:
     """One live phone control session. Injectors are patchable for tests (no real input)."""
 
     def __init__(self, base, *, clock=time.monotonic, inject=None, log=None, locked=None, window=None,
-                 local_tick=None, now_tick=None):
+                 local_tick=None, now_tick=None, cursor=None):
         import sys
         module = sys.modules[__name__]    # looked up now, so tests can patch the module's functions
         self.base, self.clock = base, clock
+        self.cursor = cursor or module.cursor_pos
         self.started = self.last_used = clock()
         self.inject = inject or module.Injector()
         self.log = log or _action_log(base)
@@ -143,19 +144,27 @@ class ControlSession:
 
     # -- pointer --------------------------------------------------------------------------------------------------
     def pointer(self, events, monitor):
-        """events: [{"kind": tap|double|right|move|down|up|scroll, "x": 0..1, "y": 0..1, "dy": int}]."""
+        """events: [{"kind": tap|double|right|move|down|up|scroll, "x": 0..1, "y": 0..1, "dy": int}].
+        Z5 trackpad: {"kind": "nudge", "dx": px, "dy": px} moves from where the cursor is, and "at": "cursor" clicks
+        or scrolls where it is; both stay on the streamed monitor."""
         self._check()
         window = self.window()
         done = 0
         for event in events[:60]:
             kind = event.get("kind")
-            if kind not in {"tap", "double", "right", "move", "down", "up", "scroll"}:
+            if kind not in {"tap", "double", "right", "move", "down", "up", "scroll", "nudge"}:
                 raise ControlRefused(f"Unknown input {kind!r}.")
-            x, y = to_pixels(monitor, event.get("x"), event.get("y"))
-            self.inject.pointer(kind, x, y, int(event.get("dy", 0)))
+            if kind == "nudge":
+                cx, cy = self.cursor()
+                x, y = on_monitor(monitor, cx + _delta(event.get("dx")), cy + _delta(event.get("dy")))
+                self.inject.pointer("move", x, y, 0)
+            else:
+                x, y = on_monitor(monitor, *self.cursor()) if event.get("at") == "cursor" else \
+                    to_pixels(monitor, event.get("x"), event.get("y"))
+                self.inject.pointer(kind, x, y, int(event.get("dy", 0)))
             self._mark()
             done += 1
-            if kind != "move":
+            if kind not in ("move", "nudge"):
                 self._log(kind, {"x": x, "y": y, "app": window.get("executable"), "title": window.get("title")})
         return {"done": done}
 
@@ -199,6 +208,25 @@ def to_pixels(monitor, x, y):
         raise ControlRefused("A point must be between 0 and 1.")
     left, top, width, height = monitor
     return int(round(left + x * (width - 1))), int(round(top + y * (height - 1)))
+
+
+def _delta(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or abs(value) > 400:
+        raise ControlRefused("A trackpad move must be at most 400 pixels.")
+    return int(value)
+
+
+def on_monitor(monitor, x, y):
+    left, top, width, height = monitor
+    return min(max(int(x), left), left + width - 1), min(max(int(y), top), top + height - 1)
+
+
+def cursor_pos():
+    from chutku import vision
+    point = w.POINT()
+    with vision.dpi_aware() as user32:
+        user32.GetCursorPos(ctypes.byref(point))
+    return point.x, point.y
 
 
 class Injector:

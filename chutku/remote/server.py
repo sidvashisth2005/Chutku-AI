@@ -266,7 +266,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
             self._reply(400, {"error": str(error)[:300]})
 
     def _voice_or_json(self, path):
-        if path == "/api/voice":
+        if path in ("/api/voice", "/api/laptop/voice"):
             return {"audio": self._body(MAX_BODY)}
         return self._json()
 
@@ -366,18 +366,37 @@ class PhoneHandler(BaseHTTPRequestHandler):
         return {"transcript": text, "session": self._phone_view(session.snapshot())}
 
     def _say(self, session_id):
-        """Chutku's own voice (Kokoro) for a finished phone task's reply, as WAV; 204 when unavailable."""
+        """Chutku's own voice (Kokoro) for a phone task's reply, or for its approval question, as WAV (the laptop
+        stays silent: Z5, owner 2026-11-06); 204 when unavailable."""
         session = self.server.core.agent_sessions.get(session_id).snapshot()
-        if session.get("origin") not in ("phone", "phone_voice") or not session.get("reply"):
+        text = spoken_text(session)
+        if session.get("origin") not in ("phone", "phone_voice") or not text:
             self._reply(204, b"", "text/plain")
             return
         from chutku.voice import tts
         if not tts.available():
             self._reply(204, b"", "text/plain")
             return
-        import re
-        text = re.sub(r"\s*\[Verified:.*\]\s*$", "", session["reply"])[:600]
         self._reply(200, wav(text), "audio/wav")
+
+    # -- Z5: sound on the laptop, only when the owner asks for it from the phone -----------------------------------------
+    def _post_laptop_say(self, record, data):
+        """Chutku says the owner's words out of the laptop speakers ("tell them dinner is ready")."""
+        text = str(data.get("text") or "").strip()
+        if not 1 <= len(text) <= 500:
+            raise RemoteDenied("Write what Chutku should say on the laptop (up to 500 characters).", 400)
+        _log(self.server.core.base, "laptop_say", {"characters": len(text)})
+        threading.Thread(target=self.server.core._speak, args=(text,), name="chutku-phone-say", daemon=True).start()
+        return {"saying": len(text)}
+
+    def _post_laptop_voice(self, record, data):
+        """The owner's own recorded voice from the phone, played once on the laptop speakers (at most 30 s)."""
+        pcm = decode_audio(data["audio"])
+        if not pcm or len(pcm) > 30 * 32000:
+            raise RemoteDenied("Record 1 to 30 seconds.", 413)
+        _log(self.server.core.base, "laptop_voice", {"seconds": round(len(pcm) / 32000, 1)})
+        threading.Thread(target=play_on_laptop, args=(pcm,), name="chutku-phone-voice", daemon=True).start()
+        return {"playing_seconds": round(len(pcm) / 32000, 1)}
 
     # -- P4: live screen view (view-only), heartbeat, cap ------------------------------------------------------------
     def _post_screen_start(self, record, data):
@@ -592,6 +611,27 @@ def decode_audio(blob):
         for out in resampler.resample(None):
             chunks.append(out.to_ndarray().reshape(-1))
     return np.concatenate(chunks).astype(np.int16).tobytes() if chunks else b""
+
+
+def spoken_text(snapshot):
+    """What the phone says aloud for a task: its approval question while it waits, else its reply."""
+    import re
+    if snapshot.get("status") == "waiting_confirmation":
+        approval = (snapshot.get("pending") or {}).get("approval") or {}
+        what = approval.get("consequence") or approval.get("tool")
+        return f"Ek approval chahiye: {what}. Phone pe approve ya cancel dabao."[:600] if what else ""
+    return re.sub(r"\s*\[Verified:.*\]\s*$", "", snapshot.get("reply") or "")[:600]
+
+
+def play_on_laptop(pcm, rate=16000):
+    """Play a phone recording on the laptop speakers. The wake listener ignores it (voice session "speaking"), so
+    the owner's voice from the speakers can never wake Chutku."""
+    import numpy as np
+    import sounddevice as sd
+    from chutku.voice.session import voice_session
+    with voice_session.active("speaking"):
+        sd.play(np.frombuffer(pcm, dtype=np.int16), rate)
+        sd.wait()
 
 
 def wav(text):

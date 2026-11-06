@@ -27,6 +27,10 @@ button.text{background:none;border:0;color:var(--muted)}
 .stage{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#000;touch-action:none}
 #frame{width:100%;display:block;touch-action:none;user-select:none}
 .keys{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.keys button{padding:9px 4px;font-size:12px}
+.pad{height:46vh;border:1px solid var(--line);border-radius:16px;background:#0a1220;touch-action:none;user-select:none;
+  display:flex;align-items:flex-end;justify-content:center;padding:10px;font-size:12px;color:var(--muted);text-align:center}
+.pad.drag{border-color:var(--warn)}
+.live-keys{margin-top:6px}.talk.wide{width:100%;margin-top:6px}
 dialog{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;width:min(320px,90vw)}
 dialog::backdrop{background:#000b}
 [hidden]{display:none!important}
