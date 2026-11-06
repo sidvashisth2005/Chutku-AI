@@ -134,10 +134,11 @@ class Accounts:
         """(account, kind) for a live token, else RelayError 401."""
         if not token:
             raise RelayError(401, "Log in first.")
+        digest, now = _token_hash(token), self.clock()
         with self.lock:
-            row = self.db.execute("SELECT account, kind FROM tokens WHERE hash = ?", (_token_hash(token),)).fetchone()
-            if row is not None:
-                self.db.execute("UPDATE tokens SET used = ? WHERE hash = ?", (self.clock(), _token_hash(token)))
+            row = self.db.execute("SELECT account, kind, used FROM tokens WHERE hash = ?", (digest,)).fetchone()
+            if row is not None and now - row[2] > 60:   # at most one write a minute (screen frames come every 0.1 s)
+                self.db.execute("UPDATE tokens SET used = ? WHERE hash = ?", (now, digest))
                 self.db.commit()
         if row is None:
             raise RelayError(401, "Logged out. Log in again.")
@@ -179,6 +180,7 @@ class Mailbox:
         self.clock = clock
         self.cond = threading.Condition()
         self.queues, self.replies, self.seen = {}, {}, {}
+        self.waiting = {}                  # rid -> account, while its phone still waits for the answer
 
     def online(self, account):
         with self.cond:
@@ -193,15 +195,19 @@ class Mailbox:
             if len(queue) >= QUEUE_MAX:
                 raise RelayError(429, "Too many requests are waiting for the laptop.")
             queue.append(dict(request, rid=rid))
+            self.waiting[rid] = account
             self.cond.notify_all()
             deadline = self.clock() + timeout
-            while rid not in self.replies:
-                left = deadline - self.clock()
-                if left <= 0:
-                    self.queues[account] = [r for r in self.queues.get(account, []) if r["rid"] != rid]
-                    raise RelayError(504, "The laptop did not answer in time.")
-                self.cond.wait(min(left, 1.0))
-            return self.replies.pop(rid)[1]
+            try:
+                while rid not in self.replies:
+                    left = deadline - self.clock()
+                    if left <= 0:
+                        self.queues[account] = [r for r in self.queues.get(account, []) if r["rid"] != rid]
+                        raise RelayError(504, "The laptop did not answer in time.")
+                    self.cond.wait(min(left, 1.0))
+                return self.replies.pop(rid)
+            finally:
+                self.waiting.pop(rid, None)
 
     def poll(self, account, timeout=None):
         with self.cond:
@@ -217,16 +223,20 @@ class Mailbox:
             return taken
 
     def reply(self, account, rid, response):
+        """Kept only for a request of this same account that is still waiting (a late or foreign reply is dropped,
+        so nothing piles up and no laptop can answer another account's phone)."""
         with self.cond:
-            self.replies[rid] = (account, response)
-            self.cond.notify_all()
+            if self.waiting.get(rid) == account:
+                self.replies[rid] = response
+                self.cond.notify_all()
 
 
 class RelayServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, address, db_path, *, web=WEB):
+    def __init__(self, address, db_path, *, web=WEB, behind_proxy=False):
         super().__init__(address, RelayHandler)
+        self.behind_proxy = behind_proxy   # trust X-Forwarded-For (only when a local TLS proxy sets it)
         self.accounts = Accounts(db_path)
         self.mailbox = Mailbox()
         self.web = Path(web)
@@ -285,6 +295,10 @@ class RelayHandler(BaseHTTPRequestHandler):
             raise RelayError(400, "Send a JSON object.")
         return data
 
+    def _client_ip(self):
+        forwarded = (self.headers.get("X-Forwarded-For") or "").split(",")[-1].strip()
+        return forwarded if self.server.behind_proxy and forwarded else self.client_address[0]
+
     def _token(self):
         header = self.headers.get("Authorization") or ""
         return header[7:].strip() if header.startswith("Bearer ") else ""
@@ -301,7 +315,7 @@ class RelayHandler(BaseHTTPRequestHandler):
             return
         accounts, mailbox = self.server.accounts, self.server.mailbox
         if method == "POST" and path == "/relay/register":
-            if not self.server.register_allowed(self.client_address[0]):
+            if not self.server.register_allowed(self._client_ip()):
                 raise RelayError(429, "Too many new accounts from here. Try again later.")
             data = self._json()
             self._reply(201, {"id": accounts.register(data.get("id"), data.get("password"))})
@@ -371,8 +385,8 @@ class RelayHandler(BaseHTTPRequestHandler):
         self._handle("POST")
 
 
-def serve(port=8780, db="relay.sqlite3", host="0.0.0.0", cert=None, key=None):
-    server = RelayServer((host, port), db)
+def serve(port=8780, db="relay.sqlite3", host="0.0.0.0", cert=None, key=None, behind_proxy=False):
+    server = RelayServer((host, port), db, behind_proxy=behind_proxy)
     if cert:
         import ssl
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)

@@ -1,6 +1,5 @@
 """Account relay (owner, 2026-11-06): one ID/password links an installed assistant and its phone app; both stay signed
 in; phone requests reach only their own laptop and go through the laptop's phone rules (PIN, approvals)."""
-import base64
 import http.client
 import json
 from pathlib import Path
@@ -77,6 +76,32 @@ class AccountTests(unittest.TestCase):
         with self.assertRaises(RelayError):
             self.accounts.device(phone)
         self.assertTrue(self.accounts.login("asha2", "new-pass-22", "phone", "Pixel"))
+
+
+class MailboxTests(unittest.TestCase):
+    def test_a_late_or_foreign_reply_is_dropped(self):
+        box = relay_server.Mailbox()
+        box.seen["asha"] = box.clock()                                  # asha's laptop is online
+        with self.assertRaises(RelayError):
+            box.ask("asha", {"path": "/api/whoami"}, timeout=0.2)        # nobody answers in time
+        rid = box.queues.get("asha", [{}])[0].get("rid") if box.queues.get("asha") else "gone"
+        box.reply("asha", rid, {"status": 200})                         # too late
+        self.assertEqual(box.replies, {})                               # nothing piles up
+
+        answers = {}
+        threading.Thread(target=lambda: answers.setdefault("asha", box.ask("asha", {"path": "/api/x"}, timeout=3)),
+                         daemon=True).start()
+        deadline = time.monotonic() + 2
+        while not box.queues.get("asha") and time.monotonic() < deadline:
+            time.sleep(0.01)
+        rid = box.poll("asha", timeout=0)[0]["rid"]
+        box.reply("mallory", rid, {"status": 200, "body": "forged"})     # another account's laptop
+        self.assertEqual(box.replies, {})
+        box.reply("asha", rid, {"status": 200, "body": "real"})
+        deadline = time.monotonic() + 2
+        while "asha" not in answers and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertEqual(answers["asha"]["body"], "real")
 
 
 class EndToEndTests(unittest.TestCase):

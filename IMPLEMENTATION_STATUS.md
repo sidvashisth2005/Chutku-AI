@@ -16,6 +16,34 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Review of the new code; Chutku restarted on it and rechecked live
+
+**Review fixes in the relay**
+1. A reply that came after the phone gave up stayed in memory forever. Now only replies to requests still waiting are kept.
+2. A reply was not bound to its account (`Mailbox.waiting` now binds it); one from another account's laptop is dropped.
+3. Behind an HTTPS proxy every user shared one sign-up limit. `--behind-proxy` now uses X-Forwarded-For.
+4. Every request wrote "last used" to SQLite (screen frames come every 0.1-0.3 s). It is now written at most once a minute per token.
+5. A laptop that gets logged out now shows a Windows notification instead of stopping silently.
+
+New `MailboxTests` covers points 1-2 (negative cases). `vulture` at 90% finds no dead code, only callback parameters.
+
+**Restart**
+- `chutku.cli control stop` stopped it cleanly (0 interrupted tasks), then `control resume`, then the guard was started hidden (as autostart does).
+- New processes started at 23:26.
+
+**Live recheck through the running Chutku's own API** (`/api/chat`, owner mode)
+
+| Request | Time | Result |
+|---|---|---|
+| "what time is it" | 0.14 s | direct |
+| "pause spotify" | 2.12 s | `app.spotify.pause`, verified |
+| "spotify ka gaana band karo" | 0.77 s | `media.control`, verified |
+| "how much space is left" + "is my internet working", sent together | 1.37 s in all | `system.disk_space` in 0.43 s, `net.check` in 1.36 s |
+
+The wake listener and the Ctrl+Alt+Space hotkey are active.
+
+Full suite: 1,399 tests OK in 365 s.
+
 ### 2026-11-06: Name your assistant at install, one account for laptop and phone, and the phone app APK (Z7-Z9)
 
 **Owner's asks (for publishing)**

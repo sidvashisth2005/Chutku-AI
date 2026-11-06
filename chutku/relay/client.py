@@ -127,6 +127,12 @@ class RelayClient(threading.Thread):
                 if error.status == 401:      # logged out elsewhere, or the password changed
                     self.state = "logged_out"
                     _log.warning("relay: this laptop was logged out; run chutku.cli account login")
+                    try:
+                        from chutku.health import notify
+                        notify("Phone app disconnected", "This laptop was logged out of your account. Run: "
+                                                         "chutku.cli account login")
+                    except Exception:
+                        pass   # the log line above still says it
                     return
                 self.state = "offline"
                 self.stopping.wait(wait)

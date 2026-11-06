@@ -124,7 +124,8 @@ A test (`tests/test_taint_v2.py`) fails if any name in these lists is not a real
   - only GET/POST to `/api/*` is replayed, on the phone server over loopback, with that server's per-run secret (`X-Chutku-Relay`, compared in constant time; loopback only);
   - such a request is the `relay` device: rate limit, its PIN (set at setup; 5 wrong revoke it) for approvals, screen and control, laptop-only steps, and control armed only at the laptop all apply as for a paired phone;
   - CSRF is not used, because a bearer token is not sent by a browser on its own.
-- **Transport:** the laptop refuses a plain-http relay unless it is loopback or a private address. The relay must sit behind HTTPS, and it sees the forwarded content (screen frames included). End-to-end encryption is not done yet.
+- **Transport:** the laptop refuses a plain-http relay unless it is loopback or a private address. The relay must sit behind HTTPS; with `--behind-proxy`, sign-up limits count real clients through X-Forwarded-For. It sees the forwarded content (screen frames included). End-to-end encryption is not done yet.
+- **Replies:** a reply is kept only for a request of the same account that is still waiting. A late reply, or one from another account, is dropped.
 
 ## 4c. What Chutku learns about the owner (2026-11-01)
 - `chutku/know_me.py` builds `data/know_me.json` locally every 6 hours: the owner's video library (Videos, Downloads, Telegram Desktop and the folders in the `media_folders` preference), VLC's recent-media history, app launch counts (Windows UserAssist) and the most-visited domains from a temporary copy of Brave's History database (30 days).
