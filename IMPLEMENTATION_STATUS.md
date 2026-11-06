@@ -16,6 +16,16 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: No GPU, no crash (O3)
+
+- `tests/test_no_gpu_o3.py`, 3 tests:
+  - a missing GPU runtime folder → only the CPU llama.cpp runtime is offered;
+  - a GPU runtime whose folder digest doesn't match is never used (CPU only);
+  - speech-to-text falls back from the GPU Whisper model to the CPU one when the GPU load fails (e.g. no CUDA), keeps the reason, and doesn't retry the GPU model.
+- `BrainService` already tries each candidate in order (GPU, then CPU) and starts the first that works.
+- **Real path so far:** the fresh-clone install (no GPU runtime, no models) passed the health check and answered "what time is it" (2026-11-05). With no local model, the cloud brain or the instant rules answer.
+- **Not run:** a full CPU-only local-model planning run on a PC without a GPU.
+
 ### 2026-11-06: First-run setup for a new owner (O4)
 
 - **`python -m chutku.cli setup`** (`chutku/setup_wizard.py`) asks 4 questions, each skippable with Enter. Each reuses an existing path:

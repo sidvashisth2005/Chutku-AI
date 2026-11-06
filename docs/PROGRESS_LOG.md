@@ -44,6 +44,7 @@ This log says what was done, what is finished, and what remains of the plan, so 
 **Open source**
 - **O1–O2:** owner paths became settings (`user_folder`, `media_folders`), and personal names were scrubbed.
 - **O4:** `Install-Chutku.cmd` plus a first-run `chutku.cli setup` (name, key, mic, autonomy), both tested in a fresh clone. It fetches models and runtimes and checks their hashes.
+- **O3:** no-GPU fallback tested (CPU runtime and CPU Whisper).
 - **O5:** MIT `LICENSE`, a README for new users, `CONTRIBUTING.md`, CI.
 - **O6:** `docs/RELEASE_CHECKLIST.md`. No keys anywhere in git history. A fresh repo is recommended for publishing.
 
@@ -90,7 +91,6 @@ This log says what was done, what is finished, and what remains of the plan, so 
    - **X13:** YouTube inside the HUD.
    - **X14:** web autopilot in a dedicated signed-in browser profile over CDP, plus `browser.extract`.
    - **X18:** builder upgrade.
-   - **O3:** no-GPU fallback test.
    - **V1–V6** leftovers: the Gemini Live check, the heal test, and the screen copilot live check.
 5. **Known limits to improve:**
    - the local 4B model is weak on multi-step offline goals (X3 offline 6–9/12);
