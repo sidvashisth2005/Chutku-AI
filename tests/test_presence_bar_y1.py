@@ -1,5 +1,6 @@
 """Y1 (2026-11-06): Chutku starts as a small bar at the top centre; expand shows the full window and back."""
 import sys
+from pathlib import Path
 import time
 import types
 import unittest
@@ -42,6 +43,9 @@ class BridgeTests(unittest.TestCase):
     def setUp(self):
         self.log = []
         self.bridge = presence.Bridge(FakeWindow(self.log, "bar"), FakeWindow(self.log, "full"))
+        quiet = patch.object(presence, "_log")   # never write to the owner's data/logs from a test
+        quiet.start()
+        self.addCleanup(quiet.stop)
 
     def test_expand_shows_the_full_window_and_hides_the_bar_and_back(self):
         self.assertEqual(self.bridge.expand(), {"view": "full"})
@@ -51,8 +55,30 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(settle(self.log, 2), [("show", "bar"), ("hide", "full")])
 
     def test_asking_for_the_view_already_shown_does_nothing(self):
+        self.bridge.compact()
+        settle(self.log, 2)
+        self.log.clear()
         self.assertEqual(self.bridge.compact(), {"view": "bar"})
         self.assertEqual(settle(self.log, 1), [])
+
+    def test_nothing_shows_until_wanted_and_ctrl_alt_c_toggles(self):
+        """Owner 2026-11-06: "it must not always be there; it appears when I press its hotkey, vanishes if pressed again"."""
+        self.assertEqual(self.bridge.view, "none")
+        self.assertEqual(self.bridge.toggle(), {"view": "bar"})
+        self.assertEqual(settle(self.log, 2), [("show", "bar"), ("hide", "full")])
+        self.log.clear()
+        self.assertEqual(self.bridge.toggle(), {"view": "none"})
+        self.assertEqual(sorted(settle(self.log, 2)), [("hide", "bar"), ("hide", "full")])
+        self.bridge.expand()
+        self.assertEqual(self.bridge.toggle(), {"view": "none"})   # the full window goes away too
+
+    def test_the_bar_peeks_while_she_works_and_leaves_unless_pinned(self):
+        self.assertEqual(self.bridge.peek(), {"view": "bar"})
+        self.assertEqual(self.bridge.unpeek(), {"view": "none"})
+        self.bridge.toggle()                                       # pinned with Ctrl+Alt+C
+        self.assertEqual(self.bridge.unpeek(), {"view": "bar"})    # stays
+        self.bridge.expand()
+        self.assertEqual(self.bridge.unpeek(), {"view": "full"})   # the full window is never hidden by itself
 
     def test_two_quick_clicks_never_leave_both_windows_shown(self):
         self.bridge.expand()
@@ -61,7 +87,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(log[-2:], [("show", "bar"), ("hide", "full")])
 
     def test_without_windows_it_is_harmless(self):
-        self.assertEqual(presence.Bridge().expand(), {"view": "bar"})
+        self.assertEqual(presence.Bridge().expand(), {"view": "none"})
 
 
 class WindowSetupTests(unittest.TestCase):
@@ -70,6 +96,16 @@ class WindowSetupTests(unittest.TestCase):
         self.assertEqual(presence.presence_url(LINK), "http://127.0.0.1:8765/presence#token=abc")
         with self.assertRaises(ValueError):
             presence.presence_url("https://evil.example/#token=abc", "bar")
+
+    def test_the_bar_returns_where_it_was_dragged_if_that_is_still_on_screen(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp, patch.object(presence, "PROJECT_ROOT", Path(temp)),                 patch.object(presence, "work_area", return_value=(0, 0, 1920, 1040)):
+            (Path(temp) / "data").mkdir()
+            self.assertEqual(presence.bar_place(), presence.top_centre(presence.BAR))   # nothing saved yet
+            presence.remember_place(100, 600)
+            self.assertEqual(presence.bar_place(), (100, 600))
+            presence.remember_place(5000, 600)                                          # off screen: back to top centre
+            self.assertEqual(presence.bar_place(), presence.top_centre(presence.BAR))
 
     def test_the_bar_sits_at_the_top_centre_of_the_work_area(self):
         with patch.object(presence, "work_area", return_value=(0, 0, 1920, 1040)):
@@ -91,9 +127,11 @@ class WindowSetupTests(unittest.TestCase):
         self.assertFalse(full["frameless"])
         self.assertEqual((bar_title, bar_url), (presence.BAR_TITLE, "http://127.0.0.1:8765/presence?view=bar#token=abc"))
         self.assertEqual((bar["width"], bar["height"]), presence.BAR)
-        self.assertTrue(bar["frameless"] and bar["on_top"] and not bar.get("hidden"))
+        self.assertTrue(bar["frameless"] and bar["on_top"] and bar["easy_drag"] and bar["hidden"])   # hidden until wanted
         self.assertIs(full["js_api"], bar["js_api"])
-        self.assertIs(full["js_api"].full, full_window)
+        bridge = full["js_api"]   # it switches windows through Windows itself, never pywebview (2026-11-06 deadlock)
+        self.assertEqual((type(bridge.full), bridge.full.title, bridge.bar.title),
+                         (presence.NativeWindow, presence.TITLE, presence.BAR_TITLE))
         for window in (full_window, bar_window):   # closing either still quits Chutku (owner, 2026-11-01)
             self.assertEqual(window.events.closed, [presence.quit_chutku])
         self.assertEqual(len(started), 1)
@@ -136,3 +174,35 @@ class BarPageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StateWatcherTests(unittest.TestCase):
+    """2026-11-06: the bar appears while she works, leaves when she is quiet, and an approval opens the full window."""
+
+    def run_states(self, states, *, pinned=False):
+        log = []
+        bridge = presence.Bridge(FakeWindow(log, "bar"), FakeWindow(log, "full"))
+        if pinned:
+            bridge.toggle()
+        feed = iter(states)
+        watcher = presence.StateWatcher(bridge, LINK, fetch=lambda: next(feed))
+        views = []
+        with patch.object(presence, "_log"):
+            for now, _state in enumerate(states):
+                watcher.step(float(now))
+                views.append(bridge.view)
+        return views
+
+    def test_peeks_while_busy_and_leaves_after_the_quiet_time(self):
+        idle, busy = {"phase": "idle"}, {"phase": "thinking"}
+        states = [idle, busy, busy, idle] + [idle] * 8
+        views = self.run_states(states)
+        self.assertEqual(views[:4], ["none", "bar", "bar", "bar"])
+        self.assertEqual(views[-1], "none")                      # gone QUIET_SECONDS after she was done
+        self.assertEqual(views[3 + int(presence.QUIET_SECONDS) - 1], "bar")   # not before
+
+    def test_a_pinned_bar_stays_and_an_approval_opens_the_full_window_once(self):
+        self.assertEqual(self.run_states([{"phase": "idle"}] * 10, pinned=True)[-1], "bar")
+        pending = {"phase": "confirm", "session_id": "s1", "pending": {"tool": "filesystem.recycle"}}
+        views = self.run_states([pending, pending, {"phase": "done"}])
+        self.assertEqual(views, ["full", "full", "full"])   # the full window is never hidden by itself

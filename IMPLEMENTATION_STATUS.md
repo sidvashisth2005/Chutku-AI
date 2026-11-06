@@ -16,6 +16,31 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: The bar hides until wanted (Ctrl+Alt+C), is smaller, draggable, shows the live conversation; a window freeze fixed
+
+- **Owner request:** "not always there; appear on the hotkey, vanish if pressed again; smaller; draggable; show what I say and what Chutku says".
+- **The bar:**
+  - starts hidden, and is now 300×40;
+  - **Ctrl+Alt+C** toggles it; it is registered by the bar's own process (`presence.listen_for_toggle`);
+  - `StateWatcher` (a Python thread reading `/api/presence` every 300 ms) shows it while she listens or works,
+    hides it 6 s after, and opens the full window for each new approval;
+  - a pinned bar stays.
+  - The watcher is in Python because a hidden WebView2 page pauses its timers: the page-based version never
+    noticed she was working.
+  - The position is remembered (`data/presence.json`) when still on screen.
+  - The text area is a drag region.
+  - The line shows "You: …" / "Chutku: …" from the live transcript.
+- **Freeze fixed:** pywebview `show()`/`hide()` from a background thread deadlocked both windows live (both
+  "not responding" after the first Ctrl+Alt+C). The Bridge now uses `NativeWindow` (Win32 `ShowWindowAsync` on
+  the handle). The Y1 expand button used the same path, so it is fixed by the same change. A log is kept in
+  `data/logs/presence.log`.
+- **Live:** hidden at start, 375×50 px physical. Four Ctrl+Alt+C presses gave show, hide, show, hide, with no
+  window hung.
+- **Not tested live:** the auto-show only follows the voice flow (typed dashboard requests don't set the presence
+  phase); it needs the owner pressing Ctrl+Alt+Space.
+- **Tests:** `tests/test_presence_bar_y1.py`, 15 tests (toggle, peek/unpeek, pin, approval expand, remembered
+  place). Full suite: 1,331 OK.
+
 ### 2026-11-06: Chutku starts as a small bar at the top centre (Y1)
 
 Built by the helper agent "Pixel" (`docs/AGENT_PROMPTS.md` #20), merged cleanly.

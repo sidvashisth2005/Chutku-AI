@@ -144,7 +144,7 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 ## 3. Things you can say
 
 **New on 2026-11-06: Chutku starts small**
-- When she turns on, a slim rounded bar appears at the top centre of the screen: her eyes and one line saying what she heard, what she is doing, or her answer. Drag it to move it.
+- The bar is **hidden** until you want it: **Ctrl+Alt+C** shows it, Ctrl+Alt+C again hides it. While she listens or works (Ctrl+Alt+Space) it appears by itself and goes away about 6 seconds after she is done, unless you pinned it with Ctrl+Alt+C. It shows what you say ("You: ...") and what she says ("Chutku: ...") live. Drag it anywhere; it remembers where you left it.
 - Click the expand icon at the right end of the bar to open the full window. The "to bar" icon at the top right of the full window shrinks it back.
 - When she needs your OK, the full window opens by itself with Approve and Cancel, so an approval never hides.
 - Her eyes react: hearts when you thank her, spirals when she has to ask you something, angry brows when you sound annoyed, happy ^ ^ after a verified task, sad after a failure, closed when paused.

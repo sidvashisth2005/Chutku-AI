@@ -221,27 +221,25 @@ function windowApi(name){   // pywebview's js_api (chutku/presence.py Bridge); f
   if(call){ call().catch(() => {}); return true; }
   return false;
 }
-function barText(){   // one line: what needs him, what she heard, what she is doing, or what she answered
-  const live = (state.conversation||[]).slice(-1)[0];
-  const reply = state.reply || (live && live[0]==="chutku" ? live[1] : "");
+function barText(){   // one live line (owner, 2026-11-06): what he says and what she says, as it happens
+  const live = (state.conversation||[]).slice(-1)[0];   // Gemini Live streams both sides here, word by word
   const step = (state.steps||[]).find(s => !s.state || s.state==="EXECUTING");
-  const heard = state.heard ? "“" + state.heard + "”" : "";
   if(state.pending) return "Needs your OK: " + (state.pending.consequence || state.pending.tool);
   if(state.phase==="paused") return state.message || "Actions are paused.";
   if(state.phase==="error") return state.message || "Something went wrong.";
-  if(state.phase==="listening") return heard || "Listening…";
-  if(state.phase==="thinking" || state.phase==="running") return step ? (step.purpose || step.tool) : (heard || "Thinking…");
-  if(reply && ["speaking","done","clarify"].includes(state.phase)) return reply;
-  return state.mic_muted ? "Mic is muted (Ctrl+Alt+X)" : "Ready · Ctrl+Alt+Space to talk";
+  if(live && live[1] && state.phase !== "idle") return (live[0]==="chutku" ? "Chutku: " : "You: ") + live[1];
+  if(state.phase==="listening") return state.heard ? "You: " + state.heard : "Listening…";
+  if(state.phase==="thinking" || state.phase==="running")
+    return step ? (step.purpose || step.tool) : (state.heard ? "You: " + state.heard : "Thinking…");
+  if(state.reply && ["speaking","done","clarify"].includes(state.phase)) return "Chutku: " + state.reply;
+  return state.mic_muted ? "Mic is muted (Ctrl+Alt+X)" : "Ready · Ctrl+Alt+Space";
 }
-let expandedFor = "";
+// Showing/hiding the bar while she works and opening the full window for an approval are decided in Python
+// (chutku/presence.py StateWatcher): a hidden WebView2 window pauses its timers.
 function renderBar(){
   document.body.dataset.phase = state.phase;
   const text = barText(), line = $("strip-text");
   if(line.textContent !== text){ line.textContent = text; line.title = text; }
-  // an approval never waits unseen in the bar: the full window opens once for each new one
-  const key = state.pending ? state.session_id + "|" + (state.pending.consequence || state.pending.tool) : "";
-  if(key && key !== expandedFor){ expandedFor = key; windowApi("expand"); }
 }
 function render(){
   if(BAR) return renderBar();
@@ -262,6 +260,7 @@ async function poll(){
   try{ state = await api("/api/presence"); render(); }
   catch{ state = {...state, phase:"error", mood:"sorry", message:"Chutku is not running."}; render(); }
   // the window not showing (bar or full, Y1) polls once a second; the one on screen stays live
+  // a window not on screen rests (1 s); the Python StateWatcher decides when it appears
   setTimeout(poll, document.hidden ? 1000 : state.phase==="idle" || state.phase==="paused" ? 400 : 100);
 }
 async function decide(approve){
