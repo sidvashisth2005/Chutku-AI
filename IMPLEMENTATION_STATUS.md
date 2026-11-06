@@ -16,6 +16,17 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Pull tables and lists from a web page (X14, extraction half)
+
+- `browser.extract` (R0, `internet.read`, egress) fetches through the existing safe `internet.fetch` (public addresses only, redirects re-checked, bounded).
+- It returns the page's tables (rows of cells, at least a header plus one row) and real lists (3+ items; menus are dropped).
+  - Scripts and styles are skipped; `<br>` becomes a space.
+  - Bounded at 20 tables × 200 rows × 30 cells.
+- It is a tainting tool: the rows are outside content.
+- **Tests:** `tests/test_browser_extract_x14.py`, 2 tests.
+- **Live:** the Wikipedia population list took 1.3 s and gave 3 tables and 9 lists, with the rows checked (World 8,232,000,000; India 1,429,404,000; China 1,404,890,000).
+- **Still open (X14):** the dedicated signed-in browser profile over CDP. That needs the owner to sign in once.
+
 ### 2026-11-06: No GPU, no crash (O3)
 
 - `tests/test_no_gpu_o3.py`, 3 tests:

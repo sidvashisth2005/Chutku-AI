@@ -83,6 +83,7 @@ TAINTING_TOOLS = frozenset({
     "message.read_chat", "image.describe", "screen.click",
     "system.powershell",   # command output is outside text
     "skill.procedure",     # an imported SKILL.md is outside text (X17)
+    "browser.extract",     # tables and lists from a web page are outside text (X14)
 })
 SKILL_PREFIX = "skill."   # self-written skills (X15): their output is outside text and may hold private data
 # Tools that read the user's private data. After one of these, network requests need a click,

@@ -183,6 +183,77 @@ def _read(arguments, _context):
     return ToolResult(output, Verification.PASS, {"url": final, "characters": len(text), "text": "[REDACTED]"})
 
 
+class _TableParser(__import__("html.parser").parser.HTMLParser):
+    """Tables (rows of cells) and lists (items) of a page; text only, bounded (X14 browser.extract)."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.tables, self.lists, self._cell, self._row, self._item = [], [], None, None, None
+        self._skip = 0
+
+    def handle_starttag(self, tag, _attrs):
+        if tag in {"script", "style", "noscript"}:
+            self._skip += 1
+        elif tag == "br":   # "% of<br>world" -> "% of world"
+            self.handle_data(" ")
+        elif tag == "table" and len(self.tables) < 20:
+            self.tables.append([])
+        elif tag == "tr" and self.tables:
+            self._row = []
+        elif tag in {"td", "th"} and self._row is not None:
+            self._cell = []
+        elif tag in {"ul", "ol"} and len(self.lists) < 20:
+            self.lists.append([])
+        elif tag == "li" and self.lists:
+            self._item = []
+
+    def handle_endtag(self, tag):
+        if tag in {"script", "style", "noscript"}:
+            self._skip = max(0, self._skip - 1)
+        elif tag in {"td", "th"} and self._cell is not None and self._row is not None:
+            self._row.append(" ".join("".join(self._cell).split())[:200])
+            self._cell = None
+        elif tag == "tr" and self._row is not None and self.tables:
+            if any(self._row) and len(self.tables[-1]) < 200:
+                self.tables[-1].append(self._row[:30])
+            self._row = None
+        elif tag == "li" and self._item is not None and self.lists:
+            text = " ".join("".join(self._item).split())[:300]
+            if text and len(self.lists[-1]) < 200:
+                self.lists[-1].append(text)
+            self._item = None
+
+    def handle_data(self, data):
+        if self._skip:
+            return
+        if self._cell is not None:
+            self._cell.append(data)
+        if self._item is not None:
+            self._item.append(data)
+
+
+def extract_structured(html):
+    parser = _TableParser()
+    parser.feed(html)
+    tables = [t for t in parser.tables if len(t) >= 2]          # a header and at least one row
+    lists = [items for items in parser.lists if len(items) >= 3]  # menus of one or two links are noise
+    return tables, lists
+
+
+def _extract(arguments, _context):
+    try:
+        html, final = fetch(arguments["url"])
+    except (OSError, ValueError) as error:
+        return ToolResult({"error": str(error)}, Verification.FAIL)
+    tables, lists = extract_structured(html)
+    if not tables and not lists:
+        return ToolResult({"error": "No table or list found on that page (it may need a real browser)."},
+                          Verification.FAIL)
+    output = {"url": final, "tables": tables[:5], "lists": lists[:5], "table_count": len(tables),
+              "list_count": len(lists), "provenance": "external_untrusted"}
+    return ToolResult(output, Verification.PASS, {"url": final, "tables": len(tables), "lists": len(lists)})
+
+
 def search_results(query, count=6):
     q = urllib.parse.quote_plus(query)
     results = []
@@ -309,6 +380,12 @@ def register_internet_tools(registry):
         argument_schema={"type": "object", "properties": {"url": {"type": "string", "minLength": 8, "maxLength": 2000}},
                          "required": ["url"], "additionalProperties": False},
         success_predicate="public_page_text_read", **net))
+    registry.register(Tool("browser.extract", "Pull the tables and lists from a public web page as rows (prices, "
+        "schedules, rankings, specs) for comparing or saving. Read only; the page is outside content.",
+        Risk.OBSERVATION, _extract, _validate(["url"]), reversibility="not_applicable",
+        argument_schema={"type": "object", "properties": {"url": {"type": "string", "minLength": 8, "maxLength": 2000}},
+                         "required": ["url"], "additionalProperties": False},
+        success_predicate="public_page_tables_read", **net))
     registry.register(Tool("web.results", "Get web search results (title, link, snippet) to answer a question, "
         "compare things or check prices; read a result with web.read for detail.",
         Risk.OBSERVATION, _results, _validate(["query"], ["count"]), reversibility="not_applicable",
