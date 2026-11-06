@@ -64,7 +64,8 @@ class ProcessToolTests(unittest.TestCase):
             executable.write_bytes(b"fixture")
             process = Mock(pid=321)
             process.poll.return_value = None
-            observed = [{"pid": 321, "name": "test.exe", "executable": str(executable)}]
+            # Windows reports the full long path, never an 8.3 alias like the CI runner's C:\Users\RUNNER~1\...
+            observed = [{"pid": 321, "name": "test.exe", "executable": str(executable.resolve())}]
             denied = runtime.run("process.launch", {"executable": str(executable)})
             self.assertEqual(denied["state"], "DENIED")
             runtime.capability_grants.grant("process.launch")

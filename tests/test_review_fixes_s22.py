@@ -80,7 +80,8 @@ class VoiceReviewTests(unittest.TestCase):
             np.save(path, np.ones(256, dtype=np.float32) / 16)
             Preferences(base).update({"voice_lock": True})
             speaker.note_utterance(b"\x01\x00" * 48000)
-            with patch.object(speaker, "embed", return_value=np.ones(256, dtype=np.float32) / 16):
+            with patch.object(speaker, "embed", return_value=np.ones(256, dtype=np.float32) / 16), \
+                    patch.object(speaker, "available", return_value=True):   # the git-ignored model; embed is faked
                 self.assertTrue(speaker.verify_recent(base)[0])
             self.assertEqual(speaker.verify_recent(base), (False, None))   # used once: nothing left to vouch
             with patch.object(speaker, "_live_window", return_value=b""), \

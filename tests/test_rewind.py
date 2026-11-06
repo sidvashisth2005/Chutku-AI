@@ -107,7 +107,7 @@ class RewindTests(unittest.TestCase):
         write.assert_not_called()
 
     def test_no_grant_no_undo(self):
-        outside = Path(self.temp.name) / "outside"
+        outside = Path(self.temp.name).resolve() / "outside"   # grants are stored resolved; CI's TEMP is RUNNER~1
         outside.mkdir()
         grant = self.runtime.resource_grants.grant(outside, {"observe", "modify"})
         with create_runtime(self.base, grant.grant_id) as other:
