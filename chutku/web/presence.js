@@ -236,10 +236,21 @@ function barText(){   // one live line (owner, 2026-11-06): what he says and wha
 }
 // Showing/hiding the bar while she works and opening the full window for an approval are decided in Python
 // (chutku/presence.py StateWatcher): a hidden WebView2 window pauses its timers.
+// Live captions (owner 2026-11-06: "no dot dot, the words should appear and vanish in real time"): the newest
+// words that fit, with the oldest dropped word by word, and the speaker label kept in front.
+function showNewestWords(line, text){
+  const m = text.match(/^(You: |Chutku: )/), label = m ? m[1] : "", words = text.slice(label.length).split(/\s+/);
+  let start = 0;
+  line.textContent = text;
+  while(line.scrollWidth > line.clientWidth && start < words.length - 1){
+    start++;
+    line.textContent = label + words.slice(start).join(" ");
+  }
+}
 function renderBar(){
   document.body.dataset.phase = state.phase;
   const text = barText(), line = $("strip-text");
-  if(line.textContent !== text){ line.textContent = text; line.title = text; }
+  if(line.title !== text){ line.title = text; showNewestWords(line, text); }
 }
 function render(){
   if(BAR) return renderBar();

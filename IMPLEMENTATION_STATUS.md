@@ -16,6 +16,13 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: The bar's line shows live words, not "…"
+
+- **Owner:** "no dot dot; the words should appear and vanish in real time".
+- The bar line no longer ends in an ellipsis. `showNewestWords` keeps the newest words that fit and drops the oldest word by word, keeping the "You:" / "Chutku:" label.
+- **Headless Edge** on the real `/presence?view=bar` page (a 300×40 viewport, a streamed reply fed in 3 words at a time): the line moved "Chutku: badhiya hoon yaar aur" → "…tum batao aaj kya plan hai" → "…ya bas baatein karni hain", with no ellipsis.
+- Presence tests OK.
+
 ### 2026-11-06: Pull tables and lists from a web page (X14, extraction half)
 
 - `browser.extract` (R0, `internet.read`, egress) fetches through the existing safe `internet.fetch` (public addresses only, redirects re-checked, bounded).
