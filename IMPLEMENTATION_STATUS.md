@@ -16,6 +16,35 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Chutku starts as a small bar at the top centre (Y1)
+
+Built by the helper agent "Pixel" (`docs/AGENT_PROMPTS.md` #20), merged cleanly.
+
+**What it does**
+- Start-up shows **"Chutku Bar"**:
+  - 420×52, frameless, always on top, centred at the top of the work area;
+  - Windows 11 rounded corners (`DwmSetWindowAttribute` 33 = round);
+  - her eyes, one status line, and an expand button.
+- Expand shows the full "Chutku Assistant" window and hides the bar; its "to bar" button reverses it. It is a
+  pywebview `Bridge`, with the window calls made off the js_api thread.
+- A pending approval opens the full window once.
+- Closing either window quits Chutku.
+- Same page: `/presence?view=bar`, one poll loop, the strict CSP kept. The hidden window polls once a second.
+- **New eye moods:** love (hearts, on thanks), annoyed (brows, on annoyed words), confused (spirals, on clarify).
+  These are word cues, marked as a shortcut.
+
+**Tests and checks**
+- `tests/test_presence_bar_y1.py`, 10 tests; `node --check` OK.
+- Headless Edge screenshots of 10 bar moods, both buttons calling the Bridge, and the approval expanding once.
+- Full suite after the merge: 1,326 OK (247 s); `check_phrases.py` 145/145.
+
+**Live after a redeploy (window properties, no clicks)**
+- "Chutku Bar": visible, topmost, rect (697,12)-(1222,77), i.e. 525×65 physical (420×52 at 125%), centred on the
+  1920-wide work area, corner preference 2 (round).
+- "Chutku Assistant": hidden.
+- **Not yet checked by a click:** expand/compact swapping, dragging, and an approval opening the full window. That
+  needs the owner at the desk.
+
 ### 2026-11-06: Ask a question while a task runs (Y3, parallel lane)
 
 - **Before:** every request waited in one line behind the running task, even "D drive mein kitni jagah hai?".

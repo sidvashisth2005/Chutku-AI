@@ -143,6 +143,14 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 
 ## 3. Things you can say
 
+**New on 2026-11-06: Chutku starts small**
+- When she turns on, a slim rounded bar appears at the top centre of the screen: her eyes and one line saying what she heard, what she is doing, or her answer. Drag it to move it.
+- Click the expand icon at the right end of the bar to open the full window. The "to bar" icon at the top right of the full window shrinks it back.
+- When she needs your OK, the full window opens by itself with Approve and Cancel, so an approval never hides.
+- Her eyes react: hearts when you thank her, spirals when she has to ask you something, angry brows when you sound annoyed, happy ^ ^ after a verified task, sad after a failure, closed when paused.
+- Closing either window quits Chutku, as before.
+- While a task runs you can still ask questions ("D drive mein kitni jagah hai?"): she answers at once. A new order waits until the running one finishes.
+
 **New on 2026-11-06: give the order and go for a coffee**
 - Add **"bina puche kar do"**, "approval mat maangna", "main abhi approve kar raha hoon", "without asking" or "main coffee break pe ja raha hoon" to a request. That one task then runs **without asking for basic steps**: file changes Chutku can undo, Recycle-Bin deletes, closing apps and so on. It still asks for the **very risky** ones: power or killing programs, running code or PowerShell, messages or emails to people not in its memory, anything after a web page or message tried to give orders, and changes built from text it read online. System folders stay off limits.
 - In the middle of a task, answering an approval with "haan, aur baar baar mat pucho" approves that step **and** stops asking for basic steps for the rest of that task.

@@ -32,6 +32,8 @@ How the work is split:
 | 17 | 2026-11-05 | `ad67e502` | agent (general-purpose, worktree) "Quill" | Build X8 draft-first email, X9 stock quotes |
 | 18 | 2026-11-05 | `ad67e502` | agent (general-purpose, worktree) "Sentinel" | Make CI green on a fresh clone without weakening tests |
 | 19 | 2026-11-05 | `ad67e502` | agent (general-purpose, worktree) "Forge" | Build X15 skill format/runner, X16 self-written skills |
+| 20 | 2026-11-06 | `ad67e502` | agent "Pixel" (resumed, worktree) | Build Y1 compact top bar with eyes + expand |
+| 21 | 2026-11-06 | `ad67e502` | agent (general-purpose, worktree) "Sage" | Build Y2 Evolve: proposals, owner approval, test-gated self-change |
 
 ## 1. Investigate random noise being taken as commands
 
@@ -568,4 +570,67 @@ Rules:
 - Commit on your worktree branch as "X15+X16: <summary>" with no Co-Authored-By line. Do not push.
 
 Report: files, tools and their risks/flags, how approval and running work, test counts and the full-suite line, the real-path output, limits (be explicit that a skill runs with the owner's Windows rights: the click is the boundary, not a sandbox). Under 800 words plus the two proposed texts.
+````
+
+## 20. Build Y1 compact top bar with eyes + expand
+
+- **When:** 2026-11-06, session `ad67e502`
+- **Kind:** Message to the existing "Pixel" agent (resumed with its context), new worktree
+- **Why it was used:** The owner asked (2026-11-06) for Chutku to start as a small rounded bar at the top centre with reactive eyes and
+  an expand icon.
+- **What came of it:** Commit `7b98aaa` (branch `y1-compact-bar`), merged cleanly.
+- Live after a redeploy:
+  - the bar is visible, topmost, top centre, 525×65 physical (420×52 logical) px, rounded-corner preference set;
+  - the full window is hidden.
+
+**Prompt / input, word for word:**
+
+````text
+New task Y1 (Phase 7 in docs/MASTER_PLAN.md), same rules as before (your own fresh worktree from current main; tests; headless screenshots only; no edits to IMPLEMENTATION_STATUS.md / MASTER_PLAN.md / OWNER_GUIDE.md / AGENT_PROMPTS.md / README.md; CRLF kept; commit "Y1: <summary>" with no co-author line; don't push; report with proposed ledger + owner-guide text). Your X11/X12 face is merged in main.
+
+The owner (2026-11-06): "When I turn on Chutku it must not appear in such a big screen. It must appear in the middle top, as just a small rectangle with curved edges so it looks professional, with eyes in it that react to the conversation and things. There will be an enlarge icon; when I click it, Chutku opens as the big app like usual. Make Chutku minimal on screen and faster to use." They showed a screenshot of a slim dark rounded search-bar-like strip (about 600 x 36 px) at the top of the screen, and a sheet of cartoon eyes with many expressions (wide, sleepy, angry brows, hearts, spirals, side glances, half-closed).
+
+Design to build:
+- Start-up shows a COMPACT BAR: a frameless, always-on-top, rounded-rectangle window (about 360-440 x 48-56 px, Windows 11 rounded corners: DWMWA_WINDOW_CORNER_PREFERENCE=DWMWCP_ROUND via ctypes, or CSS radius on a transparent window if pywebview supports it on WebView2), centred at the top of the primary monitor's work area. Inside: the eyes (reuse your drawEye/mood code; add a few more expressive states from the owner's sheet where cheap: hearts for happy/love words, spirals for confused/error, angry brows when the owner sounds annoyed if the payload gives a cue, sleepy when paused), one line of live caption/status text (what she heard / is doing / the result, truncated), and an expand icon button. Dragging the bar should move it (pywebview easy_drag) if simple.
+- Expand icon: shows the existing full "Chutku Assistant" window (today's normal window from chutku/presence.py main(), at its usual size) and hides the bar; the full window gets a small "minimise to bar" control that hides it and shows the bar again. Closing the full window keeps today's behaviour (quits Chutku; the owner asked for that on 2026-11-01). Use pywebview's js_api (a small Bridge with expand()/compact() that run window.show()/hide() off the js_api thread, like the old 2026-10-30 fix noted in git history: window calls from js_api froze the page) and create both windows at start (bar visible, full hidden), or the simplest robust equivalent.
+- The page: reuse /presence with a query flag (e.g. /presence?view=bar) rendering the compact layout from the same /api/presence state, so there is one page and one poll loop; keep the strict CSP; no CDN/images.
+- Keep everything working: the Ctrl+Alt+Space flow, approvals (the bar shows approve/deny buttons or expands automatically when an approval is pending — choose expand-automatically if simpler, so the owner never misses one), the Tk HUD fallback when pywebview is missing.
+- Respect prefers-reduced-motion. Keep CPU low.
+Tests: Python tests for any new payload field / Bridge logic with a fake window; node --check; headless screenshots of the bar in several moods and of the expand/compact transition states (you cannot open real windows: the owner is using the PC). Report what you could NOT verify live (the real frameless window, corners, always-on-top) so I can check it on the desktop.
+````
+
+## 21. Build Y2 Evolve: proposals, owner approval, test-gated self-change
+
+- **When:** 2026-11-06, session `ad67e502`
+- **Kind:** Agent, type `general-purpose`, in its own git worktree, persona "Sage"
+- **Why it was used:** The owner asked (2026-11-06) for Chutku to improve herself daily: plan first, propose as advice, and on approval
+  build, test, keep or revert.
+- **What came of it:** (Recorded when its result is merged.)
+
+**Prompt / input, word for word:**
+
+````text
+You are "Sage", Chutku's improvement architect: patient, evidence-driven, allergic to changes nobody asked for, and absolutely strict that a system which edits itself must never be able to edit its own brakes.
+
+Repo (your own git worktree of D:\Project\Chutku): Chutku, a Python Windows voice assistant. Python: `D:\Project\Chutku\.venv\Scripts\python.exe` (run from your worktree). Read first: AGENTS.md, .claude/skills/ponytail/SKILL.md, .claude/skills/karpathy-guidelines/SKILL.md, docs/SECURITY.md, chutku/nightshift.py (the nightly job runner: run_once, _run_jobs, reports, morning_line, when-idle scheduling), chutku/skills.py (self-written skills: pending -> tests -> typed approve), chutku/coder.py + chutku/tools/builder.py (the coder: choose_coder, _ask_with_fallback, repair loop, keep_tests_fixed), chutku/learning.py, chutku/reflex.py, chutku/know_me.py, chutku/mind.py, chutku/recall.py, chutku/core/ledger.py (reliability per tool/target), and the logs it may read: data/actions.log.jsonl, data/conversations.jsonl, data/heard.jsonl, data/experience.jsonl (owner data: read locally, never send raw logs to a cloud model; send only short redacted summaries).
+
+The owner (2026-11-06): "Chutku must improve and enhance herself every day on her own. If she wants to add a feature she has thought of, she must plan everything first and then, after a full plan in the backend, propose it to me as advice. If I approve, she adds the feature to the codebase and tests it; if it works keep it, else revert to the previous version. She improves overnight or whenever internet is available, in the background: mind maps, user customisations, according to the user, the tasks and the behaviour the user shows."
+
+Build slice Y2 "Evolve" (and the profile part of Y4) with exactly this safety design:
+1. Review (automatic, no changes): a Night Shift job `evolve_review` (also runnable on demand: "khud ko improve karo" / "improvement ideas do") that reads the last 7 days of local logs and computes evidence: failed or unverified steps by kind, slow requests (> 15 s), requests that went to the model but could be instant (repeated phrasings), misheard/ignored speech patterns, repeated asks the owner refused or approved every time, and owner habits (apps/times/phrases). It refreshes the owner profile/mind-map data where existing modules allow (know_me, mind, reflex) — local only.
+2. Proposals: from that evidence, up to 3 proposals per day, each a FULL plan saved as data/evolve/proposals/<id>.json and shown in plain words: title, the evidence (counts, examples, redacted), what would change (files/areas), the step plan, the test plan (which tests + which real check), risk and how it is undone. The cloud coder may draft the plan from the redacted evidence summary when online; offline, use deterministic proposal templates (e.g. "add instant phrase X -> tool Y, seen N times") so it works without internet.
+3. Owner decision: proposals are only advice. `evolve.list` (R0) shows them ("aaj ke suggestions", "improvement ideas"); `evolve.approve <id>` is user_only (typed, then a click: same pattern as skill.approve; never by the agent or by voice); `evolve.reject <id>`.
+4. Apply (only after approval), in a separate process/flow, never as an agent tool that edits the live checkout directly: create a git branch `evolve/<id>` in a git worktree under data/evolve/work/ from the current HEAD; let the coder write the change there (reuse the coder and the repair loop with keep_tests_fixed); run the FULL unit test suite and scripts/check_phrases.py in that worktree; if all green, fast-forward/merge the branch into main with a commit "Evolve <id>: <title>" (no co-author line) and record it; if anything fails, delete the branch and worktree (the main checkout was never touched) and mark the proposal failed with the reason. Pushing to GitHub happens only if the owner turned that on (a preference, default off) — say so in the reply.
+5. Hard boundary, enforced in code before any merge (and tested): an Evolve change may NOT modify chutku/policy/, chutku/runtime.py, chutku/core/ (grants, paths, elevation, action log, ledger), chutku/guard.py, chutku/tools/registry.py, chutku/skills.py, chutku/evolve*.py, AGENTS.md, docs/SECURITY.md, tests/test_docs_truth.py, tests/test_trusted_task.py, any test that checks a safety boundary (list them explicitly by name: test_autonomy_policy, test_protected_zones, test_taint*, test_elevation, test_injection*, test_failclosed*), .github/, requirements.lock, pyproject.toml; and it may not delete tests. A diff that touches any of these is refused and discarded. Also cap the diff size (e.g. 400 changed lines) and the number of files.
+6. Owner-customisation lane (no code): proposals of kind "phrase", "routine", "preference" or "skill" apply through the existing data paths (reflex/routines/preferences/skills.create) instead of editing code, still only after approval.
+Tests in new tests/test_evolve_y2.py with fake coders, temp git repos and temp data (never the real repo or the owner's data): review finds evidence from synthetic logs; proposals are full plans; approve is user_only (agent and voice denied); a passing change is merged into the temp repo's main; a failing change leaves main untouched and the branch removed; a diff touching chutku/policy or deleting a test is refused; offline proposals work without a cloud coder.
+
+Rules:
+- Full suite from your worktree (`D:\Project\Chutku\.venv\Scripts\python.exe -m unittest discover -s tests`, ~4-5 min); a fresh worktree lacks git-ignored models/ and data/: list any failures that also fail on an untouched checkout, don't fix them.
+- Real path: run evolve_review against a COPY of the owner's last-7-days logs in a temp folder (copy D:\Project\Chutku\data\actions.log.jsonl, conversations.jsonl, heard.jsonl, experience.jsonl into a temp base; do not write to the owner's data/), show the evidence and the proposals produced (offline mode), and run one full approve->apply cycle in a temporary git repo clone (not the owner's repo) with a fake coder. Do not open windows, type or click: the owner is using this PC.
+- Do NOT edit IMPLEMENTATION_STATUS.md, docs/MASTER_PLAN.md, docs/OWNER_GUIDE.md, docs/AGENT_PROMPTS.md, README.md. If test_docs_truth needs docs/SECURITY.md counts, run `scripts/security_counts.py` and add one short "Evolve" paragraph to docs/SECURITY.md describing the boundary.
+- Keep CRLF files CRLF (Edit tool; never sed -i or PowerShell Set-Content); check `git diff --stat`.
+- Commit as "Y2: <summary>" with no Co-Authored-By line. Do not push.
+
+Report: the design as built, files, tools/flags, the protected-path list as enforced, test counts and the full-suite line, the real-path evidence/proposals output, limits (be explicit about what Evolve can and cannot change), and (1) proposed ledger text, (2) proposed owner-guide lines. Under 900 words plus the two texts.
 ````
