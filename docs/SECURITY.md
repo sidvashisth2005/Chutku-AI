@@ -26,15 +26,17 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (190 registered, plus 136 app actions)
+### Risk levels and tools (194 registered, plus 136 app actions)
 
 | Level | Count | Meaning |
 |---|---|---|
-| R0 observation | 76 | reads only |
+| R0 observation | 77 | reads only |
 | R1 reversible | 54 | easily undone (open apps or pages, window and media control) |
-| R2 data modification | 25 | changes data, with runtime undo where available |
-| R3 external side effect | 28 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, email.send, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, settings.theme_restore, settings.theme_set, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close |
+| R2 data modification | 27 | changes data, with runtime undo where available |
+| R3 external side effect | 29 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, email.send, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, settings.theme_restore, settings.theme_set, skill.approve, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close |
 | R4 destructive / privileged | 7 | filesystem.delete_permanent, network.adapter_restore, network.adapter_set, power.cancel, power.schedule, process.terminate, system.powershell |
+
+**Self-written skills** (X15/X16, `chutku/skills.py`): `skill.create` has the coder write `skill.json`, `SKILL.md`, `tool.py` and `test_tool.py` into `data/skills/_pending/<name>`, runs the tests and repairs at most 3 times (a failing assertion cannot be edited away). Pending skills are never tools. `skill.approve` is `user_only` (typed, then a click): only if the tests pass again does it activate the skill and record the SHA-256 of its files; a skill whose files changed since is not registered or run. `skill.<name>` runs `python -I` in a child process (60 s, 8 KB JSON result, untrusted output) and always asks first. It runs with the owner's Windows rights: the click is the boundary, not a sandbox, and the manifest's `network` / `writes_files` flags are declarations, not enforced.
 
 **App actions** (`app.<app>.<action>`, App Mastery, `chutku/apps/atlas/*.json`) take their risk from the atlas class: safe → R1, changes → R2, consequential → R3, destructive → R4 with `deletes` (always asks). The atlas validator refuses URI schemes and programs that are not the app's own and unknown step verbs; keys and typing are sent only while the app's own window is in front; every action ends with its own check, and the kernel, never-rules, taint rules, ledger and action log apply as to any tool. Instant routing by phrase (`chutku/apps/phrases.py`) only picks actions the Action Lab has verified on this PC; anything else goes to the planner, which is offered an app's actions only when the request names that app. `apps.howto` (R0) reads only the checked-in feature maps (`docs/apps/*.md`), not web text.
 
@@ -48,7 +50,7 @@ Every tool call goes through `Runtime.run`:
 | **Owner** (default, owner's standing order 2026-10-04) | everything else | changing files (create-only tools excepted), every deletion, R4, messages to people not in memory |
 
 **In every mode, these always ask:**
-- Running code or a program with arguments (`Tool.runs_code`: `code.run_python`, `process.launch`, `system.powershell`). `system.powershell` is also R4, so its approval is never reused by a later request (a scheduled task or a re-sent task asks again).
+- Running code or a program with arguments (`Tool.runs_code`: `code.run_python`, `process.launch`, `system.powershell`, `skill.create`, `skill.approve` and every `skill.<name>`). `system.powershell` is also R4, so its approval is never reused by a later request (a scheduled task or a re-sent task asks again).
 - Typing into a command window, opening the Run box, or launching a command-line app.
 - Changing a saved contact's phone or WhatsApp name.
 - Sending an email (`email.send`, which also needs the `email.send` capability, not granted by default). `email.draft` only opens a draft in the mail app; the owner presses Send there.

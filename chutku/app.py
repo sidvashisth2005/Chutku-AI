@@ -36,4 +36,6 @@ def create_runtime(base: Path = PROJECT_ROOT, grant_id: str = "sandbox") -> Runt
     register_rewind_tools(registry, runtime)
     from chutku.tools.timeline_tools import register_timeline_tools
     register_timeline_tools(registry, runtime)
+    from chutku.skills import register_skill_tools   # X15: skill.* tools and the owner-approved skills
+    register_skill_tools(registry, base)
     return runtime

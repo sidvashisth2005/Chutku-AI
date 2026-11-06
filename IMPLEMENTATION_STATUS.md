@@ -16,6 +16,50 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Chutku writes her own skills, tested and owner-approved (X15, X16)
+
+Built by the helper agent "Forge" (`docs/AGENT_PROMPTS.md` #19). Merged; conflicts combined, counts rebuilt with
+`scripts/security_counts.py` (194 tools).
+
+**Format and files**
+- A skill is `data/skills/<name>/`: `skill.json` (strict: five keys, bounded string/number/boolean arguments), plus
+  `SKILL.md`, `tool.py` (`run(args) -> dict`) and `test_tool.py`.
+- Code: `chutku/skills.py` and `chutku/skill_runner.py`.
+
+**Tools**
+- `skill.create` (R2, runs_code):
+  - "ye kaam karne ka skill bana lo: …" / "make a skill that …";
+  - the coder (Gemini, else local, prompt `SKILL_SYSTEM`) writes it into `data/skills/_pending/`;
+  - its tests run in `python -I`, with up to 3 repairs; a repair can't rewrite a failing test (`keep_tests_fixed`).
+- `skill.approve` (R3, user_only, runs_code):
+  - typed "skill approve <name>" plus a click; never by the agent or by voice;
+  - re-runs the tests and records the SHA-256 of the four files.
+- `skill.<name>` (R3, runs_code):
+  - registered only when valid, approved and unchanged;
+  - runs in a child `python -I` with 60 s and 8 KB limits, output untrusted;
+  - the hash is checked again right before every run;
+  - **every run asks for a click** (owner decision D5).
+- `skill.list` (R0) and `skill.remove` (R2, Recycle Bin).
+- A pending skill is never a tool.
+
+**Evidence**
+- `tests/test_skills_x15_x16.py`, 18 tests:
+  - the full create → approve → run path in a child process;
+  - an agent or voice approval is denied;
+  - failing tests block approval;
+  - 12 bad manifests are rejected;
+  - timeout, raise, non-JSON and oversize results all fail;
+  - code swapped after the request is refused;
+  - a cheating test edit is discarded.
+- **Real path** in a temporary base with a fake coder: "convert celsius to fahrenheit" → create (click) → typed
+  approve (click) → `skill.celsius_to_f` {37} = 98.6, checked independently.
+- **Limits:**
+  - a skill runs with the owner's Windows rights: the click is the boundary, not a sandbox;
+  - `network` / `writes_files` are shown to the owner, not enforced.
+- **Open owner decision:** the existing 10-minute repeat-approval memory also covers `skill.<name>`, as it does
+  `code.run_python`.
+- Full suite after the merge: 1,308 OK (239 s); `check_phrases.py` 145/145.
+
 ### 2026-11-06: Email drafts and stock prices (X8, X9), CI green, and the planner A/B (X1): Qwen3.5 tested, not switched
 
 **X8 + X9** (helper agent "Quill", `docs/AGENT_PROMPTS.md` #17; merged, with `docs/SECURITY.md` rebuilt by the new

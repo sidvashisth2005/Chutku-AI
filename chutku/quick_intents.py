@@ -675,6 +675,30 @@ def _rewind(text):
     return None
 
 
+# Self-written skills (master plan X15/X16). Approving one is typed only ("skill approve <name>", router/catalog.py).
+_SKILL_CREATE = [
+    re.compile(rf"^{_POLITE}(?:ye|yeh|is|iss)?\s*kaam karne ka (?:ek |naya )?skill bana(?:o| lo| do| dena| de)\s*"
+               rf"[:,-]\s*(?P<what>.+?){_TAIL}$", re.I),
+    re.compile(rf"^{_POLITE}(?:make|create|write|build)\s+(?:me\s+)?(?:a\s+|an\s+|new\s+|a new\s+)?skill\s+"
+               rf"(?:that|which|to|for)\s+(?P<what>.+?){_TAIL}$", re.I),
+]
+_SKILL_LIST = re.compile(rf"^{_POLITE}(?:(?:meri |mere |tumhari |tumhare |apni )?skills? (?:dikhao|batao|list)|"
+                         rf"(?:list|show)(?: me)? (?:my|your|all)(?: the)? skills|(?:my|tumhari|meri) skills|"
+                         rf"skill list){_TAIL}$", re.I)
+
+
+def _skill(text):
+    if _SKILL_LIST.match(text):
+        return _proposal("skill.list", {}, "List the self-written skills", "", finish=False)
+    for pattern in _SKILL_CREATE:
+        if match := pattern.match(text):
+            what = match["what"].strip(" .'\"")
+            if 5 <= len(what) <= 2000:
+                return _proposal("skill.create", {"request": what}, f"Write and test a new skill: {what[:80]}", "",
+                                 finish=False)
+    return None
+
+
 def _single(goal, apps=None):
     text = " ".join(goal.split())
     app_action = _app_action(text)
@@ -722,6 +746,9 @@ def _single(goal, apps=None):
         return _done("Main chalu hi hoon. Bolo, kya karna hai?")   # (a real pause is lifted by the dashboard)
     if control in ("stop", "pause") and not re.fullmatch(r"\W*stop\W*", text, re.I):
         return _done("Nothing is running right now.")  # (the dashboard stops running work before this point)
+    skill = _skill(text)
+    if skill is not None:
+        return skill
     scheduled = _scheduled(text)
     if scheduled is not None:
         return scheduled
@@ -1697,7 +1724,7 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
                                "games.install", "message.send", "message.open_chat", "message.read_chat", "settings.theme_set", "apps.launch", "filesystem.list",
                                "file.extract_text", "mind.person", "mind.add",
                                "mind.done", "mind.fact", "mind.feedback", "mind.map", "settings.offline_mode",
-                               "settings.chutku", "media.play_series", "finance.quote"})
+                               "settings.chutku", "media.play_series", "finance.quote", "skill.create", "skill.list"})
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
@@ -1726,7 +1753,8 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "mind.who": _say_who, "mind.show": _say_mind, "windows.list": _say_windows,
                  "network.status": _say_adapters, "filesystem.list": _say_listing,
                  "message.open_chat": _say_open_chat, "message.read_chat": _say_read_chat,
-                 "finance.quote": lambda out: out["reply"]}
+                 "finance.quote": lambda out: out["reply"],
+                 "skill.list": lambda out: out["skill_reply"], "skill.create": lambda out: out["skill_reply"]}
 
 
 def quick_answer(session):

@@ -135,6 +135,11 @@ class QuickIntentTests(unittest.TestCase):
         samples["windows.list"] = {"windows": [{"title": "notes.txt - Notepad", "executable": "notepad.exe"}]}
         samples["finance.quote"] = {"reply": "Tata Consultancy Services Limited (TCS.NS) ₹2,495.70, +2.45%, as of "
                                              "15:28 IST.", "stale": False}
+        from chutku.skills import _say
+        samples["skill.list"] = {"skill_reply": _say([{"name": "word_count", "description": "Count words."}],
+                                                     [{"name": "c_to_f", "tests": "passed (OK)"}])}
+        samples["skill.create"] = {"skill_reply": "Skill c_to_f is written and its tests pass. It is pending: type "
+                                                  "'skill approve c_to_f' (then click) to turn it on."}
         samples_empty = {"apps.installed": {"query": "Steam", "apps": [], "count": 0, "truncated": False}}
         samples_empty["mind.who"] = {"name": "mammi", "known": False}
         samples_empty["mind.show"] = {"part": "all", "people": [], "facts": {}, "lists": {}}

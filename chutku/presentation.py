@@ -11,6 +11,11 @@ def present(result: dict[str, Any]) -> str:
         return result["reason"]
     if state == "COMPLETED":
         output = result.get("output", {})
+        if "skill_reply" in output:
+            return output["skill_reply"]
+        if "skill" in output and "result" in output:   # a self-written skill's run (its text is untrusted)
+            import json
+            return f"Skill {output['skill']} returned: {json.dumps(output['result'], ensure_ascii=False)[:600]}"
         if "transcript" in output:
             return ((f"Heard: {output['transcript']}\n" if output["transcript"] else "")
                     + output["message"] + " No action was executed. Audio was not saved.")
