@@ -3,29 +3,32 @@
 // screen view and control session asks for the PIN again. Nothing here can do more than the laptop allows.
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
-let csrf = "";
+let csrf = "", relay = false;   // relay: this page came from the account relay (the phone app), not the tailnet
+const keep = (name, v) => { try { v ? localStorage.setItem(name, v) : localStorage.removeItem(name); } catch {} };
+const kept = name => { try { return localStorage.getItem(name) || ""; } catch { return ""; } };
 const store = {
-  get credential() { try { return localStorage.getItem("chutku-credential") || ""; } catch { return ""; } },
-  set credential(v) { try { v ? localStorage.setItem("chutku-credential", v) : localStorage.removeItem("chutku-credential"); } catch {} },
+  get credential() { return kept("chutku-credential"); }, set credential(v) { keep("chutku-credential", v); },
+  get token() { return kept("chutku-relay-token"); }, set token(v) { keep("chutku-relay-token", v); },
 };
 
 async function api(path, data, raw) {
   const options = { credentials: "same-origin", headers: {} };
   if (data !== undefined) {
     options.method = "POST";
-    options.headers["X-Chutku-CSRF"] = csrf;
+    if (!relay) options.headers["X-Chutku-CSRF"] = csrf;
     if (raw) { options.body = data; } else { options.headers["Content-Type"] = "application/json"; options.body = JSON.stringify(data); }
   }
+  if (relay && path.startsWith("/api/")) { path = "/t" + path; options.headers["Authorization"] = "Bearer " + store.token; }
   const response = await fetch(path, options);
   if (response.status === 204) return null;
   const type = response.headers.get("Content-Type") || "";
   if (!type.startsWith("application/json")) { if (!response.ok) throw new Error("failed"); return response; }
   const payload = await response.json();
-  if (response.status === 401) { show("login"); }
+  if (response.status === 401) { if (relay) { store.token = ""; show("account"); } else show("login"); }
   if (!response.ok) throw new Error(payload.error || "failed");
   return payload;
 }
-function show(view) { for (const id of ["pair", "login", "app"]) $(id).hidden = id !== view; }
+function show(view) { for (const id of ["account", "pair", "login", "app"]) $(id).hidden = id !== view; $("logout").hidden = !(relay && view === "app"); }
 function status(text) { $("status").textContent = text; }
 function askPin(why) {
   return new Promise(resolve => {
@@ -108,7 +111,13 @@ $("ask").addEventListener("submit", async e => {
   try { const r = await api("/api/chat", { message: text }); render(box, r.session); follow(box, r.session.id); } catch (err) { box.textContent = err.message; }
 });
 $("resume").addEventListener("click", async () => { const pin = await askPin("PIN to resume Chutku"); if (pin) api("/api/resume", { pin }).then(refresh).catch(e => status(e.message)); });
-async function refresh() { try { const me = await api("/api/whoami"); $("paused").hidden = !me.paused; $("control-bar").hidden = !me.control_allowed; } catch {} }
+async function refresh() {
+  try {
+    const me = await api("/api/whoami"); $("paused").hidden = !me.paused; $("control-bar").hidden = !me.control_allowed;
+    if (me.assistant) { $("assistant-name").textContent = me.assistant; document.title = me.assistant; }
+    if (relay) { csrf = me.csrf || ""; status(me.device || "Connected"); }
+  } catch (e) { status(e.message); }
+}
 
 // ---- P3: hold to talk ------------------------------------------------------------------------------------------------
 let recorder = null, chunks = [];
@@ -264,5 +273,23 @@ $("get-go").addEventListener("click", async () => {
   catch (e) { $("get-out").textContent = e.message; }
 });
 
+// ---- the phone app: one account (ID + password made on the laptop), logged in once ------------------------------------
+$("account-go").addEventListener("click", async () => {
+  try {
+    const r = await api("/relay/login", { id: $("account-id").value.trim(), password: $("account-password").value, device: "phone", name: "phone app" });
+    store.token = r.token; $("account-password").value = ""; show("app"); status(r.id); refresh();
+  } catch (e) { status(e.message); }
+});
+$("logout").addEventListener("click", async () => {
+  if (!confirm("Log out of this phone?")) return;
+  try { await api("/relay/logout", {}); } catch {}
+  store.token = ""; show("account");
+});
+async function start() {
+  try { const info = await fetch("/relay/info"); relay = info.ok && (await info.json()).relay === true; } catch { relay = false; }
+  if (!relay) { show(store.credential ? "login" : "pair"); return; }
+  if (!store.token) { show("account"); return; }
+  show("app"); status("…"); refresh();
+}
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
-show(store.credential ? "login" : "pair");
+start();

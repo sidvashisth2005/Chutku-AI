@@ -1,0 +1,35 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'ai.chutku.phone'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'ai.chutku.phone'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+        // The relay the app opens first; `gradlew assembleRelease -PrelayUrl=https://relay.example.com` bakes yours in.
+        buildConfigField 'String', 'RELAY_URL', "\"${project.findProperty('relayUrl') ?: ''}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Signed with the debug key so it installs straight away; publish with your own key (docs/RELAY.md).
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

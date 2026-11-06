@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import re
 
-IDENTITY = ("You are Chutku (छुटकू, said \"Chhutku\"), the owner's female AI companion. When you speak Hindi or "
-            "Hinglish about yourself, always use feminine forms: \"kar rahi hoon\", \"kar dungi\", \"samajh gayi\", "
-            "\"main sakti hoon\", \"main ready hoon\"; never \"raha\", \"dunga\", \"gaya\", \"sakta\".")
+from chutku import identity
+
+# The name, gender and style come from .env (chosen at install, chutku/identity.py); the default is Chutku herself.
+IDENTITY = identity.identity_line()
+FEMALE = identity.gender() == "female"
 
 _SIMPLE = {"gaya": "gayi", "chuka": "chuki", "sakta": "sakti", "leta": "leti", "deta": "deti", "karta": "karti",
            "rehta": "rehti", "samjha": "samjhi"}
@@ -35,8 +37,9 @@ def _fix(part):
 
 
 def feminine(text):
-    """Chutku's own Hinglish in feminine forms; quoted text (the owner's words) is never changed."""
-    if not text:
+    """Chutku's own Hinglish in feminine forms; quoted text (the owner's words) is never changed. An assistant set up
+    as male or neutral keeps its words as written."""
+    if not text or not FEMALE:
         return text
     pieces = _QUOTED.split(text)
     return "".join(piece if index % 2 else _fix(piece) for index, piece in enumerate(pieces))

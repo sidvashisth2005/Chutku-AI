@@ -29,6 +29,7 @@ SESSION_SECONDS = 12 * 3600
 PIN_TRIES = 5
 RATE_PER_MINUTE = 30
 NONCE_SECONDS = 300
+RELAY_DEVICE = "relay"   # the phone app reaching this laptop through the account relay (chutku/relay)
 _lock = threading.RLock()
 
 
@@ -118,7 +119,7 @@ class RemoteStore:
                 data["pairing"] = pairing
                 self.save(data)
                 raise RemoteDenied("Wrong pairing code.")
-            devices = [d for d in data.get("devices", []) if not d.get("revoked")]
+            devices = [d for d in data.get("devices", []) if not d.get("revoked") and d.get("id") != RELAY_DEVICE]
             if len(devices) >= MAX_DEVICES:
                 raise RemoteDenied(f"At most {MAX_DEVICES} phones can be paired. Remove one on the laptop first.")
             device_id, secret = secrets.token_hex(6), secrets.token_urlsafe(32)
@@ -130,6 +131,24 @@ class RemoteStore:
             data.pop("pairing", None)     # single use
             self.save(data)
         return {"device_id": device_id, "credential": f"{device_id}.{secret}"}
+
+    def set_relay_pin(self, pin: str):
+        """The phone app (account relay) acts as one device, "relay": its PIN guards approvals, screen and control
+        like a paired phone's. Setting it again replaces the PIN and lifts a lock-out."""
+        if not valid_pin(pin):
+            raise RemoteDenied("Choose a 4-6 digit PIN.", 400)
+        salt = secrets.token_bytes(16)
+        with _lock:
+            data = self.load()
+            devices = [d for d in data.get("devices", []) if d.get("id") != RELAY_DEVICE]
+            devices.append({"id": RELAY_DEVICE, "name": "Phone app (account)", "secret": _hash(secrets.token_urlsafe(32)),
+                            "pin_salt": salt.hex(), "pin": pin_hash(pin, salt), "paired_at": self.clock(),
+                            "last_seen": None, "revoked": False, "bad_pins": 0})
+            data["devices"] = devices
+            self.save(data)
+
+    def relay_ready(self):
+        return any(d.get("id") == RELAY_DEVICE and not d.get("revoked") for d in self.load().get("devices", []))
 
     def revoke(self, device_id):
         with _lock:

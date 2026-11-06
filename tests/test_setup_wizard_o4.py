@@ -21,7 +21,7 @@ class SetupTests(unittest.TestCase):
 
     def test_name_key_mic_and_mode_are_stored_where_chutku_reads_them(self):
         with patch("chutku.providers.store_key") as store:
-            base, done = self.run_with(["Asha", "groq", "", "3"], key="gsk_test")
+            base, done = self.run_with(["", "", "Asha", "groq", "", "3", ""], key="gsk_test")
         store.assert_called_once_with("groq", "gsk_test")
         self.assertEqual(done, {"name": "Asha", "brain_key": "groq", "microphone": {"peak": 0.3, "heard": True},
                                 "mode": "auto_edits"})
@@ -31,14 +31,14 @@ class SetupTests(unittest.TestCase):
 
     def test_skipping_everything_changes_only_the_default_mode(self):
         with patch("chutku.providers.store_key") as store, patch("chutku.cloud_planner.store_key") as gem:
-            base, done = self.run_with(["", "", "n", ""])
+            base, done = self.run_with(["", "", "", "", "n", "", ""])
         store.assert_not_called()
         gem.assert_not_called()
         self.assertEqual(done, {"mode": "auto_safe"})   # Enter = 2: safe things alone, ask before changes
 
     def test_an_empty_key_is_not_stored(self):
         with patch("chutku.providers.store_key") as store:
-            _base, done = self.run_with(["", "groq", "n", "9"], key="   ")
+            _base, done = self.run_with(["", "", "", "groq", "n", "9", ""], key="   ")
         store.assert_not_called()
         self.assertNotIn("mode", done)   # an invalid choice changes nothing
 

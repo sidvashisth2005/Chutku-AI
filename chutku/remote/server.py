@@ -14,16 +14,18 @@ from __future__ import annotations
 
 from datetime import datetime
 import hashlib
+import hmac
 import io
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import secrets
 import threading
 import time
 from urllib.parse import parse_qs, urlsplit
 
 from chutku.core.paths import user_folder
-from chutku.remote.auth import RemoteDenied, RemoteStore
+from chutku.remote.auth import RELAY_DEVICE, RemoteDenied, RemoteStore
 
 WEB = Path(__file__).resolve().parents[1] / "web" / "phone"
 STATIC = {"/": ("index.html", "text/html; charset=utf-8"), "/phone.js": ("phone.js", "text/javascript; charset=utf-8"),
@@ -51,6 +53,9 @@ class RemoteServer(ThreadingHTTPServer):
         self.control = None               # control.ControlSession
         self.border = None                # the red border process while control is live
         self.stopped = threading.Event()
+        # The account relay's laptop client (chutku/relay/client.py) forwards phone requests here over loopback with
+        # this secret; it lives only in this process's memory.
+        self.relay_secret = secrets.token_urlsafe(32)
         super().__init__(("127.0.0.1", port), PhoneHandler)
 
     # -- laptop-side state ----------------------------------------------------------------------------------------
@@ -141,7 +146,21 @@ class PhoneHandler(BaseHTTPRequestHandler):
         self._reply(getattr(error, "status", 403), {"error": str(error)})
 
     # -- the gates ------------------------------------------------------------------------------------------------
+    def _relayed(self):
+        """True for a request the account relay client forwarded: loopback, this run's secret, and a phone PIN set up
+        for the relay. Such a request is the "relay" device; PIN, approval and control rules apply as for any phone."""
+        secret = self.headers.get("X-Chutku-Relay")
+        if secret is None:
+            return False
+        if self.client_address[0] != "127.0.0.1" or not hmac.compare_digest(secret, self.server.relay_secret):
+            raise RemoteDenied("Request refused.")
+        if not self.server.store.relay_ready():
+            raise RemoteDenied("Set up the phone app on the laptop first (chutku.cli setup).", 409)
+        return True
+
     def _tailnet(self):
+        if self._relayed():
+            return self.server.store.settings()
         settings = self.server.store.settings()
         host, login = settings.get("host"), settings.get("login")
         if not settings.get("enabled") or not host or not login:
@@ -160,6 +179,9 @@ class PhoneHandler(BaseHTTPRequestHandler):
         return ""
 
     def _session(self, mutation):
+        if self._relayed():   # signed in at the relay with the account's device token; no cookie, so no CSRF
+            self.server.store.rate(RELAY_DEVICE)
+            return {"device": RELAY_DEVICE, "csrf": ""}
         settings = self._tailnet()
         record = self.server.store.session(self._cookie())
         if mutation:
@@ -204,8 +226,10 @@ class PhoneHandler(BaseHTTPRequestHandler):
             if path == "/api/whoami":
                 settings = self.server.store.settings()
                 device = next((d for d in settings["devices"] if d["id"] == record["device"]), {})
+                from chutku import identity
                 self._reply(200, {"device": device.get("name"), "control_allowed": settings["control_allowed"],
-                                  "paused": self._paused(), "csrf": record["csrf"]})
+                                  "paused": self._paused(), "csrf": record["csrf"],
+                                  "assistant": identity.load(Path(self.server.core.base) / ".env")["ASSISTANT_NAME"]})
             elif path == "/api/session":
                 session = self.server.core.agent_sessions.get(query.get("id", [""])[0])
                 snapshot = session.snapshot()

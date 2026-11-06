@@ -41,10 +41,22 @@ _WORD = re.compile(r"[A-Za-z']+")
 _LISTEN_WORD = re.compile(r"^(?:sun+|suno+|sunna|suniye|suno na|sun na|soon|son|sunn|listen)\b[\s,.!?]*", re.I)
 
 
+def _custom_wake(text, name):
+    """An assistant named at install answers to "<name>", "oye/hey/hi/ok <name>": the command after it, else None.
+    (The original name, Chutku, keeps its own mishearing-tolerant matcher in split_wake.)"""
+    found = re.match(r"^\W*(?:(?:oye|oi|hey|hi|ok|okay|o)[\s,]+)?" + r"\s+".join(map(re.escape, name.split()))
+                     + r"\b[\s,.!?:;-]*(.*)$", text, re.I | re.S)
+    return found.group(1).strip(" .,!?:;-") if found else None
+
+
 def split_wake(text):
     """Return (True, command) when text starts with the wake phrase, else (False, "")."""
     from chutku.translit import roman
     text = roman(text or "")
+    from chutku import identity
+    if identity.name() != "Chutku":   # a name chosen at install: only that name wakes it
+        custom = _custom_wake(text, identity.name())
+        return (True, custom) if custom is not None else (False, "")
     words = list(_WORD.finditer(text))
     if 2 <= len(words) <= 4 and _MISHEARD.fullmatch("".join(m.group(0) for m in words).lower().replace("'", "")):
         return True, ""

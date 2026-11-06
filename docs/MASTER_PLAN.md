@@ -984,6 +984,9 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [x] Z3 (done 2026-11-06: media + browser/YouTube/window/Windows actions, 49/49 one step, lab-verified on this PC): Instant app actions: "pause youtube in brave", play/pause/next/volume and similar media and app verbs go straight to media keys or app tools with no planner; feed many more app phrases (atlases) and time each one
 - [ ] Z4 (first cut 2026-11-06: listening starts 1.1 s sooner; the trained detector or GPU Whisper still to do): Faster wake word (owner measured about 4 s): measure each stage (detector window, verifier, Live connect) and cut the slowest
 - [ ] Z5 (built 2026-11-06: trackpad, live keyboard, approvals spoken on the phone, laptop say/voice; live phone check after the owner's Tailscale setup): Phone as remote: see the PC screen live; control Chutku from the phone; approvals and Chutku's voice play on the PHONE while the laptop stays silent; option to speak through the laptop speakers (Chutku's voice, or the owner's own voice from the phone mic); phone trackpad and keyboard to drive the PC mouse and keys directly (same pairing and token as W6; Tailscale by the owner)
+- [x] Z7 (done 2026-11-06): The assistant is named at install (.env: name, gender, language, style); prompts and wake word follow it; default = Chutku unchanged
+- [x] Z8 (done 2026-11-06; deploy on the owner's server is the owner's step): Accounts: one ID/password at install (existing ID refused, change on the laptop), relay forwards the phone app to its own laptop, devices stay signed in until logout
+- [x] Z9 (done 2026-11-06; real phone install by the owner): Phone app APK (WebView on the relay), tested end to end on an Android 15 emulator
 - [ ] Z6: Web autopilot in the owner's signed-in Brave profile (Gmail etc.), with the existing outside-content and send rules (X14 rest)
 
 ---

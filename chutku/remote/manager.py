@@ -51,9 +51,10 @@ class RemoteManager:
             return {"enabled": False, "steps": "`tailscale serve` failed. Open Tailscale and try again."}
         return {"enabled": True, "url": f"https://{state['host']}/"}
 
-    def start(self):
-        """Start the phone server (on Chutku's start-up too, when phone access was left on)."""
-        if self.server is not None or not self.store.settings()["enabled"]:
+    def start(self, for_relay=False):
+        """Start the phone server (on Chutku's start-up too, when phone access was left on). for_relay: also without
+        Tailscale, because the account relay's client is its only caller then (on loopback)."""
+        if self.server is not None or not (for_relay or self.store.settings()["enabled"]):
             return self.server
         if self.server_factory is not None:
             self.server = self.server_factory(self.core, self.port)

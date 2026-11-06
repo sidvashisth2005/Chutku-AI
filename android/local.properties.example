@@ -1,0 +1,2 @@
+# Copy to local.properties (not committed) if ANDROID_HOME is not set:
+sdk.dir=C\:\\Users\\<you>\\AppData\\Local\\Android\\Sdk

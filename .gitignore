@@ -6,6 +6,7 @@ __pycache__/
 *.log
 
 # Owner data and runtime state (local only, never versioned)
+.env
 data/
 sandbox/
 
@@ -17,3 +18,10 @@ models/*
 
 # Superseded evidence
 verification/archive/
+
+# Android phone app build outputs (the APK is built by android\gradlew assembleRelease)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+dist/

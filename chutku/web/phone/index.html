@@ -5,7 +5,15 @@
 <link rel="icon" href="/icon.png"><link rel="apple-touch-icon" href="/icon.png"><link rel="stylesheet" href="/phone.css">
 <script src="/phone.js" defer></script></head>
 <body>
-<header><img src="/icon.png" alt="" class="logo"><strong>Chutku</strong><span id="status" class="status">…</span></header>
+<header><img src="/icon.png" alt="" class="logo"><strong id="assistant-name">Chutku</strong><span id="status" class="status">…</span><button id="logout" class="text" hidden>Log out</button></header>
+
+<section id="account" class="card" hidden>
+  <h1>Log in</h1>
+  <p class="muted">Use the same ID and password you created on your laptop. You stay logged in until you log out.</p>
+  <label>ID <input id="account-id" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="32"></label>
+  <label>Password <input id="account-password" type="password" autocomplete="current-password" maxlength="200"></label>
+  <button id="account-go" class="primary">Log in</button>
+</section>
 
 <section id="pair" class="card" hidden>
   <h1>Pair this phone</h1>

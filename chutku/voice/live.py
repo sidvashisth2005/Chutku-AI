@@ -50,7 +50,7 @@ SHORT_YES = re.compile(r"\b(?:ji|jee|hn|hnn|hmm+|humm*|hamm|ya|go|kar|chal|chalo
 NO = re.compile(r"\b(?:nahi|nahin|nahi?n|nai|na|naa|no|nope|nah|mat|ruko|ruk|ruk jao|stop|cancel|wait|rehne do|"
                 r"chhodo|chodo|don'?t|abhi nahi|mana|band)\b", re.I)
 
-PERSONA = """You are Chutku (छुटकू, said "Chhutku"), the owner's own FEMALE AI companion on their Windows PC, in the
+_BASE_PERSONA = """You are Chutku (छुटकू, said "Chhutku"), the owner's own FEMALE AI companion on their Windows PC, in the
 spirit of Jarvis: warm, quick,
 witty, genuinely engaged, a thinking partner and a friend, never a robotic assistant. Speak naturally and briefly
 (1-3 short sentences per turn unless asked for more), in the same mix of Hindi and English the owner uses
@@ -96,6 +96,37 @@ answer_approval with what THEY said. If the owner says not to keep asking ("appr
 do", "don't ask"), that is a yes: call answer_approval with approve true, and when you start a task for them, end
 the goal with "without asking". If they say stop / ruko / cancel while a task runs, call stop_task.
 If they say bye / bas / band karo baat / that's all, say a short goodbye and call end_conversation."""
+
+
+def personalize(text, values):
+    """The persona for the name, gender, language and style chosen at install (chutku/identity.py)."""
+    from chutku import identity
+    if all(values[k] == identity.DEFAULTS[k] for k in ("ASSISTANT_NAME", "ASSISTANT_GENDER", "ASSISTANT_LANGUAGE",
+                                                        "ASSISTANT_STYLE")):
+        return text
+    name, sex = values["ASSISTANT_NAME"], values["ASSISTANT_GENDER"]
+    own = {"female": ('You are a woman: about yourself always say "kar rahi hoon", "kar dungi", "samajh gayi", '
+                      '"main sakti hoon". Say a short natural line like "Ho jayega, kar rahi hoon"'),
+           "male": ('You are a man: about yourself always say "kar raha hoon", "kar dunga", "samajh gaya", '
+                    '"main sakta hoon". Say a short natural line like "Ho jayega, kar raha hoon"'),
+           "neutral": 'Say a short natural line like "Ho jayega, abhi karte hain"'}[sex]
+    text = text.replace('You are Chutku (छुटकू, said "Chhutku"), the owner\'s own FEMALE AI companion',
+                        f"You are {name}, the owner's own {'' if sex == 'neutral' else sex.upper() + ' '}AI companion")
+    text = text.replace("warm, quick,\nwitty, genuinely engaged, a thinking partner and a friend",
+                        identity.STYLES[values["ASSISTANT_STYLE"]])
+    text = text.replace("in the same mix of Hindi and English the owner uses\n(Hinglish)",
+                        identity.LANGUAGES[values["ASSISTANT_LANGUAGE"]])
+    text = re.sub(r'You are a woman: about yourself always say .*?"Ho jayega, kar rahi hoon"', own, text, flags=re.S)
+    text = text.replace("she runs a Night Shift", {"female": "she", "male": "he"}.get(sex, "it") + " runs a Night Shift")
+    return text.replace("Chutku", name)
+
+
+def _persona():
+    from chutku import identity
+    return personalize(_BASE_PERSONA, identity.load())
+
+
+PERSONA = _persona()
 
 TOOLS = [{"functionDeclarations": [
     {"name": "do_task", "description": "Do something on the owner's PC through Chutku's agent (any app, file, web, "

@@ -176,6 +176,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.closing = threading.Event()
         self.healed = None             # the guard pause this core lifted after a restart (shown on the HUD)
         self.remote = None             # W6 phone access (chutku/remote/manager.py), real install only
+        self.relay = None              # the phone app through the account relay (chutku/relay/client.py)
         # Fixed spoken replies (control answers, read-backs): only the real install speaks; tests turn it on with fakes.
         self.voice_replies = Path(base).resolve() == Path(PROJECT_ROOT).resolve()
         self.action_started = None
@@ -819,6 +820,11 @@ class DashboardServer(ThreadingHTTPServer):
             self.remote.start()
         except OSError:
             _log().exception("the phone server could not start")
+        try:   # the phone app through the account relay (set up by chutku.cli setup)
+            from chutku.relay import client
+            self.relay = client.start(self)
+        except Exception:
+            _log().exception("the account relay could not start")   # Chutku keeps running without the phone app
         return self.remote
 
     def phone_active(self):

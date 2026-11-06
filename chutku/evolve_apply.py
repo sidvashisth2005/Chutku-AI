@@ -34,8 +34,8 @@ import time
 
 from chutku import evolve
 
-PROTECTED_PREFIXES = ("chutku/policy/", "chutku/core/", "chutku/remote/", "chutku/router/", ".github/", ".claude/",
-                      "data/", "models/")
+PROTECTED_PREFIXES = ("chutku/policy/", "chutku/core/", "chutku/remote/", "chutku/relay/", "android/", "chutku/router/",
+                      ".github/", ".claude/", "data/", "models/")
 PROTECTED_FILES = frozenset({
     "chutku/runtime.py", "chutku/guard.py", "chutku/tools/registry.py", "chutku/skills.py", "chutku/skill_runner.py",
     "chutku/app.py", "chutku/agent_loop.py", "chutku/agent_execution.py", "chutku/cloud_planner.py",

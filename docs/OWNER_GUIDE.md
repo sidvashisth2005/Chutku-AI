@@ -143,6 +143,18 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 
 ## 3. Things you can say
 
+**New on 2026-11-06: your own name for the assistant, and the phone app (APK)**
+- **Setup** (`.venv\Scripts\python.exe -m chutku.cli setup`) now first asks for the assistant's name and personality: gender (female / male / neutral), language (hinglish / english / hindi) and style (warm / professional / witty / calm).
+  - They are saved in `.env`.
+  - With a new name it answers to "Oye <name>" / "Hey <name>".
+  - Without `.env`, nothing changes: it is Chutku.
+- **Question 6 is the phone app:**
+  - create an ID and password at your relay (an ID that exists is refused), and a phone PIN;
+  - install `dist\Chutku-phone-1.0.apk` on the phone and log in with the same ID and password;
+  - both stay logged in until you log out. Setup details are in `docs\RELAY.md`.
+- **At home,** start the relay on the laptop with `Start-Relay.cmd` and use `http://<laptop-IP>:8780` in the app.
+- **Account commands:** `chutku.cli account status | login | logout | change | pin`. Use `change` to change the ID or password on the laptop.
+
 **New on 2026-11-06: instant app actions (no thinking, one step)**
 - **Browser** (Brave): "new tab kholo", "close this tab", "band kiya hua tab wapas kholo", "agla tab" / "pichla tab", "peeche jao" / "aage jao", "page reload karo", "scroll down" / "upar scroll karo", "zoom in", "history dikhao", "browser full screen".
 - **YouTube:** "full screen karo" / "exit full screen", "video aage karo" / "peeche karo", "captions on karo", "theatre mode", "speed badhao" / "kam karo", "next video", "mute the video". These keys go only to a YouTube tab.

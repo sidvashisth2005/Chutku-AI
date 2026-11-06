@@ -16,6 +16,62 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Name your assistant at install, one account for laptop and phone, and the phone app APK (Z7-Z9)
+
+**Owner's asks (for publishing)**
+- Everyone names their own AI at install, plus the usual custom-AI options, kept in an environment file.
+- An ID and password are made once. An existing ID is refused; it can be changed later on the laptop.
+- A phone APK logs in with the same ID and password. Laptop and phone meet at the owner's server.
+- No repeated logins on either device until logout.
+
+**Z7: name and personality**
+- `chutku/identity.py` reads `.env` (`.env.example` is committed; `.env` is gitignored). The keys: `ASSISTANT_NAME`, `ASSISTANT_GENDER`, `ASSISTANT_LANGUAGE`, `ASSISTANT_STYLE`, `CHUTKU_RELAY_URL`, `CHUTKU_ACCOUNT_ID`. Values are validated, and a bad one falls back to the default.
+- `persona.IDENTITY` and the Live persona are built from it. **With no `.env` they are byte-identical to before** (tested).
+- `feminine()` only applies to a female assistant.
+- A custom name wakes on "<name>" / "oye|hey|hi|ok <name>". It no longer wakes on "Chutku" (tested).
+
+**Z8: accounts and the relay**
+- `chutku/relay/server.py` (stdlib):
+  - scrypt passwords; ID unique and case-insensitive (409 "This ID already exists");
+  - device tokens until logout (SHA-256 stored);
+  - lock-out after 5 wrong passwords; a password change signs out other devices;
+  - laptop long-poll, a per-account mailbox, phone `/t/api/*` forwarding;
+  - HTTP/1.1 keep-alive; error replies close the connection.
+- `chutku/relay/client.py`: register / login / change / logout; the token goes in Credential Manager (`delete_key` added in `cloud_planner`); `RelayClient` replays requests on the phone server over loopback.
+- The phone server accepts a request with its per-run secret from loopback as device `relay`, and the PIN is set by `RemoteStore.set_relay_pin`.
+- Setup question 6 creates or logs in to the account and sets the phone PIN. `chutku.cli account status|login|logout|change|pin` covers later changes.
+- `Start-Relay.cmd` runs it at home; `docs/RELAY.md` covers deployment; SECURITY §4b-2 covers the security model.
+
+**Z9: the APK**
+- `android/` is a plain-Java WebView app. It:
+  - asks for the relay address once, then remembers it;
+  - grants the microphone;
+  - has a file chooser;
+  - keeps navigation inside the relay, and opens other sites in the browser.
+- Built with Gradle 8.11.1 and AGP 8.9.1 (`assembleRelease`, 25 s). `dist/Chutku-phone-1.0.apk` is 48,712 bytes, SHA-256 `7ddc11c5e43502a9a1197a3b95eabdee52602bfea1e814dd6397232cfd6c0d5e`.
+- `aapt2`: package `ai.chutku.phone`, target 35, permissions INTERNET / RECORD_AUDIO / MODIFY_AUDIO_SETTINGS.
+- Signed with the debug key (apksigner verified). Sign with your own key before publishing.
+
+**Real end to end (Android 15 emulator, read-only and headless; real relay + real laptop phone server on this PC)**
+1. Installed and launched; the address dialog appeared; connected to `http://10.0.2.2:8781`.
+2. The account login appeared, and logged in as `demo`.
+3. The header shows "Phone app (account)", which came from the laptop.
+4. "what time is it" came back as "It's Friday, 06 November 2026, 11:03 PM. [Verified: 1 of 1 steps completed.] ✓ Read the clock".
+5. After a force-stop and relaunch it opened straight into the app, with no login. Checked 3 times.
+6. A relay restart (a revoked token) went back to "Logged out. Log in again." (negative).
+
+**A bug found and fixed:** with HTTP/1.0 the page sometimes came up without its stylesheet and icon, and the first chat got "Failed to fetch". The relay now uses keep-alive; after that, relaunches loaded fully.
+
+**Tests**
+- `tests/test_relay_accounts.py` (9 tests):
+  - duplicate and invalid IDs; hashes only; a token still valid a year later until logout;
+  - lock-out; a password change revoking the phone;
+  - the end-to-end chain (0.087 s round trip; chat as origin phone; a wrong PIN refused, the right one accepted; laptop say);
+  - accounts kept apart (503 for another account, 403 for wrong token kinds, 409 for an existing ID);
+  - a forged relay secret refused; a logged-out laptop client stops; a public http relay refused;
+  - setup naming plus the account (with "ID exists" then another ID; no password in `.env`).
+- `tests/test_identity_name.py` (4 tests). The wizard tests were updated for the two new Enter answers.
+
 ### 2026-11-06: Browser, YouTube, window and Windows actions are one instant step (Z3, rest)
 
 Measured first with the new `scripts/check_app_actions.py` (49 everyday phrases):

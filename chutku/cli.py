@@ -238,7 +238,10 @@ def main() -> None:
     email = subparsers.add_parser("email", help="Email sending (X8): store a Gmail address + app password, or see status")
     email.add_argument("email_action", choices=("status", "set-account"))
     subparsers.add_parser("open", help="Open the running Chutku dashboard in your browser")
-    subparsers.add_parser("setup", help="First-run setup: your name, a free brain key, a mic check, how much she does alone")
+    subparsers.add_parser("setup", help="First-run setup: your assistant's name, your name, a free brain key, a mic "
+                                        "check, how much it does alone, the phone app account")
+    account = subparsers.add_parser("account", help="Phone app account: status, login, logout, change ID/password, PIN")
+    account.add_argument("account_action", choices=("status", "login", "logout", "change", "pin"))
     night = subparsers.add_parser("nightshift", help="Night Shift: nightly self-improvement jobs (run, install, report)")
     night.add_argument("night_action", choices=("run", "install", "report"))
     night.add_argument("--no-model", action="store_true", help="run: skip the model round of the regression replay")
@@ -273,6 +276,16 @@ def main() -> None:
             setup(root)
         except (EOFError, KeyboardInterrupt):
             print("Setup stopped; run it again any time.")
+        return
+    if namespace.command == "account":
+        from chutku.app import PROJECT_ROOT as root
+        from chutku.relay.client import RelayCallError, account_command
+        try:
+            print(account_command(root, namespace.account_action))
+        except (RelayCallError, ValueError) as error:
+            print(f"Not done: {error}")
+        except (EOFError, KeyboardInterrupt):
+            print("Stopped.")
         return
     if namespace.command == "open":
         from chutku.dashboard import open_running_dashboard

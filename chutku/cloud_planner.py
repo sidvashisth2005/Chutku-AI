@@ -75,6 +75,14 @@ def store_key(key: str, target=CREDENTIAL_TARGET):
         raise ctypes.WinError(ctypes.get_last_error())
 
 
+def delete_key(target):
+    """Remove a stored credential (e.g. the relay token at logout); a missing one is fine."""
+    try:
+        _advapi().CredDeleteW(ctypes.c_wchar_p(target), 1, 0)
+    except (OSError, AttributeError):
+        pass
+
+
 def api_key():
     return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or stored_key()
 
