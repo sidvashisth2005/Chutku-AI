@@ -16,6 +16,52 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: One command, measured with and without the cloud brain (X3, first runs) and what it fixed
+
+**The acceptance set (`scripts/one_command_check.py`)**
+- It sends 12 single sentences to its own in-process Chutku server (not the owner's running one), in owner mode.
+- Every change it makes happens in one scratch folder; confirmations are approved only for file steps entirely inside
+  it.
+- The cases:
+  - time, free space and drive search;
+  - write, read back, copy and count a file;
+  - a maths question;
+  - the open windows;
+  - one multi-step goal;
+  - weather;
+  - a write into System32 that must be refused.
+- Each case has an independent check: the clock, `disk_usage`, the file really on disk, the file's content, and so
+  on.
+- `--offline` sets `CHUTKU_OFFLINE=1` for that process only. That means **local brain only**; the web tools still
+  use the network. A true network cut was not simulated.
+
+**First results (2026-11-05)**
+- **With the cloud brain** (Groq/Gemini): 8 of 12, median 3.3 s, slowest 5.9 s.
+  - Instant cases: time 0.6 s, disk 0.4 s, drive search 0.4 s, windows 0.4 s.
+  - Model cases: maths 2.0 s, multi-step 4.0 s (folder, file and listing all verified), weather 5.9 s, System32
+    refused 2.0 s.
+  - The failures came from one cause: the planner's first write was **denied by the script**, because its path did
+    not resolve inside the scratch folder (the approval paths are now logged). The read, copy and count cases
+    depended on that file.
+  - Re-run of just write + read: both passed in 8.3 s.
+- **Local brain only** (Qwen3-4B): 7 of 12, median 13.9 s, slowest 134 s. Write, copy, refused, time, disk, search
+  and windows passed.
+  - **read:** the model *opened* `notes.txt` in Notepad, on the owner's screen, instead of reading it.
+  - **maths:** it answered with the question itself.
+  - **multi-step:** it made the folder in the wrong place and described it wrongly.
+  - **count:** Chutku answered correctly (3 files, including the script's marker); the checker expected 2 and was
+    wrong.
+
+**Fixes**
+- "<file> mein kya likha hai" / "<file> padho" / "what is (written) in <file>" now go instantly to
+  `file.extract_text`. No model picks the tool, so it works offline, and the file is never opened in an app.
+- A final reply that only repeats the request is refused and the planner retries (test: the echoed maths question).
+- **Checker fixes:** the count is now the real number of files; weather expects a temperature when the weather
+  site is reachable and no temperature when it is not.
+- **Still open:** the local model's weakness on multi-step goals. The Qwen3.5-4B A/B (`eval_planner`) runs next;
+  the switch happens only if it is both faster and more correct.
+- **Tests:** full suite 1,269 OK (221 s); `check_phrases.py` 138/138.
+
 ### 2026-11-05: Window snapping, CPU temperature + network, PowerShell with a click, Chutku's face (X4, X6, X7, X11, X12)
 
 Built by two helper agents in their own git worktrees: "Mason" (X4/X6/X7) and "Pixel" (X11/X12). Their prompts are

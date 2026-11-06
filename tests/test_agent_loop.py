@@ -483,6 +483,14 @@ class ClaimAndWriteIntentTests(unittest.TestCase):
         self.assertNotIn("has been formatted as per", session.reply)
         self.assertIn("withheld", session.reply)
 
+    def test_a_reply_that_only_repeats_the_request_is_refused(self):
+        session = AgentSession("2 ki power 10 aur 10 ka cube, kaun bada hai", mode="auto_edits")
+        with self.assertRaisesRegex(ValueError, "only repeats the request"):
+            session._reject_false_done({"status": "done", "reply": "2 ki power 10 aur 10 ka cube, kaun bada hai?",
+                                        "next_steps": []})
+        session._reject_false_done({"status": "done", "reply": "2^10 = 1024 is bigger than 10^3 = 1000.",
+                                    "next_steps": []})
+
     def test_typed_is_only_claimed_after_a_typing_step(self):
         """Live 2026-11-05: "I opened Notepad and typed 'hello' for you" when focusing Notepad had failed."""
         session = AgentSession("open notepad and type hello", mode="auto_edits")

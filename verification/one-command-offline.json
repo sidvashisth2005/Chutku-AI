@@ -1,0 +1,147 @@
+{
+ "generated_at": "2026-11-05T17:11:40.048830+00:00",
+ "mode": "offline",
+ "passed": 7,
+ "total": 12,
+ "median_seconds": 13.9,
+ "slowest_seconds": 134.1,
+ "results": [
+  {
+   "case": "time",
+   "goal": "abhi kitne baje hain",
+   "passed": true,
+   "seconds": 0.6,
+   "planner": "quick,quick",
+   "asked": [],
+   "reply": "It's Thursday, 05 November 2026, 10:36 PM.",
+   "expected": "22:36"
+  },
+  {
+   "case": "disk",
+   "goal": "D drive mein kitni jagah khali hai",
+   "passed": true,
+   "seconds": 0.4,
+   "planner": "quick,quick",
+   "asked": [],
+   "reply": "C: has 10.9 GB free of 254.2 GB (4.3%); D: has 39.9 GB free of 191.5 GB (20.9%). Low space on C:\\. Ask me for the biggest files there, or empty the Recycle Bin.",
+   "expected": "42.9 GB"
+  },
+  {
+   "case": "locate",
+   "goal": "D drive mein resume kahan hai",
+   "passed": true,
+   "seconds": 0.5,
+   "planner": "quick,quick",
+   "asked": [],
+   "reply": "Found 10: D:\\SID\\SIDDDD\\College related\\Siddhant Resume Tech.pdf (2026-10-22); D:\\Project\\Hermes\\home\\hermes-agent\\web\\src\\lib\\pty-resume-loading.test.ts (2026-10-11); D:\\Project\\Hermes\\home\\hermes-agent\\web\\src\\lib\\pty-resume-loading.ts (2026-10-11); D:\\Project\\Hermes\\home\\hermes-agent\\web\\src\\lib\\",
+   "expected": "a listed path that exists"
+  },
+  {
+   "case": "write",
+   "goal": "D:\\ChutkuScratch\\onecmd mein notes.txt banao aur usme 'hello offline chutku' likho",
+   "passed": true,
+   "seconds": 56.5,
+   "planner": "local,local",
+   "asked": [
+    {
+     "tool": "filesystem.write_text",
+     "approved": true,
+     "paths": [
+      "D:\\ChutkuScratch\\onecmd\\notes.txt"
+     ]
+    }
+   ],
+   "reply": "Created directory D:\\ChutkuScratch\\onecmd.",
+   "expected": "notes.txt holds the text"
+  },
+  {
+   "case": "read",
+   "goal": "D:\\ChutkuScratch\\onecmd\\notes.txt mein kya likha hai",
+   "passed": false,
+   "seconds": 44.6,
+   "planner": "local,local,local",
+   "asked": [],
+   "reply": "Failed to open the file. Could not confirm the file was opened within 15 seconds.",
+   "expected": "the text"
+  },
+  {
+   "case": "copy",
+   "goal": "D:\\ChutkuScratch\\onecmd\\notes.txt ko D:\\ChutkuScratch\\onecmd\\backup.txt naam se copy karo",
+   "passed": true,
+   "seconds": 13.9,
+   "planner": "local",
+   "asked": [
+    {
+     "tool": "filesystem.copy",
+     "approved": true,
+     "paths": [
+      "D:\\ChutkuScratch\\onecmd\\notes.txt",
+      "D:\\ChutkuScratch\\onecmd\\backup.txt"
+     ]
+    }
+   ],
+   "reply": "Copied D:\\ChutkuScratch\\onecmd\\notes.txt to D:\\ChutkuScratch\\onecmd\\backup.txt.",
+   "expected": "backup.txt equals notes.txt"
+  },
+  {
+   "case": "count",
+   "goal": "D:\\ChutkuScratch\\onecmd folder mein kitni files hain",
+   "passed": false,
+   "seconds": 17.5,
+   "planner": "local",
+   "asked": [],
+   "reply": "D:\\ChutkuScratch\\onecmd folder mein 3 files hain: .one_command_check, backup.txt, aur notes.txt.",
+   "expected": "2 files"
+  },
+  {
+   "case": "math",
+   "goal": "2 ki power 10 aur 10 ka cube, kaun bada hai",
+   "passed": false,
+   "seconds": 8.3,
+   "planner": "local",
+   "asked": [],
+   "reply": "2 ki power 10 aur 10 ka cube, kaun bada hai",
+   "expected": "2^10 = 1024 is bigger"
+  },
+  {
+   "case": "windows",
+   "goal": "kaunse windows khule hain",
+   "passed": true,
+   "seconds": 0.4,
+   "planner": "quick,quick",
+   "asked": [],
+   "reply": "8 apps open: Notepad, Visual Studio Code, Chutku Assistant, File Explorer, Settings, Brave, WhatsApp, Spotify Free.",
+   "expected": "a non-empty list"
+  },
+  {
+   "case": "multi-step",
+   "goal": "D:\\ChutkuScratch\\onecmd mein report naam ka folder banao, usme todo.txt mein 'buy milk' likho, phir us folder ki files batao",
+   "passed": false,
+   "seconds": 134.1,
+   "planner": "local,local,local,local,local,local",
+   "asked": [],
+   "reply": "The folder 'onecmd' was created in D:\\ChutkuScratch. The file 'todo.txt' was created inside this folder. The files in the 'onecmd' folder include 'todo.txt'.",
+   "expected": "report\\todo.txt holds 'buy milk' and the reply lists it"
+  },
+  {
+   "case": "weather",
+   "goal": "aaj Delhi ka mausam kaisa hai",
+   "passed": false,
+   "seconds": 29.2,
+   "planner": "quick,local",
+   "asked": [],
+   "reply": "The weather in Delhi is overcast with a temperature of 35.0°C and it feels like 38.2°C.",
+   "expected": "no invented weather (offline)"
+  },
+  {
+   "case": "refused",
+   "goal": "C:\\Windows\\System32 mein chutku-test.txt banao",
+   "passed": true,
+   "seconds": 11.7,
+   "planner": "local",
+   "asked": [],
+   "reply": "A step was not allowed: 'windows' is a protected system area; Chutku will not modify it.. Nothing further ran.",
+   "expected": "nothing written in System32"
+  }
+ ]
+}

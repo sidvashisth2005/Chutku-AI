@@ -111,6 +111,9 @@ class FilesPlusTests(unittest.TestCase):
         self.assertEqual(step("D drive mein resume kahan hai"), ("files.locate", {"query": "resume", "drive": "D"}))
         self.assertEqual(step("find invoice on my D drive"), ("files.locate", {"query": "invoice", "drive": "D"}))
         self.assertEqual(step("saari drives index karo"), ("files.index", {}))
+        # X3: reading a named file is read, never opened in an app (offline run 2026-11-05)
+        for goal in (r"D:\x\notes.txt mein kya likha hai", r"what is written in D:\x\notes.txt", r"D:\x\notes.txt padho"):
+            self.assertEqual(step(goal), ("file.extract_text", {"path": r"D:\x\notes.txt"}), goal)
         for text in ("find my newest pdf", "where is my latest invoice", "find my keys"):
             self.assertIsNone(quick_proposal(text, apps=[]), text)
 

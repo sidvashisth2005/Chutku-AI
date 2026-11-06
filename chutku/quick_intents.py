@@ -102,6 +102,9 @@ PATTERNS = [
     ("net_connected", re.compile(rf"^{_POLITE}am i (?:connected|online)(?: to (?:the )?(?:network|internet|wifi|wi-fi))?(?:\??\s*which adapter is (?:up|connected))?{_TAIL}", re.I)),
     ("games_list", re.compile(rf"^{_POLITE}(?:(?:which|what) games (?:do i have|are)(?: installed)?(?: on (?:this|my) (?:pc|laptop|computer))?|(?:list|show)(?: me)? (?:my|all|the)(?: installed)? games|mere games(?: dikhao| batao)?|kaun ?se games (?:hai|installed hai)){_TAIL}", re.I)),
     ("read_file", re.compile(rf"^{_POLITE}(?:read|open and read|padho|padh(?:\s+ke|\s+kar)?)\s+(?P<path>[a-z]:\\[^?*\x22<>|]{{1,240}}?\.[a-z0-9]{{1,5}})(?P<rest>\s+(?:and|aur|then)\s+.{{1,200}}?)?{_TAIL}", re.I)),
+    # X3 (offline run 2026-11-05: the local model OPENED the file in Notepad instead of reading it).
+    ("read_file", re.compile(rf"^{_POLITE}(?P<path>[a-z]:\\[^?*\x22<>|]{{1,240}}?\.[a-z0-9]{{1,5}})\s+(?:(?:mein|me|main)\s+kya\s+(?:likha|hai)(?:\s+hai)?|padho|padh\s+ke\s+batao|ka\s+(?:content|text)\s+batao){_TAIL}", re.I)),
+    ("read_file", re.compile(rf"^{_POLITE}what(?:'s| is)\s+(?:written\s+)?in\s+(?P<path>[a-z]:\\[^?*\x22<>|]{{1,240}}?\.[a-z0-9]{{1,5}}){_TAIL}", re.I)),
     ("list_folder", re.compile(rf"^{_POLITE}(?:what (?:files|things|items) are (?:there )?in|what'?s in|what is in|list (?:the |all )?(?:files|contents|items) (?:in|of|inside)|show (?:me )?(?:the )?(?:files|contents) (?:in|of))\s+(?P<path>[a-z]:(?:\\[^?*\x22<>|]{{0,240}}?)?)(?:\s+folder)?{_TAIL}", re.I)),
     ("list_folder", re.compile(rf"^{_POLITE}(?P<path>[a-z]:(?:\\[^?*\x22<>|]{{0,240}}?)?)(?:\s+folder)?\s+(?:mein|me|ke andar)\s+(?:kya kya|kya|kaun si files|kaunsi files)\s+(?:hai|hain|he)(?:\s+dikhao)?{_TAIL}", re.I)),
     # "mere desktop pe kitni files hain" / "how many files are in my downloads" / "what's on my desktop": exact counts
@@ -1306,8 +1309,7 @@ def _say_located(out):
         if out.get("index_built") is None else ""
     if not out["matches"]:
         return f"I couldn't find a file named like “{out['query']}”{where or ' on your drives'}."
-    shown = "; ".join(f"{m['name']} ({m['path'].rsplit(chr(92), 1)[0]}, {m['modified'][:10]})"
-                      for m in out["matches"][:5])
+    shown = "; ".join(f"{m['path']} ({m['modified'][:10]})" for m in out["matches"][:5])
     more = f" and {out['count'] - 5} more" if out["count"] > 5 else ""
     return f"Found {out['count']}{where}: {shown}{more}."
 

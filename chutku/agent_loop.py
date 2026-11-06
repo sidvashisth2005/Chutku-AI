@@ -1304,6 +1304,10 @@ class AgentSession:
         write or save, a completed step must actually have written it."""
         if proposal["status"] != "done":
             return
+        said = re.sub(r"\W+", " ", (proposal.get("reply") or "").casefold()).strip()
+        if said and said == re.sub(r"\W+", " ", self.goal.casefold()).strip():
+            # offline run 2026-11-05: the local model "answered" a maths question with the question itself
+            raise ValueError("The reply only repeats the request; answer it (or say plainly what you cannot do).")
         if _IN_PROGRESS.search(proposal.get("reply") or ""):
             raise ValueError("status=done needs a final answer, but the reply says the work is still in progress; "
                              "continue with the next step instead.")
