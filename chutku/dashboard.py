@@ -391,6 +391,8 @@ class DashboardServer(ThreadingHTTPServer):
                             recorded = experience.record(self.base, session, runtime)
                             learning.after_session(self.base, session, runtime)   # failed wording -> what worked
                             reflex.after_session(self.base, session, runtime, recorded)   # learned instant skills
+                            from chutku import learning_inbox   # H10/H11/H12: proposals wait for the owner's OK
+                            learning_inbox.after_session(self.base, session)
                         except (OSError, ValueError, KeyError):
                             pass
                     finally:
@@ -1289,6 +1291,16 @@ class DashboardServer(ThreadingHTTPServer):
         examples = experience.similar(self.base, goal)
         if examples:
             context["past_successes"] = examples
+        from chutku.skill_import import relevant_procedures
+        procedures = relevant_procedures(self.base, goal)
+        if procedures:   # H11: names only; the planner reads one with skill.procedure before following it
+            context["procedures"] = {"how": "To follow one, first read it with skill.procedure(name).",
+                                     "items": procedures}
+        from chutku.learning_inbox import relevant_lessons
+        lessons = relevant_lessons(self.base, goal)
+        if lessons:   # H10: past mistakes and their fixes for a similar goal: prefer the fix
+            context["lessons"] = {"how": "Past mistakes on a similar request: use these tools, avoid those.",
+                                  "items": lessons}
         if extra_context:   # e.g. a scheduled task's previous result (Phase 3b H8)
             context.update(extra_context)
         attached = None

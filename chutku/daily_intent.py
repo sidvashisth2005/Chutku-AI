@@ -42,6 +42,21 @@ _PATTERNS = [
     ("os_keys", re.compile(_P + r"(?P<k>show\s+(?:the\s+)?desktop|desktop\s+dikhao|switch\s+(?:the\s+)?windows?|"
                            r"window\s+switch\s+karo|alt\s+tab|task\s+view(?:\s+(?:kholo|dikhao|open karo))?|"
                            r"saari\s+windows\s+dikhao|show\s+all\s+windows)" + _T, re.I)),
+    # H12/H27/H28: the learning inbox, "ye seekh lo", and the learning journey.
+    ("learn_inbox", re.compile(_P + r"(?:kya\s+seekha(?:\s+aaj)?|aaj\s+kya\s+seekha|learning\s+inbox|inbox\s+dikhao)"
+                               + _T, re.I)),   # ("what did you learn" stays with the instant skills, reflex.list)
+    ("learn_keep_all", re.compile(_P + r"(?:(?:haan\s+)?sab\s+rakh\s+lo|keep\s+(?:them\s+)?all)" + _T, re.I)),
+    ("learn_keep", re.compile(_P + r"number\s+(?P<n>\d{1,4})\s+(?:rakho|rakh\s+lo|keep\s+karo)|keep\s+number\s+"
+                              r"(?P<n2>\d{1,4})" + _T, re.I)),
+    ("learn_discard", re.compile(_P + r"number\s+(?P<n>\d{1,4})\s+(?:hatao|hata\s+do|discard\s+karo)|discard\s+"
+                                 r"number\s+(?P<n2>\d{1,4})" + _T, re.I)),
+    ("learn_from", re.compile(_P + r"(?:ye(?:h)?\s+seekh\s+lo|isse\s+seekh\s+lo|learn\s+(?:this|from))\s*[:\-]?\s*"
+                              r"(?P<src>https?://\S+|[A-Za-z]:\\.+?\.(?:md|txt))" + _T, re.I)),
+    ("journey", re.compile(_P + r"(?:(?:maine|tumne|tune)\s+kya\s+kya\s+seekha(?:\s+hai)?|tumne\s+galti\s+se\s+"
+                           r"kya\s+seekha|(?:meri|tumhari|learning)\s+journey|what\s+have\s+you\s+learned)" + _T, re.I)),
+    # H11: a local SKILL.md becomes a procedure. "ye skill add karo D:\x\SKILL.md"
+    ("skill_add", re.compile(_P + r"(?:(?:ye(?:h)?\s+)?(?:skill|procedure)\s+add\s+karo\s*[:\-]?\s*(?P<path>[A-Za-z]:\\.+?\.md)|"
+                             r"add\s+(?:a\s+)?(?:skill|procedure)\s+from\s+(?P<path2>[A-Za-z]:\\.+?\.md))" + _T, re.I)),
     # H29: forget the last exchange, or bring it back.
     ("forget_last", re.compile(_P + r"(?:ye(?:h)?\s+baat\s+bhool\s+jao|(?:last|pichli|aakhri)\s+(?:wali\s+)?baat\s+"
                                r"(?:bhool\s+jao|hata\s+do)|forget\s+(?:that|what\s+i\s+(?:just\s+)?said))" + _T, re.I)),
@@ -123,6 +138,23 @@ def parse_daily(goal, now=None):
         if not match:
             continue
         g = match.groupdict()
+        if kind == "learn_inbox":
+            return "learning.inbox", {}, "Show what Chutku wants to learn", "", True
+        if kind == "learn_keep_all":
+            return "learning.keep_all", {}, "Keep everything learned", "", True
+        if kind in ("learn_keep", "learn_discard"):
+            number = int(g.get("n") or g.get("n2"))
+            tool = "learning.keep" if kind == "learn_keep" else "learning.discard"
+            return tool, {"id": number}, f"Inbox item {number}", "", True
+        if kind == "learn_from":
+            source = g["src"].strip()
+            arguments = {"url": source} if source.casefold().startswith("http") else {"path": source}
+            return "learning.learn", arguments, "Learn from a document", "", True
+        if kind == "journey":
+            return "learning.journey", {}, "What Chutku has learned", "", True
+        if kind == "skill_add":
+            path = (g.get("path") or g.get("path2")).strip()
+            return "skill.add_procedure", {"path": path}, "Add a procedure from a file", "", False
         if kind == "forget_last":
             return "memory.forget_last", {}, "Forget the last exchange", "Theek hai, wo baat bhool gayi.", True
         if kind == "unforget":

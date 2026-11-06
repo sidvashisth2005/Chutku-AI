@@ -143,6 +143,14 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 
 ## 3. Things you can say
 
+**New on 2026-11-07: what she learns (always with your OK)**
+- After tasks she may offer a lesson ("this failed, this worked") or a new procedure.
+- "kya seekha" lists them. Then "sab rakh lo", "number 2 rakho" or "number 2 hatao".
+- "ye seekh lo: D:\Docs\steps.md" (or a web link) learns the steps from a document.
+- "ye skill add karo D:\Skills\x\SKILL.md" adds a procedure file.
+- "maine kya kya seekha" shows everything she has learned.
+- Nothing she learns is saved without you, and old things are archived, never deleted.
+
 **New on 2026-11-07: think, double-check, forget**
 - **"dhyan se socho …" / "soch ke batao …":** that request goes to the strongest brain with more time.
 - **"pakka?" / "double check karo":** re-checks the last answer on the web and says "dono sahmat hain" or what differs. "sab se poocho: <question>" compares sources.

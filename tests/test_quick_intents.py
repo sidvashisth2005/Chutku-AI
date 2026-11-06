@@ -151,6 +151,11 @@ class QuickIntentTests(unittest.TestCase):
         samples["evolve.list"] = {"skill_reply": "1 improvement idea(s) waiting for you.\n\n" + idea}
         samples["evolve.review"] = {"skill_reply": "I studied the last 7 days: 40 requests, 90 actions. 1 new idea(s). "
                                                    + idea}
+        for tool in ("learning.inbox", "learning.keep_all", "learning.keep", "learning.discard", "learning.learn",
+                     "learning.journey"):
+            samples[tool] = {"summary": "1. Naya tareeka: 'rename photos' in 3 steps"}
+        samples["skill.add_procedure"] = {"skill_reply": "Procedure 'rename-photos' added. I read it with "
+                                                         "skill.procedure when a task fits."}
         samples["goals.list"] = {"summary": "1. 5 notes D:\\Study: 3/5, 2 din bache"}
         samples["goals.add"] = {"progress": "1. 5 notes D:\\Study: 0/5"}
         samples["goals.done"] = {"summary": "2. viva: pura!"}

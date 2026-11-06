@@ -16,6 +16,32 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: Learning with the owner's OK: procedures (H11), lessons (H10), inbox (H12), curator (H13), "ye seekh lo" (H27), journey (H28)
+
+**H11**
+- `skill_import.list_procedures` / `relevant_procedures`: the planner's CONTEXT gets only the names and descriptions of up to 3 procedures that share words with the goal, plus "read it with skill.procedure first". The body is read only by `skill.procedure`, as outside text.
+- `skill.add_procedure` (R2, the path is grant-checked) copies a local SKILL.md: text only (no scripts), hidden characters refused, a name required, no duplicate.
+- Phrase: "ye skill add karo <path>.md".
+
+**H12, `chutku/learning_inbox.py`:** rules only, no model. Nothing is saved silently. Proposals wait in `data/inbox.json` (14 days) until "sab rakh lo" / "number N rakho" / "number N hatao".
+- **H10 lesson:** the same request failed, then within 10 minutes VERIFIED with different tools: "use X, avoid Y".
+  - Kept lessons reach the planner (CONTEXT.lessons, top 2, with a "how" line).
+  - A lesson offered to a request that then fails is disabled.
+  - A retry with the same words counts; a first version missed that and the test caught it.
+- **H11 draft:** a verified, untainted, model-planned task of 3+ steps (not quick/reflex) becomes a SKILL.md draft.
+- No proposals from tainted, suspicious or `message.*` sessions. Every proposal passes the H3 scan.
+
+**H13 curator:** a Night Shift job (`curator`):
+- lessons unused for 30 days go stale, for 60 days archived;
+- GitHub-imported procedures unread for 60 days move to `_procedures/.archive` (`skill.procedure` records `last_read`);
+- never deleted, and owner-added or learned procedures are untouched.
+
+**H27:** "ye seekh lo: <file.md|.txt or a link>" turns the numbered or bulleted steps into a procedure draft in the inbox. A web page is fetched with the safe fetch and marked learned-web.
+
+**H28:** "maine kya kya seekha" / "tumne galti se kya seekha" lists lessons, procedures, instant skills, people, facts, habits and what waits in the inbox. "what did you learn" stays with the instant-skills list; the full suite caught that conflict.
+
+**Tests:** `tests/test_learning_inbox.py` (6) and `tests/test_procedures_h11.py` (4). The fixed replies were added to the false-claim guard test; the Night Shift job list now includes `curator`.
+
 ### 2026-11-07: Voice polish (H19/H20), think harder (H21), second opinion (H22), forget and context gauge (H29)
 
 **H19 (verified)**

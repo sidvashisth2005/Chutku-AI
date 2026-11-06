@@ -227,6 +227,8 @@ def _run_jobs(base, report, model, deadline, create_runtime):
         _job(report, "maintenance", lambda: maintenance(base, runtime))
         _job(report, "fine_tune_readiness", lambda: lora_readiness(base))
         _job(report, "drive_index", lambda: _drive_index(base))
+        from chutku import learning_inbox   # H13 curator: archive (never delete) what has gone unused
+        _job(report, "curator", lambda: learning_inbox.curate(base))
         from chutku import evolve
         _job(report, "evolve_review", lambda: _evolve(evolve.review(base, runtime.registry, compile_skills=False)))
 

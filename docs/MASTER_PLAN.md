@@ -835,10 +835,10 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [x] H7: Weekly insights — done 2026-10-07 (Today card, reflex time saved and quota not built)
 - [x] H8: Scheduled-task upgrades — done 2026-10-09 (results reported, only-new quiet, failure dedupe; chaining and doctor summary not built)
 - [ ] H9: Brain resilience: fallback chain, error classes, per-request brain choice
-- [ ] H10: Proven lessons from mistakes
-- [ ] H11: Procedure skills (SKILL.md) with progressive disclosure
-- [ ] H12: Background review + learning inbox
-- [ ] H13: Curator: lifecycle for skills, reflexes and lessons
+- [x] H10 (done 2026-11-07: rules-only lessons via the inbox; demotion on failure): Proven lessons from mistakes
+- [x] H11 (done 2026-11-07: names in CONTEXT, skill.procedure body, local add, drafts via inbox): Procedure skills (SKILL.md) with progressive disclosure
+- [x] H12 (done 2026-11-07: rules-only review after each request; inbox keep/discard by phrase): Background review + learning inbox
+- [x] H13 (done 2026-11-07: lessons and imported procedures; archive only; reflexes keep their own lifecycle): Curator: lifecycle for skills, reflexes and lessons
 - [ ] H14: For-each steps
 - [ ] H15: Task board + background research workers
 - [ ] H16: Telegram remote control with pairing + handoff
@@ -852,8 +852,8 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [x] H24 (done 2026-11-06): Standing goals
 - [x] H25 (done 2026-11-06; restore from the CLI with Chutku stopped): Backup & restore
 - [ ] H26: Doctor that can repair
-- [ ] H27: Learn on request ("ye seekh lo")
-- [ ] H28: Learning journey view
+- [x] H27 (done 2026-11-07: file or web page -> procedure draft in the inbox): Learn on request ("ye seekh lo")
+- [x] H28 (done 2026-11-07: spoken journey with counts; no dashboard graph): Learning journey view
 - [x] H29 (done 2026-11-07: forget/unforget last exchange, search skips hidden, Brain view gauge; resume via earlier-context): Conversation tools + context gauge
 - [ ] H30: Phase 3b release: evidence, docs, reviews
 

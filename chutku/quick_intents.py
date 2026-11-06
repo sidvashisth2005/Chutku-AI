@@ -1817,7 +1817,10 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "finance.quote": lambda out: out["reply"],
                  "skill.list": lambda out: out["skill_reply"], "skill.create": lambda out: out["skill_reply"],
                  "evolve.list": lambda out: out["skill_reply"], "evolve.review": lambda out: out["skill_reply"],
-                 "skill.import": lambda out: out["skill_reply"],
+                 "skill.import": lambda out: out["skill_reply"], "skill.add_procedure": lambda out: out["skill_reply"],
+                 "learning.inbox": lambda out: out["summary"], "learning.keep_all": lambda out: out["summary"],
+                 "learning.keep": lambda out: out["summary"], "learning.discard": lambda out: out["summary"],
+                 "learning.learn": lambda out: out["summary"], "learning.journey": lambda out: out["summary"],
                  "goals.list": lambda out: out["summary"], "goals.add": lambda out: "Goal set. " + out["progress"],
                  "goals.done": lambda out: out["summary"], "backup.list": _say_backups, "backup.create": _say_backup}
 
