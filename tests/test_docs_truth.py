@@ -46,7 +46,7 @@ class DocsTruthTests(unittest.TestCase):
     def test_every_code_running_tool_is_flagged(self):
         flagged = {tool.name for tool in self.tools if tool.runs_code}
         self.assertEqual(flagged, {"code.run_python", "process.launch", "system.powershell", "skill.approve",
-                                   "skill.create", "evolve.approve"})
+                                   "skill.create", "evolve.approve", "skill.import"})
 
 
 if __name__ == "__main__":

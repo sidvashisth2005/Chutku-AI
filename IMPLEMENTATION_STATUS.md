@@ -16,6 +16,28 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Learn a skill from a GitHub project with one sentence (X17)
+
+- **The request:** "github.com/x/y se skill seekho" / "import skills from https://github.com/x/y" → `skill.import`.
+  - R2, `runs_code` and network egress, so it always asks first.
+  - Code: `chutku/skill_import.py`.
+- **Clone:** shallow, no hooks, no symlinks, no password prompts. It is cached in `data/skills/_imports/<owner>__<repo>` and pinned at its commit. The licence comes from LICENSE/COPYING, or from a `license:` line in a SKILL.md, labelled as such.
+- **Nothing from the project is run or installed.**
+- **SKILL.md files** (the Agent Skills format) become procedures in `data/skills/_procedures/<name>/`, at most 20, with names validated.
+  - `skill.procedure` (R0) reads one. It is a tainting tool: imported text can't give orders.
+- **A project without SKILL.md:** the coder re-implements its core idea from the README in standard-library Python (`skills.create_skill`). The result stays pending until "skill approve <name>".
+- **Tests:** `tests/test_skill_import_x17.py`, 4 tests:
+  - procedures, licence and commit;
+  - an unsafe procedure name skipped;
+  - the README path going to the coder, and staying pending;
+  - non-GitHub, traversal and injection URLs refused;
+  - the tool waiting for a click in owner mode.
+- **Real path:** importing `https://github.com/forrestchang/andrej-karpathy-skills` took 1.2 s.
+  - It was pinned at `2c60614`, with the licence "MIT (declared in SKILL.md)".
+  - The procedure `karpathy-guidelines` was saved and read back.
+  - A missing repo failed cleanly with Git's "Repository not found".
+- Full suite: 1,348 OK; `check_phrases.py` 145/145. `docs/SECURITY.md` counts rebuilt: 201 tools.
+
 ### 2026-11-06: Evolve: Chutku proposes her own improvements; applied only on the owner's typed approval (Y2, Y4)
 
 Built by the helper agent "Sage" (`docs/AGENT_PROMPTS.md` #21). It was cut off by a usage limit before its last test run; I committed its worktree as `wip/y2-evolve`, reviewed it, merged it and ran everything again.

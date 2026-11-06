@@ -7,7 +7,7 @@ This log says what was done, what is finished, and what remains of the plan, so 
 - Every helper-agent prompt is in `docs/AGENT_PROMPTS.md` (#12–#21).
 - Repo: `sidvashisth2005/Chutku-AI`, branch `main`, pushed after every slice.
 - CI: `.github/workflows/tests.yml`, green since the Sentinel merge.
-- Last full suite: 1,331 tests OK.
+- Last full suite: 1,348 tests OK (2026-11-06).
 
 ## What the owner asked for (all requests in these two sessions)
 
@@ -57,6 +57,7 @@ This log says what was done, what is finished, and what remains of the plan, so 
 - **X8:** draft-first email; sending always asks and needs the `email.send` grant.
 - **X9:** stock quotes with "as of" (live TCS quote in 1.16 s).
 - **X11/X12:** eyes with moods, and amplitude lip-sync.
+- **X17:** skill import from GitHub: procedures from SKILL.md, or a pending coder-written skill; nothing from the project is run.
 - **X15/X16:** self-written skills: pending → tests → typed approve plus a click → `skill.<name>`. Bound to a hash,
   and every run asks.
 
@@ -88,7 +89,6 @@ This log says what was done, what is finished, and what remains of the plan, so 
 4. **Planned, not built:**
    - **X13:** YouTube inside the HUD.
    - **X14:** web autopilot in a dedicated signed-in browser profile over CDP, plus `browser.extract`.
-   - **X17:** skill import from a GitHub repo.
    - **X18:** builder upgrade.
    - **O3:** no-GPU fallback test.
    - **O4:** the first-run wizard.

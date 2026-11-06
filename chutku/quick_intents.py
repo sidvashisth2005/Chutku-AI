@@ -708,6 +708,21 @@ _EVOLVE_LIST = re.compile(rf"^{_POLITE}(?:aaj ke suggestions?|(?:show |list )?(?
                           rf"(?: (?:dikhao|batao|list))?|evolve list){_TAIL}$", re.I)
 
 
+# X17: "github.com/x/y se skill seekho" / "import skills from https://github.com/x/y"
+_IMPORT = re.compile(rf"^{_POLITE}(?:(?P<a>(?:https?://)?(?:www\.)?github\.com/[\w.-]+/[\w.-]+?)(?:\.git)?/?\s+(?:se|say)\s+"
+                     rf"(?:skills?|ability|kaam)\s+(?:seekho|sikho|seekh lo|sikh lo|lo|import karo|le lo)|"
+                     rf"(?:import|learn)\s+(?:a\s+)?(?:skills?|abilit(?:y|ies))\s+from\s+"
+                     rf"(?P<b>(?:https?://)?(?:www\.)?github\.com/[\w.-]+/[\w.-]+?)(?:\.git)?/?){_TAIL}$", re.I)
+
+
+def _import_skill(text):
+    match = _IMPORT.match(text)
+    if not match:
+        return None
+    repo = match.group("a") or match.group("b")
+    return _proposal("skill.import", {"repo": repo}, f"Learn an ability from {repo}", "", finish=False)
+
+
 def _evolve(text):
     if _EVOLVE_REVIEW.match(text):
         return _proposal("evolve.review", {}, "Study the last 7 days and write improvement ideas", "", finish=False)
@@ -763,7 +778,7 @@ def _single(goal, apps=None):
         return _done("Main chalu hi hoon. Bolo, kya karna hai?")   # (a real pause is lifted by the dashboard)
     if control in ("stop", "pause") and not re.fullmatch(r"\W*stop\W*", text, re.I):
         return _done("Nothing is running right now.")  # (the dashboard stops running work before this point)
-    skill = _skill(text) or _evolve(text)
+    skill = _skill(text) or _evolve(text) or _import_skill(text)
     if skill is not None:
         return skill
     scheduled = _scheduled(text)
@@ -1772,7 +1787,8 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "message.open_chat": _say_open_chat, "message.read_chat": _say_read_chat,
                  "finance.quote": lambda out: out["reply"],
                  "skill.list": lambda out: out["skill_reply"], "skill.create": lambda out: out["skill_reply"],
-                 "evolve.list": lambda out: out["skill_reply"], "evolve.review": lambda out: out["skill_reply"]}
+                 "evolve.list": lambda out: out["skill_reply"], "evolve.review": lambda out: out["skill_reply"],
+                 "skill.import": lambda out: out["skill_reply"]}
 
 
 def quick_answer(session):

@@ -143,6 +143,11 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 
 ## 3. Things you can say
 
+**New on 2026-11-06: learn from GitHub**
+- "github.com/owner/project se skill seekho" or "import skills from https://github.com/owner/project" (asks first). Chutku downloads the project (nothing from it is run) and notes its licence.
+  - If it has SKILL.md files, they become procedures she reads when a task fits.
+  - Otherwise she writes a small skill from its README, which waits for "skill approve <name>".
+
 **New on 2026-11-06: Chutku improves herself (Evolve)**
 - Every night (Night Shift), Chutku studies the last 7 days: failures, slow or misheard requests, questions you always answer the same way, and your habits. She refreshes what she knows about you and writes at most 3 improvement ideas, each with a full plan: the evidence, what would change, the steps, the tests, the risk, and how it is undone. Nothing changes by itself.
 - "khud ko improve karo" / "improvement ideas do" runs that review now. "aaj ke suggestions" / "improvement ideas dikhao" lists them.
