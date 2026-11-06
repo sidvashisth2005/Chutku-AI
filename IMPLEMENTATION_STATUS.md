@@ -16,6 +16,43 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Browser, YouTube, window and Windows actions are one instant step (Z3, rest)
+
+Measured first with the new `scripts/check_app_actions.py` (49 everyday phrases):
+- before: **6/49** were one step;
+- several went to the wrong tool: "exit full screen" → `apps.quit`, "show desktop" → `files.open`.
+
+**Causes**
+- The atlases had the actions but only app-named phrases ("brave new tab").
+- `quick_proposal` stripped "new tab" as a tab choice, so "new tab kholo" became just "kholo".
+- Shortcut actions the lab never runs (reload, captions...) could never route.
+
+**Fixes**
+- **Generic phrases** for 16 Brave/YouTube actions, VLC and Spotify (an atlas edit). "tab band karo" stays `keyboard.edit` (Ctrl+W in whichever app is in front); a test caught that.
+- **New Brave actions:** `next_tab`, `previous_tab`, `back`, `forward`, `scroll_down`, `scroll_up`, `yt_mute`, and `fullscreen` (F11).
+- **`phrases.shortcut`:** a safe, parameter-free "focus + documented shortcut" action routes without a lab run, unless its latest lab run failed (`lab.failed_actions`). Actions that change something still need the lab. The runner's checks still apply: the app must be in front, and YouTube keys only go to a YouTube tab.
+- **`quick_proposal`** tries the whole phrase as an app action before stripping tab words.
+- **New tools:**
+  - `windows.this`: minimize, maximize, restore or snap left/right the window in front, through `windows.manage`/`windows.snap`. Reversible.
+  - `windows.close_this`: through `windows.close`, with the same risk.
+  - Chutku's own windows are never the target.
+- **Windows' own shortcuts:** "show desktop" (`win+d`), "switch window" (`alt+tab`), "task view" (`win+tab`) go to `keyboard.keys`.
+
+**After: 49/49 one step, all in 0.56–0.68 s.** `check_phrases` is 145/145.
+
+**Real, on this PC**
+- Action Lab, 3 runs each, all verified: `close_tab` (it first opens a new tab, so only that tab is closed), `next_tab`, `previous_tab`, `back`, `forward`, `scroll_down`, `scroll_up`, `fullscreen`. 0.96–1.46 s each.
+- `windows.this minimize` on the window in front (Brave): COMPLETED/PASS in 0.12 s. A restore by its id took 0.11 s.
+
+**Tests**
+- `tests/test_app_shortcuts_z3.py` (6 tests):
+  - shortcuts route with no lab run;
+  - a failed lab run or a "changes" action does not (negative);
+  - "new tab" is an action;
+  - window and OS phrases;
+  - Chutku's own window is refused (negative);
+  - the delegation identity.
+
 ### 2026-11-06: The phone as a remote: trackpad, live keyboard, a silent laptop, and laptop sound on purpose (Z5, built on W6)
 
 **Owner's asks**

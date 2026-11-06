@@ -934,6 +934,46 @@ def _snap(arguments, _context):
     return ToolResult(output, Verification.PASS if ok else Verification.UNKNOWN)
 
 
+THIS_ACTIONS = ("minimize", "maximize", "restore", "snap_left", "snap_right")
+_THIS_SCHEMA = {"type": "object", "properties": {"action": {"type": "string", "enum": list(THIS_ACTIONS)}},
+                "required": ["action"], "additionalProperties": False}
+
+
+def _validate_this(arguments):
+    if set(arguments) != {"action"} or arguments["action"] not in THIS_ACTIONS:
+        raise ValueError("Choose minimize, maximize, restore, snap_left or snap_right.")
+
+
+def _front_window():
+    """Identity of the app window in front, or None (Chutku's own windows never count)."""
+    desktop = Desktop()
+    hwnd = desktop.foreground()
+    info = desktop.describe(hwnd) if hwnd else {}
+    if not info.get("executable") or info.get("title", "").startswith("Chutku"):
+        return None
+    return {k: info[k] for k in ("window_id", "process_id", "executable")}
+
+
+_NO_FRONT = "No app window is in front (Chutku's own window does not count)."
+
+
+def _close_this(arguments, context):
+    identity = _front_window()
+    return _close_window(identity, context) if identity else ToolResult({"error": _NO_FRONT}, Verification.FAIL)
+
+
+def _this_window(arguments, context):
+    """Z3: "minimize this window" in one step: the window in front, through the same checked code as windows.manage
+    and windows.snap."""
+    identity = _front_window()
+    if identity is None:
+        return ToolResult({"error": _NO_FRONT}, Verification.FAIL)
+    action = arguments["action"]
+    if action.startswith("snap_"):
+        return _snap(identity | {"position": action.removeprefix("snap_")}, context)
+    return _manage(identity | {"action": action}, context)
+
+
 def _close_window(arguments, _context):
     desktop = Desktop()
     if desktop.exact(arguments["window_id"], arguments["process_id"], arguments["executable"]) is None:
@@ -1113,6 +1153,17 @@ def register_everyday_tools(registry):
         "save); verifies it disappears.",
         Risk.EXTERNAL_SIDE_EFFECT, _close_window, _validate_identity, required_capability="desktop.input",
         argument_schema=_CLOSE_SCHEMA, prerequisites=desktop,
+        reversibility="irreversible_if_unsaved_state_is_discarded_by_the_app",
+        success_predicate="exact_window_no_longer_visible"))
+    registry.register(Tool("windows.this", "Minimize, maximize, restore or snap left/right the app window in front "
+        "(\"minimize this window\"); verifies the new state.",
+        Risk.REVERSIBLE, _this_window, _validate_this, required_capability="desktop.input",
+        argument_schema=_THIS_SCHEMA, prerequisites=desktop, reversibility="transient",
+        success_predicate="requested_window_state_read_back"))
+    registry.register(Tool("windows.close_this", "Ask the app window in front to close (\"close this window\"; the "
+        "app may ask to save); verifies it disappears.",
+        Risk.EXTERNAL_SIDE_EFFECT, _close_this, _validate_none, required_capability="desktop.input",
+        argument_schema=EMPTY_ARGUMENT_SCHEMA, prerequisites=desktop,
         reversibility="irreversible_if_unsaved_state_is_discarded_by_the_app",
         success_predicate="exact_window_no_longer_visible"))
     registry.register(Tool("media.status", "Show what is playing (app, title, artist, playing/paused).",

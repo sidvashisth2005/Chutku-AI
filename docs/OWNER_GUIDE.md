@@ -143,6 +143,13 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 
 ## 3. Things you can say
 
+**New on 2026-11-06: instant app actions (no thinking, one step)**
+- **Browser** (Brave): "new tab kholo", "close this tab", "band kiya hua tab wapas kholo", "agla tab" / "pichla tab", "peeche jao" / "aage jao", "page reload karo", "scroll down" / "upar scroll karo", "zoom in", "history dikhao", "browser full screen".
+- **YouTube:** "full screen karo" / "exit full screen", "video aage karo" / "peeche karo", "captions on karo", "theatre mode", "speed badhao" / "kam karo", "next video", "mute the video". These keys go only to a YouTube tab.
+- **Windows:** "minimize this window" / "window chhota karo", "window bada karo", "snap this window left", "close this window", "show desktop", "switch window", "task view kholo".
+- **Media** (from earlier today): "pause youtube in brave", "spotify pe agla gaana", "vlc full screen karo", "shuffle on karo".
+- Check them all with `.venv\Scripts\python.exe scripts\check_app_actions.py`.
+
 **New on 2026-11-06: the phone as a remote (after the Tailscale setup in "Your phone (W6)")**
 - **Trackpad tab:**
   - "Start control (PIN)" first.

@@ -32,6 +32,16 @@ _PATTERNS = [
                              rf"(?:(?P<thing>{_MEDIA_THING})\s+)?(?P<verb>pause|roko|rok do|resume|band|agla|next|skip|"
                              rf"pichla|previous)(?:\s+(?:video|song|gaana|gana|track))?"
                              rf"(?:\s+(?:karo|kar do|kardo|kar de|karna|do|chalao|lagao|bajao))?" + _T, re.I)),
+    # Z3: the window in front, and Windows' own shortcuts, in one step.
+    ("window", re.compile(_P + r"(?P<w>minimize|minimise|maximize|maximise|restore|close)\s+(?:this|the|current|my)\s+"
+                          r"(?:window|app)" + _T, re.I)),
+    ("window", re.compile(_P + r"(?:(?:ye|yeh|is|iss|this|current)\s+)?(?:window|app)\s+(?:ko\s+)?(?P<w>minimize|minimise|"
+                          r"maximize|maximise|restore|chhota|chota|bada|band|left|right|left side|right side|left mein|"
+                          r"right mein)\s*(?:" + _DO + r")?" + _T, re.I)),
+    ("window", re.compile(_P + r"snap\s+(?:this\s+|the\s+)?(?:window\s+)?(?:to\s+the\s+)?(?P<w>left|right)" + _T, re.I)),
+    ("os_keys", re.compile(_P + r"(?P<k>show\s+(?:the\s+)?desktop|desktop\s+dikhao|switch\s+(?:the\s+)?windows?|"
+                           r"window\s+switch\s+karo|alt\s+tab|task\s+view(?:\s+(?:kholo|dikhao|open karo))?|"
+                           r"saari\s+windows\s+dikhao|show\s+all\s+windows)" + _T, re.I)),
     ("spotify", re.compile(_P + r"(?:spotify\s+(?:pe|par|mein|me)\s+(?P<q>.{2,150}?)\s+(?:chalao|bajao|lagao|play karo|sunao)|"
                            r"play\s+(?P<q2>.{2,150}?)\s+on\s+spotify|(?P<q3>.{2,150}?)\s+spotify\s+(?:pe|par)\s+(?:chalao|bajao|lagao))" + _T, re.I)),
     ("time", re.compile(_P + r"(?:mujhe\s+)?(?:batao|bata do|bolo)?\s*(?:abhi\s+)?(?:time|samay|kitne baje)\s+(?:kya|kitna)?\s*"
@@ -91,6 +101,21 @@ def parse_daily(goal, now=None):
         if not match:
             continue
         g = match.groupdict()
+        if kind == "window":
+            word = g["w"].casefold().split()[0]
+            action = {"minimize": "minimize", "minimise": "minimize", "chhota": "minimize", "chota": "minimize",
+                      "maximize": "maximize", "maximise": "maximize", "bada": "maximize", "restore": "restore",
+                      "left": "snap_left", "right": "snap_right", "close": "close", "band": "close"}[word]
+            if action == "close":
+                return "windows.close_this", {}, "Close the window in front", "Window band kar di.", True
+            return "windows.this", {"action": action}, f"Window: {action}", "Window " + {
+                "minimize": "chhoti kar di.", "maximize": "badi kar di.", "restore": "pehle jaisi kar di.",
+                "snap_left": "left mein laga di.", "snap_right": "right mein laga di."}[action], True
+        if kind == "os_keys":
+            said = g["k"].casefold()
+            keys = "win+d" if "desktop" in said else "win+tab" if ("task" in said or "saari" in said or "all" in said) \
+                else "alt+tab"
+            return "keyboard.keys", {"keys": keys}, f"Press {keys}", "Ho gaya.", True
         if kind == "media_app":
             apps = [a.casefold() for a in (g.get("a2"), g.get("a1")) if a]
             verb = g["verb"].casefold()

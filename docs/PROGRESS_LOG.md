@@ -79,6 +79,8 @@ This log says what was done, what is finished, and what remains of the plan, so 
   them on "ruko". The persona no longer says "ek saath nahi ho payega".
 - **Z3 (media part):** "pause youtube in brave", "youtube pause karo", "spotify pe agla gaana" are one instant
   step that reaches that app's own player (real Spotify pause in 0.73 s; a missing app fails honestly).
+- **Z3 (rest):** 49/49 everyday browser, YouTube, window and Windows phrases are one instant step (was 6/49);
+  8 new Brave actions verified 3/3 by the Action Lab on this PC; `windows.this` minimizes the window in front in 0.12 s.
 - **Z4 (first cut):** the wake used to wait for Gemini to connect (1.3 s) before the chime. Now the chime plays at
   once and the mic records during the connection (real check: listening at 0.22 s, connected at 1.32 s). Whisper
   (1.4 s on the CPU) is the next cut: the trained detector needs the owner's clips.

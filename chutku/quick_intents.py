@@ -210,6 +210,9 @@ def quick_proposal(goal, apps=None):
     """A deterministic proposal for an unambiguous everyday request, with the owner's tab choice applied."""
     from chutku.translit import roman
     goal = roman(goal)
+    whole = _app_action(" ".join(goal.split()))
+    if whole is not None:   # "new tab kholo" is itself an app action, not a tab choice for another request (Z3)
+        return whole
     tab = None
     for choice, pattern in (("new", _NEW_TAB), ("same", _SAME_TAB)):
         if pattern.search(goal):

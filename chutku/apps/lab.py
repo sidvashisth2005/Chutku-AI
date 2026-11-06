@@ -56,6 +56,20 @@ def verified_actions(base):
     return found
 
 
+def failed_actions(base):
+    """{app: {action ids}} whose latest lab run failed."""
+    folder = Path(base) / "data" / "apps"
+    found = {}
+    for path in folder.glob("*/lab.json") if folder.exists() else []:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        found[data.get("app", path.parent.name)] = {
+            a for a, e in data.get("actions", {}).items() if e.get("runs") and not e["runs"][-1].get("ok")}
+    return found
+
+
 def _record(state, action_id, ok, seconds, error, now):
     entry = state["actions"].setdefault(action_id, {"runs": [], "streak": 0, "verified": False})
     entry["runs"] = (entry["runs"] + [{"at": now, "ok": ok, "seconds": seconds, **({"error": error} if error else {})}])[-20:]

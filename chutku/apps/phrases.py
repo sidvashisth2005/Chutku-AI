@@ -58,21 +58,34 @@ def compiled(atlases):
     return _CACHE[key]
 
 
-def match(goal, atlases=None, verified=None):
-    """(tool name, arguments, action) for a verified app action whose phrase matches the whole request, else None."""
+def shortcut(action):
+    """Z3 (owner 2026-11-06: "keep everything in a single step"): a safe action that only brings its app to the front
+    and presses one documented keyboard shortcut. It routes without a lab run (reload, back, captions...: the lab
+    skips several of them so as not to disturb the owner); the runner still refuses when the app is not in front or,
+    for YouTube keys, not on a YouTube tab. A lab run that failed stops it again."""
+    steps = action.get("steps") or []
+    return action.get("risk") == "safe" and not action.get("params") and any("keys" in s for s in steps) \
+        and all("focus" in s or "keys" in s for s in steps)
+
+
+def match(goal, atlases=None, verified=None, failed=None):
+    """(tool name, arguments, action) for a verified app action (or a plain shortcut) whose phrase matches the whole
+    request, else None."""
     if atlases is None:
         from chutku.apps.atlas import load_all
         atlases = _atlases(load_all)
-    if verified is None:
+    if verified is None or failed is None:
         from chutku.app import PROJECT_ROOT
-        from chutku.apps.lab import verified_actions
-        verified = verified_actions(PROJECT_ROOT)
+        from chutku.apps.lab import failed_actions, verified_actions
+        verified = verified_actions(PROJECT_ROOT) if verified is None else verified
+        failed = failed_actions(PROJECT_ROOT) if failed is None else failed
     text = " ".join(str(goal).split())
     if not text or len(text) > 200:
         return None
     best = []
     for pattern, fixed, app, action in compiled(atlases):
-        if action["id"] not in verified.get(app, ()):
+        if action["id"] not in verified.get(app, ()) and \
+                (not shortcut(action) or action["id"] in failed.get(app, ())):
             continue
         found = pattern.match(text)
         if not found:

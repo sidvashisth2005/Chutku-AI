@@ -139,7 +139,9 @@
    "risk": "safe",
    "phrases": [
     "spotify shuffle",
-    "shuffle on karo"
+    "shuffle on karo",
+    "shuffle karo",
+    "shuffle on"
    ],
    "steps": [
     {
@@ -160,7 +162,9 @@
    "risk": "safe",
    "phrases": [
     "spotify repeat",
-    "repeat on karo"
+    "repeat on karo",
+    "repeat karo",
+    "repeat on"
    ],
    "steps": [
     {
