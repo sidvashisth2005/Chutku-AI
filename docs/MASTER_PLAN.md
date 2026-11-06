@@ -973,9 +973,9 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 # Phase 7: Minimal, autonomous, self-improving (owner requests 2026-11-06)
 - [x] Y0: Voice approvals fixed + trusted tasks ("bina puche kar do": only very risky steps ask) — done 2026-11-06
 - [ ] Y1 (built; hidden until Ctrl+Alt+C, 300x40, draggable, live line; toggle verified live 2026-11-06; auto-show on Ctrl+Alt+Space + drag/expand clicks still to check by the owner): Compact Chutku: a small rounded bar at the top-middle with reactive eyes, an expand icon opens the full window
-- [ ] Y2: Evolve: nightly/online self-review of logs -> full improvement plans proposed to the owner -> on typed approval, built on a git branch, full test suite, merged and pushed if green, discarded if not; never edits policy/grants/guard/runtime/evolve itself
+- [x] Y2 (done 2026-11-06; real review on a log copy; live code apply waits for an owner approval): Evolve: nightly/online self-review of logs -> full improvement plans proposed to the owner -> on typed approval, built on a git branch, full test suite, merged and pushed if green, discarded if not; never edits policy/grants/guard/runtime/evolve itself
 - [x] Y3 (done 2026-11-06: questions beside a running task; desktop actions stay serial): Parallel lanes: read-only research tasks and agents run at the same time; desktop input stays one at a time
-- [ ] Y4: Understanding the owner: Evolve refreshes habits, mind map and preferences from real use (local only) They come after X1–X3, before publishing.
+- [x] Y4 (profile refresh inside the Evolve review, 2026-11-06): Understanding the owner: Evolve refreshes habits, mind map and preferences from real use (local only) They come after X1–X3, before publishing.
 
 ---
 # Parked (needs a later owner decision)

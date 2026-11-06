@@ -605,7 +605,7 @@ Tests: Python tests for any new payload field / Bridge logic with a fake window;
 - **Kind:** Agent, type `general-purpose`, in its own git worktree, persona "Sage"
 - **Why it was used:** The owner asked (2026-11-06) for Chutku to improve herself daily: plan first, propose as advice, and on approval
   build, test, keep or revert.
-- **What came of it:** (Recorded when its result is merged.)
+- **What came of it:** It was cut off by a usage limit before its final suite run. Its worktree was committed as `wip/y2-evolve`, reviewed (the protected-path list and safety tokens), merged, and re-tested: 13 Evolve tests, full suite 1,344 OK, a real offline review on a copy of the owner's logs.
 
 **Prompt / input, word for word:**
 

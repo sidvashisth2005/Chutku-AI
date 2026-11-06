@@ -16,6 +16,33 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Evolve: Chutku proposes her own improvements; applied only on the owner's typed approval (Y2, Y4)
+
+Built by the helper agent "Sage" (`docs/AGENT_PROMPTS.md` #21). It was cut off by a usage limit before its last test run; I committed its worktree as `wip/y2-evolve`, reviewed it, merged it and ran everything again.
+
+**What it does**
+- **Review:** `chutku/evolve.py`. A Night Shift job, also run by "khud ko improve karo".
+  - It gathers the week's evidence: failed or unverified steps, slow requests, model requests that could be instant, speech problems, asks always answered the same way, and habits.
+  - It refreshes the owner profile (know_me, reflex).
+  - It writes at most 3 proposals as full plans (`data/evolve/proposals/*.json`): evidence, change, steps, tests, risk, undo.
+  - Templates work offline; a cloud drafter is used only on redacted summaries.
+- **Tools:** `evolve.review` / `evolve.list` are R0. `evolve.approve` is typed only and user_only, then a click. `evolve.reject`.
+- **Apply:** `chutku/evolve_apply.py`.
+  - Phrase, routine, preference and skill ideas use the existing data paths.
+  - A code idea goes on branch `evolve/<id>` in a worktree under `data/evolve/work/`: the coder writes it, with repairs under `keep_tests_fixed`, then the full suite and `check_phrases` run.
+  - The boundary is checked again on the exact committed diff, then `git merge --ff-only`. Anything else is discarded, and main is never touched.
+  - Push only if the `evolve_push` preference is on (default off).
+- **Enforced boundary:**
+  - protected: policy/, core/, remote/, router/, runtime, guard, registry, skills, app, agent_loop, dashboard, coder, builder, evolve*, AGENTS.md, SECURITY.md, the lock files, CI, and about 25 safety tests;
+  - any changed line with a safety token is refused (Risk, approval, subprocess, network, delete…);
+  - tests are append-only, with no skips;
+  - at most 8 files and 400 lines.
+
+**Evidence**
+- `tests/test_evolve_y2.py`, 13 tests, OK. Full suite after the merge: 1,344 OK (283 s).
+- **Real path, offline,** on a copy of the owner's last 7 days of logs in a temp folder: review in 1.5 s → evidence, profile refreshed, one proposal (`preference`: "Listen for Hindi as well as English").
+- **Not run live yet:** a real cloud-drafted code proposal applied end to end. That needs an owner approval.
+
 ### 2026-11-06: The bar hides until wanted (Ctrl+Alt+C), is smaller, draggable, shows the live conversation; a window freeze fixed
 
 - **Owner request:** "not always there; appear on the hotkey, vanish if pressed again; smaller; draggable; show what I say and what Chutku says".

@@ -143,6 +143,12 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 
 ## 3. Things you can say
 
+**New on 2026-11-06: Chutku improves herself (Evolve)**
+- Every night (Night Shift), Chutku studies the last 7 days: failures, slow or misheard requests, questions you always answer the same way, and your habits. She refreshes what she knows about you and writes at most 3 improvement ideas, each with a full plan: the evidence, what would change, the steps, the tests, the risk, and how it is undone. Nothing changes by itself.
+- "khud ko improve karo" / "improvement ideas do" runs that review now. "aaj ke suggestions" / "improvement ideas dikhao" lists them.
+- To accept one, **type** "evolve approve <id>", then click. Small ideas (a new phrase, routine, preference or skill) apply through the normal settings. A code idea is written on a separate git branch, the **full** test suite runs, and it is merged only if everything passes; otherwise it is thrown away and main is untouched. "evolve reject <id>" drops an idea.
+- She can never change her own safety code: policy, permissions, the guard, the runtime, Evolve itself, or the safety tests. Pushing to GitHub after a merge is off unless you turn on the `evolve_push` preference.
+
 **New on 2026-11-06: Chutku starts small**
 - The bar is **hidden** until you want it: **Ctrl+Alt+C** shows it, Ctrl+Alt+C again hides it. While she listens or works (Ctrl+Alt+Space) it appears by itself and goes away about 6 seconds after she is done, unless you pinned it with Ctrl+Alt+C. It shows what you say ("You: ...") and what she says ("Chutku: ...") live. Drag it anywhere; it remembers where you left it.
 - Click the expand icon at the right end of the bar to open the full window. The "to bar" icon at the top right of the full window shrinks it back.

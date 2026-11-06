@@ -65,20 +65,13 @@ This log says what was done, what is finished, and what remains of the plan, so 
 - **Y1 + rework:** the bar is hidden until Ctrl+Alt+C, appears while she works, is 300×40, draggable, remembers
   its place, and shows the live "You/Chutku" line. A real window freeze is fixed (`NativeWindow`).
 - **Y3:** questions are answered beside a running task; desktop actions stay one at a time.
+- **Y2/Y4 Evolve:** nightly self-review → full-plan proposals → typed approve → branch + full tests → merge or discard. Safety code is protected. The owner profile is refreshed.
 
 **Team used:** Auditor, Scout, Mason, Pixel, Quill, Sentinel, Forge, Sage.
 
 ## Not finished: the rest of the plan, in order
 
-1. **Y2 Evolve (self-improvement)**, built by "Sage" and **not merged**.
-   - The work is uncommitted in the git worktree `D:\Project\Chutku\.claude\worktrees\agent-ab254e64fbac9cfa3`
-     (branch `worktree-agent-ab254e64fbac9cfa3`).
-   - It was cut off by a usage limit during its last full-suite run.
-   - Next: resume Sage (or open that worktree), run its tests and the full suite, review the protected-path list,
-     merge, ledger, push.
-   - Design: nightly or online review of the logs → up to 3 full-plan proposals → typed approve plus a click → a
-     branch with the change → the full test suite → merge if green, discard if not. It may never edit
-     policy/runtime/core/guard/registry/skills/evolve or the safety tests. Pushing is off by default.
+1. **Y2 Evolve: DONE 2026-11-06.** Merged and tested (13 Evolve tests, full suite 1,344). A real offline review on a copy of the logs produced one proposal. Still to do: the first owner-approved code proposal, live.
 2. **Live checks that need the owner at the PC:**
    - the bar appearing on Ctrl+Alt+Space and dragging it;
    - the expand button and "to bar";
