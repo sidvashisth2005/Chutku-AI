@@ -400,6 +400,10 @@ def register_builtin_tools(registry: ToolRegistry) -> None:
     register_desktop_controls(registry)
     from chutku.tools.internet import register_internet_tools
     register_internet_tools(registry)
+    from chutku.tools.finance import register_finance_tools
+    register_finance_tools(registry)
+    from chutku.tools.mail import register_mail_tools
+    register_mail_tools(registry)
     from chutku.tools.reminders import register_reminder_tools
     register_reminder_tools(registry)
     from chutku.tools.documents import register_document_tools

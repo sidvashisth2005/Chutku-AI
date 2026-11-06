@@ -103,6 +103,11 @@ CASES = [
     # controlling Chutku (2026-10-04)
     ("undo that", "log.undo"), ("wapas karo", "log.undo"), ("abhi kya kiya", "log.recent"),
     ("what can you do", "(reply)"), ("suno", "(reply)"), ("ruko", "(reply)"),
+    # stock quotes and saved email addresses (Phase 6 X8/X9)
+    ("reliance ka share price", "finance.quote"), ("TCS stock kitna hai", "finance.quote"),
+    ("price of AAPL", "finance.quote"), ("tata motors share price", "finance.quote"),
+    ("Infosys ka share kitne ka hai", "finance.quote"), ("what is the share price of HDFC Bank", "finance.quote"),
+    ("mammi ka email mom@example.com hai", "mind.person"),
 ]
 
 

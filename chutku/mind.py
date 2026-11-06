@@ -4,7 +4,8 @@ Stored locally in data/mind.json (never sent anywhere by this module). Lookups a
 ("my gf", "meri gf", "GF" and "girlfriend" are the same key), never fuzzy: a message must never reach the wrong
 person because two names looked alike.
 
-    people: [{"name": "AK", "aliases": ["gf"], "relation": "girlfriend", "whatsapp": "AK", "phone": ""}]
+    people: [{"name": "AK", "aliases": ["gf"], "relation": "girlfriend", "whatsapp": "AK", "phone": "", "email": ""}]
+            ("email" is optional: only people the owner gave an address have it)
     facts:  {"home": "Pune, Maharashtra", ...}
     lists:  {"assignments": [{"id": 1, "text": "...", "done": false, "added": "2026-10-04"}], "schedule": [...], ...}
 """
@@ -36,6 +37,7 @@ _SAME = [
     {"wife", "biwi", "patni"},
     {"husband", "pati"},
 ]
+EMAIL = re.compile(r"[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,24}")   # no ?&%: mailto-safe
 _FILLER = re.compile(r"^(?:my|meri|mere|mera|apni|apne|apna|the)\s+|\s+(?:ko|ka|ki|ke|se)$", re.I)
 _lock = threading.Lock()
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -126,7 +128,7 @@ class Mind:
             return "WhatsApp chat name"
         return None
 
-    def remember_person(self, name, *, aliases=(), relation="", whatsapp="", phone="", note=""):
+    def remember_person(self, name, *, aliases=(), relation="", whatsapp="", phone="", note="", email=""):
         """Add a person or merge into the existing one with that name (aliases are added, never dropped)."""
         name = " ".join(str(name).split())
         if not name or len(name) > 60:
@@ -134,6 +136,9 @@ class Mind:
         phone = re.sub(r"[ -]", "", str(phone or ""))
         if phone and not re.fullmatch(r"\+?\d{8,15}", phone):
             raise ValueError("A phone number is 8-15 digits, optionally starting with +.")
+        email = str(email or "").strip()
+        if email and (len(email) > 254 or not EMAIL.fullmatch(email)):
+            raise ValueError("That does not look like an email address (name@example.com).")
         from chutku import scan   # saved text is read back into her prompt: no hidden characters or orders (H3)
         scan.check(name, relation, whatsapp, note, *[str(a) for a in aliases])
 
@@ -146,7 +151,7 @@ class Mind:
                 alias = " ".join(str(alias).split())
                 if alias and norm(alias) not in {norm(a) for a in person["aliases"]} and norm(alias) != norm(name):
                     person["aliases"].append(alias)
-            for key, value in (("relation", relation), ("whatsapp", whatsapp), ("phone", phone)):
+            for key, value in (("relation", relation), ("whatsapp", whatsapp), ("phone", phone), ("email", email)):
                 if value:
                     person[key] = " ".join(str(value).split())
             if note:

@@ -133,6 +133,8 @@ class QuickIntentTests(unittest.TestCase):
             {"from": "you", "text": "hi"}, {"from": "them", "text": "haan beta"}]}
         samples["message.open_chat"] = {"app": "WhatsApp", "to": "Pita Shri", "chat_opened": True, "typed": False}
         samples["windows.list"] = {"windows": [{"title": "notes.txt - Notepad", "executable": "notepad.exe"}]}
+        samples["finance.quote"] = {"reply": "Tata Consultancy Services Limited (TCS.NS) ₹2,495.70, +2.45%, as of "
+                                             "15:28 IST.", "stale": False}
         samples_empty = {"apps.installed": {"query": "Steam", "apps": [], "count": 0, "truncated": False}}
         samples_empty["mind.who"] = {"name": "mammi", "known": False}
         samples_empty["mind.show"] = {"part": "all", "people": [], "facts": {}, "lists": {}}
