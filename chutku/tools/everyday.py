@@ -966,6 +966,13 @@ function Await($operation, $type) {
 $null = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType = WindowsRuntime]
 $manager = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
 $session = $manager.GetCurrentSession()
+if ($request.match) {
+    # Z3: the named app's own session (YouTube in Brave while Spotify is the "current" one); a playing one first.
+    $found = @($manager.GetSessions() | Where-Object {
+        $id = ([string]$_.SourceAppUserModelId).ToLower(); @($request.match | Where-Object { $id.Contains($_) }).Count })
+    $session = @($found | Where-Object { [string]$_.GetPlaybackInfo().PlaybackStatus -eq 'Playing' }) + $found |
+        Select-Object -First 1
+}
 if ($null -eq $session) { @{ session = $false } | ConvertTo-Json -Compress; exit 0 }
 function Snapshot {
     $info = $session.GetPlaybackInfo()
@@ -974,6 +981,7 @@ function Snapshot {
        title = [string]$props.Title; artist = [string]$props.Artist }
 }
 $accepted = $null
+$before = if ([string]$request.action -ne 'status') { Snapshot } else { $null }
 switch ([string]$request.action) {
     'status' { }
     'play_pause' { $accepted = Await ($session.TryTogglePlayPauseAsync()) ([bool]) }
@@ -985,23 +993,30 @@ switch ([string]$request.action) {
 }
 $result = Snapshot
 $result.accepted = $accepted
+$result.before = $before
 $result | ConvertTo-Json -Compress
 '''
 MEDIA_ACTIONS = ("play_pause", "play", "pause", "next", "previous")
-_MEDIA_SCHEMA = {"type": "object", "properties": {"action": {"type": "string", "enum": list(MEDIA_ACTIONS)}},
+# Z3: which media session an app name means (parts of the Windows app id, lower case).
+_BROWSERS = ["brave", "chrome", "msedge", "firefox", "opera"]
+MEDIA_APPS = {"brave": ["brave"], "chrome": ["chrome"], "edge": ["msedge"], "firefox": ["firefox"],
+              "spotify": ["spotify"], "vlc": ["vlc"], "browser": _BROWSERS}
+_MEDIA_SCHEMA = {"type": "object", "properties": {"action": {"type": "string", "enum": list(MEDIA_ACTIONS)},
+                                                  "app": {"type": "string", "enum": list(MEDIA_APPS)}},
                  "required": ["action"], "additionalProperties": False}
 
 
-def media(action):
-    result = _powershell(_MEDIA, {"action": action})
+def media(action, match=None):
+    result = _powershell(_MEDIA, {"action": action} | ({"match": match} if match else {}))
     if not isinstance(result, dict):
         raise OSError("Media session returned an invalid response.")
     return result
 
 
 def _validate_media(arguments):
-    if set(arguments) != {"action"} or arguments["action"] not in MEDIA_ACTIONS:
-        raise ValueError("Choose one supported media action.")
+    if not {"action"} <= set(arguments) <= {"action", "app"} or arguments["action"] not in MEDIA_ACTIONS \
+            or arguments.get("app", "brave") not in MEDIA_APPS:
+        raise ValueError("Choose one supported media action (and optionally one known app).")
 
 
 def _validate_none(arguments):
@@ -1015,10 +1030,12 @@ def _media_status(_arguments, _context):
 
 
 def _media_control(arguments, _context):
-    before = media("status")
-    if not before.get("session"):
-        return ToolResult({"error": "No app is currently exposing a media session."}, Verification.FAIL)
-    after = media(arguments["action"])
+    app = arguments.get("app")
+    after = media(arguments["action"], MEDIA_APPS.get(app))   # one call: status before, the action, status after
+    if not after.get("session"):
+        missing = f"{app} is not playing anything" if app else "No app is currently exposing a media session"
+        return ToolResult({"error": missing + " (no media session)."}, Verification.FAIL)
+    before = after.get("before") or {}
     if after.get("accepted") is not True:
         return ToolResult({"error": "The media app refused that action.", "status": after.get("status")},
                           Verification.FAIL)
@@ -1033,7 +1050,7 @@ def _media_control(arguments, _context):
         if ok or time.monotonic() > deadline:
             break
         time.sleep(0.4)
-        after = media("status")
+        after = media("status", MEDIA_APPS.get(app))
     output = {"action": arguments["action"], "before": before.get("status"), "after": after.get("status"),
               "title": after.get("title"), "app": after.get("app")}
     if not ok:

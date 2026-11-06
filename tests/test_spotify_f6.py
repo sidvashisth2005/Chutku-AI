@@ -18,9 +18,11 @@ def steps(goal):
 
 class SongWordsPauseTests(unittest.TestCase):
     def test_closing_the_song_pauses_and_keeps_spotify_open(self):
-        for said in ("spotify ka gaana band karo", "Spotify open karke gana band karo", "gaana band karo",
-                     "close the music", "spotify ke gaane band karo"):
+        for said in ("Spotify open karke gana band karo", "gaana band karo", "close the music",
+                     "spotify ke gaane band karo"):
             self.assertEqual(steps(said), [("media.control", {"action": "pause"})], said)
+        # Z3: naming the app pauses that app's own player (not whichever app Windows calls "current").
+        self.assertEqual(steps("spotify ka gaana band karo"), [("media.control", {"action": "pause", "app": "spotify"})])
 
     def test_closing_spotify_itself_still_quits(self):
         self.assertEqual(steps("spotify band karo"), [("apps.quit", {"name": "spotify"})])

@@ -16,6 +16,38 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: "pause youtube in brave" is instant and reaches the right player (Z3, media part)
+
+In the owner's real log this phrase went through the planner (keys, screen, windows) and was slow.
+
+**What changed**
+- `media.control` takes an optional `app`: brave, chrome, edge, firefox, spotify, vlc, or `browser` (any browser).
+  - The PowerShell script picks that app's own Windows media session, preferring a playing one. Before, it always used the "current" session, which may be Spotify while YouTube plays in Brave.
+  - One call now reads the status before, acts, and reads the status after (it was two calls).
+  - The app name is an enum; unknown names and extra arguments are refused.
+- `daily_intent` gained the `media_app` phrases:
+  - "pause youtube in brave", "pause the youtube video", "resume youtube", "skip the song on spotify", "pause spotify ka gaana";
+  - "youtube pause karo", "brave mein video roko", "spotify ka gaana band karo", "spotify pe agla gaana", "chrome mein video pause karo".
+- Phrases that keep their old meaning:
+  - "spotify band karo" still quits Spotify;
+  - a bare "pause" or "stop" keeps its old meaning;
+  - "youtube pe lofi chalao" is still a search.
+- Spotify's own verified app actions still win where they exist ("pause spotify" → `app.spotify.pause`).
+- The Live persona lists the short forms, and a test checks that each one is a single instant step.
+
+**Tests**
+- `tests/test_instant_media_z3.py` (5 tests): 12 phrases routed in 24–35 ms; phrases that must not match; one PowerShell call with `match`; a missing app fails honestly; validation.
+- `test_spotify_f6` now expects `app: spotify` for "spotify ka gaana band karo".
+- `scripts/check_phrases.py` is 145/145.
+- Full suite: 1,371 tests OK in 268 s.
+
+**Real path, this PC**
+- `media.control {pause, spotify}`: COMPLETED/PASS in 0.73 s (`Spotify.exe`, already paused, so nothing audible changed).
+- `{pause, vlc}`: FAILED with "vlc is not playing anything (no media session)." This is the negative case.
+- Brave needs a YouTube video playing: an owner live check.
+
+**Still open in Z3:** more app verbs beyond media (full screen, mute tab, new tab) and the app atlases.
+
 ### 2026-11-06: Several tasks really run at the same time, and Live reports each one (Z1 + Z2, reworks Y3)
 
 The owner said: "it still can't do multiple tasks simultaneously". Gemini also said a task was done while it was still running, or didn't know a task had finished.

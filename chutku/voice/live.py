@@ -61,6 +61,7 @@ the screen, settings, anything), call do_task with ONE clear, complete goal in E
 (include names, paths, exact message text). Prefer these exact short forms, which Chutku runs instantly (keep the
 owner's names and texts exactly as said, never "the user named X"):
   send "hi" to <name> on whatsapp | open spotify | close spotify | set volume to 30 | mute | play lofi hip hop on youtube
+  pause youtube in brave | resume youtube in brave | pause spotify | next song on spotify | previous song on spotify
   what time is it | weather in Pune | remind me in 20 minutes to drink water | set a timer for 25 minutes
   note: buy milk | show my list | find my resume | open my downloads | is my internet working | lock my pc
   switch audio to headphones | how much space is left | what did you do today | start work mode | night report

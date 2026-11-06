@@ -20,7 +20,18 @@ import re
 from chutku.intents.lexicon import LEAD as _P, TAIL as _T   # one Hinglish vocabulary for every parser
 _DO = r"(?:karo|kar do|kardo|kar de|karna|do|de do)"
 
+_MEDIA_APP = r"youtube|yt|spotify|brave|chrome|edge|firefox|vlc|browser"
+_MEDIA_THING = r"(?:the\s+)?(?:video|song|music|track|gaana|gana|media)"
 _PATTERNS = [
+    # Z3 (2026-11-06): "pause youtube in brave" went through the planner (keys, screen, windows) and was slow.
+    ("media_app", re.compile(_P + rf"(?P<verb>pause|resume|unpause|stop|next|skip|previous)"
+                             rf"(?:\s+(?:the\s+)?(?P<a1>{_MEDIA_APP}))?(?:\s+(?:ka|ki|ke|wala|wali))?"
+                             rf"(?:\s+{_MEDIA_THING})?"
+                             rf"(?:\s+(?:in|on)\s+(?:the\s+)?(?P<a2>{_MEDIA_APP}))?" + _T, re.I)),
+    ("media_app", re.compile(_P + rf"(?P<a1>{_MEDIA_APP})\s+(?:(?:pe|par|mein|me|ka|ki|ke|wala|wali)\s+)?"
+                             rf"(?:(?P<thing>{_MEDIA_THING})\s+)?(?P<verb>pause|roko|rok do|resume|band|agla|next|skip|"
+                             rf"pichla|previous)(?:\s+(?:video|song|gaana|gana|track))?"
+                             rf"(?:\s+(?:karo|kar do|kardo|kar de|karna|do|chalao|lagao|bajao))?" + _T, re.I)),
     ("spotify", re.compile(_P + r"(?:spotify\s+(?:pe|par|mein|me)\s+(?P<q>.{2,150}?)\s+(?:chalao|bajao|lagao|play karo|sunao)|"
                            r"play\s+(?P<q2>.{2,150}?)\s+on\s+spotify|(?P<q3>.{2,150}?)\s+spotify\s+(?:pe|par)\s+(?:chalao|bajao|lagao))" + _T, re.I)),
     ("time", re.compile(_P + r"(?:mujhe\s+)?(?:batao|bata do|bolo)?\s*(?:abhi\s+)?(?:time|samay|kitne baje)\s+(?:kya|kitna)?\s*"
@@ -80,6 +91,18 @@ def parse_daily(goal, now=None):
         if not match:
             continue
         g = match.groupdict()
+        if kind == "media_app":
+            apps = [a.casefold() for a in (g.get("a2"), g.get("a1")) if a]
+            verb = g["verb"].casefold()
+            if not apps or (verb == "band" and not g.get("thing")):
+                continue   # "pause" alone is the plain media step; "spotify band karo" closes the app
+            app = next((a for a in apps if a not in ("youtube", "yt", "browser")), "browser")
+            action = {"pause": "pause", "stop": "pause", "roko": "pause", "rok do": "pause", "band": "pause",
+                      "resume": "play", "unpause": "play", "next": "next", "skip": "next", "agla": "next",
+                      "pichla": "previous", "previous": "previous"}[verb]
+            return "media.control", {"action": action, "app": app}, f"Media: {action} in {app}", \
+                {"pause": "Paused.", "play": "Resumed.", "next": "Skipped to the next one.",
+                 "previous": "Went back to the previous one."}[action], True
         if kind == "spotify":
             query = (g.get("q") or g.get("q2") or g.get("q3") or "").strip(" '\"")
             return "spotify.search", {"query": query}, f"Search Spotify for {query}", \

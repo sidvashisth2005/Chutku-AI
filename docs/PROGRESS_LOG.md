@@ -7,7 +7,7 @@ This log says what was done, what is finished, and what remains of the plan, so 
 - Every helper-agent prompt is in `docs/AGENT_PROMPTS.md` (#12–#21).
 - Repo: `sidvashisth2005/Chutku-AI`, branch `main`, pushed after every slice.
 - CI: `.github/workflows/tests.yml`, green since the Sentinel merge.
-- Last full suite: 1,366 tests OK (2026-11-06, after Z1+Z2).
+- Last full suite: 1,371 tests OK (2026-11-06, after Z3 media).
 
 ## What the owner asked for (all requests in these two sessions)
 
@@ -77,6 +77,8 @@ This log says what was done, what is finished, and what remains of the plan, so 
   Real path: the second order was done in 0.93 s while the first was still planning (4.67 s).
 - **Z2:** Live reports every task by name, says what still runs, sends approvals to the right task, and stops all of
   them on "ruko". The persona no longer says "ek saath nahi ho payega".
+- **Z3 (media part):** "pause youtube in brave", "youtube pause karo", "spotify pe agla gaana" are one instant
+  step that reaches that app's own player (real Spotify pause in 0.73 s; a missing app fails honestly).
 
 **Team used:** Auditor, Scout, Mason, Pixel, Quill, Sentinel, Forge, Sage.
 
