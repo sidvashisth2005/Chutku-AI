@@ -13,7 +13,7 @@ SCRIPT = PROJECT_ROOT / "chutku" / "web" / "presence.js"
 
 class MoodTests(unittest.TestCase):
     def test_each_phase_has_its_mood(self):
-        expected = {"idle": "calm", "listening": "listening", "confirm": "listening", "clarify": "listening",
+        expected = {"idle": "calm", "listening": "listening", "confirm": "listening", "clarify": "confused",
                     "thinking": "thinking", "running": "thinking", "speaking": "speaking", "error": "sorry",
                     "paused": "sleepy", "done": "calm"}
         for phase, mood in expected.items():

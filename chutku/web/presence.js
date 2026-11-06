@@ -2,8 +2,9 @@
 // Chutku's presence (W4, 2026-10-29): a living orb that listens, thinks and speaks with her, live captions, and
 // each step of the current task with its verified result. Reads /api/presence ~10x a second (memory only).
 const $ = id => document.getElementById(id);
+const BAR = new URLSearchParams(location.search).get("view") === "bar";   // Y1: the compact bar at the top
 const fromLink = new URLSearchParams(location.hash.slice(1)).get("token");
-if(fromLink){try{sessionStorage.setItem("chutku-token",fromLink);}catch{}history.replaceState(null,"",location.pathname);}
+if(fromLink){try{sessionStorage.setItem("chutku-token",fromLink);}catch{}history.replaceState(null,"",location.pathname+location.search);}
 let token = fromLink || ""; try{token = token || sessionStorage.getItem("chutku-token") || "";}catch{}
 const LABELS = {idle:"Ready",listening:"Listening",thinking:"Thinking",running:"Working",speaking:"Speaking",
   confirm:"Needs your OK",done:"Done",clarify:"Question",error:"Problem",paused:"Paused"};
@@ -20,7 +21,7 @@ async function api(path, data){
 }
 
 // ---- the orb -------------------------------------------------------------------------------------------------
-const canvas = $("orb"), ctx = canvas.getContext("2d");
+const canvas = $(BAR ? "eyes" : "orb"), ctx = canvas.getContext("2d");
 const particles = Array.from({length:70}, (_, i) => ({a:Math.random()*Math.PI*2, r:0.55+Math.random()*0.4,
   s:(0.15+Math.random()*0.6)*(i%2?1:-1), z:Math.random()}));
 function accent(){return getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#22d3ee";}
@@ -36,10 +37,14 @@ const LOOKS = {
   happy:     {open:0.85, x:0,   y:0,     tilt:0,    smile:1,    blink:null},
   sorry:     {open:0.7,  x:0,   y:0.35,  tilt:0.8,  smile:-0.6, blink:[3000,6000]},
   sleepy:    {open:0.04, x:0,   y:0.3,   tilt:0,    smile:0,    blink:null},
+  love:      {open:0.85, x:0,   y:0,     tilt:0,    smile:1,    blink:null},   // hearts: the owner thanked her
+  confused:  {open:0.9,  x:0,   y:0,     tilt:0,    smile:-0.1, blink:null},   // spirals: she has to ask
+  annoyed:   {open:0.7,  x:0,   y:0.1,   tilt:0,    smile:-0.3, blink:[3000,6000]},   // brows down: he sounds annoyed
 };
 // Mouth sizes in units of the core radius: closed, slightly open, round, open, wide.
 const MOUTHS = [{w:0,h:0}, {w:0.17,h:0.05}, {w:0.1,h:0.11}, {w:0.18,h:0.13}, {w:0.26,h:0.15}];
 const INK = "#04111dea";
+let ink = INK;   // dark on the orb's bright core; the bar draws its eyes in the accent colour instead
 const still = matchMedia("(prefers-reduced-motion: reduce)");   // then: no blinking or glancing, a static face
 const face = {open:0.85, x:0, y:0, tilt:0, smile:0.5, blinkAt:-1e9, nextBlink:1500, voice:0, shape:0, shapeAt:0, mw:0, mh:0};
 
@@ -51,11 +56,30 @@ function mouthShape(level, previous){
   if(Math.abs(shape - previous) === 1 && Math.abs(level - edges[Math.min(shape, previous)]) < 0.03) return previous;
   return shape;
 }
-function drawEye(cx, cy, u, side, mood, blink){   // side: -1 her right (screen left), +1 the other
+function drawEye(cx, cy, u, side, mood, blink, t){   // side: -1 her right (screen left), +1 the other
   const w = 0.12*u, h = 0.24*u*face.open*blink;
-  ctx.fillStyle = ctx.strokeStyle = INK; ctx.lineWidth = 0.07*u; ctx.lineCap = "round";
+  ctx.fillStyle = ctx.strokeStyle = ink; ctx.lineWidth = 0.07*u; ctx.lineCap = "round";
   if(mood==="happy"){   // smiling eyes: ^ ^
     ctx.beginPath(); ctx.arc(cx, cy + 0.1*u, 0.15*u, Math.PI*1.2, Math.PI*1.8); ctx.stroke(); return;
+  }
+  if(mood==="love"){    // hearts that beat
+    const s = 0.13*u*(still.matches ? 1 : 1 + 0.08*Math.sin(t/180));
+    ctx.fillStyle = "#ff5c93"; ctx.beginPath(); ctx.moveTo(cx, cy + s*0.9);
+    ctx.bezierCurveTo(cx - s*1.7, cy - s*0.3, cx - s*0.7, cy - s*1.5, cx, cy - s*0.5);
+    ctx.bezierCurveTo(cx + s*0.7, cy - s*1.5, cx + s*1.7, cy - s*0.3, cx, cy + s*0.9); ctx.fill(); return;
+  }
+  if(mood==="confused"){   // spirals that turn
+    const turn = still.matches ? 0 : side*t/400;
+    ctx.lineWidth = 0.045*u; ctx.beginPath();
+    for(let k=0; k<=36; k++){
+      const a = k/36*Math.PI*5 + turn, r = 0.16*u*k/36;
+      k ? ctx.lineTo(cx + r*Math.cos(a), cy + r*Math.sin(a)) : ctx.moveTo(cx, cy);
+    }
+    ctx.stroke(); return;
+  }
+  if(mood==="annoyed"){    // brows slanting down toward the nose
+    const inner = cx - side*w*1.6, outer = cx + side*w*1.6, top = cy - 0.24*u*face.open - 0.1*u;
+    ctx.lineWidth = 0.06*u; ctx.beginPath(); ctx.moveTo(outer, top - 0.05*u); ctx.lineTo(inner, top + 0.07*u); ctx.stroke();
   }
   if(h < 0.05*u){       // closed: a soft downward curve
     ctx.beginPath(); ctx.moveTo(cx - w*1.3, cy); ctx.quadraticCurveTo(cx, cy + 0.09*u, cx + w*1.3, cy); ctx.stroke(); return;
@@ -71,7 +95,7 @@ function drawEye(cx, cy, u, side, mood, blink){   // side: -1 her right (screen 
   ctx.fillStyle = "#ffffffcc";   // catchlight
   ctx.beginPath(); ctx.arc(cx + w*0.35, cy - h*0.45, 0.04*u, 0, Math.PI*2); ctx.fill();
 }
-function drawFace(t, c, u){
+function faceStep(t){   // ease toward the mood's look and run the blinks; one call per frame
   const mood = LOOKS[state.mood] ? state.mood : "calm", look = LOOKS[mood], calm = still.matches;
   const k = calm ? 1 : 0.12;
   const glance = calm || mood!=="thinking" ? 1 : (Math.sin(t/2600) > 0 ? 1 : -1);   // thinking: looks one side, then the other
@@ -87,9 +111,17 @@ function drawFace(t, c, u){
     const e = t - face.blinkAt;
     if(e < 160) blink = 1 - Math.sin(Math.PI*e/160);
   }
-  const gx = face.x*0.13*u, gy = face.y*0.13*u, ey = c - 0.16*u + gy;
-  drawEye(c - 0.36*u + gx, ey, u, -1, mood, blink);
-  drawEye(c + 0.36*u + gx, ey, u, 1, mood, blink);
+  return {mood, blink};
+}
+function drawEyes(cx, cy, u, spread, mood, blink, t){
+  const gx = face.x*0.13*u, gy = face.y*0.13*u;
+  drawEye(cx - spread*u + gx, cy + gy, u, -1, mood, blink, t);
+  drawEye(cx + spread*u + gx, cy + gy, u, 1, mood, blink, t);
+  return {gx, gy};
+}
+function drawFace(t, c, u){
+  const {mood, blink} = faceStep(t), calm = still.matches;
+  const {gx, gy} = drawEyes(c, c - 0.16*u, u, 0.36, mood, blink, t);
   // mouth: her voice level, smoothed (fast open, slower close), then held at least 90 ms per shape
   const speaking = state.phase==="speaking", target = speaking ? Math.min(1, state.voice_level || 0) : 0;
   face.voice += (target - face.voice)*(target > face.voice ? 0.5 : 0.2);
@@ -98,7 +130,7 @@ function drawFace(t, c, u){
   const shape = MOUTHS[face.shape], mk = calm ? 1 : 0.4;
   face.mw += (shape.w - face.mw)*mk; face.mh += (shape.h - face.mh)*mk;
   const mx = c + gx*0.5, my = c + 0.36*u + gy*0.5;
-  ctx.fillStyle = ctx.strokeStyle = INK;
+  ctx.fillStyle = ctx.strokeStyle = ink;
   if(face.mh > 0.03){
     ctx.beginPath(); ctx.ellipse(mx, my, face.mw*u, face.mh*u, 0, 0, Math.PI*2); ctx.fill();
   }else{                 // at rest: a curve that smiles, stays flat or frowns with the mood
@@ -108,8 +140,17 @@ function drawFace(t, c, u){
     ctx.quadraticCurveTo(mx, my + face.smile*0.16*u, mx + half, my - face.smile*0.04*u); ctx.stroke();
   }
 }
-
-function draw(t){
+function drawBar(t){   // Y1: just her eyes, glowing in the phase colour
+  const {mood, blink} = faceStep(t);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ink = accent();
+  drawEyes(canvas.width/2, canvas.height/2, canvas.height*1.05, 0.46, mood, blink, t);
+}
+function draw(t){   // the one animation loop
+  BAR ? drawBar(t) : drawOrb(t);
+  requestAnimationFrame(draw);
+}
+function drawOrb(t){
   const size = canvas.width, c = size/2, color = accent();
   const target = Math.min(1, state.phase==="speaking" ? state.voice_level : state.mic_level*14);
   shown.level += (target - shown.level) * 0.25;
@@ -156,7 +197,6 @@ function draw(t){
     ctx.fillStyle = color + (p.z>0.5?"aa":"55");
     ctx.beginPath(); ctx.arc(c + r*Math.cos(p.a), c + r*Math.sin(p.a), 1 + p.z*1.6, 0, Math.PI*2); ctx.fill();
   }
-  requestAnimationFrame(draw);
 }
 
 // ---- captions, steps, approval -------------------------------------------------------------------------------
@@ -175,7 +215,36 @@ function renderSteps(steps){
     text.append(purpose, tool); li.append(mark, text); list.append(li);
   }
 }
+// ---- Y1: the compact bar and the switch between bar and full window ---------------------------------------------
+function windowApi(name){   // pywebview's js_api (chutku/presence.py Bridge); false in a plain browser
+  const call = window.pywebview && window.pywebview.api && window.pywebview.api[name];
+  if(call){ call().catch(() => {}); return true; }
+  return false;
+}
+function barText(){   // one line: what needs him, what she heard, what she is doing, or what she answered
+  const live = (state.conversation||[]).slice(-1)[0];
+  const reply = state.reply || (live && live[0]==="chutku" ? live[1] : "");
+  const step = (state.steps||[]).find(s => !s.state || s.state==="EXECUTING");
+  const heard = state.heard ? "“" + state.heard + "”" : "";
+  if(state.pending) return "Needs your OK: " + (state.pending.consequence || state.pending.tool);
+  if(state.phase==="paused") return state.message || "Actions are paused.";
+  if(state.phase==="error") return state.message || "Something went wrong.";
+  if(state.phase==="listening") return heard || "Listening…";
+  if(state.phase==="thinking" || state.phase==="running") return step ? (step.purpose || step.tool) : (heard || "Thinking…");
+  if(reply && ["speaking","done","clarify"].includes(state.phase)) return reply;
+  return state.mic_muted ? "Mic is muted (Ctrl+Alt+X)" : "Ready · Ctrl+Alt+Space to talk";
+}
+let expandedFor = "";
+function renderBar(){
+  document.body.dataset.phase = state.phase;
+  const text = barText(), line = $("strip-text");
+  if(line.textContent !== text){ line.textContent = text; line.title = text; }
+  // an approval never waits unseen in the bar: the full window opens once for each new one
+  const key = state.pending ? state.session_id + "|" + (state.pending.consequence || state.pending.tool) : "";
+  if(key && key !== expandedFor){ expandedFor = key; windowApi("expand"); }
+}
 function render(){
+  if(BAR) return renderBar();
   document.body.dataset.phase = state.phase;
   $("phase").textContent = state.healed && state.phase==="idle" ? "Restarted · ready" : (LABELS[state.phase] || state.phase);
   $("heard").textContent = state.heard || "";
@@ -192,7 +261,8 @@ function render(){
 async function poll(){
   try{ state = await api("/api/presence"); render(); }
   catch{ state = {...state, phase:"error", mood:"sorry", message:"Chutku is not running."}; render(); }
-  setTimeout(poll, state.phase==="idle" || state.phase==="paused" ? 400 : 100);
+  // the window not showing (bar or full, Y1) polls once a second; the one on screen stays live
+  setTimeout(poll, document.hidden ? 1000 : state.phase==="idle" || state.phase==="paused" ? 400 : 100);
 }
 async function decide(approve){
   if(!state.session_id) return;
@@ -202,6 +272,16 @@ async function decide(approve){
 }
 $("approve").addEventListener("click", () => decide(true));
 $("reject").addEventListener("click", () => decide(false));
-$("talk").addEventListener("click", () => api("/api/presence/talk", {}).catch(() => {}));
+for(const id of ["talk", "strip-talk"])
+  $(id).addEventListener("click", () => api("/api/presence/talk", {}).catch(() => {}));
+// Expand / back to the bar: the Bridge swaps the windows. In a plain browser the bar's expand opens the full page;
+// "to bar" shows only inside the Chutku window.
+$("expand").addEventListener("click", () => windowApi("expand") || (location.search = ""));
+$("to-bar").addEventListener("click", () => windowApi("compact"));
+$("strip").hidden = !BAR;
+document.querySelector(".presence").hidden = BAR;
+document.body.classList.toggle("bar-view", BAR);
+const showToBar = () => { $("to-bar").hidden = BAR || !window.pywebview; };
+showToBar(); window.addEventListener("pywebviewready", showToBar);
 requestAnimationFrame(draw);
 poll();
