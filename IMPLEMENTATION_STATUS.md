@@ -16,6 +16,64 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Email drafts and stock prices (X8, X9), CI green, and the planner A/B (X1): Qwen3.5 tested, not switched
+
+**X8 + X9** (helper agent "Quill", `docs/AGENT_PROMPTS.md` #17; merged, with `docs/SECURITY.md` rebuilt by the new
+`scripts/security_counts.py`)
+- **`email.draft`** (R1): a `mailto:` draft in the default mail app.
+  - Nothing is sent, and files can't be attached (it says so).
+  - The recipient is a literal address or a saved person's validated `email`. An unknown name asks, never guesses.
+  - `? & %` are refused in saved addresses, so the link can't add hidden recipients; a `&bcc=` inside the text stays
+    text.
+- **`email.send`** (R3):
+  - Gmail SMTP over SSL, with an app password kept only in Credential Manager (`chutku.cli email set-account`).
+  - Needs the new `email.send` capability, which is not granted by default.
+  - `Runtime.step_question` makes every send ask on screen in every mode, and the tool itself refuses unless the
+    step was approved on screen.
+  - I reviewed the runtime and capability lines myself.
+- **`finance.quote`** (R0):
+  - Yahoo search plus chart through the stdlib `internet.fetch`; NSE preferred for Indian names.
+  - A bounded local cache, and the market time is always stated. Offline it says "Offline, last known price … as
+    of …", or that no price is known.
+- **Live:**
+  - "TCS stock kitna hai" gave "Tata Consultancy Services Limited (TCS.NS) ₹2,495.70, +2.45%, as of 15:28 IST." in
+    1.16 s, by instant route;
+  - offline (mocked) it gave the last-known line;
+  - the draft and send were checked with the mail app and SMTP mocked: no window opened and no email sent.
+  - A send without the capability was DENIED; denied on screen, SMTP was never opened.
+- 21 tests.
+- **Note:** `mind.person` gained an optional `email` argument, which changes its contract hash.
+
+**CI** (helper agent "Sentinel", #18)
+- The remaining 19 CI failures came from the runner, not from Chutku's checks:
+  - an 8.3 short TEMP path (`C:\Users\RUNNER~1`), while Chutku stores resolved long paths;
+  - tests that read the owner's data;
+  - a playback device.
+- Fixed in the tests, without weakening any assertion.
+- Narrow skips only where a git-ignored model (the openWakeWord feature models) or a playback device is really
+  needed.
+- **Product bug fixed:** the wake Detector left its `.npz` open, which locks the file on Windows (now `with
+  np.load(...)`).
+- A fresh clone gave `scripts/ci_tests.py`: 1,268 OK.
+- **Reported, not changed:**
+  - with the voice lock on, a later-deleted speaker model makes the lock stop applying instead of failing closed;
+  - 8.3 short paths are refused (fail closed);
+  - `builtin.py:350` raises instead of a clean FAIL for a non-canonical journal path.
+
+**X1 planner A/B**
+- Qwen3.5-4B (unsloth GGUF, Apache-2.0 base, hash-pinned as `planner_qwen35`) against today's Qwen3-4B on
+  `eval_planner`:
+  - first rounds right: **30/40 vs 25/40**;
+  - median **3.0 s vs 4.1 s**;
+  - better at refusing shutdown, Program Files and moving win.ini;
+  - worse on two injection tasks (it proposed opening the file in an app; in the product those sentences now go
+    instantly to a plain read).
+- **End to end** (`one_command_check --offline`): Qwen3.5 got **6/12**, against Qwen3-4B's earlier run of 7/12
+  (about 9/12 with the fixed checker). It read "2 ki power 10" as 2², dropped `onecmd` from a path (the script
+  refused that write), and sent the weather to the wrong city.
+- **Decision:** not switched. It stays pinned for re-tests.
+- Full suite after these merges: 1,290 OK (218 s); `check_phrases.py` 145/145.
+
 ### 2026-11-06: One command, measured with and without the cloud brain (X3, first runs) and what it fixed
 
 **The acceptance set (`scripts/one_command_check.py`)**

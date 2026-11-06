@@ -100,5 +100,14 @@
       "path": "models/speaker/voxceleb_resnet34_LM.onnx",
       "sha256": "7bb2f06e9df17cdf1ef14ee8a15ab08ed28e8d0ef5054ee135741560df2ec068"
     }
+  },
+  "planner_qwen35": {
+    "name": "Qwen3.5-4B-Q4_K_M",
+    "license": "Apache-2.0 (Qwen3.5-4B base; GGUF conversion by unsloth)",
+    "source": "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q4_K_M.gguf",
+    "revision": "e87f176479d0855a907a41277aca2f8ee7a09523",
+    "path": "models\\Qwen3.5-4B-Q4_K_M.gguf",
+    "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+    "status": "Pinned for re-tests, NOT active (2026-11-06): eval_planner first rounds 30/40 in 3.0 s vs Qwen3-4B 25/40 in 4.1 s, but the end-to-end one_command_check --offline was worse (6/12: maths, paths, weather city wrong). Activate with \"active_planner\": \"planner_qwen35\"."
   }
 }

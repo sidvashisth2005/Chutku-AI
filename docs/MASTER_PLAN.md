@@ -938,7 +938,7 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - stock prices always say "as of".
 
 **Offline core (the single-command path)**
-- [ ] X1: Local planner picks valid tools fast: JSON-schema tool-name `enum` in llama-server + top-k tool retrieval; then A/B Qwen3.5-4B vs Qwen3-4B (switch only if faster AND more correct on `eval_planner` + `live_check`)
+- [ ] X1 (A/B done 2026-11-06: Qwen3.5 better on first rounds, worse end to end; not switched): Local planner picks valid tools fast: JSON-schema tool-name `enum` in llama-server + top-k tool retrieval; then A/B Qwen3.5-4B vs Qwen3-4B (switch only if faster AND more correct on `eval_planner` + `live_check`)
 - [ ] X2: STT upgrade: faster-whisper large-v3-turbo int8 on the GPU (V6), A/B vs small on the owner's real clips
 - [ ] X3: One-command acceptance set: 12 multi-step goals (e.g. "meri last PDF ka summary notes mein save karo", "open last PDF, summarise it, draft an email to Ravi"), run with the internet off and on, with seconds and an independent check per goal
 
@@ -949,8 +949,8 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [x] X7 (done 2026-11-05; real path up to the click, then denied): Single-shot OS command: `system.powershell`, one command, always confirmed, output shown, never auto
 
 **Memory and intelligence (group 7)**
-- [ ] X8: Email: draft-first (mailto / Outlook `Display()`), the owner presses Send; optional Gmail SMTP app password in Credential Manager, and every send confirms recipient + body
-- [ ] X9: Stocks: quotes via Yahoo's public chart endpoint (stdlib, no key), SQLite cache, "as of HH:MM" always; watchlist + alerts through scheduled tasks
+- [x] X8 (done 2026-11-06; draft + send behind a click, live with mail mocked): Email: draft-first (mailto / Outlook `Display()`), the owner presses Send; optional Gmail SMTP app password in Credential Manager, and every send confirms recipient + body
+- [x] X9 (done 2026-11-06; live TCS quote 1.16 s): Stocks: quotes via Yahoo's public chart endpoint (stdlib, no key), SQLite cache, "as of HH:MM" always; watchlist + alerts through scheduled tasks
 - [ ] X10: Phone control live (W6), once Tailscale is installed (owner)
 
 **HUD (group 5)**

@@ -29,6 +29,9 @@ How the work is split:
 | 14 | 2026-11-05 | `ad67e502` | agent (general-purpose) "Scout" | Online research: offline models, desktop agents, skill import, email/stocks |
 | 15 | 2026-11-05 | `ad67e502` | agent (general-purpose, worktree) "Mason" | Build X4 window snapping, X6 telemetry, X7 PowerShell |
 | 16 | 2026-11-05 | `ad67e502` | agent (general-purpose, worktree) "Pixel" | Build X11 eyes with moods, X12 amplitude lip-sync |
+| 17 | 2026-11-05 | `ad67e502` | agent (general-purpose, worktree) "Quill" | Build X8 draft-first email, X9 stock quotes |
+| 18 | 2026-11-05 | `ad67e502` | agent (general-purpose, worktree) "Sentinel" | Make CI green on a fresh clone without weakening tests |
+| 19 | 2026-11-05 | `ad67e502` | agent (general-purpose, worktree) "Forge" | Build X15 skill format/runner, X16 self-written skills |
 
 ## 1. Investigate random noise being taken as commands
 
@@ -448,4 +451,121 @@ Rules:
 - Commit on your worktree branch with message "X11+X12: <summary>" and no Co-Authored-By line. Do not push.
 
 Report: files changed, how moods map to state, screenshot paths, test counts and the full-suite result line, CPU notes, anything you could not do. Under 700 words plus the two proposed texts.
+````
+
+## 17. Build X8 draft-first email, X9 stock quotes
+
+- **When:** 2026-11-05 (resumed 2026-11-06), session `ad67e502`
+- **Kind:** Agent, type `general-purpose`, in its own git worktree, persona "Quill"
+- **Why it was used:** Phase 6 slices for the owner's "drafts and sends emails" and "tracks live stocks".
+- **What came of it:** Commit `35da120`, merged.
+- I reviewed the two safety-critical lines myself:
+  - a new `email.send` capability that is never granted by default;
+  - `step_question` makes every send ask on screen in every mode, and the tool refuses again unless the step was
+    approved on screen.
+- 21 tests.
+- Live: "TCS stock kitna hai" gave "₹2,495.70, +2.45%, as of 15:28 IST" in 1.16 s.
+- No mail app was opened and no email was sent.
+- All three were cut off by a usage limit and resumed on 2026-11-06 with a short message. Each said: continue the same task and rules, commit, and report. Quill was also asked to explain every change to runtime.py and capability_grants.py line by line, and Sentinel to justify its product change to wakeword.py.
+
+**Prompt / input, word for word:**
+
+````text
+You are "Quill", a careful integrations engineer on Chutku's team: you never send anything a human did not approve, you prefer the standard library, and you label stale data as stale.
+
+Repo (your own git worktree of D:\Project\Chutku): Chutku, a Python Windows voice/text assistant. Python: use the main venv `D:\Project\Chutku\.venv\Scripts\python.exe` (run it from your worktree folder so your code is the one imported). First read: AGENTS.md, .claude/skills/ponytail/SKILL.md, .claude/skills/karpathy-guidelines/SKILL.md. Tool API: chutku/tools/registry.py (Tool, Risk, ToolResult, Verification, argument_schema, network_egress). Examples: internet tools in chutku/tools/internet.py (web.read, weather/news, how they use urllib, required_capability "internet.read" and offline handling via chutku/online.py), messaging in chutku/tools/apps_extra.py (`message.send`, how recipients are resolved from the owner's memory chutku/mind.py `recipient`, and how sends always confirm / unknown recipients ask), Windows Credential Manager key storage in chutku/gemini.py / chutku/cli.py (`gemini set-key`, `cloud set-key`). Tools are registered from chutku/tools/builtin.py `register_builtin_tools`. Instant phrases: chutku/quick_intents.py and chutku/*_intent.py; phrase regression list: scripts/check_phrases.py.
+
+Build these two slices (Phase 6 in docs/MASTER_PLAN.md):
+X8 Email, draft first: `email.draft` (to, subject, body) opens a ready draft in the default mail app via a `mailto:` URL (stdlib urllib.parse.quote; note that mailto cannot attach files: say so in the reply); nothing is sent, so it is a reversible, low-risk step. Recipients resolve from the owner's people memory (add an optional `email` field to a person in chutku/mind.py if missing, validated) or a literal address; an unknown name asks instead of guessing. Optional `email.send` via stdlib smtplib (Gmail SMTP with an app password stored only in Windows Credential Manager, set by a new `chutku.cli email set-account`), as an external side effect that always asks for an on-screen confirmation of recipient and body in every mode, with a new capability that is not granted by default. Tests mock smtplib and os.startfile; negative tests: no stored account gives a clear error and nothing is sent; an unknown recipient never sends.
+X9 Stocks: `finance.quote` (a symbol or company name) using Yahoo's public endpoints with stdlib urllib only (search: query1.finance.yahoo.com/v1/finance/search; price: query1.finance.yahoo.com/v8/finance/chart/<symbol>), with a User-Agent header, required_capability "internet.read", network egress declared. Cache every quote locally (data/finance-cache.json or sqlite, bounded) and ALWAYS state the time the price is from, e.g. "Reliance (RELIANCE.NS) ₹2,950.10, +1.2%, as of 15:29 IST"; when offline or the call fails, answer from the cache and say "offline, last known price as of ...", or say honestly that no price is known. Indian names should prefer NSE (.NS) when the search offers it. Add instant phrases like "reliance ka share price", "TCS stock kitna hai", "price of AAPL". Tests mock urllib (never the network).
+
+Rules:
+- Tests in new tests/test_mail_finance_x8_x9.py. The full suite must stay green: `D:\Project\Chutku\.venv\Scripts\python.exe -m unittest discover -s tests` (about 4-5 minutes), plus `scripts/check_phrases.py`.
+- Real-path checks: you MAY make one or two real read-only quote requests (network GET) and show the reply and cache. You must NOT open the mail app, open a mailto URL, or send any email: the owner is using this PC right now. Run `email.draft` through the runtime only with os.startfile mocked, and run `email.send` only up to WAITING_CONFIRMATION, then deny it.
+- Do not change any existing tool's description text (descriptions feed each tool's contract hash).
+- Do NOT edit IMPLEMENTATION_STATUS.md, docs/MASTER_PLAN.md, docs/OWNER_GUIDE.md, docs/AGENT_PROMPTS.md or README.md. End your report with (1) proposed ledger text with evidence, (2) proposed owner-guide phrase lines. Also list any new dependency (there should be none).
+- Keep CRLF files CRLF: use the Edit tool, never sed -i, never PowerShell Set-Content. Check `git diff --stat` for whole-file rewrites.
+- Commit on your worktree branch with message "X8+X9: <summary>" and no Co-Authored-By line. Do not push.
+
+Report: files changed, tool names, risks and capabilities, test counts and the full-suite result line, the real quote output, anything you could not do and why. Under 700 words plus the two proposed texts.
+````
+
+## 18. Make CI green on a fresh clone without weakening tests
+
+- **When:** 2026-11-05 (resumed 2026-11-06), session `ad67e502`
+- **Kind:** Agent, type `general-purpose`, in its own git worktree, persona "Sentinel"
+- **Why it was used:** CI failed 19 tests that only pass on the owner's PC.
+- **What came of it:** Commit `d13e05f`, merged.
+- Root cause: the CI TEMP is an 8.3 short path while Chutku stores resolved long paths.
+- Narrow skips only for the missing openWakeWord feature models and a missing playback device.
+- A real product bug fixed: the wake Detector left its `.npz` open and locked on Windows.
+- A fresh clone passes `scripts/ci_tests.py`: 1,268 OK.
+- It reported three product notes, now in the ledger.
+- All three were cut off by a usage limit and resumed on 2026-11-06 with a short message. Each said: continue the same task and rules, commit, and report. Quill was also asked to explain every change to runtime.py and capability_grants.py line by line, and Sentinel to justify its product change to wakeword.py.
+
+**Prompt / input, word for word:**
+
+````text
+You are "Sentinel", the release/CI engineer on Chutku's team: you never make a test pass by weakening what it checks, and you treat a test that only passes on one machine as a bug in either the test or the product.
+
+Repo (your own git worktree of D:\Project\Chutku): Chutku, a Python Windows assistant. Python: `D:\Project\Chutku\.venv\Scripts\python.exe` (run from your worktree so your code is imported). Read AGENTS.md, .claude/skills/ponytail/SKILL.md, .claude/skills/karpathy-guidelines/SKILL.md, .github/workflows/tests.yml and scripts/ci_tests.py first.
+
+Problem: GitHub Actions (windows-latest, a fresh clone: no git-ignored `models/`, `data/`, `sandbox/`, `vendor/`; no audio device; the runner is Administrator, which scripts/ci_tests.py already handles) fails 19 tests that pass on the owner's PC. Latest failing run: `gh run view 42067896536 --log-failed` (the `gh` CLI is logged in; read-only use only). Failing tests: test_voice_lock (several), test_review_fixes_s22.test_an_old_owner_clip_never_vouches_for_a_new_request, test_wakeword (openwakeword resource models missing), test_phrase_coverage.test_every_real_phrasing_resolves_instantly_to_the_right_tool, test_audio_output.test_real_devices_and_policy_interface, test_processes.test_launch_requires_capability_and_approval_then_verifies_image, test_protected_zones.test_chutku_runtime_cannot_be_modified ("Target parent directory does not exist"), test_rewind.test_no_grant_no_undo, test_runtime.test_incomplete_write_is_detected_and_recovered, test_failclosed_s3.test_organize_never_overwrites_a_file_that_appeared ("Path is outside the granted sandbox root"), plus file-lock PermissionError on m.npz in temp dirs.
+
+For EACH failing test decide, with evidence from the code and the CI log:
+(a) product bug that a fresh install would also hit (e.g. Chutku assuming `sandbox/` or `data/` exists): fix the product minimally (e.g. create the folder where the runtime is created) and keep the test;
+(b) test bug (depends on the owner's data, on a real device, on an unclosed file handle, on test order): fix the test so it is self-contained (temp dirs, mocks, close handles) WITHOUT weakening any assertion;
+(c) genuinely needs a local asset that is not in git and is too big for CI (the speaker ONNX model, openwakeword resource models): mark it with `unittest.skipUnless(<asset exists>, "<asset> is not installed (git-ignored model); runs on a full install")`, as narrowly as possible (per test or per class, never a whole module if only some tests need it). Never skip a safety/policy test that does not need such an asset.
+To reproduce CI locally: make a fresh clone into a folder on D: (for example `git clone D:\Project\Chutku D:\ChutkuScratch\ci-repro-<something>`; do NOT touch D:\ChutkuScratch\install-test), install nothing new (use the main venv's python with the clone as cwd), and run `D:\Project\Chutku\.venv\Scripts\python.exe scripts\ci_tests.py` there. Note: your clone is from the committed main; apply your worktree's changes to it (or run from your worktree after temporarily moving nothing: your worktree also lacks models/data, which is the point).
+
+Rules:
+- The full suite must also stay green in a full install: run `D:\Project\Chutku\.venv\Scripts\python.exe -m unittest discover -s tests` from D:\Project\Chutku is NOT allowed (that is the owner's live checkout; do not modify it); instead, before committing, report the list of tests you changed so I can run them in the main checkout.
+- Do not delete or rename tests. Do not change docs except a short note in scripts/ci_tests.py's docstring if useful.
+- Do NOT edit IMPLEMENTATION_STATUS.md, docs/MASTER_PLAN.md, docs/OWNER_GUIDE.md, docs/AGENT_PROMPTS.md, README.md.
+- Keep CRLF files CRLF (Edit tool; never sed -i or PowerShell Set-Content); check `git diff --stat` for whole-file rewrites.
+- Commit on your worktree branch as "CI: <summary>" with no Co-Authored-By line. Do not push. Delete your ci-repro clone folder when done.
+
+Report: a table of every failing test → (a)/(b)/(c) → what you changed and why; the local fresh-clone `scripts/ci_tests.py` result line before and after; the list of changed test files for me to run in the full install; any product bug you found. Under 800 words.
+````
+
+## 19. Build X15 skill format/runner, X16 self-written skills
+
+- **When:** 2026-11-05 (resumed 2026-11-06), session `ad67e502`
+- **Kind:** Agent, type `general-purpose`, in its own git worktree (re-created as `forge-x15` on resume), persona "Forge"
+- **Why it was used:** Phase 6 slices for the owner's "writes and installs its own code", under the owner's standing decision D5
+  (running code always asks).
+- **What came of it:** Commit `a88b119`.
+- Safety design: pending skills are never tools; turning one on is typed only plus a click; the approval is bound
+  to a SHA-256 of the code; every run asks.
+- 18 tests; the real path ran in a temporary base.
+- It raised one owner decision: the 10-minute repeat-approval memory also covers skills.
+- All three were cut off by a usage limit and resumed on 2026-11-06 with a short message. Each said: continue the same task and rules, commit, and report. Quill was also asked to explain every change to runtime.py and capability_grants.py line by line, and Sentinel to justify its product change to wakeword.py.
+
+**Prompt / input, word for word:**
+
+````text
+You are "Forge", a principled tool-smith on Chutku's team: you build things that build things, and you assume any code a model writes is hostile until its tests pass and a human approves it.
+
+Repo (your own git worktree of D:\Project\Chutku): Chutku, a Python Windows voice assistant. Python: `D:\Project\Chutku\.venv\Scripts\python.exe` (run from your worktree so your code is imported). Read first: AGENTS.md, .claude/skills/ponytail/SKILL.md, .claude/skills/karpathy-guidelines/SKILL.md, docs/SECURITY.md, chutku/tools/registry.py (Tool, Risk, runs_code, user_only), chutku/policy/kernel.py (how runs_code and user_only tools are authorized), chutku/coder.py + chutku/tools/builder.py (`code.build_project`: the coder that writes projects, `choose_coder`, `_ask_with_fallback`, `keep_tests_fixed`, `check_python` running unittest in a subprocess), chutku/tools/documents.py `code.run_python` (how a script runs in a subprocess with a timeout and untrusted output), chutku/tools/never_tools.py and `filesystem.delete_permanent` (examples of owner-only tools), chutku/app.py create_runtime and chutku/tools/builtin.py (registration).
+
+Build Phase 6 slices X15 + X16 (docs/MASTER_PLAN.md) with exactly this safety design (the owner's standing decision D5: running code always asks for a click):
+X15 Skill format and runner (new module chutku/skills.py):
+- A skill is a folder `data/skills/<name>/` (name: lowercase letters, digits, underscore, 3-40 chars) with: `skill.json` {"name", "description" (<=300 chars, what it does and when to use it), "arguments" (a JSON-schema object with additionalProperties false, only string/integer/number/boolean properties, each bounded), "network": false|true, "writes_files": false|true}; `SKILL.md` (human description); `tool.py` defining `run(args: dict) -> dict` (JSON-serialisable); `test_tool.py` (unittest).
+- Pending skills live in `data/skills/_pending/<name>/` and are NEVER registered or run as tools.
+- `run_tests(folder)`: `python -I -m unittest -v test_tool` in a subprocess, cwd=the skill folder, timeout 60 s, minimal environment; returns (passed: bool, output).
+- Active skills are registered at runtime creation as tools `skill.<name>` with the manifest's description and argument schema, Risk.EXTERNAL_SIDE_EFFECT, `runs_code=True` (so the kernel always asks for a click in every mode, like code.run_python), required capability "process.launch". Execution: a small fixed runner script (inside the chutku package, e.g. chutku/skill_runner.py) run as `python -I <runner> <skill folder>` in a subprocess, args JSON on stdin, result JSON on stdout, cwd = the skill folder, timeout 60 s, output capped (8 KB) and marked provenance "external_untrusted"; a crash, timeout, non-JSON or non-dict result is FAIL with the error shown. A manifest that fails validation is skipped with a logged reason, never half-registered. Skills must not be able to shadow existing tools (names are always `skill.`-prefixed).
+- `skill.list` (R0): active and pending skills with name, description, tests status.
+- `skill.approve` (owner-only / user_only like filesystem.delete_permanent, so the planner can never choose it): re-runs the pending skill's tests; only if they pass, moves it to active; the tool becomes available after Chutku restarts (or register it immediately if that is simple and safe; say which). `skill.remove`: moves a skill to the Recycle Bin (reuse the repo's recycle helper) and asks first.
+X16 Self-coding: `skill.create` (R2, writes only under data/skills/_pending): input `request` (what the new ability should do) and optional `name`. Uses the same coder as code.build_project (Gemini when enabled, else local; reuse `choose_coder` and `_ask_with_fallback`, add a SKILL_SYSTEM prompt in chutku/coder.py in the same style as CODER_SYSTEM: stdlib only, the minimum code, `run(args)` contract, a real test file, a manifest) and the repair loop (run_tests, feed real errors back, at most 3 repairs, `keep_tests_fixed` so a repair cannot rewrite a failing assertion away). The result reply says the skill is pending and how to approve it ("skill approve <name>" typed, or the dashboard button if you add one). Add instant phrases: "ye kaam karne ka skill bana lo: ...", "make a skill that ...", "skills dikhao" / "list my skills", "skill approve <name>" (typed only; approval by voice is not allowed for this).
+
+Tests in new tests/test_skills_x15_x16.py with fake coders (never a real model): a valid skill installs pending, its tests run, approve activates it, the tool appears as skill.<name> and runs in a subprocess returning its dict; negatives: a pending skill is never a tool; failing tests block approval; skill.approve cannot be proposed by the planner/agent path (user_only); skill.<name> always stops at WAITING_CONFIRMATION in owner, auto_edits and auto_safe modes; a manifest with an unsafe name/path, unbounded argument, or extra keys is rejected; a skill that times out, prints non-JSON or raises is FAIL; a repair that edits the test after a failed assertion is discarded. Update tests/test_docs_truth.py's runs_code set and docs/SECURITY.md (counts + R3/R4 list + one short "Self-written skills" paragraph) so test_docs_truth passes.
+
+Rules:
+- The full suite must stay green: `D:\Project\Chutku\.venv\Scripts\python.exe -m unittest discover -s tests` from your worktree (about 4-5 minutes). Your worktree lacks the git-ignored models/ and data/: about 10 voice-lock/wake/phrase tests fail there on an untouched checkout too; report the exact list and do not try to fix those (another agent is on it).
+- Real path: in a temporary base folder (never the owner's data/), create a skill with a fake coder through the runtime, approve it, and run it up to WAITING_CONFIRMATION then approve the token in the test runtime and show the result. Do not start real models, do not open windows, do not type or click: the owner is using this PC.
+- Do NOT edit IMPLEMENTATION_STATUS.md, docs/MASTER_PLAN.md, docs/OWNER_GUIDE.md, docs/AGENT_PROMPTS.md or README.md; end your report with (1) proposed ledger text with evidence and (2) proposed owner-guide lines.
+- Keep CRLF files CRLF (Edit tool; never sed -i or PowerShell Set-Content); check `git diff --stat` for whole-file rewrites. Do not change existing tools' description text.
+- Commit on your worktree branch as "X15+X16: <summary>" with no Co-Authored-By line. Do not push.
+
+Report: files, tools and their risks/flags, how approval and running work, test counts and the full-suite line, the real-path output, limits (be explicit that a skill runs with the owner's Windows rights: the click is the boundary, not a sandbox). Under 800 words plus the two proposed texts.
 ````
