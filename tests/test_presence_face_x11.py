@@ -47,7 +47,10 @@ class FaceScriptTests(unittest.TestCase):
                        "state.mood", "Amplitude lip-sync"):
             self.assertIn(needle, script)
         self.assertEqual(script.count("requestAnimationFrame("), 2)   # still one loop: the first frame and draw's own
-        self.assertNotRegex(script, r"https?://|new Image|\.png|\.svg")
+        # The only address allowed is the X13 video embed (the page's CSP frame-src allows exactly this origin).
+        embed = "https://www.youtube-nocookie.com/embed/"
+        self.assertEqual(script.count(embed), 1)
+        self.assertNotRegex(script.replace(embed, ""), r"https?://|new Image|\.png|\.svg")
 
     @unittest.skipUnless(shutil.which("node"), "node is not installed")
     def test_mouth_shapes_follow_the_voice_level_without_flicker(self):
