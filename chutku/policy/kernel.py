@@ -28,13 +28,17 @@ class AutonomyMode(StrEnum):
     AUTO_EDITS = "auto_edits"  # also journaled/compensatable data changes (<= R2)
     OWNER = "owner"            # the owner's standing order: everything runs, except changing or deleting files,
                                # deletions of any kind, power/kill/network-off (R4) and messages to unknown people
+    TRUSTED = "trusted"        # one task the owner pre-approved ("bina puche kar do", owner 2026-11-06): owner mode
+                               # plus file changes Chutku can undo and Recycle-Bin deletes. Still asks: R4, running
+                               # code, unknown recipients, emails, anything steered by outside content
 
 
 DELEGATED_PROVENANCE = frozenset({"delegated", "delegated_microphone"})
 # A user-only tool needs the user's own typed request, or a spoken one they reviewed.
 USER_ONLY_PROVENANCE = frozenset({"user_stated", "reviewed_microphone"})
 _CEILING = {AutonomyMode.REVIEW: None, AutonomyMode.AUTO_SAFE: Risk.REVERSIBLE,
-            AutonomyMode.AUTO_EDITS: Risk.DATA_MODIFICATION, AutonomyMode.OWNER: Risk.EXTERNAL_SIDE_EFFECT}
+            AutonomyMode.AUTO_EDITS: Risk.DATA_MODIFICATION, AutonomyMode.OWNER: Risk.EXTERNAL_SIDE_EFFECT,
+            AutonomyMode.TRUSTED: Risk.EXTERNAL_SIDE_EFFECT}
 # An automatically-run data change must have a runtime-owned way back.
 AUTO_EDIT_REVERSIBILITY = frozenset({"journaled", "compensatable", "single_use", "transient"})
 # File tools that only ever create something new (they never change or remove an existing file).
@@ -121,7 +125,8 @@ class PolicyKernel:
             return Authorization(Decision.ALLOW, risk, "Confirmed on screen for this exact step.")
         if tool.runs_code:
             return Authorization(Decision.CONFIRM, risk, RUNS_CODE_REASON)
-        if tool.deletes:
+        undoable = tool.reversibility in AUTO_EDIT_REVERSIBILITY and not tainted and not suspicious
+        if tool.deletes and not (mode == AutonomyMode.TRUSTED and undoable and risk < Risk.DESTRUCTIVE_OR_PRIVILEGED):
             return Authorization(Decision.CONFIRM, risk, "Deleting always asks first.")
         if owner_question:  # a step-specific question (unknown recipient, file-changing keys) asks in every mode
             return Authorization(Decision.CONFIRM, risk, str(owner_question))
@@ -139,8 +144,9 @@ class PolicyKernel:
             # Earned autonomy (master plan S16): this kind of step keeps failing, so it asks, in every mode.
             return Authorization(Decision.CONFIRM, risk, f"This has worked {reliability.passes} of the last "
                                  f"{reliability.n} times ({reliability.key}); confirm it.")
-        if mode == AutonomyMode.OWNER:
-            return PolicyKernel._owner(tool, risk, tainted, exposed, owner_question, reliability, relax)
+        if mode in (AutonomyMode.OWNER, AutonomyMode.TRUSTED):
+            return PolicyKernel._owner(tool, risk, tainted, exposed, owner_question, reliability, relax,
+                                       trusted=mode == AutonomyMode.TRUSTED and undoable)
         ceiling = _CEILING[mode]
         if ceiling is None or risk > ceiling:
             return Authorization(Decision.CONFIRM, risk, f"Mode '{mode.value}' requires on-screen confirmation for this step.")
@@ -157,12 +163,12 @@ class PolicyKernel:
 
     @staticmethod
     def _owner(tool: Tool, risk: Risk, tainted, exposed, owner_question, reliability=None,
-               relax=False) -> Authorization:
+               relax=False, trusted=False) -> Authorization:
         """The owner's standing order (2026-10-04): do everything without asking, except file changes and deletions."""
         if risk >= Risk.DESTRUCTIVE_OR_PRIVILEGED:
             return Authorization(Decision.CONFIRM, risk, "Power, killing a program or turning the network off can lose "
                                  "unsaved work; this asks first.")
-        if tool.resource_access == "modify" and tool.name not in CREATE_ONLY_TOOLS                 and not earned_file_change(tool, tainted, reliability, relax):
+        if tool.resource_access == "modify" and tool.name not in CREATE_ONLY_TOOLS and not trusted                 and not earned_file_change(tool, tainted, reliability, relax):
             return Authorization(Decision.CONFIRM, risk, "Changing files always asks first.")
         if owner_question:
             return Authorization(Decision.CONFIRM, risk, str(owner_question))
@@ -172,4 +178,5 @@ class PolicyKernel:
             return Authorization(Decision.CONFIRM, risk, "This step follows content read from outside; confirm it.")
         if exposed and tool.network_egress:
             return Authorization(Decision.CONFIRM, risk, "A network request after reading untrusted content needs on-screen confirmation.")
-        return Authorization(Decision.ALLOW, risk, "Allowed automatically by your standing order (owner mode).")
+        return Authorization(Decision.ALLOW, risk, "Allowed automatically: you pre-approved this task." if trusted
+                             else "Allowed automatically by your standing order (owner mode).")

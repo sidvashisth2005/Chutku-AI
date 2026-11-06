@@ -13,12 +13,24 @@ from chutku.voice.live import NO, SHORT_YES, YES
 MAX_YES_WORDS = 8  # "haan bhej do yaar" is fine; a long sentence from a TV in the background is not a yes
 
 
+# "Don't keep asking" is consent, not a no (live 2026-11-05: "approval mat maangna" + four yeses were all refused,
+# because "mat" counted as no). It also pre-approves the rest of the task (agent_loop.TRUST_TASK).
+DONT_ASK = re.compile(r"\b(?:approval|apruval|apruwal|permission|paramishan|parmission|ijaazat|ijazat|puch\w*|pooch\w*|"
+                      r"confirm\w*)\b.{0,25}?\bmat\b|\bmat\s+(?:pucho|poocho|puchna|poochna|puchho|maang\w*|mang\w*)\b|"
+                      r"\b(?:don'?t|do not|stop|no need to)\s+(?:keep\s+)?ask(?:ing)?\b|\bbaar[- ]baar\s+mat\b", re.I)
+# "I already said yes" said again in frustration: "yes bol to diya", "haan bola na".
+SAID_YES = re.compile(r"\b(?:yes|yas|haan|han|ha)\s+(?:bol|bola|keh|kaha)\s*(?:to\s+)?(?:diya|diyaa|di|na|naa|tha)\b", re.I)
+
+
 def decide(heard):
     """True for a clear short yes, False for a clear no, None when unclear (Hindi script is read as Hinglish)."""
     from chutku.translit import roman
     text = " ".join(roman(heard or "").split())
     if not text:
         return None
+    if DONT_ASK.search(text) or SAID_YES.search(text):
+        return True
+    text = re.sub(r"\byas\b", "yes", text, flags=re.I)   # यस, the Hindi-script spelling of "yes"
     if NO.search(text):
         return False
     if YES.search(text) and len(text.split()) <= MAX_YES_WORDS:

@@ -38,7 +38,8 @@ class AutonomyPolicyTests(unittest.TestCase):
     def test_r3_and_r4_confirm_and_r5_denies(self):
         for mode in AutonomyMode:
             # Owner mode (the owner's standing order, 2026-10-04) runs R3 by itself; see test_owner_mode.
-            r3 = Decision.ALLOW if mode == AutonomyMode.OWNER else Decision.CONFIRM
+            # A trusted task (pre-approved by the owner's words, 2026-11-06) runs R3 like owner mode.
+            r3 = Decision.ALLOW if mode in (AutonomyMode.OWNER, AutonomyMode.TRUSTED) else Decision.CONFIRM
             self.assertEqual(self.decide(Risk.EXTERNAL_SIDE_EFFECT, mode.value, "journaled"), r3, mode)
             self.assertEqual(self.decide(Risk.DESTRUCTIVE_OR_PRIVILEGED, mode.value, "journaled"), Decision.CONFIRM)
             self.assertEqual(self.decide(Risk.DISABLED, mode.value, confirmed=True), Decision.DENY)
@@ -48,8 +49,15 @@ class AutonomyPolicyTests(unittest.TestCase):
                       argument_schema={"type": "object", "properties": {}, "additionalProperties": False},
                       reversibility="journaled", deletes=True)
         for mode in AutonomyMode:
+            if mode == AutonomyMode.TRUSTED:   # a pre-approved task may recycle undoably; see test_trusted_task
+                continue
             self.assertEqual(self.kernel.authorize(delete, {}, False, provenance="delegated", autonomy=mode.value,
                                                    tainted=False).decision, Decision.CONFIRM, mode)
+        gone = Tool("test.gone", "delete", Risk.DATA_MODIFICATION, lambda a, c: ToolResult({}, Verification.PASS),
+                    argument_schema={"type": "object", "properties": {}, "additionalProperties": False},
+                    reversibility="irreversible", deletes=True)
+        self.assertEqual(self.kernel.authorize(gone, {}, False, provenance="delegated", autonomy="trusted",
+                                               tainted=False).decision, Decision.CONFIRM)   # no undo: still asks
         self.assertEqual(self.kernel.authorize(delete, {}, False).decision, Decision.CONFIRM)
         self.assertEqual(self.kernel.authorize(delete, {}, True).decision, Decision.ALLOW)
 

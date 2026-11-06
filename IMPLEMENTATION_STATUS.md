@@ -16,6 +16,52 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Voice "yes" works again; "bina puche kar do" runs a whole task, asking only for very risky steps
+
+**The live bug (from `data/heard.jsonl`, 2026-11-05)**
+- In Gemini Live, every answer was refused with "no clear spoken yes": "अप्रूवल मत मांगना", "हां", "Haan bhai, yes",
+  "यस बोल तो दिया".
+- The answers were **appended** to one buffer since the question. Its first sentence contained "mat" (= no), and the
+  buffer quickly passed the 8-word limit, so no later yes could ever pass.
+- **Fixes:**
+  - after an unclear answer the buffer resets, so the next answer is judged alone;
+  - "यस" counts as yes;
+  - "yes bol to diya" / "haan bola na" count as yes;
+  - "approval/permission mat maangna", "don't ask" and "baar baar mat pucho" count as **consent**.
+- The no words still cancel ("nahi", "mat bhejo", "haan mat karo", "ruko").
+- (In that session the WhatsApp send itself had already failed: no chat is named exactly "Shaanu".)
+
+**Trusted task** (the owner's request 2026-11-06: "give the order, go for a coffee, ask only when really risky")
+- New autonomy mode `trusted`, chosen per request **only by the owner's words** (`chutku/intents/tone.py`):
+  - "bina puche", "without asking", "main abhi approve kar raha hoon", "approval mat maangna", "coffee break" make
+    the task trusted;
+  - "dhyan se", "carefully", "puch ke karna" make it `auto_safe`;
+  - a review-mode task is never raised;
+  - the dashboard API refuses `trusted` from the page.
+- These are word cues, not a learned sentiment model (marked as a `shortcut:`).
+- **Trusted = owner mode, plus:** undoable file changes and Recycle-Bin deletes run by themselves.
+- **Still asks:**
+  - R4;
+  - running code (D5);
+  - unknown recipients and emails;
+  - steps after outside content or after a page tried to give orders;
+  - a delete with no undo.
+- Protected zones are never touched.
+- A spoken "haan, aur baar baar mat pucho" during a task approves the step **and** trusts the rest of that task
+  (`trust_session`).
+- **Tests** (`tests/test_trusted_task.py`, 6 tests, plus the updated `test_autonomy_policy`):
+  - kernel allow/ask for the real tools;
+  - every very-risky negative;
+  - the page can't request trusted;
+  - the words;
+  - the exact answers from the failed live session;
+  - the buffer reset plus trust via a stubbed Live session.
+- **Real path** (an in-process server, scratch files):
+  - "<file> ko delete kar do" in owner mode asked (`filesystem.recycle`); after "no" the file stayed;
+  - "<file> ko delete kar do, bina puche" ran in `trusted` mode, asked nothing, and gave "Deleted trusted.txt.
+    [Verified: 1 of 1 steps completed.]" in 2.3 s; the file is in the Recycle Bin.
+- Full suite: see the commit (run below).
+
 ### 2026-11-06: Chutku writes her own skills, tested and owner-approved (X15, X16)
 
 Built by the helper agent "Forge" (`docs/AGENT_PROMPTS.md` #19). Merged; conflicts combined, counts rebuilt with

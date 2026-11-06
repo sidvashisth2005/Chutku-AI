@@ -388,6 +388,15 @@ class DashboardServer(ThreadingHTTPServer):
             runtime.approvals = self.approvals
             return session.cancel(RuntimeRouter(runtime, opener=lambda g: create_runtime(self.base, g)))
 
+    def trust_session(self, session_id):
+        """The owner said "don't ask again" while approving: the rest of this one task runs as trusted (only very
+        risky steps still ask). A task in review mode stays in review."""
+        session = self.agent_sessions.get(session_id)
+        with session.lock:
+            if session.mode != AutonomyMode.REVIEW:
+                session.mode = AutonomyMode.TRUSTED.value
+        return session.mode
+
     def confirm_session(self, session_id, approve):
         """The user's on-screen decision (web page or HUD button) for the one pending step."""
         if type(approve) is not bool:
@@ -1226,6 +1235,8 @@ class DashboardServer(ThreadingHTTPServer):
                 except (references.ReferenceError, ValueError, OSError) as error:
                     return self._control_session(goal, mode, origin, f"I didn't attach that: {error}")
                 attached = attachments
+        from chutku.intents.tone import autonomy_for
+        mode = autonomy_for(goal, mode)   # "bina puche kar do" -> trusted; "dhyan se" -> auto_safe (2026-11-06)
         session = self.agent_sessions.add(AgentSession(goal, mode=mode, origin=origin, context=context))
         if attached:   # each read becomes a completed step: taint, privacy and S15 line removal apply as usual
             with session.lock:
@@ -1414,7 +1425,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "guard_active": self.server.heartbeat is not None,
                         "voice_session": voice_session.snapshot().__dict__,
                         "verification": read_evidence(self.server.base),
-                        "autonomy_modes": [mode.value for mode in AutonomyMode],
+                        "autonomy_modes": [mode.value for mode in AutonomyMode if mode != AutonomyMode.TRUSTED],
                         "handsfree": self.server.handsfree_status(),
                         "heard": recent_heard(30, base=self.server.base),
                         "capability_grants": [g.public() for g in runtime.capability_grants.list()]})
@@ -1686,7 +1697,7 @@ INSTANT_TOOLS = frozenset({
 
 def _mode(data):
     mode = data.get("mode", AutonomyMode.REVIEW.value)
-    if mode not in {m.value for m in AutonomyMode}:
+    if mode not in {m.value for m in AutonomyMode} or mode == AutonomyMode.TRUSTED:   # trusted: only the owner's words
         raise ValueError("Choose review, auto_safe, auto_edits or owner.")
     return mode
 

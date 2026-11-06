@@ -86,7 +86,9 @@ apps, WhatsApp, browsers) takes several seconds, longer than you take to answer,
 it is still running, not failed. Never ask to look at the screen to check on a running task.
 
 When an update says an approval is needed, read out exactly what will happen and ask "haan ya na?". Then call
-answer_approval with what THEY said. If they say stop / ruko / cancel while a task runs, call stop_task.
+answer_approval with what THEY said. If the owner says not to keep asking ("approval mat maangna", "bina puche kar
+do", "don't ask"), that is a yes: call answer_approval with approve true, and when you start a task for them, end
+the goal with "without asking". If they say stop / ruko / cancel while a task runs, call stop_task.
 If they say bye / bas / band karo baat / that's all, say a short goodbye and call end_conversation."""
 
 TOOLS = [{"functionDeclarations": [
@@ -560,8 +562,11 @@ class LiveConversation(threading.Thread):
             # The decision must come from the owner's own clearly spoken words: a breath or noise transcribed as
             # "hmm" is not a yes.
             self._log_heard(heard, "approval refused: no clear spoken yes")
+            self._fresh_answer()
             return {"error": "I did not hear a clear yes from the owner. Ask again: haan ya na?"}
         self._log_heard(heard, "approval: " + ("yes" if approve else "no"))
+        if approve:
+            self._trust_if_asked(heard)
         self.server.confirm_session(self.task_id, approve)
         self.heard_since_question = ""
         threading.Thread(target=self._follow, args=(self.task_id,), daemon=True).start()
@@ -588,13 +593,28 @@ class LiveConversation(threading.Thread):
         # (an echo of Chutku's own voice, the TV, a hallucinated "haan") is never a yes.
         if decide(heard) is not True or not spoke:
             self._log_heard(heard, "approval refused: no clear spoken yes (late)")
+            self._fresh_answer()
             self.inject("[Approval] I did not hear a clear yes from the owner. Ask once more: haan ya na?")
             return
         self._log_heard(heard, "approval: yes (late words)")
+        self._trust_if_asked(heard)
         self.server.confirm_session(self.task_id, True)
         self.heard_since_question = ""
         threading.Thread(target=self._follow, args=(self.task_id,), daemon=True).start()
         self.inject("[Approval] The owner said yes; it is running now. " + WAIT_NOTE)
+
+    def _trust_if_asked(self, heard):
+        """"Haan, aur baar baar mat pucho": the rest of this task asks only for very risky steps (2026-11-06)."""
+        from chutku.translit import roman
+        from chutku.voice.approval import DONT_ASK
+        if DONT_ASK.search(roman(heard)) and hasattr(self.server, "trust_session"):
+            self.server.trust_session(self.task_id)
+
+    def _fresh_answer(self):
+        """After an unclear answer the next one is judged alone (live 2026-11-05: every later "haan" was appended to an
+        earlier "approval mat maangna" and refused, so it could never pass)."""
+        self.heard_since_question = ""
+        self.speech_at_question = self.gate.speech_seconds
 
     def _snapshot(self):
         if not self.task_id:
