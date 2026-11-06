@@ -949,12 +949,26 @@ class DashboardServer(ThreadingHTTPServer):
         return state
 
     PHASES = ("idle", "listening", "thinking", "running", "speaking", "confirm", "done", "clarify", "error", "paused")
-    MOODS = {"listening": "listening", "confirm": "listening", "clarify": "listening", "thinking": "thinking",
+    MOODS = {"listening": "listening", "confirm": "listening", "clarify": "confused", "thinking": "thinking",
              "running": "thinking", "speaking": "speaking", "error": "sorry", "paused": "sleepy"}
+    # shortcut: word cues in what she heard (Hindi script romanised first), not a sentiment model; upgrade if misread.
+    LOVE = re.compile(r"\b(?:thanks?|thank\s*you|shukriya|dhanyava+d|love\s+(?:you|it)|pyaa?r|good\s+job|well\s+done|"
+                      r"awesome|wah|badhiya|mast)\b", re.I)
+    ANNOYED = re.compile(r"\b(?:stupid|useless|bakwaa?s|beka+r|pagal|idiot|ugh|galat|kya\s+kar\s+rahi|baar\s+baar|"
+                         r"dimaa?g\s+kharab|shut\s+up)\b", re.I)
 
     @classmethod
-    def presence_mood(cls, phase, steps):
-        """X11: the orb face's mood. Happy only when the task is done and every completed step was verified."""
+    def presence_mood(cls, phase, steps, heard=""):
+        """X11/Y1: the face's mood. Happy only when the task is done and every completed step was verified; hearts
+        when the owner thanks her; angry brows while she works on something he said in annoyance."""
+        if phase in {"paused", "error", "confirm"}:
+            return cls.MOODS[phase]
+        from chutku.translit import roman
+        said = roman(heard or "")
+        if cls.LOVE.search(said):
+            return "love"
+        if cls.ANNOYED.search(said) and phase in {"listening", "thinking", "running", "speaking"}:
+            return "annoyed"
         if phase == "done":
             completed = [s for s in steps if s.get("state") == "COMPLETED"]
             failed = any(s.get("state") in {"FAILED", "DENIED"} for s in steps)
@@ -976,7 +990,7 @@ class DashboardServer(ThreadingHTTPServer):
         steps = [{"tool": s.get("tool"), "purpose": str(s.get("purpose") or "")[:90], "state": s.get("state"),
                   "verified": s.get("verification") == "PASS"} for s in (session.get("steps") or [])][-8:]
         phase = phase if phase in self.PHASES else "idle"
-        return {"phase": phase, "mood": self.presence_mood(phase, steps),
+        return {"phase": phase, "mood": self.presence_mood(phase, steps, state.get("transcript")),
                 "mic_level": round(float(state.get("level") or 0.0), 4),
                 "voice_level": round(tts.speaking_level(), 3) if speaking else 0.0,
                 "heard": state.get("transcript") or "", "message": state.get("message") or "",
