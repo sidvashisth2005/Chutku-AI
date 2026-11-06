@@ -83,6 +83,7 @@ TAINTING_TOOLS = frozenset({
     "message.read_chat", "image.describe", "screen.click",
     "system.powershell",   # command output is outside text
 })
+SKILL_PREFIX = "skill."   # self-written skills (X15): their output is outside text and may hold private data
 # Tools that read the user's private data. After one of these, network requests need a click,
 # because a URL built from that data could leak it. Public web content alone does not count.
 PRIVATE_TOOLS = frozenset({
@@ -570,7 +571,7 @@ def _observation(result, tool=None):
     payload = result.get("output") if state == "COMPLETED" else {
         "error": result.get("error") or result.get("reason"), "output": result.get("output")}
     removed = [0]
-    if tool in TAINTING_TOOLS and state == "COMPLETED":
+    if (tool in TAINTING_TOOLS or str(tool).startswith(SKILL_PREFIX)) and state == "COMPLETED":
         payload = {"untrusted_data": _defang(payload, removed), "source": tool}
     text = json.dumps(payload, ensure_ascii=False, default=str, separators=(",", ":"))
     text = text if len(text) <= OBSERVATION_CHARS else text[:OBSERVATION_CHARS] + "...[truncated]"
@@ -894,9 +895,9 @@ class AgentSession:
         if record["suspicious"]:
             self.suspicious = True   # a page/message/file tried to give instructions: every change now asks
         self.steps.append(record)
-        if state == "COMPLETED" and step["tool"] in TAINTING_TOOLS:
+        if state == "COMPLETED" and (step["tool"] in TAINTING_TOOLS or step["tool"].startswith(SKILL_PREFIX)):
             self.tainted = True
-        if state == "COMPLETED" and step["tool"] in PRIVATE_TOOLS:
+        if state == "COMPLETED" and (step["tool"] in PRIVATE_TOOLS or step["tool"].startswith(SKILL_PREFIX)):
             self.exposed = True
         output = result.get("output") if isinstance(result.get("output"), dict) else {}
         if state == "COMPLETED" and output.get("dialog_opened"):

@@ -47,6 +47,37 @@ RUN: <entry file, e.g. main.py or index.html>
 === END FILE ===
 (repeat the FILE block for every file)"""
 
+SKILL_SYSTEM = """You are an expert Python engineer writing one small skill (a new ability) for Chutku, a Windows
+assistant. Rules:
+- Python 3 standard library only. No pip packages, no input() prompts, no windows; use the network only if the
+  request needs it.
+- tool.py defines run(args: dict) -> dict. args holds only the arguments in the manifest. Return a small JSON-
+  serialisable dict (strings, numbers, booleans, lists, dicts). Raise ValueError with a clear message for bad input.
+- test_tool.py: unittest tests that import tool and check run() on real example inputs with exact expected values,
+  plus one bad input. Tests must not use the network, open windows or write outside a temporary folder.
+- skill.json, exactly these keys: {"name": "<3-40 lowercase letters, digits, underscore>", "description": "<what it
+  does and when to use it, at most 300 characters>", "arguments": {"type": "object", "properties": {...},
+  "required": [...], "additionalProperties": false}, "network": false, "writes_files": false}. Every property is a
+  string (with maxLength), an integer or number (with minimum and maximum) or a boolean, optionally with a short
+  "description". Set network / writes_files to true only if run() really does that.
+- SKILL.md: a short human description: what it does, its arguments, one example.
+- Simplicity first: the minimum code that fully does what was asked. No extra features or options. Never cut input
+  validation.
+Answer ONLY in this exact format, with exactly these four files and nothing before or after:
+PLAN: <one line describing the design>
+=== FILE: skill.json ===
+<content>
+=== END FILE ===
+=== FILE: SKILL.md ===
+<content>
+=== END FILE ===
+=== FILE: tool.py ===
+<content>
+=== END FILE ===
+=== FILE: test_tool.py ===
+<content>
+=== END FILE ==="""
+
 FIX_SYSTEM = """You are an expert software engineer fixing a project that failed its checks.
 Given the files and the exact error output, return ONLY the files you change, each complete, in this format:
 PLAN: <one line: the failing check, what caused it, and the fix>
@@ -155,6 +186,9 @@ class GeminiCoder:
     def write(self, request):
         return parse_files(self._ask(CODER_SYSTEM, "Build this: " + request))
 
+    def write_skill(self, request):
+        return parse_files(self._ask(SKILL_SYSTEM, "Make this skill: " + request), need_headers=False)
+
     def fix(self, request, files, errors):
         return parse_files(self._ask(FIX_SYSTEM, _fix_prompt(request, files, errors)), need_headers=False)
 
@@ -174,6 +208,9 @@ class LocalCoder:
 
     def write(self, request):
         return parse_files(self._ask(CODER_SYSTEM, "Build this: " + request))
+
+    def write_skill(self, request):
+        return parse_files(self._ask(SKILL_SYSTEM, "Make this skill: " + request), need_headers=False)
 
     def fix(self, request, files, errors):
         return parse_files(self._ask(FIX_SYSTEM, _fix_prompt(request, files, errors)), need_headers=False)

@@ -59,6 +59,7 @@ class PlanningTests(unittest.TestCase):
             "is background paused?": ("CHECK_BACKGROUND_PAUSE", "background.status"),
             "remove never rule a1b2c3": ("REMOVE_NEVER_RULE", "never.remove"),
             "list windows": ("LIST_WINDOWS", "windows.list"),
+            "skill approve word_count": ("APPROVE_SKILL", "skill.approve"),
         }
         self.assertEqual(len(cases), len(INTENT_BY_TOOL))
         for request, (intent, tool) in cases.items():

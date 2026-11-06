@@ -55,6 +55,7 @@ INTENT_BY_TOOL = {
     "never.add": "ADD_NEVER_RULE",
     "never.list": "LIST_NEVER_RULES",
     "never.remove": "REMOVE_NEVER_RULE",
+    "skill.approve": "APPROVE_SKILL",
     "background.pause": "PAUSE_BACKGROUND",
     "background.resume": "RESUME_BACKGROUND",
     "background.status": "CHECK_BACKGROUND_PAUSE",
@@ -159,6 +160,9 @@ class CommandCatalog:
         if match := re.fullmatch(r"timeline (on|off)", normalized, re.IGNORECASE):
             # Owner-only switch (master plan S21): typed by the owner, never by voice or the agent.
             return RoutedCommand("settings.timeline", {"on": match[1].casefold() == "on"})
+        if match := re.fullmatch(r"(?:skill approve|approve skill) ([a-z][a-z0-9_]{2,39})", normalized, re.IGNORECASE):
+            # Owner-only (master plan X15): typed by the owner, then a click; never by voice or the agent.
+            return RoutedCommand("skill.approve", {"name": match[1].casefold()})
         if routed := background_route(normalized):
             # Background pause (Phase 3b H2): resuming is typed by the owner only.
             return routed
