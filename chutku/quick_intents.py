@@ -699,6 +699,23 @@ def _skill(text):
     return None
 
 
+# Evolve (master plan Y2): study the week and propose ideas, or show them. Approving one is typed only
+# ("evolve approve <id>", router/catalog.py).
+_EVOLVE_REVIEW = re.compile(rf"^{_POLITE}(?:(?:khud|apne aap|apne ap|khud hi) ko (?:improve|behtar) kar(?:o|lo|do)|"
+                            rf"improvement ideas? (?:do|de do|dena|nikalo|socho)|improve yourself|"
+                            rf"suggest (?:some )?improvements){_TAIL}$", re.I)
+_EVOLVE_LIST = re.compile(rf"^{_POLITE}(?:aaj ke suggestions?|(?:show |list )?(?:my |your )?improvement ideas?"
+                          rf"(?: (?:dikhao|batao|list))?|evolve list){_TAIL}$", re.I)
+
+
+def _evolve(text):
+    if _EVOLVE_REVIEW.match(text):
+        return _proposal("evolve.review", {}, "Study the last 7 days and write improvement ideas", "", finish=False)
+    if _EVOLVE_LIST.match(text):
+        return _proposal("evolve.list", {}, "Show the improvement ideas", "", finish=False)
+    return None
+
+
 def _single(goal, apps=None):
     text = " ".join(goal.split())
     app_action = _app_action(text)
@@ -746,7 +763,7 @@ def _single(goal, apps=None):
         return _done("Main chalu hi hoon. Bolo, kya karna hai?")   # (a real pause is lifted by the dashboard)
     if control in ("stop", "pause") and not re.fullmatch(r"\W*stop\W*", text, re.I):
         return _done("Nothing is running right now.")  # (the dashboard stops running work before this point)
-    skill = _skill(text)
+    skill = _skill(text) or _evolve(text)
     if skill is not None:
         return skill
     scheduled = _scheduled(text)
@@ -1754,7 +1771,8 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "network.status": _say_adapters, "filesystem.list": _say_listing,
                  "message.open_chat": _say_open_chat, "message.read_chat": _say_read_chat,
                  "finance.quote": lambda out: out["reply"],
-                 "skill.list": lambda out: out["skill_reply"], "skill.create": lambda out: out["skill_reply"]}
+                 "skill.list": lambda out: out["skill_reply"], "skill.create": lambda out: out["skill_reply"],
+                 "evolve.list": lambda out: out["skill_reply"], "evolve.review": lambda out: out["skill_reply"]}
 
 
 def quick_answer(session):

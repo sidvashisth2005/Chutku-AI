@@ -56,6 +56,9 @@ INTENT_BY_TOOL = {
     "never.list": "LIST_NEVER_RULES",
     "never.remove": "REMOVE_NEVER_RULE",
     "skill.approve": "APPROVE_SKILL",
+    "evolve.approve": "APPROVE_IMPROVEMENT",
+    "evolve.reject": "REJECT_IMPROVEMENT",
+    "settings.evolve_push": "SET_EVOLVE_PUSH",
     "background.pause": "PAUSE_BACKGROUND",
     "background.resume": "RESUME_BACKGROUND",
     "background.status": "CHECK_BACKGROUND_PAUSE",
@@ -163,6 +166,11 @@ class CommandCatalog:
         if match := re.fullmatch(r"(?:skill approve|approve skill) ([a-z][a-z0-9_]{2,39})", normalized, re.IGNORECASE):
             # Owner-only (master plan X15): typed by the owner, then a click; never by voice or the agent.
             return RoutedCommand("skill.approve", {"name": match[1].casefold()})
+        if match := re.fullmatch(r"evolve (approve|reject) ([0-9a-f]{6})", normalized, re.IGNORECASE):
+            # Y2: approving an improvement idea is owner-only, typed, then a click; never by voice or the agent.
+            return RoutedCommand(f"evolve.{match[1].casefold()}", {"id": match[2].casefold()})
+        if match := re.fullmatch(r"evolve push (on|off)", normalized, re.IGNORECASE):
+            return RoutedCommand("settings.evolve_push", {"on": match[1].casefold() == "on"})
         if routed := background_route(normalized):
             # Background pause (Phase 3b H2): resuming is typed by the owner only.
             return routed

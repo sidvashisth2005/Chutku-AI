@@ -38,4 +38,6 @@ def create_runtime(base: Path = PROJECT_ROOT, grant_id: str = "sandbox") -> Runt
     register_timeline_tools(registry, runtime)
     from chutku.skills import register_skill_tools   # X15: skill.* tools and the owner-approved skills
     register_skill_tools(registry, base)
+    from chutku.evolve import register_evolve_tools   # Y2: improvement ideas; only the owner approves one
+    register_evolve_tools(registry, base)
     return runtime
