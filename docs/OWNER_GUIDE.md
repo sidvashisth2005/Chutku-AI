@@ -143,6 +143,9 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 
 ## 3. Things you can say
 
+**New on 2026-11-06: setup**
+- `.venv\Scripts\python.exe -m chutku.cli setup` asks 4 quick questions any time: your name, a free brain key, a mic check, and how much she does alone.
+
 **New on 2026-11-06: learn from GitHub**
 - "github.com/owner/project se skill seekho" or "import skills from https://github.com/owner/project" (asks first). Chutku downloads the project (nothing from it is run) and notes its licence.
   - If it has SKILL.md files, they become procedures she reads when a task fits.

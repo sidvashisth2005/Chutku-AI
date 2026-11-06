@@ -238,6 +238,7 @@ def main() -> None:
     email = subparsers.add_parser("email", help="Email sending (X8): store a Gmail address + app password, or see status")
     email.add_argument("email_action", choices=("status", "set-account"))
     subparsers.add_parser("open", help="Open the running Chutku dashboard in your browser")
+    subparsers.add_parser("setup", help="First-run setup: your name, a free brain key, a mic check, how much she does alone")
     night = subparsers.add_parser("nightshift", help="Night Shift: nightly self-improvement jobs (run, install, report)")
     night.add_argument("night_action", choices=("run", "install", "report"))
     night.add_argument("--no-model", action="store_true", help="run: skip the model round of the regression replay")
@@ -264,6 +265,14 @@ def main() -> None:
         return
     if namespace.command == "apps":
         _apps_command(namespace)
+        return
+    if namespace.command == "setup":
+        from chutku.app import PROJECT_ROOT as root
+        from chutku.setup_wizard import run as setup
+        try:
+            setup(root)
+        except (EOFError, KeyboardInterrupt):
+            print("Setup stopped; run it again any time.")
         return
     if namespace.command == "open":
         from chutku.dashboard import open_running_dashboard

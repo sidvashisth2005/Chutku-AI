@@ -16,6 +16,22 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: First-run setup for a new owner (O4)
+
+- **`python -m chutku.cli setup`** (`chutku/setup_wizard.py`) asks 4 questions, each skippable with Enter. Each reuses an existing path:
+  - the name → `Mind.set_fact("name")`;
+  - a free Groq or Gemini key → Windows Credential Manager (Gemini also grants `cloud.gemini`);
+  - a one-second mic check (`voice.microphone_level_check`, raw audio discarded);
+  - how much she does alone → `handsfree_mode`. Enter means `auto_safe`, the safe default for a stranger.
+- `Install-Chutku.cmd` runs it at the end, only when someone is at the keyboard (`[Console]::IsInputRedirected`).
+- **Tests:** `tests/test_setup_wizard_o4.py`, 3 tests:
+  - everything stored where Chutku reads it;
+  - skipping all stores nothing except the default mode;
+  - an empty key or an invalid choice changes nothing.
+- **Real path** in the fresh-install clone (`D:\ChutkuScratch\install-test`): piped answers gave `mode: auto_safe`, and the name was stored in `mind.json`; empty input gave "Setup stopped; run it again any time.".
+- That real run caught 2 bugs before commit: a broken newline escape, and `PROJECT_ROOT` imported later inside `main`.
+- Full suite: 1,351 OK.
+
 ### 2026-11-06: Learn a skill from a GitHub project with one sentence (X17)
 
 - **The request:** "github.com/x/y se skill seekho" / "import skills from https://github.com/x/y" → `skill.import`.

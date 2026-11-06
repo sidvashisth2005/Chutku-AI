@@ -905,7 +905,7 @@ License: MIT.
 - [x] O1: Configuration instead of owner values (projects folder, VS Code path, names) — done 2026-11-05
 - [x] O2: Personal examples replaced with generic ones — done 2026-11-05 (tool descriptions kept: they are part of each tool's contract hash)
 - [ ] O3: No-GPU / non-Vulkan fallback (cloud-first + CPU Whisper), clear message
-- [ ] O4: One-click `Install-Chutku.cmd` + first-run wizard; fresh-clone install test — installer + fresh-clone test done 2026-11-05; first-run wizard still open
+- [ ] O4: One-click `Install-Chutku.cmd` + first-run wizard; fresh-clone install test — installer + fresh-clone test done 2026-11-05; first-run setup (CLI) done 2026-11-06
 - [x] O5: MIT `LICENSE`, README for strangers, `CONTRIBUTING.md`, CI workflow — done 2026-11-05 (CI result checked after push)
 - [ ] O6: Release audit (security, supply chain, insecure defaults, secret and personal-data scan of history) → `docs/RELEASE_CHECKLIST.md` — scans + checklist done 2026-11-05; security-review pass after the Phase 6 merges
 

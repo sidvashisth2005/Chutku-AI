@@ -7,7 +7,7 @@ This log says what was done, what is finished, and what remains of the plan, so 
 - Every helper-agent prompt is in `docs/AGENT_PROMPTS.md` (#12–#21).
 - Repo: `sidvashisth2005/Chutku-AI`, branch `main`, pushed after every slice.
 - CI: `.github/workflows/tests.yml`, green since the Sentinel merge.
-- Last full suite: 1,348 tests OK (2026-11-06).
+- Last full suite: 1,351 tests OK (2026-11-06).
 
 ## What the owner asked for (all requests in these two sessions)
 
@@ -43,7 +43,7 @@ This log says what was done, what is finished, and what remains of the plan, so 
 
 **Open source**
 - **O1–O2:** owner paths became settings (`user_folder`, `media_folders`), and personal names were scrubbed.
-- **O4:** `Install-Chutku.cmd`, tested in a fresh clone. It fetches models and runtimes and checks their hashes.
+- **O4:** `Install-Chutku.cmd` plus a first-run `chutku.cli setup` (name, key, mic, autonomy), both tested in a fresh clone. It fetches models and runtimes and checks their hashes.
 - **O5:** MIT `LICENSE`, a README for new users, `CONTRIBUTING.md`, CI.
 - **O6:** `docs/RELEASE_CHECKLIST.md`. No keys anywhere in git history. A fresh repo is recommended for publishing.
 
@@ -91,7 +91,6 @@ This log says what was done, what is finished, and what remains of the plan, so 
    - **X14:** web autopilot in a dedicated signed-in browser profile over CDP, plus `browser.extract`.
    - **X18:** builder upgrade.
    - **O3:** no-GPU fallback test.
-   - **O4:** the first-run wizard.
    - **V1–V6** leftovers: the Gemini Live check, the heal test, and the screen copilot live check.
 5. **Known limits to improve:**
    - the local 4B model is weak on multi-step offline goals (X3 offline 6–9/12);
