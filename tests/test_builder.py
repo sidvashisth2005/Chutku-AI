@@ -19,6 +19,9 @@ def add(a, b):
 from calc import add
 print("2 + 3 =", add(2, 3))
 === END FILE ===
+=== FILE: README.md ===
+Run main.py.
+=== END FILE ===
 === FILE: test_app.py ===
 import unittest
 from calc import add
@@ -207,6 +210,24 @@ class BuildToolTests(unittest.TestCase):
         attempts = done["output"]["attempts"]
         self.assertEqual([a["passed"] for a in attempts], [False, False, True])
         self.assertEqual(attempts[1]["changed_own_tests"], ["test_app.py"])  # said openly in the build output
+
+    def test_the_production_checklist_names_what_is_missing(self):
+        import tempfile as _t
+        with _t.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            self.assertEqual(len(builder.production_checklist(folder, {"kind": "cli"})), 2)   # no README, no tests
+            (folder / "README.md").write_text("x", encoding="utf-8")
+            (folder / "test_app.py").write_text("x", encoding="utf-8")
+            self.assertEqual(builder.production_checklist(folder, {"kind": "cli"}), [])
+            (folder / "index.html").write_text('<script src="https://cdn.example/lib.js"></script>', encoding="utf-8")
+            (folder / "app.css").write_text("@import url('//fonts.example/x.css');", encoding="utf-8")
+            problems = builder.production_checklist(folder, {"kind": "web"})
+            self.assertEqual(len(problems), 2)
+            self.assertTrue(all("another site" in p for p in problems))
+            (folder / "index.html").write_text('<script src="app.js"></script><a href="https://example.com">x</a>',
+                                               encoding="utf-8")
+            (folder / "app.css").write_text("body{}", encoding="utf-8")
+            self.assertEqual(builder.production_checklist(folder, {"kind": "web"}), [])   # a plain link is fine
 
     def test_test_files_may_change_when_no_assertion_failed(self):
         files = {"test_app.py": "x", "calc.py": "y"}

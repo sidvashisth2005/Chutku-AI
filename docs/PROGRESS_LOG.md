@@ -57,6 +57,7 @@ This log says what was done, what is finished, and what remains of the plan, so 
 - **X5:** drive index, 169,800 files in 25 s, searches in milliseconds: "X kahan hai".
 - **X8:** draft-first email; sending always asks and needs the `email.send` grant.
 - **X9:** stock quotes with "as of" (live TCS quote in 1.16 s).
+- **X18:** builds must pass a production checklist (README, tests, nothing from a CDN).
 - **X13:** YouTube plays inside Chutku's window ("yahin chalao").
 - **X11/X12:** eyes with moods, and amplitude lip-sync.
 - **X14 (part):** `browser.extract`: tables and lists from a web page.
@@ -91,7 +92,6 @@ This log says what was done, what is finished, and what remains of the plan, so 
    - a decision: should `skill.<name>` and `code.run_python` skip the 10-minute "same step, no new click" memory?
 4. **Planned, not built:**
    - **X14 (rest):** web autopilot in a dedicated signed-in browser profile over CDP (`browser.extract` is done).
-   - **X18:** builder upgrade.
    - **V1–V6** leftovers: the Gemini Live check, the heal test, and the screen copilot live check.
 5. **Known limits to improve:**
    - the local 4B model is weak on multi-step offline goals (X3 offline 6–9/12);

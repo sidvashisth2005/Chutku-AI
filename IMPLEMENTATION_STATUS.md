@@ -16,6 +16,17 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: Built apps must pass a production checklist (X18)
+
+- `builder.production_checklist` runs first in both project checks. It requires:
+  - a `README.md`;
+  - tests for Python projects;
+  - for web apps, nothing loaded from another site: no CDN `<script>`/`<link>`/`<img>`/`<iframe>` URL, no `import … from "https://…"`, no remote `@import`. So they work offline.
+- A miss is reported like any failed check, so the coder repairs it (up to 3 rounds) instead of the build being called "done".
+- **Tests:** a new checklist test covers a missing README, missing tests, a CDN script and a remote CSS import, and confirms that local scripts and plain links pass. The builder fixtures gained a README.
+- A first version of the regex was garbled by shell escaping; the test caught it, and it was rewritten and checked on 5 samples.
+- Full suite OK.
+
 ### 2026-11-06: YouTube plays inside Chutku's own window (X13)
 
 - **`youtube.play_here`** (R1, `internet.read`, egress) searches YouTube with the existing safe fetch and saves the first video in `data/hud-video.json`.

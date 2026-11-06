@@ -965,7 +965,7 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [x] X15 (done 2026-11-06): Skill format: SKILL.md + `tool.py` + `test_tool.py` in `data/skills/<name>`. Runs in a subprocess with a timeout, declares its risk; listed with "tumhari skills"
 - [x] X16 (done 2026-11-06; real model run still to do): Self-coding: "ye kaam karne ka skill bana lo". The coder (cloud maker, local fallback) writes the skill; its tests must pass; the owner approves; it then registers as `skill.<name>`
 - [x] X17 (done 2026-11-06; real import of a public skills repo): GitHub skill import: "github.com/x/y se skill seekho". Pinned commit + licence shown; SKILL.md repos become procedures; CLI repos become wrapped skills (X15 rules); no install scripts run by themselves
-- [ ] X18: Software builder upgrade: multi-file web apps with a run/preview step and a production checklist (README, tests, no CDN), plus the Karpathy/ponytail rules already in the coder
+- [x] X18 (production checklist done 2026-11-06; a live build with the checklist still to run): Software builder upgrade: multi-file web apps with a run/preview step and a production checklist (README, tests, no CDN), plus the Karpathy/ponytail rules already in the coder
 
 **Release work still open:** V1–V6 and O3–O6 above.
 

@@ -199,8 +199,33 @@ def _window_for(pid, seconds):
 
 # -- checks --------------------------------------------------------------------------
 
+_EXTERNAL = re.compile(r"""<(?:script|link|img|iframe)\b[^>]*\b(?:src|href)\s*=\s*["']?(?:https?:)?//|"""
+                       r"""\bimport\b[^;\n]*?["'](?:https?:)?//|@import\s+(?:url\()?["']?(?:https?:)?//""", re.I)
+
+
+def production_checklist(folder, spec):
+    """X18 (2026-11-06): what "production ready" means here, checked, never just claimed: a README; tests for
+    Python projects; web apps that load nothing from a CDN or another site (they must work offline)."""
+    problems = []
+    if not (folder / "README.md").is_file():
+        problems.append("Production checklist: README.md is missing (how to run it, what it does).")
+    if spec["kind"] != "web" and not any(is_test_file(p.name) for p in folder.rglob("test*.py")):
+        problems.append("Production checklist: there are no tests (write test_app.py with unittest tests).")
+    if spec["kind"] == "web":
+        for page in sorted(folder.rglob("*")):
+            if page.suffix.casefold() in {".html", ".htm", ".js", ".css"} and page.is_file():
+                hit = _EXTERNAL.search(page.read_text(encoding="utf-8", errors="replace"))
+                if hit:
+                    problems.append(f"Production checklist: {page.relative_to(folder)} loads something from another "
+                                    f"site ({hit.group(0)[:60]!r}); use only local files so it works offline.")
+    return problems
+
+
 def check_python(folder, spec, launch):
     """Compile, run the project's tests, then start the app. Returns (errors, running_process)."""
+    problems = production_checklist(folder, spec)
+    if problems:
+        return problems, [], None
     python, pythonw = python_executables()
     for cache in list(folder.rglob("__pycache__")):  # never test stale bytecode after a repair
         shutil.rmtree(cache, ignore_errors=True)
@@ -249,7 +274,10 @@ def check_python(folder, spec, launch):
 
 
 def check_web(folder, spec):
-    checks, errors = [], []
+    problems = production_checklist(folder, spec)
+    if problems:
+        return problems, []
+    checks, errors = ["production checklist: README, no CDN"], []
     node = shutil.which("node")
     for script in sorted(folder.rglob("*.js")):
         if node:
