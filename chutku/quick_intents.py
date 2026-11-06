@@ -715,6 +715,20 @@ _IMPORT = re.compile(rf"^{_POLITE}(?:(?P<a>(?:https?://)?(?:www\.)?github\.com/[
                      rf"(?P<b>(?:https?://)?(?:www\.)?github\.com/[\w.-]+/[\w.-]+?)(?:\.git)?/?){_TAIL}$", re.I)
 
 
+# X13: "youtube pe lofi yahin chalao" / "play lofi here" / "chutku mein lofi chalao": the video plays in her window
+_YT_HERE = re.compile(rf"^{_POLITE}(?:(?:youtube\s+(?:pe|par|par se)\s+)?(?P<a>.{{2,80}}?)\s+(?:yahin|yahi|yaha|yahan|"
+                      rf"chutku\s+(?:mein|me|main|window\s+mein))\s+(?:chalao|chala do|bajao|dikhao|play\s+karo)|"
+                      rf"play\s+(?P<b>.{{2,80}}?)\s+(?:here|in\s+chutku|inside\s+chutku)(?:\s+on\s+youtube)?){_TAIL}$", re.I)
+
+
+def _youtube_here(text):
+    match = _YT_HERE.match(text)
+    if not match:
+        return None
+    query = (match.group("a") or match.group("b")).strip(" ,")
+    return _proposal("youtube.play_here", {"query": query}, f"Play {query} in Chutku's window", f"{query} chala rahi hoon.")
+
+
 def _import_skill(text):
     match = _IMPORT.match(text)
     if not match:
@@ -778,7 +792,7 @@ def _single(goal, apps=None):
         return _done("Main chalu hi hoon. Bolo, kya karna hai?")   # (a real pause is lifted by the dashboard)
     if control in ("stop", "pause") and not re.fullmatch(r"\W*stop\W*", text, re.I):
         return _done("Nothing is running right now.")  # (the dashboard stops running work before this point)
-    skill = _skill(text) or _evolve(text) or _import_skill(text)
+    skill = _skill(text) or _evolve(text) or _import_skill(text) or _youtube_here(text)
     if skill is not None:
         return skill
     scheduled = _scheduled(text)

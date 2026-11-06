@@ -956,7 +956,7 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 **HUD (group 5)**
 - [x] X11 (done 2026-11-05): Vector eyes with moods (idle, listening, thinking, happy, sorry) in the presence window
 - [x] X12 (v1 amplitude done 2026-11-05; phoneme v2 parked: no Kokoro durations): Lip-sync: mouth shapes from Kokoro phoneme timings (amplitude fallback)
-- [ ] X13: YouTube inside the HUD (embedded player, online only, says so offline)
+- [x] X13 (done 2026-11-06; real playback with sound to be checked by the owner): YouTube inside the HUD (embedded player, online only, says so offline)
 
 **Web autopilot (group 2)**
 - [ ] X14: A dedicated, signed-in Chutku browser profile (Brave/Chrome) over CDP on 127.0.0.1; form fill + table/data extraction (`browser.extract`); `browser.input` grant is the owner's step

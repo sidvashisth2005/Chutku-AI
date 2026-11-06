@@ -428,6 +428,17 @@ class DashboardServer(ThreadingHTTPServer):
             runtime.approvals = self.approvals
             return session.cancel(RuntimeRouter(runtime, opener=lambda g: create_runtime(self.base, g)))
 
+    def hud_video(self):
+        """X13: the YouTube video playing in Chutku's own window (youtube.play_here), for at most 4 hours."""
+        from chutku.tools.internet import hud_video_file
+        try:
+            video = json.loads(hud_video_file(self.base).read_text(encoding="utf-8"))
+            if time.time() - float(video["at"]) < 4 * 3600 and re.fullmatch(r"[\w-]{11}", video["id"]):
+                return {"id": video["id"], "title": str(video.get("title", ""))[:150]}
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+        return None
+
     def trust_session(self, session_id):
         """The owner said "don't ask again" while approving: the rest of this one task runs as trusted (only very
         risky steps still ask). A task in review mode stays in review."""
@@ -1038,6 +1049,7 @@ class DashboardServer(ThreadingHTTPServer):
                 "session_id": session.get("id"), "status": session.get("status"), "steps": steps,
                 "pending": (session.get("pending") or {}).get("approval") if session.get("status") == "waiting_confirmation" else None,
                 "paused": bool(state.get("paused")), "mic_muted": bool(state.get("mic_muted")),
+                "video": self.hud_video(),
                 "conversation": [list(t) for t in (state.get("conversation") or [])][-4:],
                 "healed": bool(self.healed), "phone": self.phone_active(),
                 "phone_viewing": bool(self.remote and self.remote.server and self.remote.server.viewing()),
@@ -1362,7 +1374,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
-        self.send_header("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+        self.send_header("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-src https://www.youtube-nocookie.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         self.end_headers()
         try:
             self.wfile.write(data)
@@ -1594,6 +1606,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._reply(200, remote.revoke(data["device_id"]))
             else:
                 self._reply(400, {"error": "Choose enable, disable, pair, arm, disarm or revoke."})
+            return
+        if urlsplit(self.path).path == "/api/presence/video/close":   # X13: the video's close button
+            from chutku.tools.internet import hud_video_file
+            hud_video_file(self.server.base).unlink(missing_ok=True)
+            self._reply(200, {"video": None})
             return
         if urlsplit(self.path).path == "/api/presence/talk":   # the orb was clicked: the same as Ctrl+Alt+Space
             if data:

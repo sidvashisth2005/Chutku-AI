@@ -247,6 +247,24 @@ function showNewestWords(line, text){
     line.textContent = label + words.slice(start).join(" ");
   }
 }
+// X13: YouTube inside Chutku's window (privacy-enhanced embed; the page's CSP allows only this frame source)
+let videoShown = "";
+function renderVideo(video){
+  const id = video && /^[\w-]{11}$/.test(video.id) ? video.id : "";
+  $("video").hidden = !id;
+  if(id === videoShown) return;
+  videoShown = id;
+  const frame = $("video-frame");
+  frame.textContent = "";
+  if(!id) return;
+  const player = document.createElement("iframe");
+  player.src = "https://www.youtube-nocookie.com/embed/" + id + "?autoplay=1";
+  player.allow = "autoplay; encrypted-media; picture-in-picture";
+  player.referrerPolicy = "strict-origin-when-cross-origin";
+  player.title = video.title || "YouTube";
+  frame.appendChild(player);
+  $("video-title").textContent = video.title || "";
+}
 function renderBar(){
   document.body.dataset.phase = state.phase;
   const text = barText(), line = $("strip-text");
@@ -261,6 +279,7 @@ function render(){
   $("reply").textContent = state.phase==="paused" ? (state.message || "Actions are paused.")
     : (state.reply || (live && live[0]==="chutku" ? live[1] : "") || (state.phase==="error" ? state.message : ""));
   renderSteps(state.steps || []);
+  renderVideo(state.video);
   const pending = state.pending;
   $("approval").hidden = !pending;
   if(pending) $("approval-text").textContent = pending.consequence || pending.tool;
@@ -288,6 +307,7 @@ for(const id of ["talk", "strip-talk"])
 // "to bar" shows only inside the Chutku window.
 $("expand").addEventListener("click", () => windowApi("expand") || (location.search = ""));
 $("to-bar").addEventListener("click", () => windowApi("compact"));
+$("video-close").addEventListener("click", () => api("/api/presence/video/close", {}).catch(() => {}));
 $("strip").hidden = !BAR;
 document.querySelector(".presence").hidden = BAR;
 document.body.classList.toggle("bar-view", BAR);

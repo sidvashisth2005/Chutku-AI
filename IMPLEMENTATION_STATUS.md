@@ -16,6 +16,25 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: YouTube plays inside Chutku's own window (X13)
+
+- **`youtube.play_here`** (R1, `internet.read`, egress) searches YouTube with the existing safe fetch and saves the first video in `data/hud-video.json`.
+  - It doesn't open the browser.
+  - `youtube.play` is unchanged (its contract hash is kept).
+- `/api/presence` returns `video` (the id must be exactly 11 safe characters, and it expires after 4 h).
+- The full window embeds `https://www.youtube-nocookie.com/embed/<id>?autoplay=1` with a ✕ that calls `/api/presence/video/close`.
+- The page CSP adds only `frame-src https://www.youtube-nocookie.com`.
+- The bar's `StateWatcher` opens the full window once per new video.
+- **Phrases:** "youtube pe <x> yahin chalao", "<x> chutku mein chalao", "play <x> here". Plain "youtube pe <x> chalao" still opens the browser.
+- **Tests:** `tests/test_youtube_here_x13.py`, 3 tests:
+  - the tool saves the video, the state shows it, the CSP allows only that frame, and close clears it;
+  - an old or malformed id is never shown;
+  - the watcher expands once.
+- **Live:** "lofi hip hop" took 1.5 s and found `rFZHOHl-L8A`, "lofi hip hop radio 📚 beats to relax/study to".
+  - Headless Edge rendered the full window with the iframe `https://www.youtube-nocookie.com/embed/rFZHOHl-L8A?autoplay=1` and the title.
+  - The test video file was removed afterwards.
+- **Not checked live:** sound playing in the real pywebview window. That needs the owner.
+
 ### 2026-11-06: The bar's line shows live words, not "…"
 
 - **Owner:** "no dot dot; the words should appear and vanish in real time".

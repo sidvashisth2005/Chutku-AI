@@ -49,4 +49,5 @@ html:has(body.bar-view),body.bar-view{background:#0b1220}
 .strip{height:100%;display:flex;align-items:center;gap:6px;padding:0 6px 0 4px;cursor:move;border:1px solid color-mix(in srgb,var(--accent) 35%,#1d2a40);border-radius:8px;background:#0b1220}
 .strip-eyes{width:52px;height:30px;padding:0;flex:none;border:0;border-radius:8px;background:transparent}
 .strip-eyes canvas{width:52px;height:30px;display:block}
+.video{width:100%;margin:6px 0}.video-frame{position:relative;width:100%;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#000}.video-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}.video-bar{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.video-bar span{flex:1;min-width:0;overflow:hidden;white-space:nowrap}
 .strip-text{flex:1;min-width:0;margin:0;white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:12.5px}

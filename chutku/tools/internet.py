@@ -13,6 +13,7 @@ import http.client
 import ipaddress
 import json
 import re
+from pathlib import Path
 import socket
 import ssl
 import time
@@ -358,6 +359,29 @@ def _weather(arguments, context):
     return ToolResult(output, Verification.PASS if ok else Verification.FAIL)
 
 
+def hud_video_file(base=None):
+    from chutku.app import PROJECT_ROOT
+    return Path(base or PROJECT_ROOT) / "data" / "hud-video.json"
+
+
+def _youtube_here(arguments, _context):
+    """X13: play a YouTube video inside Chutku's own window (privacy-enhanced embed), not in the browser."""
+    try:
+        html, _ = fetch("https://www.youtube.com/results?search_query=" + urllib.parse.quote_plus(arguments["query"]))
+    except (OSError, ValueError) as error:
+        return ToolResult({"error": str(error)}, Verification.FAIL)
+    ids = re.findall(r'"videoRenderer":\{"videoId":"([\w-]{11})"', html) or re.findall(r'"videoId":"([\w-]{11})"', html)
+    if not ids:
+        return ToolResult({"error": "No playable video was found for that search."}, Verification.FAIL)
+    title = re.search(r'"videoId":"' + re.escape(ids[0]) + r'".{0,600}?"title":\{"runs":\[\{"text":"(.*?)"\}', html, re.S)
+    video = {"id": ids[0], "title": title.group(1)[:150] if title else arguments["query"], "at": time.time()}
+    path = hud_video_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(video), encoding="utf-8")
+    return ToolResult({"video_id": video["id"], "video_title": video["title"], "where": "Chutku's window"},
+                      Verification.PASS)
+
+
 def _youtube_play(arguments, _context):
     from chutku.tools.everyday import _open_url
     try:
@@ -380,6 +404,12 @@ def register_internet_tools(registry):
         argument_schema={"type": "object", "properties": {"url": {"type": "string", "minLength": 8, "maxLength": 2000}},
                          "required": ["url"], "additionalProperties": False},
         success_predicate="public_page_text_read", **net))
+    registry.register(Tool("youtube.play_here", "Play a YouTube video inside Chutku's own window (not the browser): "
+        "searches YouTube and shows the first result in her full window with a close button.", Risk.REVERSIBLE,
+        _youtube_here, _validate(["query"]), reversibility="close_button",
+        argument_schema={"type": "object", "properties": {"query": {"type": "string", "minLength": 1, "maxLength": 200}},
+                         "required": ["query"], "additionalProperties": False},
+        success_predicate="video_shown_in_chutku_window", **net))
     registry.register(Tool("browser.extract", "Pull the tables and lists from a public web page as rows (prices, "
         "schedules, rankings, specs) for comparing or saving. Read only; the page is outside content.",
         Risk.OBSERVATION, _extract, _validate(["url"]), reversibility="not_applicable",

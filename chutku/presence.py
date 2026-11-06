@@ -192,7 +192,7 @@ class StateWatcher:
         self.bridge, self.url = bridge, origin.rstrip("/") + "/api/presence"
         self.origin, self.token = origin.rstrip("/"), fragment.partition("token=")[2]
         self.fetch = fetch or self._fetch
-        self.quiet_since, self.expanded_for = None, ""
+        self.quiet_since, self.expanded_for, self.video_for = None, "", ""
 
     def _fetch(self):
         import urllib.request
@@ -206,6 +206,10 @@ class StateWatcher:
         key = f"{state.get('session_id')}|{(pending or {}).get('consequence') or (pending or {}).get('tool')}"             if pending else ""
         if key and key != self.expanded_for:   # an approval never waits unseen
             self.expanded_for = key
+            self.bridge.expand()
+        video = (state.get("video") or {}).get("id", "")
+        if video and video != self.video_for:   # X13: a video asked for here plays in the full window
+            self.video_for = video
             self.bridge.expand()
         if state.get("phase") in BUSY or pending:
             self.quiet_since = None
