@@ -235,6 +235,8 @@ def main() -> None:
     cloud = subparsers.add_parser("cloud", help="Free cloud brain (Groq, Cerebras): store a key, see status, test")
     cloud.add_argument("cloud_action", choices=("status", "set-key", "test"))
     cloud.add_argument("provider", nargs="?", choices=("groq", "cerebras"), default=None)
+    email = subparsers.add_parser("email", help="Email sending (X8): store a Gmail address + app password, or see status")
+    email.add_argument("email_action", choices=("status", "set-account"))
     subparsers.add_parser("open", help="Open the running Chutku dashboard in your browser")
     night = subparsers.add_parser("nightshift", help="Night Shift: nightly self-improvement jobs (run, install, report)")
     night.add_argument("night_action", choices=("run", "install", "report"))
@@ -303,6 +305,18 @@ def main() -> None:
             print(json.dumps({"key_available": bool(cloud_planner.api_key()),
                               "enabled_by_capability": cloud_planner.fallback_planner() is not None,
                               "enable_with": "python -m chutku.cli authority grant cloud.gemini"}, indent=2))
+        return
+    if namespace.command == "email":
+        from chutku.tools import mail
+        if namespace.email_action == "set-account":
+            import getpass
+            mail.store_account(input("Gmail address: "),
+                               getpass.getpass("Gmail app password (myaccount.google.com/apppasswords; input hidden): "))
+            print("Stored in Windows Credential Manager as", mail.CREDENTIAL_TARGET)
+        saved = mail.account()
+        print(json.dumps({"account": saved[0] if saved else None,
+                          "sending_needs": "python -m chutku.cli authority grant email.send",
+                          "every_send": "asks on screen first"}, indent=2))
         return
     if namespace.command == "cloud":
         from chutku import providers

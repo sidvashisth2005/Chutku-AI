@@ -459,6 +459,36 @@ OFFLINE_SWITCH = re.compile(
     r"|(?P<off>(?:turn |switch )?(?:off )?offline mode (?:off|band karo|hatao|off karo)|go online|online mode(?: on)?"
     r"|online ho jao|turn off offline mode))\W*", re.I)
 MIND_MAP = re.compile(r"\bmind ?map\b|\bmindmap\b|\bdimaag ka (?:naksha|map)\b", re.I)
+# X9 stock quotes: "reliance ka share price", "TCS stock kitna hai", "price of AAPL" (tickers only in capitals, so
+# "price of rice" stays a web question).
+_CO = r"(?P<name>[a-z0-9][a-z0-9 .&'-]{0,39}?)"
+_PRICE = r"(?:price|quote|rate|value|bhav|bhaav|daam)"
+_HOW_MUCH = r"(?:kya|kitna|kitne ka|kitni|kitne)(?: (?:hai|he|h|chal raha hai|chal rha hai))?"
+_TICKER_RE = r"(?P<name>\^?[A-Z][A-Z0-9&]{0,9}(?:\.(?:NS|BO))?)"
+_SAY = r"(?: (?:batao|bata do|bolo|dikhao|check karo|kya hai|please))?"
+STOCK = [re.compile(p, f) for p, f in (
+    (rf"^{_POLITE}{_CO} (?:ka|ke|ki) (?:share|stock)s?(?: (?:ka|ki))?(?: {_PRICE}(?: {_HOW_MUCH})?| {_HOW_MUCH}){_SAY}"
+     rf"{_TAIL}", re.I),
+    (rf"^{_POLITE}{_CO} (?:share|stock)s? {_HOW_MUCH}{_TAIL}", re.I),
+    (rf"^{_POLITE}(?:what(?:'?s| is) |tell me |check |show me |get me |give me )?(?:the )?(?:current |latest |today'?s "
+     rf"|live )?(?:share|stock) {_PRICE}s? (?:of|for) {_CO}(?: (?:today|now|right now))?{_SAY}{_TAIL}", re.I),
+    (rf"^{_POLITE}(?:what(?:'?s| is) |how(?:'?s| is) |tell me |check )?(?:the )?{_CO}(?:'s|s')? (?:share|stock)s?"
+     rf"(?: {_PRICE}| doing| doing today| {_PRICE} today)(?: {_HOW_MUCH})?{_SAY}{_TAIL}", re.I),
+    (rf"^(?i:{_POLITE}(?:what(?:'?s| is) |tell me |check )?(?:the )?(?:current |latest )?price of ){_TICKER_RE}"
+     rf"(?i:(?: (?:today|now))?{_TAIL})", 0),
+    (rf"^(?i:{_POLITE}){_TICKER_RE}(?i: (?:price|stock price|share price|ka price)(?: {_HOW_MUCH})?{_TAIL})", 0))]
+_NOT_A_COMPANY = re.compile(r"^(?:the|a|an|my|is|this|that|it|its|what|which|open|close|buy|sell|search|play|show|"
+                            r"kholo|kharido|becho|mera|meri|mere|apna|apne|iska|uska)\b", re.I)
+
+
+def _stock(text):
+    for pattern in STOCK:
+        match = pattern.match(text)
+        if match:
+            name = re.sub(r"\s+(?:ka|ke|ki)$", "", match.group("name").strip(" '\""), flags=re.I)
+            if name and not _NOT_A_COMPANY.match(name):
+                return _proposal("finance.quote", {"query": name}, f"Get the {name} share price", "", finish=False)
+    return None
 HISTORY = re.compile(
     r"\b(?:what did (?:we|i) (?:talk|discuss|chat|say)(?: about)?|what did i (?:ask|tell) you"
     r"|(?:pichli|pichhli|last) (?:baar|time) (?:kya|maine kya|humne kya) (?:kaha|bola|baat|pucha|poocha)"
@@ -730,6 +760,9 @@ def _single(goal, apps=None):
     if playlist_name is not None:   # a playlist that already played once: play it, never search (F6)
         return _proposal("app.spotify.play_playlist", {"name": playlist_name}, f"Play the {playlist_name} playlist",
                          f"{playlist_name} playlist chala di.")
+    stock = _stock(text)
+    if stock is not None:
+        return stock
     from chutku.daily_intent import parse_daily
     daily = parse_daily(text)
     if daily is not None:
@@ -1627,7 +1660,7 @@ FINAL_ERROR_TOOLS = frozenset({"audio.set_output", "audio.outputs", "system.disk
                                "games.install", "message.send", "message.open_chat", "message.read_chat", "settings.theme_set", "apps.launch", "filesystem.list",
                                "file.extract_text", "mind.person", "mind.add",
                                "mind.done", "mind.fact", "mind.feedback", "mind.map", "settings.offline_mode",
-                               "settings.chutku", "media.play_series"})
+                               "settings.chutku", "media.play_series", "finance.quote"})
 
 
 # Instant spoken answers for the quick tier's own observation tools (no model round needed).
@@ -1655,7 +1688,8 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "apps.installed": _say_installed, "games.list": _say_games,
                  "mind.who": _say_who, "mind.show": _say_mind, "windows.list": _say_windows,
                  "network.status": _say_adapters, "filesystem.list": _say_listing,
-                 "message.open_chat": _say_open_chat, "message.read_chat": _say_read_chat}
+                 "message.open_chat": _say_open_chat, "message.read_chat": _say_read_chat,
+                 "finance.quote": lambda out: out["reply"]}
 
 
 def quick_answer(session):

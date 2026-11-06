@@ -207,6 +207,9 @@ class Runtime:
         if tool.name in {"keyboard.keys", "keyboard.edit", "mouse.click", "mouse.drag"}:
             from chutku.tools.free_input import file_risk  # keys/clicks that would save, delete or move files
             return file_risk(tool.name, arguments)
+        if tool.name == "email.send":   # every email asks, in every mode (X8)
+            from chutku.tools.mail import send_question
+            return send_question(arguments)
         if tool.name != "message.send":
             return None
         from chutku.tools.apps_extra import known_recipient

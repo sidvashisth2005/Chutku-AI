@@ -26,14 +26,14 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (183 registered, plus 136 app actions)
+### Risk levels and tools (186 registered, plus 136 app actions)
 
 | Level | Count | Meaning |
 |---|---|---|
-| R0 observation | 73 | reads only |
-| R1 reversible | 52 | easily undone (open apps or pages, window and media control) |
+| R0 observation | 74 | reads only |
+| R1 reversible | 53 | easily undone (open apps or pages, window and media control) |
 | R2 data modification | 25 | changes data, with runtime undo where available |
-| R3 external side effect | 27 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, settings.theme_restore, settings.theme_set, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close |
+| R3 external side effect | 28 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, email.send, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, settings.theme_restore, settings.theme_set, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close |
 | R4 destructive / privileged | 6 | filesystem.delete_permanent, network.adapter_restore, network.adapter_set, power.cancel, power.schedule, process.terminate |
 
 **App actions** (`app.<app>.<action>`, App Mastery, `chutku/apps/atlas/*.json`) take their risk from the atlas class: safe → R1, changes → R2, consequential → R3, destructive → R4 with `deletes` (always asks). The atlas validator refuses URI schemes and programs that are not the app's own and unknown step verbs; keys and typing are sent only while the app's own window is in front; every action ends with its own check, and the kernel, never-rules, taint rules, ledger and action log apply as to any tool. Instant routing by phrase (`chutku/apps/phrases.py`) only picks actions the Action Lab has verified on this PC; anything else goes to the planner, which is offered an app's actions only when the request names that app. `apps.howto` (R0) reads only the checked-in feature maps (`docs/apps/*.md`), not web text.
@@ -51,6 +51,7 @@ Every tool call goes through `Runtime.run`:
 - Running code or a program with arguments (`Tool.runs_code`: `code.run_python`, `process.launch`).
 - Typing into a command window, opening the Run box, or launching a command-line app.
 - Changing a saved contact's phone or WhatsApp name.
+- Sending an email (`email.send`, which also needs the `email.send` capability, not granted by default). `email.draft` only opens a draft in the mail app; the owner presses Send there.
 - Agent browser steps on local or private addresses.
 - Keys or clicks that would save, delete, move files, or click an "approve"-like button.
 - A kind of step that keeps failing (earned autonomy: at least 2 recent failures and a low success bound).
@@ -90,7 +91,7 @@ A test (`tests/test_taint_v2.py`) fails if any name in these lists is not a real
   - needs a per-launch random token (from the URL fragment), with exact Host/Origin checks and cross-site fetches refused;
   - JSON bodies are bounded and a strict CSP is set.
   - The session link is stored in `data/dashboard-session.json` (same-user readable).
-- **Cloud keys:** in Windows Credential Manager ("Chutku/Gemini", "Chutku/Groq", "Chutku/Cerebras"; DPAPI) or environment variables, never in files or logs. Gemini is off until its key is stored *and* `cloud.gemini` is granted. Groq/Cerebras are used only after the owner stores a key (`chutku.cli cloud set-key groq`).
+- **Cloud keys:** in Windows Credential Manager ("Chutku/Gemini", "Chutku/Groq", "Chutku/Cerebras", and "Chutku/Email" for the Gmail app password; DPAPI) or environment variables, never in files or logs. Gemini is off until its key is stored *and* `cloud.gemini` is granted. Groq/Cerebras are used only after the owner stores a key (`chutku.cli cloud set-key groq`).
 - **Cloud-first brain (W2, owner decision 2026-10-29):** with `brain: cloud_first` (default) and the internet up, Groq → Cerebras → Gemini plan first and the local model is the fallback. They all receive the same `cloud_view` as Gemini below, and their proposals pass the same validation and policy. `cloud brain off` makes planning local-only; offline mode also turns it off.
 - **What the cloud models see:**
   - the goal and the tool catalog;

@@ -2,6 +2,7 @@
 
     "AK is my gf" / "AK meri gf hai" / "remember Sharma Sir is my DL wale sir"   -> mind.person (nickname)
     "mammi ka number +91 98xxx xxxxx hai" / "save mammi's number +91..."         -> mind.person (phone)
+    "mammi ka email mom@example.com hai" / "save mammi's email mom@example.com"   -> mind.person (email)
     "my home is in Pune" / "I live in Pune" / "mera ghar Pune mein hai"          -> mind.fact
     "add assignment: DBMS report by Friday" / "my skills: python, react"         -> mind.add
     "show my assignments" / "who is my gf" / "what do you know about me"         -> mind.show / mind.who
@@ -30,6 +31,8 @@ _PATTERNS = [
     ("alias_rev", re.compile(_P + r"(?:meri|mera|mere) (?P<alias>[^,.]{1,40}?) (?:ka naam |ki naam )?(?P<name>[^,.]{1,40}?) (?:hai|he|h)" + _T, re.I)),
     ("phone", re.compile(_P + r"(?:remember |save |note )?(?:my )?(?P<name>[^,.]{1,40}?)(?:'s| ka| ki| ke) (?:phone |mobile |whats ?app )?"
                          r"(?:number|no\.?)(?: is| hai| he|:)? (?P<phone>\+?[\d][\d -]{6,18}\d)(?: hai| he| h)?" + _T, re.I)),
+    ("email", re.compile(_P + r"(?:remember |save |note )?(?:my )?(?P<name>[^,.@]{1,40}?)(?:'s| ka| ki| ke) (?:e-?mail|mail)"
+                         r"(?: id| address)?(?: is| hai| he|:)? (?P<email>[^\s@]+@[^\s@]+?)(?: hai| he| h)?" + _T, re.I)),
     ("home", re.compile(_P + r"(?:remember (?:that )?)?(?:my (?:home|house) is (?:in |at )?|i live (?:in|at) |"
                         r"(?:mera|meri) (?:ghar|home) (?P<x>)?)(?P<value>[^.]{2,120}?)(?: (?:mein|me|pe) (?:hai|he|h)| hai| he)?" + _T, re.I)),
     ("add", re.compile(_P + r"(?:add (?:an? |new )?|new |naya |nayi )" + _LIST + r"\s*(?:[:,-]|to do)?\s+(?P<text>.{2,300}?)" + _T, re.I)),
@@ -79,6 +82,15 @@ def parse_mind(goal: str):
             if not existing and _person_word(g["name"]):
                 arguments["aliases"] = [g["name"]]
             return ("mind.person", arguments, f"Save {name}'s number", f"Saved {name}'s number.", True)
+        if kind == "email":
+            if not mind.EMAIL.fullmatch(g["email"]):
+                return None
+            existing = mind.default().find_person(g["name"])
+            name = existing["name"] if existing else g["name"]
+            arguments = {"name": name, "email": g["email"]}
+            if not existing and _person_word(g["name"]):
+                arguments["aliases"] = [g["name"]]
+            return ("mind.person", arguments, f"Save {name}'s email", f"Saved {name}'s email.", True)
         if kind == "home":
             return ("mind.fact", {"key": "home", "value": g["value"]}, "Remember where you live",
                     f"Got it: home is {g['value']}.", True)

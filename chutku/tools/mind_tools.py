@@ -18,7 +18,8 @@ def _run(work):
 def _person(arguments, _context):
     return _run(lambda: {"person": mind.default().remember_person(
         arguments["name"], aliases=arguments.get("aliases", []), relation=arguments.get("relation", ""),
-        whatsapp=arguments.get("whatsapp", ""), phone=arguments.get("phone", ""), note=arguments.get("note", ""))})
+        whatsapp=arguments.get("whatsapp", ""), phone=arguments.get("phone", ""), note=arguments.get("note", ""),
+        email=arguments.get("email", ""))})
 
 
 def _fact(arguments, _context):
@@ -145,10 +146,11 @@ def _schema(properties, required):
 def register_mind_tools(registry):
     registry.register(Tool("mind.person", "Remember a person in the owner's memory: name, nicknames/aliases (e.g. 'gf', "
         "'mammi', 'DL wale sir'), relation, exact WhatsApp chat name and/or phone. Merges into an existing person.",
-        Risk.REVERSIBLE, _person, _check(("name",), ("aliases", "relation", "whatsapp", "phone", "note")),
+        Risk.REVERSIBLE, _person, _check(("name",), ("aliases", "relation", "whatsapp", "phone", "note", "email")),
         argument_schema=_schema({"name": _SHORT, "aliases": {"type": "array", "items": _SHORT, "maxItems": 20},
                                  "relation": _SHORT, "whatsapp": _SHORT,
-                                 "phone": {"type": "string", "pattern": r"^\+?[0-9 -]{7,20}$"}, "note": _TEXT},
+                                 "phone": {"type": "string", "pattern": r"^\+?[0-9 -]{7,20}$"}, "note": _TEXT,
+                                 "email": {"type": "string", "minLength": 6, "maxLength": 254}},
                                 ("name",)),
         reversibility="compensatable", success_predicate="person_stored"))
     registry.register(Tool("mind.fact", "Remember one fact about the owner (e.g. key 'home', value 'Pune').",

@@ -12,6 +12,7 @@ CAPABILITIES = frozenset({
     "browser.navigate", "browser.input", "browser.external",
     "cloud.gemini", "settings.observe", "settings.modify", "power.control",
     "audio.observe", "audio.modify", "network.observe", "network.modify",
+    "email.send",   # X8: sending email from the owner's account; never granted by default
 })
 
 
