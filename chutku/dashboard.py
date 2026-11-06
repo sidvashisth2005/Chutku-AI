@@ -899,6 +899,9 @@ class DashboardServer(ThreadingHTTPServer):
         live.topic = opening or ""   # the voice model's memory slice is picked for this topic
         self.live = live
         self._hud_set("listening", message="Connecting…")
+        if not opening:
+            # Z4: "speak now" at once; the conversation records from here and sends it when connected (~1.3 s).
+            chime("listen")
         live.start()
         deadline = time.monotonic() + 12
         while time.monotonic() < deadline and live.model is None and not live.closed.is_set():
@@ -911,8 +914,8 @@ class DashboardServer(ThreadingHTTPServer):
                 self.wake.busy.clear()
             self.live = None
             return False
-        chime("listen")
         if opening:
+            chime("listen")
             live.trust_opening(opening)  # said right after the wake phrase: heard clearly by the wake listener
             live.inject(opening)
         threading.Thread(target=self._after_live, args=(live,), daemon=True).start()

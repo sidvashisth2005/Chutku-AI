@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import json
 import re
 import threading
@@ -264,47 +265,56 @@ class LiveConversation(threading.Thread):
 
     async def _main(self):
         self.loop = asyncio.get_running_loop()
-        self.ws = await self._open()
-        self.server.live_event("connected", model=self.model)
-        tasks = [asyncio.create_task(self._receive()), asyncio.create_task(self._watch())]
-        if self.audio:
-            tasks.append(asyncio.create_task(self._microphone()))
-        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-        for task in pending:
-            task.cancel()
-        for task in done:
-            if task.exception() and not isinstance(task.exception(), asyncio.CancelledError):
-                raise task.exception()
+        with contextlib.ExitStack() as hearing:
+            # Z4 (owner 2026-11-06: "wake word took about 4 seconds"): the microphone records from the wake on, so
+            # the owner can speak during the ~1.3 s connection; what they said is sent once the session is ready.
+            heard = self._hear(hearing) if self.audio else None
+            self.ws = await self._open()
+            self.server.live_event("connected", model=self.model)
+            tasks = [asyncio.create_task(self._receive()), asyncio.create_task(self._watch())]
+            if heard is not None:
+                tasks.append(asyncio.create_task(self._microphone(heard)))
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in pending:
+                task.cancel()
+            for task in done:
+                if task.exception() and not isinstance(task.exception(), asyncio.CancelledError):
+                    raise task.exception()
 
-    async def _microphone(self):
+    def _hear(self, stack):
+        """Open the microphone (and the speaker) now; returns the queue its chunks arrive in (8 s at most)."""
         import sounddevice as sd
         queue = asyncio.Queue(maxsize=200)
         loop = asyncio.get_running_loop()
 
         def callback(data, frames, time_info, status):
             loop.call_soon_threadsafe(lambda chunk=bytes(data): queue.full() or queue.put_nowait(chunk))
+        stack.enter_context(sd.RawInputStream(samplerate=MIC_RATE, channels=1, dtype="int16",
+                                              blocksize=int(MIC_RATE * CHUNK_SECONDS), callback=callback))
+        stack.enter_context(self._speaker())
+        return queue
+
+    async def _microphone(self, queue):
         from chutku.voice.recognition import LEVEL, _rms
-        with sd.RawInputStream(samplerate=MIC_RATE, channels=1, dtype="int16",
-                               blocksize=int(MIC_RATE * CHUNK_SECONDS), callback=callback), self._speaker():
-            from chutku.voice import mic
-            while self.active.is_set():
-                chunk = await queue.get()
-                if mic.muted() or self.ending_at:   # muted or saying goodbye: the room is not heard at all
-                    LEVEL["rms"], LEVEL["at"] = 0.0, time.monotonic()
-                    await self.ws.send(json.dumps({"realtimeInput": {"audio": {
-                        "data": base64.b64encode(b"\x00" * len(chunk)).decode("ascii"),
-                        "mimeType": f"audio/pcm;rate={MIC_RATE}"}}}))
-                    continue
-                LEVEL["rms"], LEVEL["at"] = _rms(chunk), time.monotonic()
-                if not self._speaking():   # Owner Voice Lock (S19): the owner's last seconds, memory only
-                    from chutku.voice import speaker
-                    speaker.feed(chunk)
-                # Noise gate: only clearly-louder-than-the-room audio reaches Google; everything else is sent as
-                # silence, so its speech detector never "hears" a fan, a keyboard or Chutku's own voice.
-                passed = self.gate.feed(chunk, speaking=self._speaking())
-                for piece in passed or [b"\x00" * len(chunk)]:
-                    await self.ws.send(json.dumps({"realtimeInput": {"audio": {
-                        "data": base64.b64encode(piece).decode("ascii"), "mimeType": f"audio/pcm;rate={MIC_RATE}"}}}))
+        from chutku.voice import mic
+        while self.active.is_set():
+            chunk = await queue.get()
+            if mic.muted() or self.ending_at:   # muted or saying goodbye: the room is not heard at all
+                LEVEL["rms"], LEVEL["at"] = 0.0, time.monotonic()
+                await self.ws.send(json.dumps({"realtimeInput": {"audio": {
+                    "data": base64.b64encode(b"\x00" * len(chunk)).decode("ascii"),
+                    "mimeType": f"audio/pcm;rate={MIC_RATE}"}}}))
+                continue
+            LEVEL["rms"], LEVEL["at"] = _rms(chunk), time.monotonic()
+            if not self._speaking():   # Owner Voice Lock (S19): the owner's last seconds, memory only
+                from chutku.voice import speaker
+                speaker.feed(chunk)
+            # Noise gate: only clearly-louder-than-the-room audio reaches Google; everything else is sent as
+            # silence, so its speech detector never "hears" a fan, a keyboard or Chutku's own voice.
+            passed = self.gate.feed(chunk, speaking=self._speaking())
+            for piece in passed or [b"\x00" * len(chunk)]:
+                await self.ws.send(json.dumps({"realtimeInput": {"audio": {
+                    "data": base64.b64encode(piece).decode("ascii"), "mimeType": f"audio/pcm;rate={MIC_RATE}"}}}))
 
     GOODBYE_MAX_SECONDS = 8.0     # never wait longer than this for the goodbye to finish
     GOODBYE_SILENT_SECONDS = 1.5  # no goodbye audio at all after this long: just beep and close

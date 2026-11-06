@@ -7,7 +7,7 @@ This log says what was done, what is finished, and what remains of the plan, so 
 - Every helper-agent prompt is in `docs/AGENT_PROMPTS.md` (#12–#21).
 - Repo: `sidvashisth2005/Chutku-AI`, branch `main`, pushed after every slice.
 - CI: `.github/workflows/tests.yml`, green since the Sentinel merge.
-- Last full suite: 1,371 tests OK (2026-11-06, after Z3 media).
+- Last full suite: 1,372 tests OK (2026-11-06, after Z4).
 
 ## What the owner asked for (all requests in these two sessions)
 
@@ -79,6 +79,9 @@ This log says what was done, what is finished, and what remains of the plan, so 
   them on "ruko". The persona no longer says "ek saath nahi ho payega".
 - **Z3 (media part):** "pause youtube in brave", "youtube pause karo", "spotify pe agla gaana" are one instant
   step that reaches that app's own player (real Spotify pause in 0.73 s; a missing app fails honestly).
+- **Z4 (first cut):** the wake used to wait for Gemini to connect (1.3 s) before the chime. Now the chime plays at
+  once and the mic records during the connection (real check: listening at 0.22 s, connected at 1.32 s). Whisper
+  (1.4 s on the CPU) is the next cut: the trained detector needs the owner's clips.
 
 **Team used:** Auditor, Scout, Mason, Pixel, Quill, Sentinel, Forge, Sage.
 

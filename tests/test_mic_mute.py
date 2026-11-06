@@ -10,6 +10,7 @@ from array import array
 from unittest.mock import patch
 
 from chutku.voice import mic
+from chutku.voice import recognition, speaker   # noqa: F401  loaded before sys.modules is patched (numpy loads once)
 
 
 def loud(samples=640):
@@ -59,8 +60,56 @@ class LiveWhileMutedTests(unittest.TestCase):
         mic.set_muted(muted)
         with patch.dict("sys.modules", {"sounddevice": fake_sd}), \
                 patch.object(LiveConversation, "_speaker", lambda self: contextlib.nullcontext()):
-            asyncio.run(asyncio.wait_for(live._microphone(), 5))
+            async def hear_and_send():
+                with contextlib.ExitStack() as stack:
+                    await asyncio.wait_for(live._microphone(live._hear(stack)), 5)
+            asyncio.run(hear_and_send())
         return [base64.b64decode(m["realtimeInput"]["audio"]["data"]) for m in sent]
+
+    def test_speech_during_the_connection_is_kept_and_sent_once_connected(self):
+        """Z4: the microphone opens before the ~1.3 s connection, so the first words are not lost."""
+        from chutku.voice.live import LiveConversation
+        events, sent = [], []
+        server = types.SimpleNamespace(live_event=lambda *a, **k: None)
+        live = LiveConversation(server, "key", audio=True)
+
+        class WS:
+            async def send(self, text):
+                sent.append(json.loads(text))
+                if len(sent) >= 5:
+                    live.active.clear()
+
+        async def slow_open(self):
+            events.append(("open", "heard" in events))
+            await asyncio.sleep(0.2)   # the connection
+            self.model = "m"
+            return WS()
+
+        async def idle(self):
+            while self.active.is_set():
+                await asyncio.sleep(0.02)
+
+        class Stream:
+            def __init__(self, callback=None, **_):
+                self.callback = callback
+
+            def __enter__(self):
+                events.append("heard")
+                for _ in range(5):
+                    self.callback(loud(), 640, None, None)   # the owner already speaks while it connects
+                return self
+
+            def __exit__(self, *_):
+                return False
+        live.active.set()
+        with patch.dict("sys.modules", {"sounddevice": types.SimpleNamespace(RawInputStream=Stream)}), \
+                patch.object(LiveConversation, "_speaker", lambda self: contextlib.nullcontext()), \
+                patch.object(LiveConversation, "_open", slow_open), \
+                patch.object(LiveConversation, "_receive", idle), patch.object(LiveConversation, "_watch", idle):
+            asyncio.run(asyncio.wait_for(live._main(), 5))
+        self.assertEqual(events, ["heard", ("open", True)])   # listening began before connecting
+        self.assertEqual(len(sent), 5)                         # every chunk said meanwhile reached the session
+        self.assertTrue(any(set(base64.b64decode(m["realtimeInput"]["audio"]["data"])) != {0} for m in sent))
 
     def test_muted_mic_sends_only_silence(self):
         audio = self.run_mic([loud()] * 5, muted=True)

@@ -16,6 +16,40 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-06: The wake word answers about 1.1 s sooner (Z4, first cut)
+
+The owner said the wake word took about 4 s.
+
+**Measured on this PC (each stage)**
+
+| Stage | Time |
+|---|---|
+| Network check | 0.08 s (then cached) |
+| Screenshot | 0.06 s |
+| End-of-speech wait | 0.6 s |
+| Whisper small on the CPU, wake check | 1.41–1.83 s per 2.6 s clip |
+| Gemini Live connect (first model) | 1.35 s |
+
+The trained `oye_chutku.npz` detector is not installed (v1/v2 were rejected), so every wake uses Whisper.
+
+**What changed**
+- The Live conversation opens the microphone (and the speaker) before it connects (`LiveConversation._hear`). Up to 8 s of audio is queued and sent when the session is ready.
+- `start_live` plays the "speak now" chime at the wake instead of after the connection. With an opening command, the chime still comes after the connection.
+
+**Real path**
+- `z4_real.py`: the real microphone and a real Gemini connection, with playback disabled and the session stopped on connect.
+- Model `gemini-3.1-flash-live-preview`. Listening started at 0.215 s and the session connected at 1.322 s, so the owner can speak 1.11 s earlier and nothing said in that time is lost.
+
+**Tests**
+- New `test_speech_during_the_connection_is_kept_and_sent_once_connected`: the mic opens before `_open`, and all 5 chunks spoken during a 0.2 s connect reach the session.
+- The mute tests use `_hear` plus `_microphone(queue)`.
+- Full suite: 1,372 tests OK in 275 s.
+- `test_mic_mute` now imports `recognition` and `speaker` before patching `sys.modules`. A pre-existing problem: run first, it unloaded numpy and broke `test_handsfree`.
+
+**Next for Z4 (not done)**
+- The trained two-stage detector reacts every 80 ms with no Whisper; it needs the owner's recordings (`scripts/train_wake.py --two-stage`).
+- Or Whisper on the GPU (CUDA libraries, about 1 GB) now that the brain is cloud-first.
+
 ### 2026-11-06: "pause youtube in brave" is instant and reaches the right player (Z3, media part)
 
 In the owner's real log this phrase went through the planner (keys, screen, windows) and was slow.
