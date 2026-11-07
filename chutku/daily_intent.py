@@ -149,7 +149,8 @@ def parse_daily(goal, now=None):
         if kind == "learn_from":
             source = g["src"].strip()
             arguments = {"url": source} if source.casefold().startswith("http") else {"path": source}
-            return "learning.learn", arguments, "Learn from a document", "", True
+            return "learning.learn", arguments, "Learn from a document", ("Seekh liya. Inbox mein hai: \"kya seekha\" "
+                                                                          "bolo, phir \"sab rakh lo\"."), True
         if kind == "journey":
             return "learning.journey", {}, "What Chutku has learned", "", True
         if kind == "skill_add":
