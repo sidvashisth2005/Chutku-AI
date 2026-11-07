@@ -40,10 +40,12 @@ class ImportTests(unittest.TestCase):
         asked = []
         out = skill_import.import_repo(self.base, "github.com/someone/tool.git", cloner=fake_cloner({
             "README.md": "Converts temperatures.", "LICENSE": "Apache License 2.0"}),
-            creator=lambda base, request: (asked.append(request), {"name": "temp_convert", "pending": True})[1])
+            creator=lambda base, request, **options: (asked.append((request, options)),
+                                                      {"name": "temp_convert", "pending": True})[1])
         self.assertEqual((out["licence"], out["pending_skill"]), ("Apache-2.0", "temp_convert"))
-        self.assertIn("Converts temperatures.", asked[0])
-        self.assertIn("do not import or download the project", asked[0])
+        self.assertIn("Converts temperatures.", asked[0][0])
+        self.assertIn("do not import or download the project", asked[0][0])
+        self.assertEqual(asked[0][1]["test"], False)   # W1: nothing runs at import
         self.assertIn("skill approve temp_convert", out["skill_reply"])
 
     def test_only_github_project_links_are_accepted(self):

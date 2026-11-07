@@ -37,6 +37,7 @@ TIMEOUT = 60
 MAX_OUTPUT = 8192
 MAX_REPAIRS = 3
 RUNNER = Path(__file__).with_name("skill_runner.py")
+UNTRUSTED = "_untrusted.json"   # W1: written by skill.import from a README; tested only at approve (not hashed)
 STATUS = "_tests.json"   # last test result shown by skill.list (not part of the approved files)
 
 
@@ -352,8 +353,12 @@ def _repair_note():
             "test_tool.py, standard library only, and the manifest rules.")
 
 
-def create_skill(base, request, name=None):
-    """X16: the coder writes a pending skill; its tests run and real errors go back for up to 3 repairs."""
+def create_skill(base, request, name=None, *, test=True, untrusted_source=None):
+    """X16: the coder writes a pending skill; its tests run and real errors go back for up to 3 repairs.
+
+    test=False (W1, skill.import): the files are written but nothing runs, because the request was built from an
+    untrusted README. The skill stays pending and untested; only `skill approve` (owner-typed plus a click) runs its
+    tests. `untrusted_source` (e.g. the repo URL) is recorded so the approval says where the code came from."""
     from chutku.coder import CoderError
     from chutku.core.progress import beat
     from chutku.tools import builder
@@ -382,6 +387,16 @@ def create_skill(base, request, name=None):
     folder = pending_root(base) / name
     folder.mkdir(parents=True)
     builder.write_files(folder, files)
+    if not test:   # W1: written from untrusted text: run nothing now
+        if untrusted_source:
+            (folder / UNTRUSTED).write_text(json.dumps({"source": str(untrusted_source)[:300]}), encoding="utf-8")
+        _write_status(folder, None, "Not tested yet: written from an untrusted README. 'skill approve' runs the tests.")
+        return {"name": name, "folder": str(folder), "status": "pending", "tests_passed": None, "attempts": [],
+                "coder": coder.name, "model": getattr(coder, "model", None), "approve_with": f"skill approve {name}",
+                "seconds": round(time.monotonic() - started, 1),
+                "skill_reply": (f"Skill {name} is written but NOT tested or run: its code came from an untrusted "
+                                f"README. 'skill approve {name}' (then click) runs its tests and, if they pass, turns "
+                                "it on.")}
     history, discarded, passed, output = [], [], False, ""
     for attempt in range(1, MAX_REPAIRS + 2):
         beat(f"testing the skill, attempt {attempt}")
@@ -434,7 +449,7 @@ def approve_skill(base, name):
         before = digest(folder)
     except (OSError, ValueError) as error:
         return {"error": f"Skill {name} is not valid: {error}"}
-    passed, output = run_tests(folder)
+    passed, output = run_tests(folder)   # for an imported skill this is the first time any of its code runs
     _write_status(folder, passed, output)
     if not passed:
         return {"error": f"Skill {name} fails its tests, so it was not approved: {output[-600:]}"}
@@ -504,8 +519,9 @@ def register_skill_tools(registry, base):
             "name": {"type": "string", "pattern": NAME.pattern}}, "required": ["request"], "additionalProperties": False},
         reversibility="creates_a_new_pending_folder_only", success_predicate="pending_skill_passes_its_tests",
         network_egress=True, runs_code=True))
-    registry.register(Tool("skill.approve", "Owner only (typed): re-run a pending skill's tests and, if they pass, "
-        "turn it on as the tool skill.<name>. Always confirmed on screen.", Risk.EXTERNAL_SIDE_EFFECT,
+    registry.register(Tool("skill.approve", "Owner only (typed): RUN a pending skill's tests on this PC and, if they "
+        "pass, turn it on as the tool skill.<name>. A skill made by skill.import was written from a GitHub README "
+        "(untrusted text) and has never run: approving runs that code now. Always confirmed on screen.", Risk.EXTERNAL_SIDE_EFFECT,
         lambda arguments, _context: _result(approve_skill(base, arguments["name"])), _named,
         required_capability="process.launch", argument_schema=_NAME_SCHEMA, reversibility="none",
         success_predicate="tests_passed_and_skill_moved_to_active", user_only=True, runs_code=True))

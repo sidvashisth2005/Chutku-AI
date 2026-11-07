@@ -38,6 +38,14 @@ Every tool call goes through `Runtime.run`:
 
 **Self-written skills** (X15/X16, `chutku/skills.py`): `skill.create` has the coder write `skill.json`, `SKILL.md`, `tool.py` and `test_tool.py` into `data/skills/_pending/<name>`, runs the tests and repairs at most 3 times (a failing assertion cannot be edited away). Pending skills are never tools. `skill.approve` is `user_only` (typed, then a click): only if the tests pass again does it activate the skill and record the SHA-256 of its files; a skill whose files changed since is not registered or run. `skill.<name>` runs `python -I` in a child process (60 s, 8 KB JSON result, untrusted output) and always asks first. It runs with the owner's Windows rights: the click is the boundary, not a sandbox, and the manifest's `network` / `writes_files` flags are declarations, not enforced.
 
+**Imported skills and backups** (W1, 2026-11-07):
+- `skill.import` writes a pending skill from a GitHub README but runs **nothing**: not the skill, not its tests. The
+  README reaches the coder only as `untrusted_data`, with instruction-like lines removed. The pending folder carries
+  `_untrusted.json` (its source). `skill approve` is the first time its code runs, and its description says so.
+- `backup restore` never brings back security state: `telegram.json`, `remote.json`, `never_rules.json`, the
+  capability and resource grant databases, `skills/approved.json` and active skill folders. They are listed as
+  `skipped_security`. `--include-security` restores them only after a typed `YES`.
+
 **For-each, research, Telegram** (H14/H15/H16, 2026-11-07; see `docs/HANDOFF.md`):
 - `steps.for_each` never runs itself: it expands into ordinary steps that each pass `Runtime.run`. Only tools up to R2
   that are not messages, emails, deletes, code runners or owner-only; at most 50 items; a list taken from outside

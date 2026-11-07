@@ -248,6 +248,8 @@ def main() -> None:
     backup.add_argument("backup_action", nargs="?", default="create", choices=("create", "list", "restore"))
     backup.add_argument("zip", nargs="?", help="the backup zip to restore")
     backup.add_argument("--voice", action="store_true", help="also include voice clips and the voiceprint")
+    backup.add_argument("--include-security", action="store_true",
+                        help="restore: also bring back pairings, grants, never-rules and approved skills (asks first)")
     browser = subparsers.add_parser("browser", help="The signed-in browser Chutku automates: login opens it to sign in once")
     browser.add_argument("browser_action", choices=("login",))
     browser.add_argument("url", nargs="?", default="https://accounts.google.com")
@@ -306,7 +308,14 @@ def main() -> None:
             elif namespace.backup_action == "restore":
                 if not namespace.zip:
                     parser.error("Name the backup zip to restore (chutku.cli backup list).")
-                print(json.dumps(backup.restore(root, namespace.zip), indent=1))
+                security = namespace.include_security
+                if security:   # W1: re-enabling access needs the owner at this screen
+                    print("This also restores phone/Telegram pairings, capability and folder grants, never-rules and "
+                          "approved skills from the backup. Only do this with your own, recent backup.")
+                    security = input("Type YES to include them: ").strip() == "YES"
+                    if not security:
+                        print("Not included: restoring without the security state.")
+                print(json.dumps(backup.restore(root, namespace.zip, include_security=security), indent=1))
             else:
                 print(json.dumps(backup.create(root, voice=namespace.voice), indent=1))
         except (RuntimeError, ValueError, OSError) as error:

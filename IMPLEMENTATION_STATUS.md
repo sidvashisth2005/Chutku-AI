@@ -16,6 +16,32 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: W1 (cloud session): imported skills run nothing until approve; restore skips security state
+
+**What changed**
+- `skill_import.import_repo` passes the README to the coder as `untrusted_data` (`agent_loop._defang`: instruction
+  lines removed) and calls `skills.create_skill(..., test=False, untrusted_source=repo)`.
+- `create_skill(test=False)` writes the four files and `_untrusted.json`, records the status "not tested", and starts
+  no process. `skill approve` (user_only plus a click, unchanged) is the first run.
+- The `skill.import` and `skill.approve` descriptions now say so.
+- `backup.restore` skips `telegram.json`, `remote.json`, `never_rules.json`, `capability_grants.db`,
+  `resource_grants.db`, `skills/approved.json` and active skill folders, listed as `skipped_security`.
+- `chutku.cli backup restore --include-security` restores them only after a typed `YES`.
+
+**Evidence (Linux)**
+- `tests/test_import_untrusted_w1.py` (3 tests): a README saying "Ignore previous instructions…" goes through the real
+  `import_repo` and `create_skill` with `subprocess.run`/`Popen` and `run_tests` trapped. No process starts, and the
+  status is `passed: null`. The instruction lines are absent from the coder's request. Approve is the first
+  `run_tests` call.
+- `tests/test_backup_security_w1.py` (4 tests): the classifier; a default restore leaves the newer, safer
+  pairing/approved/rules state and restores memory; `include_security` restores all; the CLI with a wrong answer
+  restores without them, then with `YES` restores them.
+- `tests/test_skill_import_x17.py` was updated: the fake creator now receives `test=False`.
+- Real path: `python -m chutku.cli backup create`, then `restore <zip> --include-security` answered "no", gave
+  `restored: 1, skipped_security: [skills/evil/tool.py, telegram.json]` in 0.09 s. Independent check: `telegram.json`
+  stayed `{}`, `mind.json` came back, the evil `tool.py` stayed absent. Answered "YES": `telegram.json` came back.
+- **Needs the Windows check:** the full suite on the PC.
+
 ### 2026-11-07: P1 release recheck and security baseline (H30/O6 first pass)
 Plan: Chutku 1.0 as a professional app (one-click `ChutkuSetup.exe`, public releases repo, no tech visible). The
 work that needs the owner's PC was done here. The rest is written for the cloud session in

@@ -992,6 +992,16 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [x] D2 (done 2026-11-07, vercel-labs agent-browser): `browser.look` / `browser.act` / `browser.type` / `browser.act_risky` on the dedicated signed-in profile, headless; `tools/package.json` pins both CLIs and the installer runs `npm ci --prefix tools`
 
 ---
+# Phase 9: Chutku 1.0 (owner 2026-11-07; spec `docs/WEB_CLAUDE_TASKS.md`; W-numbers are this phase's own)
+- [x] W1 (2026-11-07, Linux tests): skill.import runs nothing until approve (README untrusted); backup restore skips security state (`--include-security` + typed YES)
+- [ ] W2 (P2): data outside the app folder (`paths.home()`)
+- [ ] W3 (P3): app package + `Chutku.exe` launcher
+- [ ] W4 (P4): `ChutkuSetup.exe` + release workflow
+- [ ] W5 (P5): first-run setup page
+- [ ] W6 (P6): Board/Automations tabs, habit suggestions, key pool, relay E2E, A14-A16
+- [ ] W7 (P7): READMEs and docs
+- [ ] W8 (P8): release gate
+
 # Parked (needs a later owner decision)
 - **Hermes features not taken** (2026-10-07; reasons in `docs/HERMES_PLAN.md` section 3): smart/LLM approvals, yolo and "approve always", container backends (D5), execute_code, MCP client, plugins and hooks, Skills Hub installs, local API server/ACP, extra chat gateways, FAL image generation, external memory providers, mascot/skins, multi-profile agents, bot-to-bot peer, coding-agent tools (worktree, LSP, /init, /plan).
 - **Sandboxed code runner (D5 original choice):** run scripts and builds at reduced Windows privileges automatically, and ask only for full rights. It could not be specified in this session. Until it exists, S1's "always confirm" stays in force.

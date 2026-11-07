@@ -9,6 +9,11 @@ Recycle Bin.
 
 `chutku.cli backup restore <zip>` only runs while Chutku is stopped (its databases are open otherwise). It checks every
 file against the manifest first (any mismatch: nothing changes), then backs up the current data, then replaces it.
+
+Security state is never restored by default (W1): pairings (telegram.json, remote.json), grants, never-rules, the
+approved-skills list and active skill folders. An old or tampered backup must not bring back a paired phone, a
+granted capability or an approved skill. They are listed as skipped; `--include-security` restores them after a
+typed confirmation.
 """
 from __future__ import annotations
 
@@ -28,6 +33,18 @@ SKIP_DIRS = {"logs", "wake", "cache", "__pycache__", "evolve-work"}
 SKIP_SUFFIXES = (".db-wal", ".db-shm", ".lock", ".tmp")
 SQLITE_SUFFIXES = (".db", ".sqlite", ".sqlite3")
 MAX_FILE = 50 * 1024 * 1024
+SECURITY_FILES = {"telegram.json", "remote.json", "never_rules.json", "capability_grants.db", "resource_grants.db",
+                  "skills/approved.json"}
+SKILL_WORK_DIRS = {"_pending", "_procedures", "_imports"}   # not active skills: restored normally
+
+
+def is_security_state(relative):
+    """True for files whose restore could re-enable access (W1). `relative` is a path inside data/."""
+    parts = Path(str(relative).replace("\\", "/")).parts
+    posix = "/".join(parts)
+    if posix in SECURITY_FILES or (posix.endswith(("-wal", "-shm")) and posix[:-4] in SECURITY_FILES):
+        return True
+    return len(parts) >= 3 and parts[0] == "skills" and parts[1] not in SKILL_WORK_DIRS   # an active skill folder
 
 
 def backup_folder():
@@ -133,11 +150,15 @@ def running(base):
     return (Path(base) / "data" / "guard.running").exists()
 
 
-def restore(base, zip_path, *, folder=None):
-    """Replace data/ files with the backup's (Chutku must be stopped). Returns {"restored", "safety_backup"}."""
+def restore(base, zip_path, *, folder=None, include_security=False):
+    """Replace data/ files with the backup's (Chutku must be stopped). Returns {"restored", "skipped_security",
+    "safety_backup"}. Security state is skipped unless include_security (the CLI asks for a typed yes first)."""
     if running(base):
         raise RuntimeError("Stop Chutku first (Stop-Chutku.cmd); its databases are open while it runs.")
     files = verify(zip_path)                                    # any mismatch: nothing changes
+    skipped = sorted(relative for relative in files if is_security_state(relative))
+    if not include_security:
+        files = {relative: content for relative, content in files.items() if relative not in skipped}
     safety = create(base, folder=folder)                         # the current state, in case the restore was wrong
     data = Path(base) / "data"
     for relative, content in files.items():
@@ -148,7 +169,8 @@ def restore(base, zip_path, *, folder=None):
         temporary = target.with_name(target.name + ".restoring")
         temporary.write_bytes(content)
         temporary.replace(target)
-    return {"restored": len(files), "safety_backup": safety["path"]}
+    return {"restored": len(files), "skipped_security": [] if include_security else skipped,
+            "safety_backup": safety["path"]}
 
 
 
