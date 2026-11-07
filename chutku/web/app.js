@@ -8,7 +8,7 @@ if(location.hash)history.replaceState(null,"",location.pathname);
 let sessionToken = tokenFromLink || "";
 try{sessionToken = sessionToken || sessionStorage.getItem("chutku-token") || "";}catch{}
 let state=null, busy=false;
-const labels={phone:"Phone",voicelock:"Voice lock",skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Command center",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
+const labels={settings:"Settings",phone:"Phone",voicelock:"Voice lock",skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Command center",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
 const MODE_HELP={
   review:"Review: every step waits for your click before it runs.",
   auto_safe:"Auto (safe): looking, opening apps/files/sites and other easily reversible steps run by themselves. File changes and anything risky wait for your click.",
@@ -27,7 +27,7 @@ async function api(path,data){
   if(!response.ok)throw new Error(payload.error||"The request failed.");
   return payload;
 }
-function switchTab(id){if(id==="phone")loadPhone();if(id==="mind")loadMind();if(id==="reliability")loadReliability();if(id==="skills")loadSkills();if(id==="voicelock")loadVoiceLock();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
+function switchTab(id){if(id==="settings")loadSetup();if(id==="phone")loadPhone();if(id==="mind")loadMind();if(id==="reliability")loadReliability();if(id==="skills")loadSkills();if(id==="voicelock")loadVoiceLock();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
 document.querySelectorAll("[data-tab]").forEach(e=>e.addEventListener("click",()=>switchTab(e.dataset.tab)));
 
 // ---- autonomy selector (remembered per browser) ----
@@ -414,3 +414,56 @@ async function phoneAction(body){
 }
 for(const [id,action] of [["phone-enable","enable"],["phone-disable","disable"],["phone-pair","pair"],["phone-arm","arm"],["phone-disarm","disarm"]])
   $(id)?.addEventListener("click",()=>phoneAction({action}));
+
+// ---- W5: first-run setup and Settings (the same steps as `chutku.cli setup`) ----
+let setupPoll=null;
+function setupCard(title,help){const card=node("section","panel");card.append(node("h2","",title));if(help)card.append(node("p","muted",help));$("setup-steps").append(card);return card;}
+function field(labelText,input){const wrap=node("div","grow");const label=node("label","",labelText);label.append(input);wrap.append(label);return wrap;}
+function input(type,value,placeholder,max){const e=node("input");e.type=type;if(value)e.value=value;if(placeholder)e.placeholder=placeholder;if(max)e.maxLength=max;return e;}
+function select(options,value){const e=node("select");options.forEach(o=>{const opt=node("option","",o);opt.value=o;if(o===value)opt.selected=true;e.append(opt);});return e;}
+function button(text,onClick,kind){const b=node("button",kind||"",text);b.type="button";b.addEventListener("click",async()=>{b.disabled=true;try{await onClick();}catch(e){error(e.message);}finally{b.disabled=false;}});return b;}
+async function setupStep(data){error("");const s=await api("/api/setup",data);renderSetup(s);return s;}
+async function loadSetup(){try{renderSetup(await api("/api/setup"));}catch(e){error(e.message);}}
+function renderSetup(s){
+  const box=$("setup-steps");box.replaceChildren();
+  $("setup-eyebrow").textContent=s.done?"SETTINGS":"FIRST-RUN SETUP";
+  $("setup-title").textContent=s.done?"Settings.":"Set up your assistant.";
+  const done=k=>s.steps&&s.steps[k]?" ✓":"";
+  const a=s.assistant||{};
+  let card=setupCard("1. Name and personality"+done("assistant"),`It answers to "Oye ${a.ASSISTANT_NAME||"Chutku"}".`);
+  const nm=input("text",a.ASSISTANT_NAME,"Chutku",20),g=select(["female","male","neutral"],a.ASSISTANT_GENDER),l=select(["hinglish","english","hindi"],a.ASSISTANT_LANGUAGE),st=select(["warm","professional","witty","calm"],a.ASSISTANT_STYLE);
+  const row=node("div","memory-form");row.append(field("Name",nm),field("Gender",g),field("Language",l),field("Style",st),button("Save",()=>setupStep({action:"assistant",ASSISTANT_NAME:nm.value,ASSISTANT_GENDER:g.value,ASSISTANT_LANGUAGE:l.value,ASSISTANT_STYLE:st.value}),"primary"));card.append(row);
+  card=setupCard("2. Your name"+done("name"));const you=input("text","","Your name",60);const r2=node("div","memory-form");r2.append(field("What should it call you?",you),button("Save",()=>setupStep({action:"name",name:you.value}),"primary"));card.append(r2);
+  card=setupCard("3. Free cloud brain"+done("brain_key"),"Much faster and smarter when you are online. Get a free key, then paste it here.");
+  const links=node("p","muted");[["Groq key",s.links.groq],["Gemini key",s.links.gemini]].forEach(([t,u])=>{const x=node("a","",t);x.href=u;x.target="_blank";x.rel="noopener noreferrer";links.append(x," ");});card.append(links);
+  card.append(node("p","muted",`Stored: Groq ${s.keys_stored.groq?"✓":"—"} · Gemini ${s.keys_stored.gemini?"✓":"—"}`));
+  const prov=select(["groq","gemini"],"groq"),key=input("password","","Paste the key",200);key.autocomplete="off";
+  const r3=node("div","memory-form");r3.append(field("Provider",prov),field("Key",key),button("Save key",async()=>{await setupStep({action:"key",provider:prov.value,key:key.value});key.value="";},"primary"));card.append(r3);
+  card=setupCard("4. Offline packs (optional)"+done("packs"),"Work without internet. Downloads resume if interrupted and are checked against their pinned SHA-256; a file that does not match is deleted.");
+  let downloading=false;
+  for(const [name,p] of Object.entries(s.packs||{})){
+    const line=node("div","row-buttons");line.append(node("strong","",`${p.label} (about ${p.about_gb} GB)`));
+    if(p.state==="installed")line.append(badge("installed","ok"));
+    else if(p.state==="downloading"){downloading=true;const bar=node("progress");bar.max=p.total||1;bar.value=p.done||0;line.append(bar,node("span","muted",`${Math.round((p.done||0)/1e6)} MB${p.total?" of "+Math.round(p.total/1e6)+" MB":""}`));}
+    else{if(p.state==="failed")line.append(badge("failed: "+(p.error||""),"warn"));line.append(button("Download",()=>setupStep({action:"download",pack:name})));}
+    card.append(line);
+  }
+  clearTimeout(setupPoll);if(downloading)setupPoll=setTimeout(loadSetup,2000);
+  card=setupCard("5. Microphone"+done("microphone"),"Speak for one second after you press the button. The sound is measured, never kept.");
+  const meter=node("progress");meter.max=100;meter.value=0;const heard=node("span","muted");
+  card.append(button("Test the microphone",async()=>{const r=await api("/api/setup",{action:"mic"});meter.value=Math.min(100,Math.round((r.microphone.peak||0)*400));heard.textContent=r.microphone.heard?"Heard you.":"Very quiet: check Windows Settings > Sound > Input.";}),meter,heard);
+  card=setupCard("6. How much it does on its own"+done("mode"));
+  const modes=[["safe","Safe (recommended): looks and opens things by itself; asks before changes."],["edits","Edits: also changes files it can undo."],["full","Full: does almost everything; still asks for deletes, risky steps and new people."]];
+  const current={auto_safe:"safe",auto_edits:"edits",owner:"full"}[s.mode]||"safe";
+  modes.forEach(([value,text])=>{const label=node("label","radio");const r=node("input");r.type="radio";r.name="setup-mode";r.value=value;r.checked=value===current;r.addEventListener("change",()=>setupStep({action:"mode",mode:value}).catch(e=>error(e.message)));label.append(r," "+text);card.append(label);});
+  card=setupCard("7. Optional: phone app and signed-in browser"+done("phone")+done("browser"),s.phone_account?`Phone account: ${s.phone_account}`:"One ID and password link this PC and the phone app (docs/RELAY.md).");
+  const relay=input("url","","https://your-relay.example",200),id=input("text","","ID",32),pw=input("password","","Password (8+)",128),pin=input("password","","Phone PIN (4-6 digits)",6),fresh=node("input");fresh.type="checkbox";
+  const r7=node("div","memory-form");const nl=node("label","","New account ");nl.append(fresh);
+  r7.append(field("Relay",relay),field("ID",id),field("Password",pw),field("PIN",pin),nl,button("Link phone",async()=>{await setupStep({action:"phone",relay:relay.value,id:id.value,password:pw.value,pin:pin.value,new:fresh.checked});pw.value="";pin.value="";}));card.append(r7);
+  card.append(button("Sign in to the signed-in browser",()=>setupStep({action:"browser_login"})));
+  const end=node("div","row-buttons");
+  if(!s.done)end.append(button("Finish setup",async()=>{await setupStep({action:"finish"});switchTab("home");},"primary"));
+  else end.append(button("Run setup again",()=>setupStep({action:"reopen"})));
+  box.append(end);
+}
+api("/api/setup").then(s=>{if(!s.done&&!startTab)switchTab("settings");}).catch(()=>{});

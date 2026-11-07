@@ -186,6 +186,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.parallel_running = 0      # side-by-side tasks now running (Y3, at most MAX_PARALLEL)
         self.main_session = None       # the order holding the action lock (H18 steer target)
         self.board = None              # H15 research dispatcher (chutku/board.py), real install only
+        self.downloads = None          # W5 offline pack downloads (chutku/models.py), made on first use
         self.telegram = None           # H16 Telegram gateway (chutku/gateway/telegram.py), when a token is stored
         self.enroll_clips = []         # Owner Voice Lock enrollment in progress (memory only)
         super().__init__(("127.0.0.1", port), DashboardHandler)
@@ -429,6 +430,66 @@ class DashboardServer(ThreadingHTTPServer):
                     self._next_work()
 
         threading.Thread(target=work, name="chutku-side-task" if side else "chutku-agent", daemon=True).start()
+
+    # -- W5: first-run setup (the page in chutku/web; the same steps as `chutku.cli setup`) ----------------------
+    SETUP_ACTIONS = {"assistant", "name", "key", "mic", "mode", "download", "phone", "browser_login", "finish",
+                     "reopen"}
+
+    def setup_view(self):
+        """What the first-run page shows. Never a key, password or token: only whether one is stored."""
+        from chutku import identity, setup_wizard
+        if getattr(self, "downloads", None) is None:
+            from chutku.models import Downloads
+            self.downloads = Downloads(self.base)
+        try:   # only whether a key is stored: the page never sees one
+            from chutku import cloud_planner, providers
+            keys = {"groq": "groq" in providers.configured(self.base), "gemini": bool(cloud_planner.api_key())}
+        except Exception:
+            keys = {"groq": False, "gemini": False}
+        prefs = self.preferences.load()
+        current = identity.load(Path(self.base) / ".env")
+        return {**setup_wizard.state(self.base), "assistant": {k: current.get(k) for k in
+                                                                ("ASSISTANT_NAME", "ASSISTANT_GENDER",
+                                                                 "ASSISTANT_LANGUAGE", "ASSISTANT_STYLE")},
+                "keys_stored": keys, "mode": prefs["handsfree_mode"], "packs": self.downloads.status(),
+                "phone_account": current.get("CHUTKU_ACCOUNT_ID") or None,
+                "links": {"groq": "https://console.groq.com/keys", "gemini": "https://aistudio.google.com/apikey"}}
+
+    def setup_action(self, data):
+        from chutku import setup_wizard
+        action = data.get("action") if isinstance(data, dict) else None
+        if action not in self.SETUP_ACTIONS:
+            raise ValueError("Unknown setup step.")
+        if action == "assistant":
+            fields = {k: data.get(k, "") for k in ("ASSISTANT_NAME", "ASSISTANT_GENDER", "ASSISTANT_LANGUAGE",
+                                                   "ASSISTANT_STYLE") if data.get(k)}
+            setup_wizard.set_assistant(self.base, fields)
+        elif action == "name":
+            setup_wizard.set_owner_name(self.base, data.get("name", ""))
+        elif action == "key":
+            setup_wizard.store_brain_key(self.base, data.get("provider"), data.get("key"))
+        elif action == "mic":
+            return {"microphone": setup_wizard.mic_level(self.base), **self.setup_view()}
+        elif action == "mode":
+            if data.get("mode") not in setup_wizard.AUTONOMY:
+                raise ValueError("Choose safe, edits or full.")
+            setup_wizard.set_autonomy(self.base, data["mode"])
+        elif action == "download":
+            self.setup_view()   # creates the downloader
+            self.downloads.start(data.get("pack"))
+            setup_wizard._mark(self.base, "packs")
+        elif action == "phone":
+            setup_wizard.link_phone(self.base, data.get("relay", ""), data.get("id", ""), data.get("password", ""),
+                                    data.get("pin", ""), new=data.get("new") is True)
+        elif action == "browser_login":
+            from chutku.tools import signed_in_browser
+            signed_in_browser.login()
+            setup_wizard._mark(self.base, "browser")
+        elif action == "finish":
+            setup_wizard.finish(self.base)
+        elif action == "reopen":   # Settings > "Run setup again"
+            setup_wizard._mark(self.base, done=False)
+        return self.setup_view()
 
     def board_view(self, include_done=False):
         """H15: the board for the dashboard (open tasks; with include_done also finished ones) and running workers."""
@@ -1556,6 +1617,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 session = self.server.agent_sessions.get(parse_qs(parts.query).get("id", [""])[0])
                 self._reply(200, {"session": session.snapshot()})
                 return
+            if parts.path == "/api/setup":   # W5: the first-run page (polled while packs download): no runtime
+                self._reply(200, self.server.setup_view())
+                return
             if parts.path == "/api/presence":   # polled ~10x a second by the presence orb: memory only
                 self._reply(200, self.server.presence_state())
                 return
@@ -1720,7 +1784,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path in {"/api/chat", "/api/agent/confirm", "/api/agent/stop", "/api/voice/ask", "/api/preferences",
                     "/api/suggestions", "/api/reflexes", "/api/voice/enroll", "/api/nightshift", "/api/board/stop",
-                    "/api/telegram"}:
+                    "/api/telegram", "/api/setup"}:
             self._reply(*self._agent_post(path, data))
             return
         if not self.server.action_lock.acquire(blocking=False):
@@ -1929,6 +1993,8 @@ def _agent_post(self, path, data):
                 gateway.unpair()
             return 200, {"token_stored": bool(telegram.token()), "paired": telegram.paired(server.base) is not None,
                          "handoff": gateway.handed_off(), "running": server.telegram is not None}
+        if path == "/api/setup":   # W5: one first-run step (the key is stored, never echoed back)
+            return 200, server.setup_action(data)
         if path == "/api/board/stop":   # H15: the running-workers strip's Stop button
             if set(data) != {"id"} or type(data["id"]) is not int:
                 raise ValueError("Give the board task id.")

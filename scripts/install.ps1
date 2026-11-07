@@ -92,7 +92,7 @@ if (-not $modelsOk) {
     Write-Host "For offline use run: Install-Chutku.cmd -Models"
 }
 if (-not [Console]::IsInputRedirected) {   # only when someone is at the keyboard
-    Write-Host "Next: answer 4 quick setup questions (name, free brain key, mic, autonomy):"
+    Write-Host "Next: answer 6 quick setup questions (assistant name, your name, free brain key, mic, autonomy, phone app):"
     & $venvPython -m chutku.cli setup
 }
 Write-Host "Start it with Start-Chutku.cmd. Run setup again any time: .venv\Scripts\python.exe -m chutku.cli setup"

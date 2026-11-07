@@ -25,7 +25,6 @@ DefaultDirName={localappdata}\Programs\Chutku
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 LicenseFile=..\LICENSE
@@ -110,7 +109,7 @@ begin
 end;
 
 function FetchPackage(): String;
-{ The verified package zip in {tmp}, or raise with a message the user understands. }
+(* The verified package zip in the temporary folder, or raise with a message the user understands. *)
 var
   Info: AnsiString;
   Url, Hash: String;

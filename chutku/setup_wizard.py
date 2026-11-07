@@ -9,10 +9,125 @@
   6. the phone app account                 -> an ID + password at the account relay (refused if the ID exists),
                                               this laptop's device token in Credential Manager, a 4-6 digit phone PIN
 Keys, passwords and tokens never touch a file. The laptop stays signed in until `chutku.cli account logout`.
+
+W5: each step is a plain function (set_assistant, set_owner_name, store_brain_key, set_autonomy, mic_level,
+link_phone, finish) that this CLI and the first-run page in the dashboard both call. data/setup.json remembers
+which steps were done and whether setup is finished ({"done": true} hides the first-run page).
 """
 from __future__ import annotations
 
 from pathlib import Path
+
+import json
+import time
+
+SETUP_FILE = ("data", "setup.json")
+AUTONOMY = {"safe": "auto_safe", "edits": "auto_edits", "full": "owner"}   # the page's three choices (Safe = default)
+STEPS = ("assistant", "name", "brain_key", "packs", "microphone", "mode", "phone", "browser")
+
+
+def _setup_path(base):
+    return Path(base).joinpath(*SETUP_FILE)
+
+
+def state(base):
+    """{"done": bool, "steps": {step: when}}; a missing or unreadable file is a fresh install."""
+    try:
+        data = json.loads(_setup_path(base).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    steps = data.get("steps") if isinstance(data.get("steps"), dict) else {}
+    return {"done": data.get("done") is True, "steps": {k: v for k, v in steps.items() if k in STEPS}}
+
+
+def _mark(base, step=None, *, done=None):
+    from chutku.core.jsonstore import write_json
+    current = state(base)
+    if step:
+        current["steps"][step] = time.time()
+    if done is not None:
+        current["done"] = done
+    write_json(_setup_path(base), current)
+    return current
+
+
+def finish(base):
+    return _mark(base, done=True)
+
+
+def set_assistant(base, updates):
+    """Name and personality (.env). Every value is checked by identity.check; returns what was saved."""
+    from chutku import identity
+    clean = {key: identity.check(key, value) for key, value in updates.items() if str(value).strip()}
+    if clean:
+        identity.save(clean, Path(base) / ".env")
+    _mark(base, "assistant")
+    return clean
+
+
+def set_owner_name(base, name):
+    name = " ".join(str(name).split())[:60]
+    if not name:
+        raise ValueError("Type your name.")
+    from chutku.mind import Mind
+    Mind(base).set_fact("name", name)
+    _mark(base, "name")
+    return name
+
+
+def store_brain_key(base, provider, key):
+    """A free cloud brain key into Windows Credential Manager (never a file, never echoed back)."""
+    key = str(key or "").strip()
+    if provider not in {"groq", "gemini"}:
+        raise ValueError("Choose groq or gemini.")
+    if not key:
+        raise ValueError("Paste the key.")
+    if provider == "groq":   # cloud_planner.store_key checks the key's shape (20-200 characters)
+        from chutku import providers
+        providers.store_key("groq", key)
+    else:
+        from chutku import cloud_planner
+        from chutku.core.capability_grants import CapabilityGrantStore
+        cloud_planner.store_key(key)
+        CapabilityGrantStore(Path(base) / "data" / "capability_grants.db").grant("cloud.gemini")
+    _mark(base, "brain_key")
+    return provider
+
+
+def set_autonomy(base, choice):
+    """safe / edits / full (the page) or a mode name (the CLI's 4 choices)."""
+    from chutku.core.preferences import Preferences
+    mode = AUTONOMY.get(choice, choice)
+    Preferences(base).update({"handsfree_mode": mode})
+    _mark(base, "mode")
+    return mode
+
+
+def mic_level(base, check=None):
+    level = (check or _mic_check)(base)
+    _mark(base, "microphone")
+    return level
+
+
+def link_phone(base, url, account_id, password, pin, *, new, relay=None):
+    """The phone app account: create (refused if the ID exists) or log in, store this laptop's token, set the PIN."""
+    from chutku import identity
+    if relay is None:
+        from chutku.relay import client as relay
+    if not (str(pin).isdigit() and 4 <= len(str(pin)) <= 6):
+        raise ValueError("Use a 4-6 digit PIN.")
+    url = relay.check_url(identity.check("CHUTKU_RELAY_URL", url))
+    account_id = str(account_id).strip().casefold()
+    if new:
+        relay.register(url, account_id, password)
+    token = relay.login(url, account_id, password, name="laptop")
+    from chutku.remote.auth import RemoteStore
+    RemoteStore(base).set_relay_pin(str(pin))
+    relay.store_token(token)
+    identity.save({"CHUTKU_RELAY_URL": url, "CHUTKU_ACCOUNT_ID": account_id}, Path(base) / ".env")
+    _mark(base, "phone")
+    return {"id": account_id, "relay": url}
+
 
 MODES = {"1": ("review", "ask before every step"), "2": ("auto_safe", "do safe things, ask before changes"),
          "3": ("auto_edits", "also change files she can undo"), "4": ("owner", "do almost everything, ask only for "
@@ -33,9 +148,7 @@ def run(base, *, ask=input, secret=None, out=print, mic_check=None, relay=None):
 
     name = ask(f"\n2/6  What should {called} call you? ").strip()[:60]
     if name:
-        from chutku.mind import Mind
-        Mind(base).set_fact("name", name)
-        done["name"] = name
+        done["name"] = set_owner_name(base, name)
 
     out(f"\n3/6  A free cloud brain makes {called} much faster and smarter when you are online.")
     out("     Groq: https://console.groq.com/keys   Gemini: https://aistudio.google.com/apikey")
@@ -43,19 +156,14 @@ def run(base, *, ask=input, secret=None, out=print, mic_check=None, relay=None):
     if which in {"groq", "gemini"}:
         key = secret(f"     Paste your {which} key (input hidden): ").strip()
         if key:
-            if which == "groq":
-                from chutku import providers
-                providers.store_key("groq", key)
-            else:
-                from chutku import cloud_planner
-                from chutku.core.capability_grants import CapabilityGrantStore
-                cloud_planner.store_key(key)
-                CapabilityGrantStore(base / "data" / "capability_grants.db").grant("cloud.gemini")
-            done["brain_key"] = which
+            try:
+                done["brain_key"] = store_brain_key(base, which, key)
+            except ValueError as error:
+                out("     " + str(error))
 
     if ask("\n4/6  Check the microphone for one second now? [Y/n] ").strip().casefold() in {"", "y", "yes", "haan"}:
         out("     Say something now...")
-        level = (mic_check or _mic_check)(base)
+        level = mic_level(base, mic_check)
         done["microphone"] = level
         out("     " + ("Heard you." if level.get("heard") else "Very quiet: check the microphone in Windows "
                                                                     "Settings > Sound > Input."))
@@ -65,13 +173,12 @@ def run(base, *, ask=input, secret=None, out=print, mic_check=None, relay=None):
         out(f"     {number}. {text}")
     choice = MODES.get(ask("     Choose 1-4 [Enter = 2]: ").strip() or "2")
     if choice:
-        from chutku.core.preferences import Preferences
-        Preferences(base).update({"handsfree_mode": choice[0]})
-        done["mode"] = choice[0]
+        done["mode"] = set_autonomy(base, choice[0])
 
     account = _account(base, ask, secret, out, relay)
     if account:
         done["account"] = account
+    finish(base)
     out(f"\nDone. Start {called} with Start-Chutku.cmd; Ctrl+Alt+Space to talk, Ctrl+Alt+C for the bar.")
     return done
 
@@ -109,7 +216,7 @@ def _assistant(base, ask, out):
                 except ValueError as error:
                     out("     " + str(error))
     if updates:
-        identity.save(updates, base / ".env")
+        set_assistant(base, updates)
     return updates
 
 
@@ -159,6 +266,7 @@ def _account(base, ask, secret, out, relay):
     RemoteStore(base).set_relay_pin(pin)
     relay.store_token(token)
     identity.save({"CHUTKU_RELAY_URL": url, "CHUTKU_ACCOUNT_ID": account_id}, base / ".env")
+    _mark(base, "phone")
     out(f"     Signed in as {account_id}. Install the phone app (docs/RELAY.md) and log in with the same ID and "
         "password; both stay signed in until you log out.")
     return {"id": account_id, "relay": url}
