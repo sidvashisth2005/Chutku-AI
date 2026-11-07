@@ -40,8 +40,10 @@ SCREEN_BEAT = 45.0   # one slow round trip (relay, mobile data) must not end the
 PIN_SESSION = 30 * 60   # owner 2026-11-07: the PIN once per session, renewed while the phone is used
 MONITOR_SECONDS = 2.0
 CURSOR_TICK = 1 / 60    # the pointer stream checks the mouse 60 times a second and sends only moves
+VIDEO_FRAME = 1 / 30   # H.264: up to 30 frames/s (the capture, ~34 ms, is the limit in practice)
+HOVER_EVERY = 0.08      # what is under the pointer: looked up at most ~12 times a second (2-5 ms each)
 STREAM_FRAME = 1 / 20   # the stream's fastest pace (capture ~30 ms + scale/encode ~30 ms in practice)   # trackpad input reuses the monitor rectangle instead of a capture per move
-KINDS = {"/api/screen/frame": "frame", "/api/screen/stream": "frame", "/api/cursor/stream": "frame", "/api/files/stream": "frame", "/api/session": "poll", "/api/presence": "poll", "/api/say": "poll",
+KINDS = {"/api/screen/frame": "frame", "/api/screen/stream": "frame", "/api/screen/h264": "frame", "/api/cursor/stream": "frame", "/api/files/stream": "frame", "/api/session": "poll", "/api/presence": "poll", "/api/say": "poll",
          "/api/whoami": "poll", "/api/files/list": "poll", "/api/files/search": "poll", "/api/files/recent": "poll",
          "/api/files/places": "poll", "/api/control/input": "input", "/api/control/text": "input", "/api/control/keys": "input"}
 INBOX = Path(user_folder("ChutkuInbox"))
@@ -299,6 +301,8 @@ class PhoneHandler(BaseHTTPRequestHandler):
                 self._frame(record, query.get("h", [""])[0])
             elif path == "/api/screen/stream":
                 self._stream(record, query)
+            elif path == "/api/screen/h264":
+                self._h264(record, query)
             elif path == "/api/cursor/stream":
                 self._cursor_stream(record)
             elif path == "/api/files/stream":
@@ -593,7 +597,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
                 except OSError:   # locked or a secure desktop: try again shortly, keep the stream open
                     time.sleep(1.0)
                     continue
-                digest = hashlib.sha1(pixels[::16, ::16].tobytes()).digest()
+                digest = _changed(pixels)
                 if digest != last or started - sent_at > 2.0:   # unchanged screens cost nothing (a keep-alive every 2 s)
                     self.server.monitor_seen = (started, (shot.left, shot.top, shot.width, shot.height))
                     body, mime = _jpeg(pixels, 8 if self.server.controlling() else 9, width=width)
@@ -602,6 +606,61 @@ class PhoneHandler(BaseHTTPRequestHandler):
                     self.wfile.flush()
                     last, sent_at = digest, started
                 time.sleep(max(0.0, STREAM_FRAME - (time.monotonic() - started)))
+        except (BrokenPipeError, ConnectionError, OSError):
+            pass   # the phone closed the stream
+
+    def _h264(self, record, query):
+        """GET /api/screen/h264: the screen as H.264 (owner 2026-11-08: "no lag or jitter"), decoded on the phone by
+        WebCodecs. Each packet is [4-byte length][1 byte: 1 = keyframe][Annex B bytes]; the first is a keyframe. 409
+        when no encoder works here: the phone falls back to /api/screen/stream. A still screen is sent 3 more times so
+        it sharpens, then nothing until it changes. A different screen size ends the stream (the phone reconnects)."""
+        screen = self.server.screen
+        if not screen or screen["device"] != record["device"] or time.monotonic() > screen["until"]:
+            raise RemoteDenied("Start screen view with your PIN.", 403)
+        from chutku import vision
+        import struct
+        width = max(640, min(1920, int((query.get("w") or ["1280"])[0])))
+        try:
+            shot = vision.capture()
+        except OSError:
+            raise RemoteDenied("The laptop is locked or showing a secure screen.", 503)
+        size = (shot.width, shot.height)
+        out_w = min(width, shot.width)
+        try:
+            encoder = H264(out_w, round(shot.height * out_w / shot.width))
+        except (OSError, ImportError):
+            raise RemoteDenied("No H.264 encoder on this laptop.", 409)
+        screen["stream"] = token = secrets.token_hex(4)   # a newer stream from this phone replaces this one
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Encoder", encoder.name)
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        last, settle = None, 0
+        try:
+            while self.server.screen is screen and screen.get("stream") == token and time.monotonic() < screen["until"] \
+                    and not self.server.stopped.is_set():
+                started = time.monotonic()
+                screen["beat"] = started
+                if shot is None:
+                    try:
+                        shot = vision.capture()
+                    except OSError:   # locked for a moment: keep the stream open
+                        time.sleep(1.0)
+                        continue
+                if (shot.width, shot.height) != size:
+                    break
+                digest = _changed(shot.pixels)
+                settle = 3 if digest != last else settle - 1
+                if settle >= 0:
+                    self.server.monitor_seen = (started, (shot.left, shot.top, shot.width, shot.height))
+                    for key, data in encoder.encode(shot.pixels):
+                        self.wfile.write(struct.pack(">IB", len(data), key) + data)
+                    self.wfile.flush()
+                    last = digest
+                shot = None
+                time.sleep(max(0.0, VIDEO_FRAME - (time.monotonic() - started)))
         except (BrokenPipeError, ConnectionError, OSError):
             pass   # the phone closed the stream
 
@@ -619,11 +678,12 @@ class PhoneHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Accel-Buffering", "no")
         self.end_headers()
-        last, sent_at = None, 0.0
+        last, sent_at, hovered, looked_at, looked_pos = None, 0.0, None, 0.0, None
         try:
             while self.server.screen is screen and screen.get("cursor") == token and time.monotonic() < screen["until"] \
                     and not self.server.stopped.is_set():
-                left, top, width, height = self._monitor()
+                monitor = self._monitor()
+                left, top, width, height = monitor
                 x, y = cursor_pos()
                 at = [round((x - left) / max(width, 1), 4), round((y - top) / max(height, 1), 4)]
                 now = time.monotonic()
@@ -631,6 +691,16 @@ class PhoneHandler(BaseHTTPRequestHandler):
                     self.wfile.write(b"data: " + json.dumps(at).encode() + b"\n\n")
                     self.wfile.flush()
                     last, sent_at = at, now
+                # the magnetic pointer (owner 2026-11-08): what is under it, while the phone controls the laptop
+                if at != looked_pos and now - looked_at > HOVER_EVERY and self.server.controlling():
+                    from chutku.remote import targets
+                    found = targets.hover(x, y, monitor)
+                    found = targets.on_monitor(found, monitor) if found else None
+                    looked_pos, looked_at = at, now
+                    if found != hovered:
+                        self.wfile.write(b"event: hover\ndata: " + json.dumps(found).encode() + b"\n\n")
+                        self.wfile.flush()
+                        hovered = found
                 time.sleep(CURSOR_TICK)
         except (BrokenPipeError, ConnectionError, OSError):
             pass
@@ -643,6 +713,9 @@ class PhoneHandler(BaseHTTPRequestHandler):
         from chutku.remote.control import ControlSession
         self.server.control = ControlSession(self.server.core.base)
         self.server._border(True)
+        if self.server.monitor is None:   # smart tap: start UI Automation now, so the first tap is not skipped
+            from chutku.remote import targets
+            targets.warm()
         return {"control": True, "minutes": 30}
 
     def _control(self):
@@ -907,6 +980,52 @@ def _jpeg(rgb, quality, width=None):
     except Exception:   # no PyAV or no MJPEG encoder: the lossless frame still works
         from chutku import vision
         return _png(vision.scaled(rgb, width or rgb.shape[1]), level=1), "image/png"
+
+
+def _changed(pixels):
+    """A checksum of every pixel (~5 ms for 1080p): a typed letter or a blinking caret is a change. The old sample of
+    every 16th row and column missed them until the 2 s keep-alive."""
+    import zlib
+    return zlib.crc32(pixels.tobytes())
+
+
+H264_ENCODERS = (("h264_nvenc", {"preset": "p1", "tune": "ull", "zerolatency": "1", "delay": "0"}),   # the GPU
+                 ("libx264", {"preset": "ultrafast", "tune": "zerolatency"}),
+                 ("h264_mf", {"rate_control": "cbr", "scenario": "display_remoting"}))
+
+
+class H264:
+    """The screen as H.264 (owner 2026-11-08, "no lag or jitter"): the way paid remote desktops are fast. Measured on
+    this laptop at 1280x720: NVENC 15 ms, libx264 12 ms a frame, every frame out at once (no delay, no B-frames), ~4-7 KB
+    a frame after the first, where a JPEG frame is ~100 KB: far less for the ~90 ms Tailscale relay to carry."""
+
+    def __init__(self, width, height, *, names=H264_ENCODERS, bit_rate=3_000_000):
+        import av
+        from fractions import Fraction
+        self.size, self.count, self.name = (width - width % 2, height - height % 2), 0, None
+        for name, options in names:
+            try:
+                codec = av.CodecContext.create(name, "w")
+                codec.width, codec.height = self.size
+                codec.pix_fmt = "yuv420p" if name == "libx264" else "nv12"
+                codec.time_base, codec.framerate = Fraction(1, 30), Fraction(30, 1)
+                codec.bit_rate, codec.gop_size, codec.max_b_frames = bit_rate, 600, 0
+                codec.options = options
+                codec.open()
+            except Exception:   # this encoder is missing or the GPU is busy: the next one
+                continue
+            self.codec, self.name = codec, name
+            return
+        raise OSError("No H.264 encoder works on this laptop.")
+
+    def encode(self, rgb):
+        """[(keyframe, Annex B bytes)] for one screen picture (the first is a keyframe)."""
+        import av
+        import numpy as np
+        frame = av.VideoFrame.from_ndarray(np.ascontiguousarray(rgb), format="rgb24")
+        frame = frame.reformat(width=self.size[0], height=self.size[1], format=self.codec.pix_fmt, interpolation="AREA")
+        frame.pts, self.count = self.count, self.count + 1
+        return [(bool(packet.is_keyframe), bytes(packet)) for packet in self.codec.encode(frame)]
 
 
 def _png(rgb, level=1):

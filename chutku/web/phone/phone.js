@@ -53,7 +53,18 @@ async function api(path, data, raw) {
   return payload;
 }
 function show(view) { for (const id of ["account", "pair", "login", "app"]) $(id).hidden = id !== view; $("logout").hidden = !(relay && view === "app"); }
-function status(text) { $("status").textContent = text; }
+// Owner 2026-11-08, "the message is cut off with ...": the status line is one line; over the screen the whole message
+// shows wrapped for 4 s, and "resumes in N s" counts down live.
+let toastTimer = null;
+function status(text) {
+  $("status").textContent = text;
+  const toast = $("toast"); if ($("app").hidden || !text) return;
+  clearInterval(toastTimer); toast.hidden = false;
+  const counting = /resumes in (\d+) s/.exec(text); let left = counting ? +counting[1] : 4;
+  const draw = () => { toast.textContent = counting ? text.replace(/\d+ s/, left + " s") : text; };
+  draw();
+  toastTimer = setInterval(() => { left--; if (left <= 0) { clearInterval(toastTimer); toast.hidden = true; } else draw(); }, 1000);
+}
 function askPin(why) {
   return new Promise(resolve => {
     $("pin-why").textContent = why || "Enter your PIN"; $("pin-input").value = "";
@@ -213,7 +224,7 @@ function attachStream() {
   streaming = true; cursorAt = null; $("cursor").hidden = true;
   if (streamStop) streamStop.abort();
   const stop = streamStop = new AbortController();
-  readStream(stop.signal).catch(() => {}).finally(() => {
+  watchScreen(stop.signal).catch(() => {}).finally(() => {
     if (streamStop !== stop || !streaming) return;   // replaced or stopped on purpose
     streaming = false; streamFails++; note("Reconnecting the screen…");
     setTimeout(() => { if (!document.hidden && !$("app").hidden) startScreen(); }, 1000);
@@ -241,11 +252,65 @@ async function readStream(signal) {   // multipart parts, each with Content-Leng
 function showFrame(jpeg) {
   const url = URL.createObjectURL(new Blob([jpeg], { type: "image/jpeg" })), old = $("frame").src;
   $("frame").src = url; if (old.startsWith("blob:")) URL.revokeObjectURL(old);
-  streamFails = 0; note("");
+  showing("frame"); streamFails = 0; note("");
 }
 function detachStream() {
   streaming = false; if (streamStop) { streamStop.abort(); streamStop = null; } $("frame").removeAttribute("src");
   if (pointerFeed) { pointerFeed.close(); pointerFeed = null; }
+}
+// Owner 2026-11-08, "no lag or jitter": H.264 first (~4-7 KB a frame instead of ~100 KB of JPEG, decoded by the phone's
+// own video hardware through WebCodecs, drawn on a canvas), the JPEG stream when this phone or the laptop can't.
+let videoWorks = "VideoDecoder" in window;
+async function watchScreen(signal) {
+  if (videoWorks) {
+    const shown = { any: false };
+    try { await readVideo(signal, shown); return; }
+    catch (e) { if (signal.aborted || shown.any) throw e; videoWorks = false; }   // never worked here: JPEG from now on
+  }
+  await readStream(signal);
+}
+const picture = () => $("video").hidden ? $("frame") : $("video");
+const pictureReady = () => $("video").hidden ? $("frame").naturalWidth > 0 : $("video").width > 0;
+function showing(id) { if (picture().id === id) return; $("video").hidden = id !== "video"; $("frame").hidden = id !== "frame"; drawCursor(); }
+function avcCodec(data) {   // "avc1.PPCCLL" from the keyframe's SPS (profile, constraints, level)
+  for (let i = 0; i + 4 < data.length; i++) {
+    if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1 && (data[i + 3] & 0x1f) === 7) {
+      return "avc1." + [data[i + 4], data[i + 5], data[i + 6]].map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+  }
+  return "avc1.42e01f";
+}
+async function readVideo(signal, shown) {   // packets: [4-byte length][1 byte: 1 = keyframe][H.264 Annex B]
+  const response = await fetch("/api/screen/h264?w=1280&t=" + Date.now(), { credentials: "same-origin", signal });
+  if (!response.ok || !response.body) throw new Error("no video");
+  const canvas = $("video"), paint = canvas.getContext("2d"), reader = response.body.getReader();
+  let decoder = null, broken = null, buf = new Uint8Array(0);
+  try {
+    for (;;) {
+      if (broken) throw broken;
+      const { value, done } = await reader.read(); if (done) return;
+      const joined = new Uint8Array(buf.length + value.length); joined.set(buf); joined.set(value, buf.length); buf = joined;
+      while (buf.length >= 5) {
+        const length = ((buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]) >>> 0;
+        if (buf.length < 5 + length) break;
+        const key = (buf[4] & 1) === 1, data = buf.slice(5, 5 + length); buf = buf.subarray(5 + length);
+        if (!decoder) {
+          if (!key) continue;
+          decoder = new VideoDecoder({
+            output: frame => {
+              if (canvas.width !== frame.displayWidth) { canvas.width = frame.displayWidth; canvas.height = frame.displayHeight; }
+              paint.drawImage(frame, 0, 0); frame.close();
+              if (!shown.any) { shown.any = true; showing("video"); }
+              streamFails = 0; note("");
+            },
+            error: e => { broken = e; },
+          });
+          decoder.configure({ codec: avcCodec(data), optimizeForLatency: true });
+        }
+        decoder.decode(new EncodedVideoChunk({ type: key ? "key" : "delta", timestamp: performance.now() * 1000, data }));
+      }
+    }
+  } finally { if (decoder && decoder.state !== "closed") decoder.close(); }
 }
 // Owner 2026-11-07, "the cursor still lags": like Chrome Remote Desktop, RustDesk and Parsec, the pointer is not in the
 // video. The phone draws it and moves it the instant your finger moves; the laptop's real position (a tiny event stream,
@@ -258,6 +323,38 @@ function openPointer() {
     try { serverAt = JSON.parse(e.data); } catch { return; }
     if (Date.now() - localMoveAt > 400 && !inFlight) glideTo(serverAt);   // your own move wins until the laptop caught up
   };
+  pointerFeed.addEventListener("hover", e => { try { hovered = JSON.parse(e.data); } catch { hovered = null; } showHover(); });
+}
+
+// ---- smart tap, the magnetic pointer and text fields (owner 2026-11-08) --------------------------------------------
+// The laptop reads its own buttons, links and fields (Windows UI Automation), which a plain remote desktop can't: the
+// button under the pointer is outlined here, the pointer slows down over small ones so it stops on them, a tap that
+// was a little off lands on what it meant (and flashes it), and a tap on a text field zooms to it and opens the keyboard.
+let hovered = null;
+function placeOn(box, r) {   // r: [x, y, w, h] as 0..1 of the laptop screen
+  const img = frameRect(), canvas = $("canvas").getBoundingClientRect();
+  Object.assign(box.style, { left: img.left - canvas.left + r[0] * img.width + "px", top: img.top - canvas.top + r[1] * img.height + "px",
+                             width: r[2] * img.width + "px", height: r[3] * img.height + "px" });
+}
+function showHover() { $("hilite").hidden = !hovered; if (hovered) placeOn($("hilite"), hovered.rect); }
+const small = r => r[2] < 0.2 && r[3] < 0.12;
+const inside = (p, r) => p[0] >= r[0] && p[0] <= r[0] + r[2] && p[1] >= r[1] && p[1] <= r[1] + r[3];
+function hit(target) {
+  const flash = $("flash"); placeOn(flash, target.rect); flash.hidden = false;
+  flash.classList.remove("go"); void flash.offsetWidth; flash.classList.add("go");
+  clearTimeout(flash.timer); flash.timer = setTimeout(() => { flash.hidden = true; }, 650);
+  if (target.kind === "field") typeInto(target.rect);
+}
+function typeInto(r) {   // at Fit: zoom until the field is ~40 px tall (readable) but still fits; upper third; keyboard
+  if (zoom === 1) {
+    const img = frameRect(), fieldW = Math.max(1, r[2] * img.width), fieldH = Math.max(1, r[3] * img.height);
+    const want = Math.min(4, 0.95 * $("stage").clientWidth / fieldW, Math.max(1.5, 40 / fieldH));
+    setZoom(want, img.left + (r[0] + r[2] / 2) * img.width, img.top + (r[1] + r[3] / 2) * img.height);
+  }
+  const stage = $("stage"), box = stage.getBoundingClientRect(), img = frameRect();
+  stage.scrollLeft += img.left + (r[0] + r[2] / 2) * img.width - (box.left + stage.clientWidth / 2);
+  stage.scrollTop += img.top + (r[1] + r[3] / 2) * img.height - (box.top + stage.clientHeight * 0.3);
+  drawCursor(); $("live-keys").focus({ preventScroll: true }); $("kbd").classList.add("on");
 }
 function glideTo(at) { cursorAt = at; $("cursor").classList.add("glide"); drawCursor(); }
 async function frames() {
@@ -291,15 +388,16 @@ async function frames() {
     }
   } finally { looping = false; }
 }
-function frameRect() { return $("frame").getBoundingClientRect(); }
+function frameRect() { return picture().getBoundingClientRect(); }   // the H.264 canvas or the JPEG <img>
 function drawCursor(follow) {
-  if (!cursorAt || !$("frame").naturalWidth) {   // the position can arrive before the first picture: try again shortly
+  if (!cursorAt || !pictureReady()) {   // the position can arrive before the first picture: try again shortly
     $("cursor").hidden = true; if (cursorAt && streaming) setTimeout(drawCursor, 250); return;
   }
   const img = frameRect(), canvas = $("canvas").getBoundingClientRect();
   $("cursor").style.left = (img.left - canvas.left + cursorAt[0] * img.width) + "px";
   $("cursor").style.top = (img.top - canvas.top + cursorAt[1] * img.height) + "px";
   $("cursor").hidden = false;
+  if (hovered) placeOn($("hilite"), hovered.rect);   // zoom and turning move the picture: the outline follows
   // keep the pointer in view while zoomed in, when YOU move it (new frames alone never pull the view off what you zoomed into)
   if (follow === true && $("stage").classList.contains("zoomed")) {
     const stage = $("stage"), x = img.left - canvas.left + cursorAt[0] * img.width, y = img.top - canvas.top + cursorAt[1] * img.height;
@@ -352,25 +450,33 @@ function queued(path, data) {   // in order, one at a time; a session that timed
   });
   return inputs;
 }
-// Mouse input: ONE request in flight; whatever moved meanwhile rides along in the next one (PC check 2026-11-07: queued
-// moves piled up behind ~100 ms Tailscale round trips, so the more you moved the further the pointer fell behind).
-let pending = { dx: 0, dy: 0, events: [] }, inFlight = false, monitorPx = null, localMoveAt = 0;
+// Mouse input: whatever moved meanwhile rides along in the next request (PC check 2026-11-07: queued moves piled up
+// behind ~100 ms Tailscale round trips, so the more you moved the further the pointer fell behind).
+let pending = { dx: 0, dy: 0, events: [] }, inFlight = 0, monitorPx = null, localMoveAt = 0;
+// Owner 2026-11-08, "almost instant": moves go out up to 3 at a time (the laptop applies them one by one, none lost),
+// so its pointer follows ~3x more often over the ~90 ms relay; clicks and drags wait for the moves before them.
+const MOVES_IN_FLIGHT = 3;
 function pump() {
-  if (inFlight) return;
+  const clicks = pending.events.length > 0;
+  if (clicks ? inFlight > 0 : inFlight >= MOVES_IN_FLIGHT) return;
   const events = [];
   let dx = Math.round(pending.dx), dy = Math.round(pending.dy); pending.dx -= dx; pending.dy -= dy;
   while (dx || dy) { const sx = Math.max(-400, Math.min(400, dx)), sy = Math.max(-400, Math.min(400, dy)); events.push({ kind: "nudge", dx: sx, dy: sy }); dx -= sx; dy -= sy; }
   events.push(...pending.events.splice(0));
   if (!events.length) return;
-  inFlight = true;
-  api("/api/control/input", { events }).catch(async e => {
+  inFlight++;
+  api("/api/control/input", { events }).then(answer => { if (answer && answer.target) hit(answer.target); }).catch(async e => {
     if (/Start control/.test(e.message)) { controlling = false; showControl(); if (await ensureControl()) return api("/api/control/input", { events }).catch(x => status(x.message)); }
     else status(e.message);
-  }).finally(() => { inFlight = false; if (pending.events.length || Math.abs(pending.dx) >= 1 || Math.abs(pending.dy) >= 1) pump(); });
+  }).finally(() => { inFlight--; if (pending.events.length || Math.abs(pending.dx) >= 1 || Math.abs(pending.dy) >= 1) pump(); });
 }
 const send = events => { pending.events.push(...events); pump(); };
-const here = kind => send([{ kind, at: "cursor" }]);
+// smart tap (owner 2026-11-08): taps carry a finger's reach (as a part of the laptop screen's width); the laptop lands
+// them on the button, link or field they were meant for and says which, so it is shown here
+const reach = px => px / Math.max(1, frameRect().width);
+const here = kind => send([{ kind, at: "cursor", ...(kind === "tap" || kind === "right" ? { snap: reach(10) } : {}) }]);
 function moveBy(dx, dy) {
+  if (hovered && cursorAt && small(hovered.rect) && inside(cursorAt, hovered.rect)) { dx *= 0.45; dy *= 0.45; }   // magnetic
   pending.dx += dx; pending.dy += dy; pump();
   if (cursorAt && monitorPx) {   // the pointer moves on the phone at once; the next frames correct it
     cursorAt = [Math.min(1, Math.max(0, cursorAt[0] + dx / monitorPx[0])), Math.min(1, Math.max(0, cursorAt[1] + dy / monitorPx[1]))];
@@ -395,7 +501,7 @@ $("stage").addEventListener("pointerdown", async e => {
     pressTimer = setTimeout(() => {   // a still long-press: trackpad = drag, direct = right click
       if (!gesture || !gesture.ready || gesture.travel > 10 || touches.size !== 1) return;
       if (mode() === "pad") { setDragging(true); here("down"); }
-      else if (mode() === "direct") { send([{ kind: "right", ...point(gesture.x, gesture.y) }]); gesture.used = true; }
+      else if (mode() === "direct") { send([{ kind: "right", ...point(gesture.x, gesture.y), snap: reach(22) }]); gesture.used = true; }
     }, 450);
   } else if (gesture) gesture.fingers = Math.max(gesture.fingers, touches.size);
 });
@@ -436,7 +542,7 @@ for (const ev of ["pointerup", "pointercancel"]) $("stage").addEventListener(ev,
     const p = point(g.x, g.y), question = prompt("Is jagah ke baare mein kya karna hai? (\"ye kya hai\", \"isko band karo\")"); if (!question) return;
     openSheet("chat"); bubble("👆 " + question, "me"); const box = bubble("…", "her");
     try { const r = await api("/api/point", { x: p.x, y: p.y, question }); render(box, r.session); follow(box, r.session.id); } catch (err) { box.textContent = err.message; }
-  } else if (mode() === "direct") send([{ kind: g.fingers >= 2 ? "right" : "tap", ...point(g.x, g.y) }]);
+  } else if (mode() === "direct") send([{ kind: g.fingers >= 2 ? "right" : "tap", ...point(g.x, g.y), snap: reach(22) }]);
   else here(g.fingers >= 2 ? "right" : "tap");   // two quick taps make a double click on the laptop
 });
 $("mode").addEventListener("click", () => {
@@ -484,7 +590,7 @@ async function sendKeyWithPin(combo) {   // Enter or paste into a command window
   try { await withPin("PIN: this window can run commands", pin => api("/api/control/keys", pin ? { combo, pin } : { combo })); }
   catch (e) { status(e.message); }
 }
-const KEY_ROW = [["Esc", "esc"], ["Tab", "tab"], ["Enter", "enter"], ["⌫", "backspace"], ["Del", "delete"], ["←", "left"], ["↑", "up"],
+const KEY_ROW = [["Esc", "esc"], ["Space", "space"], ["Tab", "tab"], ["Enter", "enter"], ["⌫", "backspace"], ["Del", "delete"], ["←", "left"], ["↑", "up"],
   ["↓", "down"], ["→", "right"], ["Ctrl+C", "ctrl+c"], ["Ctrl+V", "ctrl+v"], ["Ctrl+Z", "ctrl+z"], ["Ctrl+A", "ctrl+a"],
   ["Ctrl+S", "ctrl+s"], ["Alt+Tab", "alt+tab"], ["Desktop", "win+d"], ["Win", "win"], ["Home", "home"], ["End", "end"],
   ["PgUp", "pageup"], ["PgDn", "pagedown"], ["F5", "f5"], ["Close app", "alt+f4"]];

@@ -199,6 +199,74 @@ class ControlTests(unittest.TestCase):
             session.pointer([{"kind": "tap", "x": 0.1, "y": 0.1}], (0, 0, 100, 100))
         self.assertIn("using the laptop", str(caught.exception))
 
+    def test_our_own_input_stamped_a_tick_early_is_not_someone_at_the_laptop(self):
+        # owner 2026-11-08, "it just shows someone is using the laptop": Windows can stamp our injected click one 16 ms
+        # tick BEFORE we note it; the unsigned difference made that ~4.29 billion ms, so our own click paused control
+        ticks, local = {"now": 100000}, {"tick": None}
+        session = control.ControlSession("b", inject=FakeInjector(), log=lambda r: None, locked=lambda: False,
+                                         window=lambda: {"executable": "notepad.exe", "title": "x"},
+                                         local_tick=lambda: local["tick"], now_tick=lambda: ticks["now"])
+        session.pointer([{"kind": "tap", "x": 0.5, "y": 0.5}], (0, 0, 100, 100))      # noted at 100000
+        local["tick"], ticks["now"] = 100000 - 16, 100500
+        session.pointer([{"kind": "tap", "x": 0.6, "y": 0.6}], (0, 0, 100, 100))      # ours: no pause
+        local["tick"] = 100000 - 3000                                                   # 3 s before: not ours
+        with self.assertRaises(control.ControlRefused) as caught:
+            session.pointer([{"kind": "tap", "x": 0.7, "y": 0.7}], (0, 0, 100, 100))
+        self.assertIn("10 s", str(caught.exception))
+
+    def test_smart_tap_lands_on_the_target_it_meant(self):
+        asked = []
+
+        def snap(x, y, radius, monitor):
+            asked.append((x, y, radius))
+            return (60, 40, {"kind": "button", "name": "OK", "rect": (50, 30, 20, 20)})
+        self.injector, logged = FakeInjector(), []
+        session = control.ControlSession("b", inject=self.injector, log=logged.append, locked=lambda: False,
+                                         window=lambda: {"executable": "notepad.exe", "title": "x"},
+                                         local_tick=lambda: None, now_tick=lambda: 0, snap=snap)
+        answer = session.pointer([{"kind": "tap", "x": 0.4, "y": 0.2, "snap": 0.1}], (0, 0, 100, 100))
+        self.assertEqual(self.injector.calls[-1], ("pointer", "tap", 60, 40))           # clicked the button's middle
+        self.assertEqual(answer["target"], {"kind": "button", "name": "OK", "rect": [0.5, 0.3, 0.2, 0.2]})
+        self.assertEqual(asked[-1], (40, 20, 10.0))                                    # reach: 0.1 of 100 px
+        session.pointer([{"kind": "tap", "x": 0.4, "y": 0.2, "snap": 5}], (0, 0, 1000, 100))
+        self.assertEqual(asked[-1][2], 80.0)                                           # never more than 80 px
+        self.assertEqual(logged[-1]["target"], "button")
+        before = len(asked)
+        answer = session.pointer([{"kind": "tap", "x": 0.4, "y": 0.2}, {"kind": "down", "x": 0.1, "y": 0.1, "snap": 0.1}],
+                                 (0, 0, 100, 100))
+        self.assertEqual(len(asked), before)                                           # no reach, or a drag: as is
+        self.assertNotIn("target", answer)
+        self.assertEqual(self.injector.calls[-2], ("pointer", "tap", 40, 20))
+
+    def test_moves_sent_three_at_a_time_are_all_applied(self):
+        position = {"x": 500}
+
+        def cursor():
+            x = position["x"]
+            time.sleep(0.002)          # another batch would read the same position here without the lock
+            return x, 50
+        injector = FakeInjector()
+        injector.pointer = lambda kind, x, y, dy=0: position.update(x=x)
+        session = control.ControlSession("b", inject=injector, log=lambda r: None, locked=lambda: False,
+                                         window=lambda: {}, local_tick=lambda: None, now_tick=lambda: 0, cursor=cursor)
+        threads = [threading.Thread(target=session.pointer, args=([{"kind": "nudge", "dx": 1, "dy": 0}] * 20,
+                                                                   (0, 0, 1000, 100))) for _ in range(3)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(position["x"], 560)
+
+    def test_target_helpers(self):
+        from chutku.remote import targets
+        button = {"kind": "button", "name": "OK", "rect": (100, 100, 40, 20)}
+        field = {"kind": "field", "name": "", "rect": (100, 200, 200, 20)}
+        self.assertEqual(targets._aim(110, 105, button), (110, 105))                    # on it: exactly there
+        self.assertEqual(targets._aim(150, 110, button), (120, 110))                    # off it: its middle
+        self.assertEqual(targets._aim(180, 230, field), (180, 216))                     # a field: under the finger
+        self.assertEqual(targets._distance(150, 110, button["rect"]), 11)
+        self.assertEqual(targets.on_monitor(button, (0, 0, 200, 400))["rect"], [0.5, 0.25, 0.2, 0.05])
+
     def test_a_session_ends_after_its_time(self):
         clock = Clock()
         session = control.ControlSession("b", inject=FakeInjector(), log=lambda r: None, clock=clock,
@@ -381,6 +449,59 @@ class ServerTests(unittest.TestCase):
             jpeg = body[body.index(b"\r\n\r\n") + 4:]
             frame = remote_server._jpeg(shot.pixels, 9, width=1280)[0]                 # the stream's own settings
             self.assertEqual(jpeg[:len(frame)], frame)                                  # the picture has no pointer in it
+
+    def test_the_h264_stream_decodes_and_a_one_pixel_change_counts(self):
+        import av
+        import struct
+        self.pair_and_login()
+        self.assertEqual(self.request("/api/screen/h264")[0], 403)                      # no view started
+        from chutku.vision import Shot
+        count = {"n": 0}
+
+        def capture():   # a screen where one pixel changes every frame
+            count["n"] += 1
+            pixels = np.full((360, 640, 3), 80, np.uint8)
+            pixels[10, count["n"] % 600] = 255
+            return Shot(pixels, 0, 0, 640, 360, {})
+        with patch("chutku.vision.capture", side_effect=capture), patch.object(remote_server, "_keep_awake"):
+            self.assertEqual(self.request("/api/screen/start", {"pin": "4321"})[0], 200)
+            self.server.screen["until"] = time.monotonic() + 0.5
+            status, body, headers = self.request("/api/screen/h264?w=640")
+        self.assertEqual(status, 200)
+        self.assertIn(headers["X-Encoder"], {name for name, _ in remote_server.H264_ENCODERS})
+        decoder, frames, packets, offset = av.CodecContext.create("h264", "r"), [], [], 0
+        while offset < len(body):
+            length, key = struct.unpack(">IB", body[offset:offset + 5])
+            packets.append((key, body[offset + 5:offset + 5 + length]))
+            offset += 5 + length
+        self.assertEqual(offset, len(body))                                             # nothing left over
+        self.assertTrue(packets[0][0])                                                  # starts with a keyframe
+        for _, data in packets:
+            frames += decoder.decode(av.Packet(data))
+        self.assertGreaterEqual(len(frames), 5)                                         # every change was sent
+        self.assertEqual((frames[0].width, frames[0].height), (640, 360))
+        self.assertNotEqual(remote_server._changed(np.zeros((4, 4, 3), np.uint8)),
+                            remote_server._changed(np.pad(np.ones((1, 1, 3), np.uint8), ((0, 3), (0, 3), (0, 0)))))
+
+    def test_the_pointer_stream_says_what_is_under_the_pointer_while_controlling(self):
+        self.pair_and_login()
+        from chutku.vision import Shot
+        shot = Shot(np.zeros((500, 1000, 3), np.uint8), 0, 0, 1000, 500, {})
+        target = {"kind": "button", "name": "OK", "rect": (200, 100, 100, 50)}
+        with patch("chutku.vision.capture", return_value=shot), patch.object(remote_server, "_keep_awake"), \
+                patch("chutku.remote.control.cursor_pos", return_value=(250, 125)), \
+                patch("chutku.remote.targets.hover", return_value=target) as hover:
+            self.assertEqual(self.request("/api/screen/start", {"pin": "4321"})[0], 200)
+            self.server.screen["until"] = time.monotonic() + 0.3
+            body = self.request("/api/cursor/stream")[1]
+            self.assertNotIn(b"event: hover", body)                                      # only while controlling
+            hover.assert_not_called()
+            self.server.control = SimpleNamespace(alive=lambda: True, end=lambda reason: None)
+            self.server.screen["until"] = time.monotonic() + 0.3
+            body = self.request("/api/cursor/stream")[1]
+            self.assertIn(b'event: hover\ndata: {"kind": "button", "name": "OK", "rect": [0.2, 0.2, 0.1, 0.1]}\n\n', body)
+            self.assertEqual(hover.call_count, 1)                                       # a still pointer: looked once
+            self.server.control = None
 
     def test_screen_view_needs_the_pin_and_sends_only_changes(self):
         self.pair_and_login()

@@ -201,6 +201,22 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
   - or hold "meri awaaz laptop pe" to play your own voice there (up to 30 s).
   - These are the only two things that play sound on the laptop.
 
+**New on 2026-11-07/08: the phone remote, faster and smarter**
+- **Sideways:** turn the phone sideways and touch once. The page goes full screen, the laptop screen sits large on
+  the left, and the trackpad (black area) and buttons are on the right.
+- **Zoom:** pinch the screen to zoom up to 6x, then tap exactly there. The 🔍 button goes back to Fit.
+- **Pointer:** it is drawn on the phone and moves the instant your finger moves. The laptop corrects it when you stop.
+- **Video:** the screen comes as H.264 video when the laptop and phone can do it (much less data, smoother over
+  Tailscale); otherwise as pictures, which also show the moment they arrive.
+- **Smart tap:** a tap a little off a small button, link or text box lands on it, and a green outline flashes on what
+  was hit. When zoomed in, taps are exact.
+- **Magnetic pointer:** while you control the laptop, the button under the pointer is outlined in blue, and the
+  pointer slows down over small buttons so it stops on them.
+- **Text boxes:** tap one and the view zooms to it and your phone keyboard opens.
+- **Keys row:** Esc, **Space** (pauses a video), Tab, Enter, and more.
+- **Messages:** shown whole over the screen. "Someone is using the laptop: phone control resumes in 7 s" counts down
+  live. A bug that made your own clicks look like someone at the laptop is fixed.
+
 **New on 2026-11-06: several tasks at once**
 - Give a new order while she works ("aur notepad bhi khol do"): it starts at once. Up to 3 tasks run together, and a 4th waits in line.
 - She reports each task by name when it finishes, and says what is still running. "Ruko" stops all of them. "Kya chal raha hai?" lists them.

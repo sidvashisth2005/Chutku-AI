@@ -15,6 +15,7 @@ someone else on the tailnet, a forgotten session and typing into dangerous place
 from __future__ import annotations
 
 import ctypes
+import math
 from ctypes import wintypes as w
 import threading
 import time
@@ -51,6 +52,12 @@ def last_input_tick():
     if not ctypes.windll.user32.GetLastInputInfo(ctypes.byref(info)):
         return None
     return info.dwTime
+
+
+def _tick_gap(a, b):
+    """a - b in ms for two GetTickCount values, signed and wrap-safe (Windows can stamp our own injected input one
+    16 ms tick before we note it; unsigned, that -16 became ~4.29 billion and our own click looked like a person)."""
+    return ((a - b + 0x80000000) & 0xFFFFFFFF) - 0x80000000
 
 
 def tick_now():
@@ -94,11 +101,13 @@ class ControlSession:
     """One live phone control session. Injectors are patchable for tests (no real input)."""
 
     def __init__(self, base, *, clock=time.monotonic, inject=None, log=None, locked=None, window=None,
-                 local_tick=None, now_tick=None, cursor=None):
+                 local_tick=None, now_tick=None, cursor=None, snap=None):
         import sys
         module = sys.modules[__name__]    # looked up now, so tests can patch the module's functions
         self.base, self.clock = base, clock
         self.cursor = cursor or module.cursor_pos
+        self.snap = snap or module.snap_target
+        self.busy = threading.Lock()      # the phone may send up to 3 batches at once: one at a time here, none lost
         self.started = self.last_used = clock()
         self.inject = inject or module.Injector()
         self.log = log or _action_log(base)
@@ -124,12 +133,13 @@ class ControlSession:
         if self.locked():
             raise ControlRefused("The laptop is locked: control stops (the Windows password is never typed remotely).")
         tick = self.local_tick()
-        if tick is not None and not any(abs((tick - t) & 0xFFFFFFFF) < 250 for t in self.our_ticks[-50:]):
+        if tick is not None and not any(abs(_tick_gap(tick, t)) < 250 for t in self.our_ticks[-50:]):
             # the newest input on the laptop was not ours: someone is at the laptop
             if (self.now_tick() - tick) & 0xFFFFFFFF < LOCAL_WINS_SECONDS * 1000:
                 self.paused_until = self.clock() + LOCAL_WINS_SECONDS
         if self.clock() < self.paused_until:
-            raise ControlRefused("Someone is using the laptop right now: phone control waits 10 s.")
+            wait = math.ceil(self.paused_until - self.clock())
+            raise ControlRefused(f"Someone is using the laptop: phone control resumes in {wait} s.")
         self.last_used = self.clock()
 
     def _mark(self):
@@ -146,10 +156,16 @@ class ControlSession:
     def pointer(self, events, monitor):
         """events: [{"kind": tap|double|right|move|down|up|scroll, "x": 0..1, "y": 0..1, "dy": int}].
         Z5 trackpad: {"kind": "nudge", "dx": px, "dy": px} moves from where the cursor is, and "at": "cursor" clicks
-        or scrolls where it is; both stay on the streamed monitor."""
+        or scrolls where it is; both stay on the streamed monitor.
+        Smart tap (owner 2026-11-08): a tap/double/right with "snap": r (0..1 of the monitor width) lands on the button,
+        link or field it was meant for within r; the answer's "target" says what was hit, so the phone can show it."""
+        with self.busy:
+            return self._pointer(events, monitor)
+
+    def _pointer(self, events, monitor):
         self._check()
         window = self.window()
-        done = 0
+        done, hit = 0, None
         for event in events[:60]:
             kind = event.get("kind")
             if kind not in {"tap", "double", "right", "move", "down", "up", "scroll", "nudge"}:
@@ -161,11 +177,21 @@ class ControlSession:
             else:
                 x, y = on_monitor(monitor, *self.cursor()) if event.get("at") == "cursor" else \
                     to_pixels(monitor, event.get("x"), event.get("y"))
+                radius = event.get("snap")
+                if kind in ("tap", "double", "right") and isinstance(radius, (int, float)) and not isinstance(radius, bool):
+                    snapped = self.snap(x, y, min(80.0, max(0.0, float(radius)) * monitor[2]), monitor)
+                    if snapped:
+                        x, y = on_monitor(monitor, snapped[0], snapped[1])
+                        hit = snapped[2]
                 self.inject.pointer(kind, x, y, int(event.get("dy", 0)))
             self._mark()
             done += 1
             if kind not in ("move", "nudge"):
-                self._log(kind, {"x": x, "y": y, "app": window.get("executable"), "title": window.get("title")})
+                self._log(kind, {"x": x, "y": y, "app": window.get("executable"), "title": window.get("title"),
+                                 **({"target": hit["kind"]} if hit else {})})
+        if hit:
+            from chutku.remote.targets import on_monitor as rect_on_monitor
+            return {"done": done, "target": rect_on_monitor(hit, monitor)}
         return {"done": done}
 
     # -- keyboard -------------------------------------------------------------------------------------------------
@@ -219,6 +245,11 @@ def _delta(value):
 def on_monitor(monitor, x, y):
     left, top, width, height = monitor
     return min(max(int(x), left), left + width - 1), min(max(int(y), top), top + height - 1)
+
+
+def snap_target(x, y, radius, monitor):
+    from chutku.remote import targets
+    return targets.snap(x, y, radius, monitor)
 
 
 def cursor_pos():

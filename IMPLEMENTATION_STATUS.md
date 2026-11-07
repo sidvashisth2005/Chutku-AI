@@ -16,6 +16,73 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08: Phone remote: smart tap, magnetic pointer, text-field zoom, H.264 video, Space key, whole messages
+- **Owner request:** add a Space key; make the pointer almost instant; fix "it shows someone is using the laptop" and
+  the message cut off with "..."; build smart tap, the magnetic pointer and text-field zoom with the keyboard; use
+  H.264 for smoother video; think of more such features.
+- **"Someone is using the laptop" was often our own click** (`control.py` `_tick_gap`). The check compared
+  GetTickCount values unsigned, so Windows stamping our injected click one 16 ms tick before we noted it (-16 ms)
+  became ~4.29 billion ms, and our own input paused control for 10 s. The difference is now signed and wrap-safe.
+  - Regression test: our click stamped 16 ms early → no pause; 3 s old → paused.
+  - The message now says how many seconds are left, e.g. "resumes in 7 s".
+- **Messages:** the status line is one line; a toast over the screen (`position: fixed`) now shows the whole message
+  wrapped for 4 s, and "resumes in N s" counts down live. Focusing the keyboard field no longer scrolls the page.
+- **Pointer:**
+  - Moves go out up to 3 requests at a time.
+  - `ControlSession.busy` applies batches one at a time on the laptop, so none is lost.
+  - Clicks and drags wait for the moves before them.
+- **Smart tap, magnetic pointer, text-field zoom** (`chutku/remote/targets.py`, new):
+  - The laptop reads its own buttons, links and fields through in-process Windows UI Automation (`comtypes==1.4.17`,
+    added to `pyproject.toml` and the hash-locked `requirements.lock`). Lookups take 2.5–5 ms warm, on one worker
+    thread; a lookup that runs too long is skipped.
+  - **Smart tap:** taps carry a finger's reach: 22 phone px in Tap-here mode, 10 in Trackpad mode. The reach is
+    shrunk by zoom and capped at 80 laptop px.
+    - A tap on a target clicks exactly there.
+    - A tap off a target clicks the middle of the nearest target in reach; for a field, the nearest point inside it.
+    - The answer names the target, and the phone flashes it.
+  - **Magnetic pointer:** while controlling, `/api/cursor/stream` also sends `event: hover` with the target under the
+    pointer (at most ~12 lookups a second). The phone outlines it and moves the pointer at 0.45x over small targets.
+  - **Text-field zoom:** a tap on a text field zooms until it is ~40 px tall (max 4x, whole field in view), puts it in
+    the upper third and opens the phone keyboard.
+- **H.264** (`server.py` `H264`, `/api/screen/h264`; `phone.js` `readVideo`):
+  - Encoder order: NVENC, then libx264, then Media Foundation. Measured on this laptop at 1280×720:
+    - NVENC 15.2 ms a frame, libx264 11.6 ms;
+    - every frame out at once;
+    - 4–7 KB a frame after a 35–41 KB keyframe, against ~100 KB for JPEG;
+    - AMF does not open here.
+  - The phone decodes with WebCodecs onto a canvas. If H.264 never worked on that phone or laptop, it falls back to the
+    JPEG stream and stays on it.
+  - A still screen is re-encoded 3 more times so it sharpens, then nothing is sent until it changes.
+- **Change detection:** both streams now checksum every pixel (`_changed`, zlib.crc32). The old sample of every 16th
+  row and column missed typed letters and the caret until the 2 s keep-alive.
+- **Keys row:** Space added, right after Esc.
+- **Verified:**
+  - `tests/test_phone_remote_w6.py`: 38 OK, including new tests for:
+    - our own early-stamped click;
+    - smart tap (lands on the target, reach capped at 80 px, drags and no-reach taps unchanged, logged);
+    - 3 concurrent batches of 20 moves → exactly 60 px;
+    - the target helpers;
+    - the hover event only while controlling (one lookup for a still pointer);
+    - the H.264 stream (packets parse completely, starts with a keyframe, decoded by PyAV at 640×360, ≥5 frames for
+      one-pixel changes; a one-pixel change changes the checksum).
+  - `scripts/verify_smart_tap.py` on real WinForms controls, 5/5:
+    - 12 px off a button → its middle (108 ms);
+    - on the button → exactly there;
+    - 70 px away with a 25 px reach → not moved;
+    - just below a text box → inside it, under the finger;
+    - hover finds the button.
+  - Playwright, real page against a fake laptop with a 90 ms delay, 15/15, stable over 4 runs:
+    - Space after Esc;
+    - at most 3 in flight, the tap after every move;
+    - phone and laptop pointer agree;
+    - outline at the button's size, 4.5 px for a 10 px move over it, 10 px off it;
+    - the tap's reach is sent and the hit flashes;
+    - a 288×30 field zooms to 40 px tall and fits, and the keyboard field gets focus;
+    - the whole message shows and counts 7 → 5 s.
+  - Edge with the real encoder (NVENC): colours shown in order, 22–65 ms from send to on-screen pixels. With H.264
+    refused (409), the page fell back to JPEG by itself, also in order.
+  - Pinch and pointer checks rerun: unchanged.
+
 ### 2026-11-07: Phone remote: the pointer moves on the phone instantly; frames show the moment they arrive
 - Owner: "the cursor still lags sometimes", and "see how similar apps do it".
 - **Cause 1, the pointer.** It was drawn into the video on the laptop, so every move waited for the input round

@@ -35,9 +35,11 @@
      the keyboard, keys, Chutku and files open over it, so you always see what you do. -->
 <main id="app" hidden>
   <div id="stage" class="stage" aria-label="Laptop screen: touch to move the mouse">
-    <div id="canvas" class="canvas"><img id="frame" alt="Laptop screen"><div id="cursor" class="cursor" hidden></div></div>
+    <div id="canvas" class="canvas"><img id="frame" alt="Laptop screen"><canvas id="video" hidden></canvas>
+      <div id="hilite" class="hilite" hidden></div><div id="flash" class="flash" hidden></div><div id="cursor" class="cursor" hidden></div></div>
     <div id="screen-note" class="note">Connecting to the laptop screen…</div>
   </div>
+  <div id="toast" class="toast" role="status" hidden></div>
   <div id="dock" class="dock">
     <div class="keys" id="keys"></div>
     <div class="toolbar">
