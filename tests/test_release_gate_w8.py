@@ -20,12 +20,20 @@ class ScanTests(unittest.TestCase):
                     bundle.writestr(name, data)
             return build.scan_zip(path, user=user)
 
+    @staticmethod
+    def pyc(source_path, constant):
+        import marshal
+        return b"\0" * 16 + marshal.dumps(compile(f"X = {constant!r}", source_path, "exec"))
+
     def test_a_clean_package_passes(self):
         self.assertEqual(self.scan({
             "LICENSE": "Copyright (c) 2026 Siddhant Vashisth",                     # the copyright line is allowed
             "chutku/app.pyc": b"chutku/app.py",
             "python/Lib/site-packages/x/data/table.csv": "1,2",                     # a wheel's own data/ folder
             "python/Lib/site-packages/x/_x.pyd": "C:\\Users\\asha\\build\\x.c",       # a wheel's own CI path
+            "bin/agent-desktop-win32-x64.exe": "C:\\Users\\asha\\work\\",             # a pinned helper's CI path
+            "python/Lib/site-packages/n/__pycache__/__config__.cpython-313.pyc": self.pyc(
+                "python/Lib/site-packages/n/__config__.py", "C:\\Users\\asha\\numpy-build\\"),   # data, not path
             "python/Lib/site-packages/c/ssh.pyc": b"-----BEGIN OPENSSH PRIVATE KEY-----\"",   # the marker alone
             "docs/USER_GUIDE.md": "C:\\Users\\ashaXYZ is not this user"}), [])
 
@@ -35,7 +43,8 @@ class ScanTests(unittest.TestCase):
             "chutku/web/app.js": f"const k = '{GROQ}';",
             "NOTICE": "made by Siddhant",
             "chutku/x.pyc": "D:\\Users\\asha\\Chutku\\stage\\chutku\\x.py",
-            "python/Lib/site-packages/y/__pycache__/y.pyc": "C:\\Users\\asha\\AppData\\Local\\Temp\\pip-target\\y.py",
+            "python/Lib/site-packages/y/__pycache__/y.pyc": self.pyc(
+                "C:\\Users\\asha\\AppData\\Local\\Temp\\pip-target\\y.py", "x"),
             "Chutku.exe": "C:\\Users\\asha\\".encode("utf-16-le"),
             "keys/id": "-----BEGIN RSA PRIVATE KEY-----\n" + "A" * 64})
         joined = "\n".join(problems)

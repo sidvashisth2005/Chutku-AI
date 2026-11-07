@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import marshal
 import os
 from pathlib import Path
 import re
@@ -307,8 +308,10 @@ OWNER = re.compile(rb"(?i)siddhant|vashisth|dubeypankaj")   # LICENSE carries th
 
 def scan_zip(path, user=None):
     """Problems found in a built zip: personal files by name, keys and the owner's name in any file's bytes, and the
-    builder's user folder (Users\\<name>\\, UTF-8 or UTF-16) in the files this build made: everything outside python/
-    and every .pyc (third-party wheels carry their own CI's paths, which say nothing about this PC). Empty = clean."""
+    builder's user folder (Users\\<name>\\, UTF-8 or UTF-16) where this build writes it: the files it makes (chutku/,
+    docs/, models/, the root) and the source path compiled into every .pyc. Third-party files (wheels, the pinned
+    bin/ helpers) carry their own CI's build paths, which say nothing about this PC (CI 2026-11-07: numpy's
+    __config__ and agent-desktop.exe name GitHub's runneradmin). Empty = clean."""
     user = user if user is not None else (os.environ.get("USERNAME") or os.environ.get("USER") or "")
     paths = []
     if user and user.casefold() not in {"public", "default"}:
@@ -328,7 +331,13 @@ def scan_zip(path, user=None):
                 problems.append(f"{name}: looks like a key or private key")
             if name != "LICENSE" and OWNER.search(data):
                 problems.append(f"{name}: the owner's name")
-            ours = not name.startswith("python/") or name.endswith(".pyc")
+            ours = "/" not in name or name.startswith(("chutku/", "docs/", "models/"))
+            if home is not None and name.endswith(".pyc") and not ours:
+                try:
+                    data = marshal.loads(data[16:]).co_filename.encode("utf-8")   # only what compileall wrote
+                except (ValueError, EOFError, TypeError, AttributeError):
+                    pass   # not loadable here: scan the bytes
+                ours = True
             if ours and home is not None and home.search(data):
                 problems.append(f"{name}: the builder's user folder (Users\\{user})")
     return problems

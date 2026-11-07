@@ -26,12 +26,12 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (239 registered, plus 144 app actions)
+### Risk levels and tools (243 registered, plus 144 app actions)
 
 | Level | Count | Meaning |
 |---|---|---|
-| R0 observation | 90 | reads only |
-| R1 reversible | 79 | easily undone (open apps or pages, window and media control) |
+| R0 observation | 92 | reads only |
+| R1 reversible | 81 | easily undone (open apps or pages, window and media control) |
 | R2 data modification | 30 | changes data, with runtime undo where available |
 | R3 external side effect | 33 | apps.close, apps.quit, browser.act_risky, browser.workflow, code.build_project, code.run_python, desktop.act_risky, email.send, evolve.approve, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, settings.theme_restore, settings.theme_set, skill.approve, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close, windows.close_this |
 | R4 destructive / privileged | 7 | filesystem.delete_permanent, network.adapter_restore, network.adapter_set, power.cancel, power.schedule, process.terminate, system.powershell |
@@ -80,6 +80,14 @@ tools` from `tools/package-lock.json` (npm integrity hashes), run as separate pr
   (`browser.act`) are not egress. Local and private
   addresses ask first; `file://` access is off. Commands go through `batch` with JSON on stdin. The daemon stops
   after 10 idle minutes. `browser.act`/`browser.type` need the `browser.input` capability (not granted by default).
+- App Mastery A14-A16 (W6, 2026-11-07):
+  - `desktop.do` (R1, `desktop.input`) acts on an element found by its name, through the same `desktop.act` code, so
+    send/delete/pay-like names are refused (only `desktop.act_risky` presses them, always confirmed). Routines may hold
+    such steps; they replay through `desktop.do` and the kernel like any step.
+  - `teach.start` (R0, `screen.observe`) reads one named window's UI Automation tree for at most 5 minutes;
+    `teach.stop` saves the changes as a routine. Password, PIN, OTP, CVV, protected and masked fields are never
+    recorded.
+  - `desktop.survey` (R0, `screen.observe`) lists window skeletons only and stores nothing.
 
 **App actions** (`app.<app>.<action>`, App Mastery, `chutku/apps/atlas/*.json`) take their risk from the atlas class: safe → R1, changes → R2, consequential → R3, destructive → R4 with `deletes` (always asks). The atlas validator refuses URI schemes and programs that are not the app's own and unknown step verbs; keys and typing are sent only while the app's own window is in front; every action ends with its own check, and the kernel, never-rules, taint rules, ledger and action log apply as to any tool. Instant routing by phrase (`chutku/apps/phrases.py`) only picks actions the Action Lab has verified on this PC, or (Z3, 2026-11-06) a safe parameter-free action that only focuses its app and presses a documented shortcut, unless its latest lab run failed; anything that changes something still needs the lab; anything else goes to the planner, which is offered an app's actions only when the request names that app. `apps.howto` (R0) reads only the checked-in feature maps (`docs/apps/*.md`), not web text.
 
