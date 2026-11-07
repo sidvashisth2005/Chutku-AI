@@ -93,6 +93,8 @@ Owner decisions are in `docs/DESIGN.md` §51.
   - Gestures 11/11 (double tap 149–165 ms apart at one spot in both modes; sideways scroll; three-finger swipes).
   - Earlier checks rerun: features 15/15, pinch both orientations, H.264 and fallback in order (13–108 ms).
   - Full suite: 1646 OK.
+  - Chutku restarted. The real server code on its own port with the real loopback: /api/screen/audio while a 440 Hz
+    tone played gave 73 packets, ~75 kbit/s, decoded 1.46 s, strongest 440 Hz.
   - **Not yet tried on the owner's real phone.**
 
 ### 2026-11-08: Phone remote: smart tap, magnetic pointer, text-field zoom, H.264 video, Space key, whole messages
