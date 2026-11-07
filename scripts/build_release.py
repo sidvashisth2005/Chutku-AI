@@ -142,7 +142,8 @@ def install_packages(stage, work):
     target.mkdir(parents=True, exist_ok=True)
     command = [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "--no-input", "--require-hashes",
                "--only-binary=:all:", "--platform", "win_amd64", "--python-version", "3.13", "--implementation", "cp",
-               "--abi", "cp313", "--no-deps", "--target", str(target), "-r", str(lock_without_test_pins(work))]
+               "--abi", "cp313", "--no-deps", "--no-compile",   # pip's .pyc would hold its temp path (user name, W8)
+               "--target", str(target), "-r", str(lock_without_test_pins(work))]
     done = subprocess.run(command, capture_output=True, text=True)
     if done.returncode != 0:
         raise BuildError("pip could not install the locked packages:\n" + done.stderr[-3000:])
@@ -155,8 +156,9 @@ def install_packages(stage, work):
     # written at run time (W2/W3), so Python must not need to rewrite them.
     # Not fatal: some wheels ship files that never compile (test fixtures, other Python versions); the launcher
     # sets PYTHONDONTWRITEBYTECODE, so those are simply read from source.
+    # -s: the build folder's path (it holds the builder's user name) is not written into each .pyc (W8).
     subprocess.run([sys.executable, "-m", "compileall", "-q", "-j", "0", "--invalidation-mode", "unchecked-hash",
-                    str(target)], capture_output=True, text=True)
+                    "-s", str(stage), str(target)], capture_output=True, text=True)
     return target
 
 
@@ -176,7 +178,8 @@ def install_source_only(target, work):
     built = sorted(wheels.glob("*.whl"))
     if any(not w.name.endswith("-py3-none-any.whl") and "-py2.py3-none-any" not in w.name for w in built):
         raise BuildError("A source-only package built a platform wheel; it cannot be cross-built for Windows.")
-    done = subprocess.run(pip + ["install", "--no-deps", "--no-index", "--target", str(target), *map(str, built)],
+    done = subprocess.run(pip + ["install", "--no-deps", "--no-index", "--no-compile", "--target", str(target),
+                                 *map(str, built)],
                           capture_output=True, text=True)
     if done.returncode != 0:
         raise BuildError("The built wheels did not install:\n" + done.stderr[-3000:])
@@ -203,8 +206,8 @@ def compile_chutku(stage):
                          f"Python (this is {sys.version.split()[0]}).")
     target = stage / "chutku"
     _copy_tree(ROOT / "chutku", target)
-    done = subprocess.run([sys.executable, "-m", "compileall", "-q", "-b", "-j", "0", str(target)],
-                          capture_output=True, text=True)
+    done = subprocess.run([sys.executable, "-m", "compileall", "-q", "-b", "-j", "0", "-s", str(stage), str(target)],
+                          capture_output=True, text=True)   # -s: no build path (user name) inside the .pyc (W8)
     if done.returncode != 0:
         raise BuildError("compileall failed:\n" + (done.stdout + done.stderr)[-3000:])
     for source in target.rglob("*.py"):
@@ -293,6 +296,44 @@ def check_stage(stage):
         raise BuildError("These must not be in the package: " + ", ".join(bad[:10]))
 
 
+# W8: what must never be inside a published zip. Key formats: Gemini, Groq, Cerebras, GitHub, OpenAI-style, PEM keys.
+PERSONAL_NAMES = re.compile(r"(?i)^(data|sandbox|\.git)/|(^|/)\.env$|(^|/)(conversations|heard|experience|feedback)"
+                            r"[^/]*\.jsonl$|actions\.log\.jsonl$|dashboard-session\.json$|(^|/)(History|Cookies)$")
+SECRETS = re.compile(rb"AIza[0-9A-Za-z_-]{35}|gsk_[0-9A-Za-z]{40,}|csk-[0-9a-z]{40,}|ghp_[0-9A-Za-z]{36}"
+                     rb"|github_pat_[0-9A-Za-z_]{60,}|sk-(?:proj-)?[0-9A-Za-z]{40,}"
+                     rb"|-----BEGIN [A-Z ]*PRIVATE KEY-----\r?\n[A-Za-z0-9+/=]{64}")   # a key body, not just the marker
+OWNER = re.compile(rb"(?i)siddhant|vashisth|dubeypankaj")   # LICENSE carries the copyright line on purpose
+
+
+def scan_zip(path, user=None):
+    """Problems found in a built zip: personal files by name, keys and the owner's name in any file's bytes, and the
+    builder's user folder (Users\\<name>\\, UTF-8 or UTF-16) in the files this build made: everything outside python/
+    and every .pyc (third-party wheels carry their own CI's paths, which say nothing about this PC). Empty = clean."""
+    user = user if user is not None else (os.environ.get("USERNAME") or os.environ.get("USER") or "")
+    paths = []
+    if user and user.casefold() not in {"public", "default"}:
+        for sep in ("\\", "/"):
+            text = f"Users{sep}{user}{sep}"
+            paths += [re.escape(text.encode()), re.escape(text.encode("utf-16-le"))]
+    home = re.compile(b"(?i)" + b"|".join(paths)) if paths else None
+    problems = []
+    with zipfile.ZipFile(path) as bundle:
+        for info in bundle.infolist():
+            name = info.filename
+            if PERSONAL_NAMES.search(name):
+                problems.append(f"{name}: personal state file")
+                continue
+            data = bundle.read(info)
+            if SECRETS.search(data):
+                problems.append(f"{name}: looks like a key or private key")
+            if name != "LICENSE" and OWNER.search(data):
+                problems.append(f"{name}: the owner's name")
+            ours = not name.startswith("python/") or name.endswith(".pyc")
+            if ours and home is not None and home.search(data):
+                problems.append(f"{name}: the builder's user folder (Users\\{user})")
+    return problems
+
+
 def make_zip(stage, out, ver):
     out.mkdir(parents=True, exist_ok=True)
     target = out / f"Chutku-{ver}-win64.zip"
@@ -321,6 +362,10 @@ def build(out, *, python_local=None, ver=None):
                                                        indent=1), encoding="utf-8")
         check_stage(stage)
         target = make_zip(stage, Path(out), ver)
+    problems = scan_zip(target)
+    if problems:
+        target.unlink()
+        raise BuildError("The package holds personal data or secrets (removed):\n" + "\n".join(problems[:20]))
     digest = sha256(target)
     (target.parent / (target.name + ".sha256")).write_text(f"{digest}  {target.name}\n", encoding="utf-8")
     return {"zip": str(target), "sha256": digest, "size": target.stat().st_size, "version": ver, "notes": notes}
@@ -344,12 +389,17 @@ def main(argv=None):
     parser.add_argument("--python-zip", help="a local embeddable zip (checked against the pin)")
     parser.add_argument("--version", help="override pyproject's version")
     parser.add_argument("--print-python-pin", action="store_true", help="print the newest 3.13 embeddable pin")
+    parser.add_argument("--scan", metavar="ZIP", help="scan a built zip for secrets and personal data (W8)")
     parser.add_argument("--latest-json", nargs=2, metavar=("ZIP", "TAG"), help="write latest.json next to ZIP")
     args = parser.parse_args(argv)
     try:
         if args.latest_json:
             print(json.dumps(latest_json(*args.latest_json), indent=1))
             return 0
+        if args.scan:
+            problems = scan_zip(args.scan)
+            print("\n".join(problems) or f"Scan clean: {args.scan}")
+            return 1 if problems else 0
         if args.print_python_pin:
             name, url = newest_embed()
             with tempfile.TemporaryDirectory() as temp:
