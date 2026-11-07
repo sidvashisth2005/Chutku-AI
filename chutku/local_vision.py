@@ -38,16 +38,16 @@ class VisionUnavailable(OSError):
 def files(base=PROJECT_ROOT):
     """(model, projector) paths after checking them against the pinned hashes (cached per file state)."""
     base = Path(base)
+    from chutku.core.paths import model_file, resource
     try:
-        entry = json.loads((base / "models/manifest.json").read_text(encoding="utf-8"))["vision"]
+        entry = json.loads(resource(base, "models/manifest.json").read_text(encoding="utf-8"))["vision"]
     except (OSError, ValueError, KeyError) as error:
         raise VisionUnavailable("No local vision model is set up.") from error
     paths = []
-    root = (base / "models").resolve()
     for key in ("model", "mmproj"):
         item = entry.get(key) or {}
-        path = (base / str(item.get("path", ""))).resolve()
-        if path.parent != root or not path.is_file() or not re.fullmatch(r"[0-9a-f]{64}", str(item.get("sha256"))):
+        path = model_file(base, item.get("path"))
+        if path is None or not path.is_file() or not re.fullmatch(r"[0-9a-f]{64}", str(item.get("sha256"))):
             raise VisionUnavailable("The local vision model files are missing.")
         from chutku.core import hashcache
         if not hashcache.matches(path, item["sha256"]):
@@ -93,7 +93,8 @@ class LocalVision:
         self.inflight = 0    # looks running now: never reaped or handed over mid-request
 
     def _runtimes(self):
-        vendor = self.base / "vendor"
+        from chutku.core.paths import resource
+        vendor = resource(self.base, "vendor")
         found = []
         # Vulkan: llama.cpp fits as many layers as the free graphics memory allows ("auto"); forcing all of them
         # failed on this PC (Brave and other apps keep ~0.7 GB of the 4 GB).

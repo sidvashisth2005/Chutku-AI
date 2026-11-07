@@ -15,6 +15,7 @@ import sys
 import threading
 
 from chutku.app import PROJECT_ROOT
+from chutku.core.paths import CODE_ROOT
 from chutku.tools.registry import EMPTY_ARGUMENT_SCHEMA, Risk, Tool, ToolResult, Verification
 
 _lock = threading.Lock()
@@ -101,7 +102,7 @@ def _set(arguments, _context):
         save(data)
     try:
         tasks = scheduler({"action": "register", "id": reminder_id, "at": when.strftime("%Y-%m-%dT%H:%M:00"),
-                           "python": str(python), "script": str(PROJECT_ROOT / "chutku" / "remind.py"),
+                           "python": str(python), "script": str(CODE_ROOT / "chutku" / "remind.py"),
                            "root": str(PROJECT_ROOT)})
     except OSError as error:
         with _lock:

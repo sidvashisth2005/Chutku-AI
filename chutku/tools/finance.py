@@ -19,7 +19,8 @@ from chutku.tools.registry import Risk, Tool, ToolResult, Verification
 
 SEARCH_URL = "https://query1.finance.yahoo.com/v1/finance/search?quotesCount=8&newsCount=0&q="
 CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{}?range=1d&interval=1d"
-CACHE = Path(__file__).resolve().parents[2] / "data" / "finance-cache.json"
+from chutku.core.paths import data_dir as _data_dir
+CACHE = _data_dir() / "finance-cache.json"
 MAX_SYMBOLS, MAX_NAMES = 200, 400
 _TICKER = re.compile(r"\^?[A-Z0-9][A-Z0-9&-]{0,14}(?:\.[A-Z]{1,3}|=[A-Z])?")
 _KINDS = {"EQUITY", "ETF", "INDEX", "MUTUALFUND"}

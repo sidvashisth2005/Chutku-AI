@@ -117,7 +117,8 @@ def semantic_command(message):
 def verify_local_artifacts(base=PROJECT_ROOT):
     """Verify the exact pinned executable and model before starting inference."""
     base = Path(base)
-    manifest_path = base / "models/manifest.json"
+    from chutku.core.paths import model_file, resource
+    manifest_path = resource(base, "models/manifest.json")
     try:
         if manifest_path.stat().st_size > 32768:
             raise ValueError("Local model manifest is oversized.")
@@ -134,12 +135,10 @@ def verify_local_artifacts(base=PROJECT_ROOT):
                 or not re.fullmatch(r"[0-9a-f]{64}", runtime_entry["executable_sha256"])
                 or not re.fullmatch(r"[0-9a-f]{64}", model_entry["sha256"])):
             raise ValueError("Local model metadata is incomplete or invalid.")
-        model_relative = Path(model_entry["path"])
-        models_root = (base / "models").resolve()
-        model = (base / model_relative).resolve()
-        if model_relative.is_absolute() or model.parent != models_root:
+        model = model_file(base, model_entry["path"])
+        if model is None:
             raise ValueError("Local model path must name one file directly inside models/.")
-        executable = base / "vendor/llama-b11181/llama-server.exe"
+        executable = resource(base, "vendor/llama-b11181/llama-server.exe")
         expected_executable = runtime_entry["executable_sha256"]
         expected_model = model_entry["sha256"]
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:

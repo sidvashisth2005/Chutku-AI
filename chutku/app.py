@@ -12,7 +12,8 @@ from chutku.tools.builtin import register_builtin_tools
 from chutku.tools.registry import ToolRegistry
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+from chutku.core.paths import home as _home
+PROJECT_ROOT = _home()   # W2: Chutku's state root (the repo itself in a git checkout)
 
 
 def create_runtime(base: Path = PROJECT_ROOT, grant_id: str = "sandbox") -> Runtime:

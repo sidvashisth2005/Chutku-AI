@@ -21,7 +21,8 @@ import secrets
 import threading
 import time
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from chutku.core.paths import home as _home
+PROJECT_ROOT = _home()   # W2: Chutku's state root (the repo itself in a git checkout)
 PAIR_SECONDS = 600
 PAIR_ATTEMPTS = 5
 MAX_DEVICES = 3

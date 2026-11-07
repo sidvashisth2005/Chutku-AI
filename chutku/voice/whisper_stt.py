@@ -40,15 +40,16 @@ def configured_model(base: Path = PROJECT_ROOT, key="stt"):
     key "stt_fast" (W3): faster-whisper large-v3-turbo on the GPU, used first when it is installed and loads."""
     from chutku.brain_service import directory_digest
     base = Path(base)
+    from chutku.core.paths import model_file, resource
     try:
-        manifest = json.loads((base / "models/manifest.json").read_text(encoding="utf-8"))
+        manifest = json.loads(resource(base, "models/manifest.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
     entry = manifest.get(key)
     if not isinstance(entry, dict):
         return None
-    directory = (base / str(entry.get("directory", ""))).resolve()
-    if directory.parent != (base / "models").resolve() or not directory.is_dir():
+    directory = model_file(base, entry.get("directory"))
+    if directory is None or not directory.is_dir():
         return None
     return {**entry, "path": directory}
 

@@ -13,7 +13,8 @@ import threading
 
 from chutku.tools.registry import EMPTY_ARGUMENT_SCHEMA, Risk, Tool, ToolResult, Verification
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+from chutku.core.paths import home as _home
+PROJECT_ROOT = _home()   # W2: Chutku's state root (the repo itself in a git checkout)
 MAX_ITEMS = 200
 _lock = threading.Lock()
 

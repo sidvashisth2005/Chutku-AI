@@ -25,7 +25,8 @@ import threading
 import time
 from urllib.parse import unquote, urlsplit
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+from chutku.core.paths import home as _home
+PROJECT_ROOT = _home()   # W2: Chutku's state root (the repo itself in a git checkout)
 VIDEO = {".mkv", ".mp4", ".avi", ".webm", ".mov", ".m4v", ".wmv", ".flv", ".ts"}
 SKIP_DIRS = {"windows", "program files", "program files (x86)", "programdata", "appdata", "$recycle.bin",
              "system volume information", "node_modules", ".git", ".venv", "site-packages"}
@@ -186,17 +187,55 @@ def frequent_apps(limit=25):
 # -- sites (Brave history, local copy) ----------------------------------------------------------------------------
 
 def brave_history_db():
-    return Path(os.environ.get("LOCALAPPDATA", "")) / "BraveSoftware" / "Brave-Browser" / "User Data" / "Default" / "History"
+    return history_db("brave")
+
+
+# Chromium browsers keep the same History database (W2: read the browser the owner actually uses).
+HISTORY_FOLDERS = {"brave": ("BraveSoftware", "Brave-Browser"), "chrome": ("Google", "Chrome"),
+                   "edge": ("Microsoft", "Edge")}
+PROG_IDS = (("BraveHTML", "brave"), ("ChromeHTML", "chrome"), ("MSEdgeHTM", "edge"), ("FirefoxURL", "firefox"))
+
+
+def default_browser(read_prog_id=None):
+    """The system default browser from the http UrlAssociations ProgId: brave, chrome, edge, firefox or None."""
+    try:
+        prog_id = read_prog_id() if read_prog_id else _http_prog_id()
+    except OSError:
+        return None
+    return next((name for prefix, name in PROG_IDS if str(prog_id or "").startswith(prefix)), None)
+
+
+def _http_prog_id():
+    import winreg
+    key = r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice"
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as handle:
+        return winreg.QueryValueEx(handle, "ProgId")[0]
+
+
+def history_db(browser=None, base=None):
+    """The History file of `browser`, or of the owner's chosen one ("default" = the system default browser).
+    None for browsers whose history Chutku does not read (Firefox keeps a different format)."""
+    if browser is None:
+        from chutku.core.preferences import Preferences
+        browser = Preferences(Path(base or PROJECT_ROOT)).load().get("browser", "brave")
+    if browser == "default":
+        browser = default_browser()
+    folder = HISTORY_FOLDERS.get(browser or "")
+    if folder is None:
+        return None
+    return Path(os.environ.get("LOCALAPPDATA", "")).joinpath(*folder, "User Data", "Default", "History")
 
 
 def frequent_sites(days=30, limit=40, db=None):
-    source = Path(db) if db else brave_history_db()
+    source = Path(db) if db else history_db()
+    if source is None:
+        return []
     if not source.is_file():
         return []
     with tempfile.TemporaryDirectory() as temp:
         copy = Path(temp) / "History"
         try:
-            shutil.copy2(source, copy)        # Brave keeps the live file locked
+            shutil.copy2(source, copy)        # the browser keeps the live file locked
         except OSError:
             return []
         cutoff = int(((datetime.utcnow() - timedelta(days=days)) - datetime(1601, 1, 1)).total_seconds() * 1_000_000)

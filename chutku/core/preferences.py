@@ -14,6 +14,16 @@ DEFAULTS = {"handsfree_mode": "owner", "wake_word": False, "conversation": False
             "timeline": False, "timeline_private": [], "voice_engine": "kokoro", "stt_language": "en",
             "heard_ambient_until": 0.0, "brain": "cloud_first", "follow_up_seconds": 8.0, "presence_overlay": True,
             "media_folders": [], "evolve_push": False, "reply_style": "normal"}
+# W2: a new installed app starts safer and with the user's own browser. A git checkout (the owner's PC, the tests)
+# keeps DEFAULTS, so an existing install never changes behaviour.
+NEW_INSTALL = {"handsfree_mode": "auto_safe", "browser": "default"}
+
+
+def defaults() -> dict:
+    from chutku.core.paths import is_checkout
+    return dict(DEFAULTS) if is_checkout() else DEFAULTS | NEW_INSTALL
+
+
 STT_LANGUAGES = {"en", "en|hi"}
 BRAINS = {"cloud_first", "local"}
 REPLY_STYLES = {"normal", "formal", "short", "masti"}   # H17
@@ -42,7 +52,7 @@ class Preferences:
                 raw = json.loads(self.path.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 raw = {}
-            values = dict(DEFAULTS)
+            values = defaults()
             if raw.get("handsfree_mode") in _MODES:
                 values["handsfree_mode"] = raw["handsfree_mode"]
             if type(raw.get("wake_word")) is bool:

@@ -16,7 +16,8 @@ import time
 
 from chutku.core.paths import protected_zones
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+from chutku.core.paths import home as _home
+PROJECT_ROOT = _home()   # W2: Chutku's state root (the repo itself in a git checkout)
 MAX_ENTRIES = 2_000_000          # shortcut: one build stops here, about 300 MB of names; raise if a PC has more files
 MAX_SECONDS = 15 * 60
 

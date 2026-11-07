@@ -19,7 +19,9 @@ import re
 import threading
 import time
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+from chutku.core.paths import home as _home
+from chutku.core.paths import CODE_ROOT
+PROJECT_ROOT = _home()   # W2: Chutku's state root (the repo itself in a git checkout)
 ROTATE_BYTES = 20_000_000
 _lock = threading.Lock()
 _STOP = {"the", "a", "an", "to", "of", "and", "or", "is", "it", "in", "on", "for", "me", "my", "i", "you", "do",
@@ -71,7 +73,7 @@ def script_goals():
         found = set()
         for name, variable in (("live_check.py", "CASES"), ("time_live_chat.py", "QUESTIONS")):
             try:
-                tree = ast.parse((PROJECT_ROOT / "scripts" / name).read_text(encoding="utf-8"))
+                tree = ast.parse((CODE_ROOT / "scripts" / name).read_text(encoding="utf-8"))
             except (OSError, SyntaxError, ValueError):
                 continue
             for node in ast.walk(tree):

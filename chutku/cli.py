@@ -153,7 +153,8 @@ def _wake_command(namespace):
             print(f"No detector yet (run 'wake train'). Clips saved: {clips}.")
         return
     if namespace.wake_action == "train":
-        sys.exit(subprocess.call([sys.executable, str(PROJECT_ROOT / "scripts" / "train_wake.py")]))
+        from chutku.core.paths import CODE_ROOT
+        sys.exit(subprocess.call([sys.executable, str(CODE_ROOT / "scripts" / "train_wake.py")]))
     import numpy as np
     import sounddevice as sd
     from chutku.voice.handsfree import chime

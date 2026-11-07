@@ -7,6 +7,8 @@ import sqlite3
 import sys
 import tomllib
 
+from chutku.core.paths import resource
+
 
 def inspect_foundation(base):
     base = Path(base).resolve()
@@ -19,9 +21,9 @@ def inspect_foundation(base):
     elevated = is_elevated()
     add("Not elevated", not elevated, ELEVATED_REASON if elevated else "Normal user rights; Windows ACLs protect system folders")
     for name in ("pyproject.toml", "requirements.lock", "THIRD_PARTY_LICENSES.md", "models/manifest.json"):
-        add("Project " + name, (base / name).is_file(), "Required reproducibility and licensing record")
+        add("Project " + name, resource(base, name).is_file(), "Required reproducibility and licensing record")
     try:
-        project = tomllib.loads((base / "pyproject.toml").read_text(encoding="utf-8"))
+        project = tomllib.loads(resource(base, "pyproject.toml").read_text(encoding="utf-8"))
         direct = {}
         for dependency in project["project"]["dependencies"]:
             match = re.fullmatch(r"([A-Za-z0-9_.-]+)==([A-Za-z0-9_.+-]+)", dependency)
@@ -29,7 +31,7 @@ def inspect_foundation(base):
                 raise ValueError
             direct[match[1].casefold()] = match[2]
         locked = {}
-        text = (base / "requirements.lock").read_text(encoding="utf-8")
+        text = resource(base, "requirements.lock").read_text(encoding="utf-8")
         for line in re.sub(r"\\\r?\n\s*", " ", text).splitlines():   # a pin and its --hash lines are one line
             parts = line.split()
             if not parts or parts[0].startswith("#"):
@@ -43,8 +45,8 @@ def inspect_foundation(base):
         lock_aligned = False
     add("Dependency lock alignment", lock_aligned, "Every direct dependency is exact and matches requirements.lock")
     try:
-        ledger = (base / "THIRD_PARTY_LICENSES.md").read_text(encoding="utf-8").casefold()
-        manifest = json.loads((base / "models/manifest.json").read_text(encoding="utf-8"))
+        ledger = resource(base, "THIRD_PARTY_LICENSES.md").read_text(encoding="utf-8").casefold()
+        manifest = json.loads(resource(base, "models/manifest.json").read_text(encoding="utf-8"))
         license_coverage = (all(name in ledger for name in ("numpy", "sounddevice", "llama.cpp", "qwen"))
                             and all(isinstance(manifest[section].get("license"), str)
                                     and manifest[section]["license"] for section in ("runtime", "model"))
@@ -57,7 +59,7 @@ def inspect_foundation(base):
     reparse = root.exists() and getattr(root.lstat(), "st_file_attributes", 0) & 0x400
     add("Granted root", not root.is_symlink() and not reparse and (not root.exists() or root.is_dir()), str(root))
     for name in ("index.html", "style.css", "app.js"):
-        add("Dashboard " + name, (base / "chutku/web" / name).is_file(), "Bundled local asset")
+        add("Dashboard " + name, resource(base, "chutku/web/" + name).is_file(), "Bundled local asset")
     for name in ("chutku.db", "operations.db", "memory.db", "resource_grants.db"):
         path = base / "data" / name
         if not path.exists():
@@ -89,10 +91,10 @@ def inspect_foundation(base):
         add("tkinter", True, "HUD available", required=False)
     except ImportError:
         add("tkinter", False, "Missing: the HUD will not show; the dashboard still works", required=False)
-    model_ready = (base / "models/Qwen3-4B-Q4_K_M.gguf").is_file() and (base / "vendor/llama-b11181/llama-server.exe").is_file()
+    model_ready = resource(base, "models/Qwen3-4B-Q4_K_M.gguf").is_file() and resource(base, "vendor/llama-b11181/llama-server.exe").is_file()
     add("Local model artifacts", model_ready, "Presence only; integrity/inference require separate verification", required=False)
     try:
-        manifest = json.loads((base / "models/manifest.json").read_text(encoding="utf-8"))
+        manifest = json.loads(resource(base, "models/manifest.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         manifest = {}
     extras = {"stt": ("Offline speech (Whisper)", "directory"), "strong": ("Offline backup planner (8B)", "path"),
@@ -103,10 +105,10 @@ def inspect_foundation(base):
             add(label, False, "Not set up (optional); scripts/setup_all.py reports how to add it", required=False)
             continue
         if field is None:
-            present = all((base / str((entry.get(part) or {}).get("path", "")).replace("\\", "/")).is_file()
+            present = all(resource(base, str((entry.get(part) or {}).get("path", "")).replace("\\", "/")).is_file()
                           for part in ("model", "mmproj"))
         else:
-            present = (base / str(entry.get(field, "")).replace("\\", "/")).exists()
+            present = resource(base, str(entry.get(field, "")).replace("\\", "/")).exists()
         add(label, present, "Present (presence only; scripts/setup_all.py checks the hashes)" if present else
             "Missing files; run scripts/setup_all.py", required=False)
     return {"project": str(base), "python": sys.executable,
@@ -214,9 +216,9 @@ def repair(base, *, fix=False, brain=None):
 
     # 5. Model files: presence against the manifest; hashes are checked by scripts/setup_all.py (never re-downloaded).
     try:
-        manifest = json.loads((base / "models/manifest.json").read_text(encoding="utf-8"))
+        manifest = json.loads(resource(base, "models/manifest.json").read_text(encoding="utf-8"))
         missing = [key for key, entry in manifest.items() if isinstance(entry, dict) and entry.get("path")
-                   and not (base / str(entry["path"]).replace("\\", "/")).exists()]
+                   and not resource(base, str(entry["path"]).replace("\\", "/")).exists()]
         row("Model files", "report" if missing else "ok",
             ("Missing: " + ", ".join(missing) + " (run scripts/setup_all.py)") if missing else "All listed files present")
     except (OSError, ValueError, AttributeError):

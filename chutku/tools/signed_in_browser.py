@@ -33,7 +33,8 @@ from chutku.tools.registry import Risk, Tool, ToolResult, Verification
 from chutku.tools.screen_vision import RISKY
 
 ROOT = Path(__file__).resolve().parents[2]
-PROFILE = ROOT / "data" / "browser-profile"
+from chutku.core.paths import data_dir as _data_dir
+PROFILE = _data_dir() / "browser-profile"   # W2: the signed-in profile is user data
 SESSION = "chutku-signed-in"
 IDLE_MS = 10 * 60 * 1000
 TIMEOUT = 60

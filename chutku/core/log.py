@@ -13,7 +13,8 @@ import re
 import secrets
 import threading
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from chutku.core.paths import home as _home
+_PROJECT_ROOT = _home()   # W2: logs live in the state root
 _lock = threading.Lock()
 _configured = False
 _SENSITIVE = re.compile(r"""(["']?(?:text|content|message|arguments|phone|token|key|api_key|password)["']?\s*[:=]\s*)"""

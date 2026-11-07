@@ -48,8 +48,16 @@ def icon_bytes(sizes=(16, 32, 48)) -> bytes:
     return directory + entries + b"".join(images)
 
 
-def ensure_icon(path: Path = ICON_PATH) -> Path:
+def ensure_icon(path: Path | None = None) -> Path:
+    """The icon file, written only when it is missing or stale. W2: an installed app never writes into its own
+    folder; the bundled icon is used when it is current, else a copy goes to the user's data folder."""
+    from chutku.core.paths import data_dir, is_checkout
     data = icon_bytes()
+    if path is None:
+        if ICON_PATH.is_file() and ICON_PATH.read_bytes() == data:
+            return ICON_PATH
+        path = ICON_PATH if is_checkout() else data_dir() / "chutku.ico"
     if not path.exists() or path.read_bytes() != data:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
     return path

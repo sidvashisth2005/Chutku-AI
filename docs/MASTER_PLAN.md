@@ -994,7 +994,7 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 ---
 # Phase 9: Chutku 1.0 (owner 2026-11-07; spec `docs/WEB_CLAUDE_TASKS.md`; W-numbers are this phase's own)
 - [x] W1 (2026-11-07, Linux tests): skill.import runs nothing until approve (README untrusted); backup restore skips security state (`--include-security` + typed YES)
-- [ ] W2 (P2): data outside the app folder (`paths.home()`)
+- [x] W2 (P2, 2026-11-07, Linux tests + windows-latest CI): data outside the app folder (`paths.home()`); the owner's checkout is unchanged
 - [ ] W3 (P3): app package + `Chutku.exe` launcher
 - [ ] W4 (P4): `ChutkuSetup.exe` + release workflow
 - [ ] W5 (P5): first-run setup page

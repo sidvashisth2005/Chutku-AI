@@ -36,7 +36,8 @@ STEP_GLYPH = {"COMPLETED": ("✓", "#34d399"), "FAILED": ("✗", "#fb7185"), "DE
 W, H = 460, 640
 HIDE_AFTER = 14.0
 ZOOM_MIN, ZOOM_MAX, ZOOM_STEP = 0.55, 1.3, 0.15
-LAYOUT_FILE = Path(__file__).resolve().parents[1] / "data" / "hud.json"
+from chutku.core.paths import data_dir as _data_dir
+LAYOUT_FILE = _data_dir() / "hud.json"   # W2: never inside the app folder
 
 
 def _blend(a, b, t):

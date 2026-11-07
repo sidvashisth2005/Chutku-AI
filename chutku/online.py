@@ -20,7 +20,8 @@ def offline_mode(base=None):
     from pathlib import Path
     from chutku.core.preferences import Preferences
     try:
-        return bool(Preferences(Path(base) if base else Path(__file__).resolve().parents[1]).load()
+        from chutku.core.paths import home
+        return bool(Preferences(Path(base) if base else home()).load()
                     .get("offline_mode", False))
     except (OSError, ValueError):
         return False

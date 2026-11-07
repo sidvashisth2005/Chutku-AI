@@ -9,8 +9,9 @@ from pathlib import Path
 import subprocess
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # the code folder (run as a script by the scheduler)
+from chutku.core.paths import home as _home   # noqa: E402
+ROOT = _home()   # W2: reminders live in the state root
 from chutku.health import TOAST_SHOW, powershell_exe  # noqa: E402  (after the path is set)
 
 _TOAST = r'''

@@ -17,7 +17,8 @@ import os
 from pathlib import Path
 import re
 
-ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
+from chutku.core.paths import home as _home
+ENV_PATH = _home() / ".env"   # W2: the assistant's name etc. live with the user's data
 DEFAULTS = {"ASSISTANT_NAME": "Chutku", "ASSISTANT_GENDER": "female", "ASSISTANT_LANGUAGE": "hinglish",
             "ASSISTANT_STYLE": "warm", "CHUTKU_RELAY_URL": "", "CHUTKU_ACCOUNT_ID": ""}
 CHOICES = {"ASSISTANT_GENDER": ("female", "male", "neutral"), "ASSISTANT_LANGUAGE": ("hinglish", "english", "hindi"),

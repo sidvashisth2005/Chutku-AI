@@ -22,7 +22,8 @@ from pathlib import Path
 import sys
 import threading
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+from chutku.core.paths import home as _home
+PROJECT_ROOT = _home()   # W2: Chutku's state root (the repo itself in a git checkout)
 FULL = (360, 600)
 BAR = (300, 40)
 TOGGLE_KEY = ("Ctrl+Alt+C", 0x0002 | 0x0001 | 0x4000, ord("C"))   # MOD_CONTROL | MOD_ALT | MOD_NOREPEAT

@@ -16,6 +16,46 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: W2 (cloud session): data outside the app folder
+
+**What changed**
+- `chutku/core/paths.py` has new helpers:
+  - `home()`: `CHUTKU_HOME`, else the repo root in a git checkout (`.git` exists), else `%LOCALAPPDATA%\Chutku`;
+  - `data_dir()` and `models_dir()`;
+  - `resource(base, rel)`: a bundled file (manifest, `vendor/`, essential models, web, licence records) falls back to
+    the code folder only when `base` is the real home, so tests that pass their own base see only their own files;
+  - `model_file(base, rel, nested=)`: one containment check for the user's and the bundled `models/`.
+- Every state root moved to `home()`:
+  - modules: `app.PROJECT_ROOT`, mind, recall, notes, learning, routines, suggest, know_me, providers, presence,
+    control_intent, drive_index, memory_index, apps/known, voice/heard, remote/auth, core/log;
+  - single paths: `hud.LAYOUT_FILE`, `identity.ENV_PATH` (`.env`), `finance.CACHE`, `remind.py`, the signed-in
+    browser profile, `online.py`, the `everyday.py` browser preference, the lab's verified actions;
+  - models, `vendor/` and the manifest in brain/brain_service/local_vision/whisper/memory_index/doctor read through
+    `resource`/`model_file`; the Kokoro voice is a downloadable pack.
+- Code paths stay with the code: `CODE_ROOT` for `remind.py` in the scheduler task, `scripts/`, the presence child's
+  cwd (it was the project root, which only worked because code and data were one folder) and Evolve's git work.
+- `icon.ensure_icon` uses the bundled icon when current, else writes to `data_dir()` (never into `chutku/web` of a
+  package).
+- Protected zones add `home()`; the exempt sandbox is `home()/sandbox`.
+- New installs only (not a git checkout): `handsfree_mode` = `auto_safe` and browser = `default` (the system browser);
+  an existing `preferences.json` keeps its values.
+- `know_me.history_db()` reads the chosen browser's history; `default` uses the `http` UrlAssociations ProgId
+  (Brave/Chrome/Edge; Firefox is not read).
+- CI also runs on pushes to `claude/**` so cloud branches are proven on `windows-latest`.
+
+**Evidence (Linux)**
+- `tests/test_home_w2.py`: 12 tests, 2 Windows-only.
+  - `home()` rules, `resource` fallback (real home only), `model_file` refuses `../`, absolute and empty paths.
+  - Home in the protected zones; new-install defaults off in a checkout and an existing file kept.
+  - Default-browser mapping; icon to `data/` in a package.
+  - A child process with `CHUTKU_HOME` = temp imports dashboard/cli/guard/presence/remind/finance, registers every
+    tool and writes preferences, a conversation, a log, routines, `.env` and the board. All 6 files landed in the
+    temp home; the code folder's file list is unchanged.
+- Full suite: 1,539 tests; the failing set is identical to the Linux baseline (583, Windows-only).
+- **Needs the Windows check** (in the CI job on `windows-latest`):
+  - the dashboard start/stop plus a text command writes nothing under the code folder;
+  - home's protection and sandbox exemption.
+
 ### 2026-11-07: W1 (cloud session): imported skills run nothing until approve; restore skips security state
 
 **What changed**

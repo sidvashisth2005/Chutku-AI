@@ -28,7 +28,8 @@ _KINDS = [
     ("presence", r"(?:are you there|you there|suno|sun rahe ho|sun raha hai|hello\?|chutku\??|wake up|jaago)"),
 ]
 _COMPILED = [(kind, re.compile(_P + words + _T, re.I)) for kind, words in _KINDS]
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+from chutku.core.paths import home as _home
+PROJECT_ROOT = _home()   # W2: Chutku's state root (the repo itself in a git checkout)
 
 HELP_TEXT = ("Just tell me, in English or Hinglish: open or close apps, play music, volume, WhatsApp people I know "
              "(\"mammi ko good night bhejo\"), files by path, PC checks (battery, space, internet), any shortcut or a "

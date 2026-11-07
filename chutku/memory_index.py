@@ -13,7 +13,8 @@ from pathlib import Path
 import sqlite3
 import threading
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+from chutku.core.paths import home as _home
+PROJECT_ROOT = _home()   # W2: Chutku's state root (the repo itself in a git checkout)
 MAX_TOKENS = 128
 _lock = threading.Lock()
 _model = {"key": None, "session": None, "tokenizer": None}
@@ -25,15 +26,17 @@ class EmbeddingsUnavailable(OSError):
 
 def _files(base):
     try:
-        entry = json.loads((Path(base) / "models/manifest.json").read_text(encoding="utf-8"))["embed"]
+        from chutku.core.paths import resource
+        entry = json.loads(resource(base, "models/manifest.json").read_text(encoding="utf-8"))["embed"]
     except (OSError, ValueError, KeyError) as error:
         raise EmbeddingsUnavailable("No embedding model is set up.") from error
     from chutku.core import hashcache
     paths = {}
     for part in ("model", "tokenizer"):
         item = entry[part]
-        path = (Path(base) / item["path"]).resolve()
-        if not path.is_relative_to((Path(base) / "models").resolve()) or not path.is_file():
+        from chutku.core.paths import model_file
+        path = model_file(base, item["path"], nested=True)
+        if path is None or not path.is_file():
             raise EmbeddingsUnavailable("The embedding model files are missing.")
         if not hashcache.matches(path, item["sha256"]):
             raise EmbeddingsUnavailable(f"{path.name} does not match its pinned hash; not loading it.")

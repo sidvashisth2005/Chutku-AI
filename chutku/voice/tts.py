@@ -14,9 +14,11 @@ import re
 import threading
 import time
 
-ROOT = Path(__file__).resolve().parents[2]
-MODEL = ROOT / "models" / "kokoro" / "kokoro-v1.0.onnx"
-VOICES = ROOT / "models" / "kokoro" / "voices-v1.0.bin"
+from chutku.core.paths import home as _home, resource as _resource
+# W2: a downloaded voice pack lives in the user's models folder; a bundled one next to the code.
+# shortcut: resolved once at import; a pack downloaded while Chutku runs is used after the next start.
+MODEL = _resource(_home(), "models/kokoro/kokoro-v1.0.onnx")
+VOICES = _resource(_home(), "models/kokoro/voices-v1.0.bin")
 VOICE = "hf_alpha"
 MAX_CHARS = 1000
 _DEVANAGARI = re.compile(r"[ऀ-ॿ]")

@@ -874,8 +874,8 @@ def _single(goal, apps=None):
         from chutku.apps import known as _known
         name = next((k for k in _known.known("spotify", "playlist") if _known.norm(k) == _known.norm(name)), name)
         from chutku.apps.lab import verified_actions
-        from pathlib import Path as _Path
-        proven = "play_playlist" in verified_actions(_Path(__file__).resolve().parents[1]).get("spotify", ())
+        from chutku.core.paths import home as _home
+        proven = "play_playlist" in verified_actions(_home()).get("spotify", ())
         if proven and asked and 2 <= len(name) <= 60 and not re.match(r"(?:what|which|how|kya|kaun)\b", name, re.I):
             return _proposal("app.spotify.play_playlist", {"name": name}, f"Play the {name} playlist",
                              f"{name} playlist chala di.")

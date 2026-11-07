@@ -9,7 +9,8 @@ from pathlib import Path
 import re
 import threading
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from chutku.core.paths import home as _home
+PROJECT_ROOT = _home()   # W2: Chutku's state root (the repo itself in a git checkout)
 REMEMBERED = {("spotify", "play_playlist"): "playlist", ("spotify", "play_artist"): "artist",
               ("spotify", "play_album"): "album"}
 _lock = threading.Lock()

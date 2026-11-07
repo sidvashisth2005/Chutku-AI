@@ -609,7 +609,8 @@ def preferred_browser():
     """The owner's browser for web tools (dashboard setting; Brave since 2026-10-04)."""
     from chutku.core.preferences import Preferences
     try:
-        return Preferences(Path(__file__).resolve().parents[2]).load().get("browser", "brave")
+        from chutku.core.paths import home
+        return Preferences(home()).load().get("browser", "brave")
     except (OSError, ValueError):
         return "brave"
 

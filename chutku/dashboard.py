@@ -1149,8 +1149,9 @@ class DashboardServer(ThreadingHTTPServer):
         import subprocess
         import sys
         try:
+            from chutku.core.paths import CODE_ROOT   # W2: -m finds chutku from the code folder, not the data
             self.presence_process = subprocess.Popen([sys.executable, "-m", "chutku.presence", self.url],
-                                                     cwd=str(PROJECT_ROOT),
+                                                     cwd=str(CODE_ROOT),
                                                      creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         except OSError:
             _log().exception("the presence window could not start; using the HUD")

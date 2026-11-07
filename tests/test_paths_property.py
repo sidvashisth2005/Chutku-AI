@@ -24,7 +24,7 @@ class ProtectedZoneProperties(unittest.TestCase):
     def test_anything_inside_a_protected_zone_is_refused(self, zone, parts):
         target = Path(zone).joinpath(*parts)
         if any(target.resolve().as_posix().casefold().startswith(Path(e).resolve().as_posix().casefold())
-               for e in (paths._PROJECT_ROOT / "sandbox", Path(__import__("tempfile").gettempdir()))):
+               for e in (paths.home() / "sandbox", Path(__import__("tempfile").gettempdir()))):
             return   # Chutku's own scratch and %TEMP% (inside AppData) are the documented exceptions
         self.assertIsNotNone(paths.protection_reason(target), str(target))
 

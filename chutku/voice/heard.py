@@ -20,7 +20,8 @@ import re
 import threading
 import time
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from chutku.core.paths import home as _home
+PROJECT_ROOT = _home()   # W2: Chutku's state root (the repo itself in a git checkout)
 FLOOR_MIN, OPEN_RATIO, SPEAKING_FLOOR, SPEAKING_RATIO = 0.008, 3.0, 0.03, 2.5
 HANGOVER_SECONDS, PREROLL_SECONDS = 0.5, 0.2
 KEEP_DAYS = 7

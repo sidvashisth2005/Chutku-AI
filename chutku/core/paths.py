@@ -15,7 +15,60 @@ _RESERVED = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"} | {
 
 PATH_ARGUMENTS = ("path", "source", "destination")
 _PATH_NAME = re.compile(r"(^|_)(path|paths|folder|directory|dir|file|source|destination|target|output|location)$")
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+CODE_ROOT = Path(__file__).resolve().parents[2]   # the code folder: chutku/, vendor/, bundled models, web, docs
+
+
+# -- W2: where Chutku keeps its state ----------------------------------------------------------------------------
+# The owner's PC runs from a git checkout with data/ inside it, and keeps doing so unchanged. An installed package
+# keeps the user's data in %LOCALAPPDATA%/Chutku, so the app folder is never written to and an upgrade can replace it.
+
+def is_checkout() -> bool:
+    """Running from a git checkout (a developer or the owner's PC), not from an installed package."""
+    return (CODE_ROOT / ".git").exists()
+
+
+def home() -> Path:
+    """Chutku's state root: CHUTKU_HOME if set; else the repo root in a git checkout; else %LOCALAPPDATA%/Chutku."""
+    configured = os.environ.get("CHUTKU_HOME")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    if is_checkout():
+        return CODE_ROOT
+    local = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
+    return Path(local) / "Chutku"
+
+
+def data_dir() -> Path:
+    return home() / "data"
+
+
+def models_dir() -> Path:
+    return home() / "models"
+
+
+def resource(base, relative) -> Path:
+    """A file Chutku reads that may be bundled with the app (models/manifest.json, vendor/, the essential models).
+
+    For the real home, a file missing there is taken from the code folder. A test's own base never falls back, so
+    tests see exactly the files they made. In a git checkout home and code are the same folder."""
+    path = Path(base) / relative
+    if path.exists() or Path(base).resolve() != home().resolve():
+        return path
+    return CODE_ROOT / relative
+
+
+def model_file(base, relative, *, nested=False):
+    """The resolved path of a model named in models/manifest.json, or None when it leaves the models folders.
+
+    Allowed: <base>/models (downloads) and the bundled <code>/models. nested=False wants a file or folder directly
+    inside models/; nested=True allows sub-folders (e.g. models/embed/model.onnx)."""
+    if not relative or Path(str(relative)).is_absolute():
+        return None
+    path = resource(base, str(relative)).resolve()
+    roots = {(Path(base) / "models").resolve(), (CODE_ROOT / "models").resolve()}
+    inside = any(path.is_relative_to(root) and path != root for root in roots) if nested else path.parent in roots
+    return path if inside else None
+
 _DRIVE_ROOT_DIRS = {"windows", "program files", "program files (x86)", "programdata", "system volume information",
                     "$recycle.bin", "recovery", "boot", "efi", "config.msi", "$windows.~bt", "$windows.~ws",
                     "$winreagent", "msocache", "perflogs", "documents and settings"}
@@ -90,7 +143,8 @@ def protected_zones() -> list[str]:
     profile = os.environ.get("USERPROFILE")
     if profile and _norm(os.path.join(profile, "AppData")) != _norm(appdata or ""):
         zones.append(os.path.join(profile, "AppData"))
-    zones.append(str(_PROJECT_ROOT))
+    zones.append(str(CODE_ROOT))
+    zones.append(str(home()))   # W2: the user's data folder is Chutku's own runtime area too
     result = []
     for zone in zones:
         try:
@@ -103,7 +157,7 @@ def protected_zones() -> list[str]:
 def protection_reason(target: Path) -> str | None:
     """Return why a resolved target is in a protected system zone, else None."""
     resolved = _norm(Path(target).resolve())
-    exempt = [_norm((_PROJECT_ROOT / "sandbox").resolve()), _norm(Path(tempfile.gettempdir()).resolve())]
+    exempt = [_norm((home() / "sandbox").resolve()), _norm(Path(tempfile.gettempdir()).resolve())]
     if any(_within(resolved, item) for item in exempt):
         return None
     parts = PureWindowsPath(resolved).parts

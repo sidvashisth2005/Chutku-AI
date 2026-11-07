@@ -40,7 +40,8 @@ _SAME = [
 EMAIL = re.compile(r"[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,24}")   # no ?&%: mailto-safe
 _FILLER = re.compile(r"^(?:my|meri|mere|mera|apni|apne|apna|the)\s+|\s+(?:ko|ka|ki|ke|se)$", re.I)
 _lock = threading.Lock()
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+from chutku.core.paths import home as _home
+PROJECT_ROOT = _home()   # W2: Chutku's state root (the repo itself in a git checkout)
 
 
 def default():

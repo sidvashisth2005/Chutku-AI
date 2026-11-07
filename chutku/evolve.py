@@ -33,7 +33,7 @@ import time
 
 from chutku.tools.registry import Risk, Tool, ToolResult, Verification
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]   # the code repository Evolve works on (git)
 DAYS = 7
 SLOW_SECONDS = 15
 MAX_PER_DAY = 3
@@ -228,7 +228,8 @@ def refresh_profile(base, registry=None):
     if registry is not None:
         from chutku import reflex
         out["new_instant_skills"] = len(reflex.compile_all(base, registry)["added"])
-    if Path(base).resolve() != PROJECT_ROOT.resolve():
+    from chutku.core.paths import home
+    if Path(base).resolve() != home().resolve():
         out["know_me"] = "skipped (not the real Chutku folder)"   # it scans the owner's PC, not the base folder
         return out
     from chutku import know_me

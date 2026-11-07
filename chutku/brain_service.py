@@ -44,12 +44,13 @@ def runtime_candidates(base: Path = PROJECT_ROOT) -> list[dict]:
     """Return verified runtimes in preference order (GPU first, CPU fallback)."""
     base = Path(base)
     verified = verify_local_artifacts(base)  # model + pinned CPU runtime
-    manifest = json.loads((base / "models/manifest.json").read_text(encoding="utf-8"))
+    from chutku.core.paths import resource
+    manifest = json.loads(resource(base, "models/manifest.json").read_text(encoding="utf-8"))
     candidates = []
     gpu = manifest.get("gpu_runtime")
     if isinstance(gpu, dict):
-        directory = (base / str(gpu.get("directory", ""))).resolve()
-        vendor = (base / "vendor").resolve()
+        directory = resource(base, str(gpu.get("directory", ""))).resolve()
+        vendor = resource(base, "vendor").resolve()
         if (directory.parent == vendor and directory.is_dir()
                 and isinstance(gpu.get("directory_sha256"), str)
                 and hashcache.directory_digest(directory, directory_digest) == gpu["directory_sha256"]):
@@ -112,12 +113,13 @@ def claim_gpu(owner):
 
 def pinned_model(base, key):
     """Path of an extra model listed in models/manifest.json under `key`, after checking its pinned sha256."""
+    from chutku.core.paths import model_file, resource
     try:
-        entry = json.loads((Path(base) / "models/manifest.json").read_text(encoding="utf-8"))[key]
+        entry = json.loads(resource(base, "models/manifest.json").read_text(encoding="utf-8"))[key]
     except (OSError, ValueError, KeyError) as error:
         raise BrainUnavailable(f"No {key} model is set up.") from error
-    path = (Path(base) / str(entry.get("path", ""))).resolve()
-    if path.parent != (Path(base) / "models").resolve() or not path.is_file():
+    path = model_file(base, entry.get("path"))
+    if path is None or not path.is_file():
         raise BrainUnavailable(f"The {key} model file is missing.")
     from chutku.core import hashcache
     if not hashcache.matches(path, str(entry.get("sha256"))):
@@ -217,7 +219,8 @@ class BrainService:
             # ("active_planner") and a speculative-decoding draft ("draft" with "enabled": true). Each GPU candidate
             # is tried with the draft first and again without it (a draft that does not fit must not stop Chutku).
             try:
-                manifest = json.loads((self.base / "models/manifest.json").read_text(encoding="utf-8"))
+                from chutku.core.paths import resource
+                manifest = json.loads(resource(self.base, "models/manifest.json").read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 manifest = {}
             active = manifest.get("active_planner")
@@ -445,10 +448,11 @@ def strong_service(base: Path = PROJECT_ROOT):
     global _strong
     # Presence only: the full SHA-256 of the 5 GB file happens when the 8B is actually started (_candidates ->
     # pinned_model). Hashing it here cost the first request after every restart 5-20 s (live check 2026-10-06).
+    from chutku.core.paths import model_file, resource
     try:
-        entry = json.loads((Path(base) / "models/manifest.json").read_text(encoding="utf-8"))["strong"]
-        path = (Path(base) / str(entry.get("path", ""))).resolve()
-        if path.parent != (Path(base) / "models").resolve() or not path.is_file():
+        entry = json.loads(resource(base, "models/manifest.json").read_text(encoding="utf-8"))["strong"]
+        path = model_file(base, entry.get("path"))
+        if path is None or not path.is_file():
             return None
     except (OSError, ValueError, KeyError, TypeError):
         return None
