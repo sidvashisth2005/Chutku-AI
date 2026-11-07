@@ -6,7 +6,9 @@ behaves exactly as before.
 
     ASSISTANT_NAME      what she/he is called and answers to ("Oye <name>", "Hey <name>")
     ASSISTANT_GENDER    female | male | neutral       (grammar of her own Hindi: "kar rahi hoon" / "kar raha hoon")
-    ASSISTANT_LANGUAGE  hinglish | english | hindi
+    ASSISTANT_LANGUAGE  hinglish | english | hindi   (Gemini Live talks in this)
+    ASSISTANT_LOCAL_LANGUAGE  same | english | hinglish | hindi   (replies the planners write, spoken in Chutku's own
+                        local voice; owner 2026-11-07: "Gemini ki Hindi badhiya hai, local model ki bekar")
     ASSISTANT_STYLE     warm | professional | witty | calm
     CHUTKU_RELAY_URL    the account relay the phone app also reaches (chutku/relay)
     CHUTKU_ACCOUNT_ID   the account ID (the password is never stored; the device token is in Credential Manager)
@@ -20,8 +22,10 @@ import re
 from chutku.core.paths import home as _home
 ENV_PATH = _home() / ".env"   # W2: the assistant's name etc. live with the user's data
 DEFAULTS = {"ASSISTANT_NAME": "Chutku", "ASSISTANT_GENDER": "female", "ASSISTANT_LANGUAGE": "hinglish",
-            "ASSISTANT_STYLE": "warm", "CHUTKU_RELAY_URL": "", "CHUTKU_ACCOUNT_ID": ""}
+            "ASSISTANT_LOCAL_LANGUAGE": "same", "ASSISTANT_STYLE": "warm", "CHUTKU_RELAY_URL": "",
+            "CHUTKU_ACCOUNT_ID": ""}
 CHOICES = {"ASSISTANT_GENDER": ("female", "male", "neutral"), "ASSISTANT_LANGUAGE": ("hinglish", "english", "hindi"),
+           "ASSISTANT_LOCAL_LANGUAGE": ("same", "english", "hinglish", "hindi"),
            "ASSISTANT_STYLE": ("warm", "professional", "witty", "calm")}
 NAME_RULE = re.compile(r"^[^\W\d_][\w .'-]{0,23}$")
 _LINE = re.compile(r"^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*?)\s*$")
@@ -118,7 +122,7 @@ def identity_line(values=None) -> str:
     values = values or load()
     shown = "Chutku (छुटकू, said \"Chhutku\")" if values["ASSISTANT_NAME"] == "Chutku" else values["ASSISTANT_NAME"]
     kind = {"female": "female ", "male": "male ", "neutral": ""}[values["ASSISTANT_GENDER"]]
-    if values["ASSISTANT_LANGUAGE"] == "english":   # owner 2026-11-07: "English mein hi bole, Hindi bekar bolta hai"
+    if local_language(values) == "english":   # owner 2026-11-07: the local voice's Hindi sounds bad
         return f"You are {shown}, the owner's {kind}AI companion. {ENGLISH_ONLY}"
     return f"You are {shown}, the owner's {kind}AI companion. {SELF_FORMS[values['ASSISTANT_GENDER']]}"
 
@@ -127,9 +131,16 @@ ENGLISH_ONLY = ("Always speak and reply in clear, simple English, even when the 
                 "understand them, answer in English. Keep names and quoted message texts exactly as given.")
 
 
+def local_language(values=None) -> str:
+    """The language of replies the planners write (spoken in the local voice). Gemini Live uses ASSISTANT_LANGUAGE."""
+    values = values or load()
+    chosen = values.get("ASSISTANT_LOCAL_LANGUAGE", "same")
+    return values["ASSISTANT_LANGUAGE"] if chosen == "same" else chosen
+
+
 def reply_language(values=None) -> str:
     """How the reply prompts name the reply language."""
     values = values or load()
-    if values["ASSISTANT_LANGUAGE"] == "english":
+    if local_language(values) == "english":
         return "English (always, even when they speak Hindi or Hinglish)"
     return "the language they used (English or Hinglish)"

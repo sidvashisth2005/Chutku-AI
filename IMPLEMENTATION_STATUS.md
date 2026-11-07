@@ -27,7 +27,13 @@ Owner decisions are in `docs/DESIGN.md` §51.
     resume.
 - **The pause itself:** a test restart in this session left Chutku paused (logged as the owner's emergency stop).
   Resumed.
-- **English only** (owner: the Hindi sounds bad): `ASSISTANT_LANGUAGE=english` in `.env`.
+- **English for the local voice only** (owner, refined: "Gemini ki Hindi badhiya hai, local model ki bekar"):
+  - New `.env` key `ASSISTANT_LOCAL_LANGUAGE` (same | english | hinglish | hindi), set to english; Gemini Live
+    stays on `ASSISTANT_LANGUAGE=hinglish`.
+  - Re-check through the running Chutku: "kaise ho chutku, aaj mood kaisa hai tumhara?" -> an English reply in
+    1.8 s.
+  - Test: `test_live_and_the_local_voice_can_use_different_languages`.
+  - The first version was `ASSISTANT_LANGUAGE=english` in `.env`.
   - `identity_line` (local and cloud planners, reply writer), the cloud prompt's reply language and the Gemini Live
     persona now say "always English, even when the owner speaks Hindi or Hinglish". Live keeps the "छुटकू, said
     Chhutku" name hint.

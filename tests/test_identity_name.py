@@ -58,6 +58,19 @@ class IdentityTests(unittest.TestCase):
             self.assertEqual(handsfree.split_wake("Jarvisx open"), (False, ""))
         self.assertEqual(handsfree.split_wake("Oye Chutku youtube kholo")[0], True)            # default install
 
+    def test_live_and_the_local_voice_can_use_different_languages(self):
+        # Owner 2026-11-07: Gemini Live's Hindi is good, the local voice's is not.
+        values = dict(identity.DEFAULTS, ASSISTANT_LOCAL_LANGUAGE="english")
+        self.assertEqual(identity.local_language(values), "english")
+        self.assertIn("reply in clear, simple English", identity.identity_line(values))
+        self.assertIn("English (always", identity.reply_language(values))
+        self.assertEqual(live.personalize(live._BASE_PERSONA, values), live._BASE_PERSONA)   # Live stays Hinglish
+        same = dict(identity.DEFAULTS)
+        self.assertEqual(identity.local_language(same), "hinglish")
+        self.assertNotIn("simple English", identity.identity_line(same))
+        with self.assertRaises(ValueError):
+            identity.check("ASSISTANT_LOCAL_LANGUAGE", "klingon")
+
     def test_a_male_or_neutral_assistant_keeps_its_own_words(self):
         with patch.object(persona, "FEMALE", False):
             self.assertEqual(persona.feminine("main kar raha hoon"), "main kar raha hoon")
