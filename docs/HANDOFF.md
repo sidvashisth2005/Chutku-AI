@@ -170,3 +170,5 @@ Still for the owner (not done here):
 - the voice and wake word.
 
 Then tag `v1.0.0`.
+
+**Next for the cloud session (owner decision 2026-11-07):** Microsoft Store (MSIX) and winget, so users never see the 'Unknown publisher' warning. Tasks W9-W11 in `docs/WEB_CLAUDE_TASKS_STORE.md`.
