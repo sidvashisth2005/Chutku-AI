@@ -72,6 +72,7 @@ body.typing .toolbar{display:none}   /* while typing: the key row (Esc, Space, E
 }
 .sheet{position:absolute;left:0;right:0;bottom:0;max-height:82%;overflow:auto;background:var(--bg);border-top:1px solid var(--line);
   border-radius:18px 18px 0 0;box-shadow:0 -10px 30px #000a;padding-bottom:env(safe-area-inset-bottom);z-index:5}
+.sheet-note{padding:0 14px}   /* not an inline style: the CSP allows styles from this file only */
 .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 4px;position:sticky;top:0;background:var(--bg)}
 
 /* files */

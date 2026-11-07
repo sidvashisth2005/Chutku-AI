@@ -16,6 +16,25 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (5): Fixed "Chutku can't play the laptop's sound" (the phone page's CSP refused the sound player)
+- **Owner, on the real phone:** "it said Chutku can't play laptop's sound".
+- **Cause:** every phone-server answer carries `Content-Security-Policy: script-src 'self'`. The new AudioWorklet
+  jitter buffer was loaded from a `blob:` URL, which that policy refuses, so `setSound` failed. The Playwright fakes did
+  not send the CSP, so the tests missed it.
+- **Fix (CSP unchanged):**
+  - The worklet is a real file, `chutku/web/phone/jitter.js`, served from `STATIC` and loaded with
+    `audioWorklet.addModule("/jitter.js")`; also cached by `sw.js`.
+  - The policy is a constant, `server.CSP`, so tests send the real one.
+  - The Windows sheet's inline `style="..."` (also refused by `style-src 'self'`) moved into `phone.css`
+    (`.sheet-note`).
+- **Verified:**
+  - Edge against a fake laptop sending the real `server.CSP`: the old blob: worklet is refused (AbortError, the phone's
+    failure), and with `/jitter.js` all 16 feature checks pass (Opus decoded and buffered, Watch, Windows, Voice, Read
+    aloud, Speed test).
+  - The jittery-link test is unchanged: controlling 26 ms, Watch 9 ms, sound 0 dry spells after learning.
+  - New test `test_the_sound_player_is_a_served_file_under_the_csp`.
+  - Phone tests 51 OK; full suite 1649 OK.
+
 ### 2026-11-08 (4): Smooth sound and video, "someone is using the laptop" only for a real person, keyboard layout
 - **Owner (real phone):** "the audio is still laggy and cracking, so does the video... real issue is smoothness"; "someone
   else is using comes out of nowhere randomly: until a click from the PC or the mouse moves too much, don't trigger";

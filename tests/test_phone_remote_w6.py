@@ -522,6 +522,18 @@ class ServerTests(unittest.TestCase):
             frame = remote_server._jpeg(shot.pixels, 9, width=1280)[0]                 # the stream's own settings
             self.assertEqual(jpeg[:len(frame)], frame)                                  # the picture has no pointer in it
 
+    def test_the_sound_player_is_a_served_file_under_the_csp(self):
+        # owner 2026-11-08, live: "it said Chutku can't play the laptop's sound". The page's CSP allows scripts only from
+        # this laptop, so the AudioWorklet loaded from a blob: URL was refused; it is now /jitter.js
+        status, body, headers = self.request("/jitter.js")
+        self.assertEqual(status, 200)
+        self.assertTrue(headers["Content-Type"].startswith("text/javascript"))
+        self.assertIn(b'registerProcessor("chutku-jitter"', body)
+        self.assertIn("script-src 'self'", headers["Content-Security-Policy"])
+        page = (remote_server.WEB / "phone.js").read_text(encoding="utf-8")
+        self.assertIn('audioWorklet.addModule("/jitter.js")', page)
+        self.assertNotIn("new Blob([JITTER", page)
+
     def test_the_h264_stream_decodes_and_a_one_pixel_change_counts(self):
         import av
         import struct

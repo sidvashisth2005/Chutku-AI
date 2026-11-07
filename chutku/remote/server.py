@@ -32,7 +32,13 @@ WEB = Path(__file__).resolve().parents[1] / "web" / "phone"
 STATIC = {"/": ("index.html", "text/html; charset=utf-8"), "/phone.js": ("phone.js", "text/javascript; charset=utf-8"),
           "/e2e.js": ("e2e.js", "text/javascript; charset=utf-8"),
           "/phone.css": ("phone.css", "text/css; charset=utf-8"), "/sw.js": ("sw.js", "text/javascript; charset=utf-8"),
+          "/jitter.js": ("jitter.js", "text/javascript; charset=utf-8"),   # the sound player (an AudioWorklet module)
           "/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json")}
+# Every answer's Content-Security-Policy: scripts, styles and workers only from this laptop (so an AudioWorklet must be a
+# file here, not a blob: URL; live 2026-11-08 the phone said "can't play the laptop's sound" until jitter.js was served).
+CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' blob:; "
+       "media-src 'self' blob:; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; "
+       "form-action 'self'")
 MAX_BODY = 2 * 1024 * 1024                 # JSON and voice clips
 MAX_UPLOAD = 200 * 1024 * 1024             # P8 phone -> laptop files
 SCREEN_MAX = 30 * 60
@@ -175,9 +181,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
-        self.send_header("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; "
-                         "connect-src 'self'; img-src 'self' blob:; media-src 'self' blob:; manifest-src 'self'; "
-                         "worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+        self.send_header("Content-Security-Policy", CSP)
         for key, value in (headers or {}).items():
             self.send_header(key, value)
         self.end_headers()
