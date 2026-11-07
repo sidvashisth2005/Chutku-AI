@@ -39,8 +39,10 @@ SKILL_WORK_DIRS = {"_pending", "_procedures", "_imports"}   # not active skills:
 
 
 def is_security_state(relative):
-    """True for files whose restore could re-enable access (W1). `relative` is a path inside data/."""
-    parts = Path(str(relative).replace("\\", "/")).parts
+    """True for files whose restore could re-enable access (W1). `relative` is a path inside data/.
+    Compared the way NTFS resolves names (W8 security review): case-insensitive, trailing dots/spaces dropped, so
+    "Never_Rules.json", "Skills/approved.json" or "telegram.json." cannot slip past as ordinary data."""
+    parts = tuple(part.rstrip(" .").casefold() for part in Path(str(relative).replace("\\", "/")).parts)
     posix = "/".join(parts)
     if posix in SECURITY_FILES or (posix.endswith(("-wal", "-shm")) and posix[:-4] in SECURITY_FILES):
         return True

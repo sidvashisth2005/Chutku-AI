@@ -47,6 +47,13 @@ class RestoreSecurityTests(unittest.TestCase):
             self.assertFalse(backup.is_security_state(relative), relative)
         self.assertTrue(backup.is_security_state("skills\\evil\\skill.json"))   # Windows separators too
 
+    def test_case_and_trailing_dots_do_not_slip_past(self):
+        # W8 security review: NTFS is case-insensitive and drops trailing dots/spaces, so these overwrite the real files
+        for name in ("Never_Rules.json", "Capability_Grants.db", "telegram.json.", "Skills/approved.json",
+                     "Skills/evil/tool.py", "SKILLS/evil /tool.py", "Remote.JSON "):
+            self.assertTrue(backup.is_security_state(name), name)
+        self.assertFalse(backup.is_security_state("Mind.json"))
+
     def test_restore_skips_security_state_and_lists_it(self):
         out = backup.restore(self.base, self.zip, folder=self.folder)
         self.assertEqual(set(out["skipped_security"]), set(SECURITY))

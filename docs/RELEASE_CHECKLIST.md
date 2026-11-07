@@ -39,3 +39,29 @@ to do before a public release.
 4. Run `Install-Chutku.cmd` in a fresh clone, then the unit tests, then `scripts/check_phrases.py`.
 5. First commit, push, and check the CI run (`.github/workflows/tests.yml`).
 6. Turn on GitHub private vulnerability reporting (CONTRIBUTING.md points to it).
+
+## W8 release gate (cloud session, 2026-11-07)
+
+| Check | Result |
+|---|---|
+| Full suite (Linux) | No failure outside the Windows-only Linux baseline. windows-latest `tests` was green before the last commits; re-read CI for the head commit. |
+| `check_phrases.py` | 157/163 on Linux (the 6 misses are the Linux-only `files.*` set; 159/159 on the PC before W6 added 4 cases). |
+| Clean-machine install (`package.yml`, windows-latest) | Tampered package refused (exit 7); install 18.1 s; doctor ok; text command answered; uninstall clean. |
+| Zip secret / personal-data scan | Now **inside the build** (`scan_zip`, also `build_release.py --scan ZIP`). It refuses personal state files, key formats (Gemini, Groq, Cerebras, GitHub, OpenAI, PEM bodies), the owner's name (LICENSE excepted) and the builder's `Users\<name>\` in our files and every `.pyc`. Linux real build: clean. |
+| `/security-review` | Run inline (no helper agents). **1 finding, fixed:** backup restore's security-state skip compared names case-sensitively, so `Never_Rules.json`, `Skills/approved.json`, `Skills/x/tool.py` or `telegram.json.` overwrote the real files on NTFS. That allowed an approved evil skill, reset never-rules and restored grants from a crafted zip. Now NTFS-style comparison; test `test_case_and_trailing_dots_do_not_slip_past`. |
+| `/code-review` (high) | **Not run yet.** Left for the PC session (HANDOFF §6). |
+| Found while building, fixed | 3,845 `.pyc` held pip's temp path, and `chutku/*.pyc` held the stage path. On Windows both contain `Users\<name>`. Fixed with `pip --no-compile` + `compileall -s`. |
+| Low, left as is | The Action Lab drill paths in `chutku/apps/atlas/{explorer,notepad,vscode}.json` name `D:\ChutkuScratch` (a dev folder, not personal); the lab runs only on request. |
+
+### Size and time (windows-latest)
+
+| | |
+|---|---|
+| Setup (`ChutkuSetup.exe`, unsigned) | 1.96 MB |
+| Package zip | 220.4 MB (Linux build with stand-in Python: 223.5 MB) |
+| Installed | 614.5 MB |
+| Package build | about 2 min 15 s |
+| Install (download step skipped with `/PACKAGE=`) | 18.1 s with tar.exe (221.2 s with Expand-Archive) |
+| First launch (package check) | 1.2 s |
+
+**Do not tag `v1.0.0`** until the PC session has run the Windows live checks (HANDOFF §6).

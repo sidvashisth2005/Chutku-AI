@@ -105,3 +105,42 @@ Windows/live bugs were found and fixed; each fix has a test or a live re-check.
 | H16 | Not live: needs the owner's BotFather token (`chutku.cli telegram set-token`). Unit tests pass on Windows. |
 
 Still open: H16 live (token), A14/A15/A16, Z6, the Gemini key pool, the Board/Automations dashboard tabs, H30.
+
+## 6. Second cloud session (2026-11-07): Chutku 1.0 tasks W1–W8 from `docs/WEB_CLAUDE_TASKS.md`
+
+**Read this if you are the PC session continuing Chutku 1.0.**
+- **Branch:** `claude/youthful-faraday-av41ls`, rebased onto `main` at `01e6881`. Nothing was merged and nothing was
+  tagged.
+- **Per-task evidence** is in `IMPLEMENTATION_STATUS.md` (entries "W1" … "W8").
+- **The release gate's findings** are in `docs/RELEASE_CHECKLIST.md` § "W8 release gate".
+
+| Task | Code | Verified here (Linux / windows-latest CI) | Still needs the PC |
+|---|---|---|---|
+| W1 | skill.import runs nothing until approve; backup restore skips security state | Linux tests + real CLI restore | Full suite on the PC |
+| W2 | `paths.home()`: data in `%LOCALAPPDATA%\Chutku` for installs; a checkout keeps `D:\Project\Chutku\data` | Linux + windows-latest | Start/stop on the PC: nothing written under the code folder |
+| W3 | `scripts/build_release.py` (embedded CPython 3.13.17, `.pyc` only) + `Chutku.exe` | windows-latest package job | Start menu launch, tray |
+| W4 | `installer/chutku.iss` → `ChutkuSetup.exe`, `release.yml` | windows-latest: tampered package refused; install 18.1 s (tar.exe; was 221 s); doctor; text command; uninstall | A real download needs `RELEASES_TOKEN` and the public repo |
+| W5 | First-run Settings page (`/api/setup`), packs with resume and hash refusal | Linux tests, Chromium render | A real pack download and the mic level |
+| W6 | Board/Automations tabs, habit→automation card, key pool, relay E2E, `desktop.do`, routines with app steps (A14), teach mode (A15), `desktop.survey` (A16) | Linux tests on fakes; windows-latest suite | **Live:** desktop.do/teach/survey on real apps, phone E2E through the real relay, a second Groq key at a real quota |
+| W7 | Public README, developer README, `docs/USER_GUIDE.md` as `/help`, licences | Linux tests | The Help link in the installed app |
+| W8 | Zip scan inside the build; no build or temp paths in `.pyc`; restore case fix | Linux real build: 223.5 MB, scan clean; tests | `/code-review` (high) is not done yet (see below) |
+
+**W8 still to do, in order:**
+1. Read windows-latest CI for the last commit (tests + package; the package job now runs the zip scan).
+2. Run `/code-review` at high over `git diff 01e6881..HEAD`. Fix the valid findings with tests and record them in
+   `docs/RELEASE_CHECKLIST.md`.
+3. Do the PC live checks in the table, then the Phase 9 W8 tick in `docs/MASTER_PLAN.md`.
+4. Only then do the owner steps and tag `v1.0.0` (never before the live checks):
+   - `RELEASES_TOKEN` and creating `Chutku-releases` (`installer/RELEASES_REPO.md`);
+   - an optional signing certificate;
+   - `chutku.cli browser login` and `chutku.cli authority grant browser.input`;
+   - the Telegram BotFather token;
+   - the phone relay or Tailscale;
+   - the voice and wake-word live checks.
+
+**Notes for you:**
+- **Commits** have no Co-Authored-By line (owner rule).
+- **Line endings:** CRLF files were kept CRLF. `chutku/web/index.html` has mixed endings: edit it bytewise.
+- **Linux baseline:** 583 tests fail on Linux because they are Windows-only.
+- **Pre-existing oddity:** "har roz 8 baje" alone (no goal) schedules the goal "har roz" through the old scheduler
+  parse. It was not changed.

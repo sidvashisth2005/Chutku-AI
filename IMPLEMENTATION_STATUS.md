@@ -16,6 +16,28 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: W8 (cloud session): release gate
+
+**What changed**
+- `scripts/build_release.py`:
+  - `scan_zip()` runs inside `build()` and deletes the zip on any hit (also `--scan ZIP`);
+  - `pip --no-compile` plus `compileall -s <stage>`, so no `.pyc` carries a build or temp path. 3,845 did before:
+    pip's temp dir, which holds `Users\<name>` on Windows.
+- `chutku/backup.py`: the security-state classifier compares names the way NTFS does. This fixes a `/security-review`
+  finding: a crafted backup could restore `Skills/approved.json` and a skill, `Never_Rules.json` or grants.
+- `docs/RELEASE_CHECKLIST.md` § "W8 release gate" lists the checks, the findings and the size/time table.
+
+**Evidence**
+- **Linux:**
+  - `tests/test_release_gate_w8.py` (3 tests): a clean package passes; planted `data/`, `.env`, conversations, a
+    Groq-shaped key, a PEM body, the owner's name and `Users\<builder>\` (UTF-8 and UTF-16) are all reported, and the
+    key is never echoed.
+  - `tests/test_backup_security_w1.py` gains the case/trailing-dot negative case.
+  - Real Linux build (real win_amd64 wheels, stand-in embeddable Python): 223.5 MB in 98 s, scan clean; `co_filename`
+    is relative (`chutku/app.py`, `python/Lib/site-packages/...`).
+- **windows-latest:** install 18.1 s with tar.exe; the tampered package was refused.
+- **Needs the PC:** the live checks in `docs/HANDOFF.md` §6, before any `v1.0.0` tag.
+
 ### 2026-11-07: W7 (cloud session): READMEs, user guide, licences
 
 **What changed**

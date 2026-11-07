@@ -1,5 +1,9 @@
 # Chutku Delivery Gate
 
+> **Handoff 2 (2026-11-07), open:** the second cloud session did Chutku 1.0 tasks W1–W8 on branch
+> `claude/youthful-faraday-av41ls` (not merged, no tag). Start at [`docs/HANDOFF.md`](docs/HANDOFF.md) section 6:
+> CI, `/code-review`, the PC live checks, then the owner steps.
+>
 > **Handoff (2026-11-07), done:** the cloud session's H9, H14, H15, H16, H18, H23 and H26 were merged into `main` and
 > verified on the owner's PC (Windows suite + live paths; H16 waits for the owner's Telegram token). Open items are
 > in [`docs/HANDOFF.md`](docs/HANDOFF.md) section 5.
