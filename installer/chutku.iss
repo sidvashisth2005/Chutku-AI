@@ -208,11 +208,19 @@ begin
   { An upgrade replaces the whole app folder; the user's data is in LOCALAPPDATA\Chutku and is not touched. }
   DelTree(ExpandConstant('{app}'), True, True, True);
   ForceDirectories(ExpandConstant('{app}'));
-  Command := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath ''' +
-             PackageZip + ''' -DestinationPath ''' + ExpandConstant('{app}') + ''' -Force"';
-  if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Command, '', SW_HIDE,
-              ewWaitUntilTerminated, Code) or (Code <> 0) or not FileExists(ExpandConstant('{app}\Chutku.exe')) then
-    RaiseException('The app could not be unpacked (code ' + IntToStr(Code) + ').');
+  { Windows 10/11 tar.exe unpacks the 10 000-file package many times faster than Expand-Archive (CI: 221 s). }
+  Code := -1;
+  if FileExists(ExpandConstant('{sys}\tar.exe')) then
+    Exec(ExpandConstant('{sys}\tar.exe'), '-xf "' + PackageZip + '" -C "' + ExpandConstant('{app}') + '"', '',
+         SW_HIDE, ewWaitUntilTerminated, Code);
+  if (Code <> 0) or not FileExists(ExpandConstant('{app}\Chutku.exe')) then
+  begin
+    Command := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath ''' +
+               PackageZip + ''' -DestinationPath ''' + ExpandConstant('{app}') + ''' -Force"';
+    if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Command, '', SW_HIDE,
+                ewWaitUntilTerminated, Code) or (Code <> 0) or not FileExists(ExpandConstant('{app}\Chutku.exe')) then
+      RaiseException('The app could not be unpacked (code ' + IntToStr(Code) + ').');
+  end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
