@@ -125,8 +125,10 @@ Still open: H16 live (token), A14/A15/A16, Z6, the Gemini key pool, the Board/Au
 | W7 | Public README, developer README, `docs/USER_GUIDE.md` as `/help`, licences | Linux tests | The Help link in the installed app |
 | W8 | Zip scan inside the build; no build or temp paths in `.pyc`; restore case fix; security + code review (3 findings, all fixed) | Linux real build: 223.5 MB, scan clean; full suite 1,594, no new failures; check_phrases 157/163 | The live checks below |
 
+**windows-latest CI on `7be6c25`: green.** tests run 42358332609 (1,612 tests), package run 42358332577 (build with the zip scan, install check).
+
 **W8 still to do, in order:**
-1. Read windows-latest CI for the last commit (tests + package; the package job now runs the zip scan).
+1. Re-read CI only if you push more changes.
 2. Optional: a second `/code-review` on the PC. The cloud review found and fixed 3 issues (`docs/RELEASE_CHECKLIST.md`).
 3. Do the PC live checks in the table, then the Phase 9 W8 tick in `docs/MASTER_PLAN.md`.
 4. Only then do the owner steps and tag `v1.0.0` (never before the live checks):

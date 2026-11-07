@@ -44,6 +44,7 @@ to do before a public release.
 
 | Check | Result |
 |---|---|
+| windows-latest CI on `7be6c25` | **Green**: tests run 42358332609, package run 42358332577 (the build's zip scan passed on the real Windows package). |
 | Full suite (Linux) | No failure outside the Windows-only Linux baseline. windows-latest `tests` was green before the last commits; re-read CI for the head commit. |
 | `check_phrases.py` | 157/163 on Linux (the 6 misses are the Linux-only `files.*` set; 159/159 on the PC before W6 added 4 cases). |
 | Clean-machine install (`package.yml`, windows-latest) | Tampered package refused (exit 7); install 18.1 s; doctor ok; text command answered; uninstall clean. |
