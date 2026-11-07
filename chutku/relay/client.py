@@ -25,7 +25,7 @@ import urllib.error
 import urllib.request
 
 CREDENTIAL = "Chutku/RelayToken"
-FORWARD_HEADERS = ("Content-Type", "X-Frame-Hash", "X-Monitor", "Content-Disposition")
+FORWARD_HEADERS = ("Content-Type", "X-Frame-Hash", "X-Monitor", "X-Cursor", "Content-Disposition")
 _log = logging.getLogger("chutku.relay")
 
 
@@ -224,7 +224,8 @@ class RelayClient(threading.Thread):
 
 
 def account_command(base, action, *, ask=input, secret=None):
-    """`chutku.cli account status|login|logout|change|pin` (owner: "change the ID or password on the laptop")."""
+    """`chutku.cli account status|new|login|logout|change|pin` (owner: "change the ID or password on the laptop").
+    `new` is setup question 6 alone: make the account, sign this laptop in, set the phone PIN (2026-11-07)."""
     import getpass
     from pathlib import Path
     from chutku import identity
@@ -241,6 +242,23 @@ def account_command(base, action, *, ask=input, secret=None):
         return "Phone PIN changed."
     if not url:
         raise ValueError("No relay address yet: run `chutku.cli setup` (question 6).")
+    if action == "new":
+        account_id = ask("New ID (3-32 letters, digits, . _ -): ").strip().casefold()
+        password = secret("Password (8+ characters, hidden): ")
+        if secret("Password again: ") != password:
+            raise ValueError("The passwords differ.")
+        pin = secret("Phone PIN for approvals (4-6 digits, hidden): ")
+        if secret("PIN again: ") != pin:
+            raise ValueError("The PINs differ.")
+        from chutku.remote.auth import valid_pin
+        if not valid_pin(pin):
+            raise ValueError("Choose a 4-6 digit PIN.")
+        RemoteStore(base).set_relay_pin(pin)   # checked before the account exists, so a bad PIN leaves nothing behind
+        register(url, account_id, password)
+        store_token(login(url, account_id, password))
+        identity.save({"CHUTKU_ACCOUNT_ID": account_id}, env)
+        return (f"Account {account_id} made and this laptop is signed in. Restart Chutku, then log in on the phone app "
+                f"with {account_id} and the same password (relay {url}).")
     if action == "status":
         if not token:
             return f"Not signed in (relay {url}). Run `chutku.cli account login`."

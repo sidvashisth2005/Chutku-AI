@@ -456,6 +456,14 @@ def _launch(arguments, _context):
         return ToolResult({"app": app["name"], "error": "Launch was requested but no new or foreground window "
                            f"appeared within {LAUNCH_WAIT_SECONDS} seconds."}, Verification.FAIL)
     output = {"app": app["name"], "app_id": app["app_id"], "found_via": found_via}
+    # Owner 2026-11-07: "open WhatsApp" from the phone opened it behind other windows. A request that did not start
+    # with a key or click at this PC cannot take the foreground on its own; WindowsDesktop.focus gets past that.
+    from chutku.tools.windows_apps import WindowsDesktop
+    try:
+        WindowsDesktop().focus(info["window_id"])
+        output["in_front"] = desktop.foreground() == info["window_id"]
+    except OSError:
+        output["in_front"] = False
     info = _fresh_document(desktop, info, output)
     return _launched(output, info, how)
 

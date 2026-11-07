@@ -64,7 +64,21 @@ class RemoteManager:
             self.server.watch_funnel()
         threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.3}, name="chutku-phone",
                          daemon=True).start()
+        threading.Thread(target=self._keep_awake, args=(self.server,), name="chutku-phone-awake", daemon=True).start()
         return self.server
+
+    def _keep_awake(self, server, every=60.0, check=None):
+        """Owner 2026-11-07: a sleeping laptop can't be reached. While phone access runs and the laptop is on mains
+        power, Windows is asked not to sleep (the screen may still turn off and lock). SetThreadExecutionState holds
+        only for the thread that set it, so this one thread owns it and releases it when phone access stops."""
+        from chutku.nightshift import keep_awake, on_ac_power
+        check = check or on_ac_power
+        try:
+            while self.server is server and not server.stopped.is_set():
+                keep_awake(check() is not False)   # None (a desktop that won't say) counts as mains
+                server.stopped.wait(every)
+        finally:
+            keep_awake(False)
 
     def disable(self):
         tailscale.serve_off(runner=self.runner)

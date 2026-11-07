@@ -1,6 +1,7 @@
 "use strict";
-// Chutku on the phone (W6 / HERMES_PLAN P1-P9). The device credential lives only on this phone; every approval,
-// screen view and control session asks for the PIN again. Nothing here can do more than the laptop allows.
+// Chutku on the phone (W6 / HERMES_PLAN P1-P9, remote 2.0 2026-11-07). The device credential lives only on this phone.
+// The unlock PIN covers screen, control, clipboard and files for 30 minutes; risky approvals and command windows ask
+// again. Nothing here can do more than the laptop allows.
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 let csrf = "", relay = false;   // relay: this page came from the account relay (the phone app), not the tailnet
@@ -73,16 +74,10 @@ $("pair-go").addEventListener("click", async () => {
 });
 async function unlock(pin) {
   const result = await api("/api/login", { credential: store.credential, pin });
-  csrf = result.csrf; show("app"); status(result.name); refresh();
+  csrf = result.csrf; status(result.name); await enterApp();
 }
 $("login-go").addEventListener("click", () => unlock($("login-pin").value).catch(e => status(e.message)));
 $("forget").addEventListener("click", () => { store.credential = ""; show("pair"); });
-
-// ---- tabs ----------------------------------------------------------------------------------------------------------
-document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
-  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
-  for (const name of ["chat", "screen", "pad", "files"]) $("tab-" + name).hidden = name !== b.dataset.tab;
-}));
 
 // ---- P2: chat, live progress, approvals ----------------------------------------------------------------------------
 function bubble(text, who) { const b = el("div", "msg " + who, text); $("log").append(b); $("log").scrollTop = 1e9; return b; }
@@ -96,8 +91,7 @@ function render(box, s) {
     else {
       const row = el("div", "row"), yes = el("button", "primary", "Approve (PIN)"), no = el("button", "", "Cancel");
       for (const [button, approve] of [[yes, true], [no, false]]) button.addEventListener("click", async () => {
-        const pin = await askPin(approve ? "PIN to approve" : "PIN to cancel"); if (!pin) return;
-        try { const r = await api("/api/approve", { id: s.id, approve, pin, nonce: s.pending.nonce }); render(box, r.session); follow(box, s.id); } catch (e) { status(e.message); }
+        try { const r = await withPin(approve ? "PIN to approve" : "PIN to cancel", pin => api("/api/approve", { id: s.id, approve, pin, nonce: s.pending.nonce })); render(box, r.session); follow(box, s.id); } catch (e) { status(e.message); }
       });
       row.append(yes, no); card.append(row);
     }
@@ -133,10 +127,11 @@ $("ask").addEventListener("submit", async e => {
   $("message").value = ""; bubble(text, "me"); const box = bubble("…", "her");
   try { const r = await api("/api/chat", { message: text }); render(box, r.session); follow(box, r.session.id); } catch (err) { box.textContent = err.message; }
 });
-$("resume").addEventListener("click", async () => { const pin = await askPin("PIN to resume Chutku"); if (pin) api("/api/resume", { pin }).then(refresh).catch(e => status(e.message)); });
+$("resume").addEventListener("click", () => withPin("PIN to resume Chutku", pin => api("/api/resume", pin ? { pin } : {})).then(refresh).catch(e => status(e.message)));
 async function refresh() {
   try {
-    const me = await api("/api/whoami"); $("paused").hidden = !me.paused; $("control-bar").hidden = !me.control_allowed;
+    const me = await api("/api/whoami"); $("paused").hidden = !me.paused;
+    controlAllowed = !!me.control_allowed; controlling = !!me.controlling; showControl();
     if (me.assistant) { $("assistant-name").textContent = me.assistant; document.title = me.assistant; }
     if (relay) { csrf = me.csrf || ""; status(me.device || "Connected"); }
   } catch (e) { status(e.message); }
@@ -187,103 +182,213 @@ $("laptop-talk").addEventListener("pointerdown", async () => {
 });
 for (const ev of ["pointerup", "pointerleave", "pointercancel"]) $("laptop-talk").addEventListener(ev, () => laptopRecorder && laptopRecorder.state === "recording" && laptopRecorder.stop());
 
-// ---- P4: live screen, P9: point-and-ask, P5: tap control ---------------------------------------------------------------
-let viewing = false, lastHash = "";
+// ---- Phone remote 2.0 (owner 2026-11-07): one screen. The laptop screen fills the phone and touching it is the trackpad.
+// The screen starts by itself; the PIN from unlocking covers screen, control and files for 30 minutes (risky steps ask).
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let viewing = false, looping = false, lastHash = "", cursorAt = null, controlAllowed = false, controlling = false;
+function note(text) { $("screen-note").hidden = !text; $("screen-note").textContent = text || ""; }
+async function withPin(why, call) {   // try inside the PIN session first; ask only when the laptop wants it
+  try { return await call(undefined); }
+  catch (e) { if (!/PIN/.test(e.message)) throw e; const pin = await askPin(why); if (!pin) throw new Error("Cancelled"); return call(pin); }
+}
+async function rawGet(path) {   // GET that keeps the status and headers (frames: 204 still carries the cursor)
+  const options = { credentials: "same-origin", headers: {} };
+  return relay ? sealedFetch(path, options) : fetch(path, options);
+}
+async function startScreen() {
+  try {
+    await withPin("PIN to see the laptop screen", pin => api("/api/screen/start", pin ? { pin } : {}));
+    viewing = true; note(lastHash ? "" : "Getting the first picture…"); frames();
+  } catch (e) { note(e.message === "Cancelled" ? "Tap ⋯ More → Resume the screen" : e.message); }
+}
 async function frames() {
-  while (viewing) {
-    try {
-      const response = await api("/api/screen/frame?h=" + lastHash);
-      if (response) { lastHash = response.headers.get("X-Frame-Hash") || ""; const url = URL.createObjectURL(await response.blob()); const old = $("frame").src; $("frame").src = url; if (old.startsWith("blob:")) URL.revokeObjectURL(old); }
-    } catch (e) { status(e.message); viewing = false; break; }
-    await new Promise(r => setTimeout(r, controlling ? 120 : 330));
+  if (looping) return; looping = true;
+  try {
+    while (viewing) {
+      if (document.hidden) { await sleep(600); continue; }
+      let response;
+      try { response = await rawGet("/api/screen/frame?h=" + lastHash); }
+      catch { note("Can't reach the laptop. Retrying…"); await sleep(2000); continue; }
+      const cursor = response.headers.get("X-Cursor");
+      if (cursor) { try { cursorAt = JSON.parse(cursor); } catch {} }
+      if (response.status === 200) {
+        lastHash = response.headers.get("X-Frame-Hash") || "";
+        const url = URL.createObjectURL(await response.blob()), old = $("frame").src;
+        $("frame").src = url; if (old.startsWith("blob:")) URL.revokeObjectURL(old);
+        note(!old && innerHeight > innerWidth ? "Tip: turn the phone sideways or tap 🔍 for a bigger screen" : "");
+        if (!old) setTimeout(() => { if ($("screen-note").textContent.startsWith("Tip")) note(""); }, 4000);
+      } else if (response.status === 204) { note(""); }
+      else {
+        let message = "Retrying…"; try { message = (await response.json()).error || message; } catch {}
+        if (response.status === 401) { viewing = false; if (relay) show("account"); else show("login"); break; }
+        if (response.status === 403) { viewing = false; looping = false; return startScreen(); }   // ended or PIN: start again
+        note(response.status === 429 ? "" : message);
+        await sleep(response.status === 429 ? 1000 : 3000); continue;
+      }
+      drawCursor();
+      await sleep(controlling ? 130 : 250);
+    }
+  } finally { looping = false; }
+}
+function frameRect() { return $("frame").getBoundingClientRect(); }
+function drawCursor() {
+  if (!cursorAt || !$("frame").naturalWidth) { $("cursor").hidden = true; return; }
+  const img = frameRect(), canvas = $("canvas").getBoundingClientRect();
+  $("cursor").style.left = (img.left - canvas.left + cursorAt[0] * img.width) + "px";
+  $("cursor").style.top = (img.top - canvas.top + cursorAt[1] * img.height) + "px";
+  $("cursor").hidden = false;
+  if ($("stage").classList.contains("zoomed")) {   // keep the pointer in view while zoomed in
+    const stage = $("stage"), x = cursorAt[0] * img.width, y = cursorAt[1] * img.height;
+    if (x < stage.scrollLeft + 40 || x > stage.scrollLeft + stage.clientWidth - 40) stage.scrollLeft = x - stage.clientWidth / 2;
+    if (y < stage.scrollTop + 40 || y > stage.scrollTop + stage.clientHeight - 40) stage.scrollTop = y - stage.clientHeight / 2;
   }
 }
-$("screen-go").addEventListener("click", async () => { const pin = await askPin("PIN to see the laptop screen"); if (!pin) return; try { await api("/api/screen/start", { pin }); viewing = true; frames(); } catch (e) { status(e.message); } });
-$("screen-stop").addEventListener("click", () => { viewing = false; api("/api/screen/stop", {}).catch(() => {}); });
-function point(e) { const r = $("frame").getBoundingClientRect(); return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }; }
-let pressTimer = null, downAt = null, lastTap = 0;
-$("frame").addEventListener("pointerdown", e => { downAt = point(e); pressTimer = setTimeout(() => { if ($("tap-mode").value === "control") send([{ kind: "right", ...downAt }]); downAt = null; }, 500); });
-$("frame").addEventListener("pointerup", async e => {
-  clearTimeout(pressTimer); if (!downAt) return; const p = point(e); downAt = null;
-  if ($("tap-mode").value === "ask") {
-    const question = prompt("Is jagah ke baare mein kya karna hai? (\"ye kya hai\", \"isko band karo\")"); if (!question) return;
-    bubble("👆 " + question, "me"); const box = bubble("…", "her");
-    try { const r = await api("/api/point", { x: p.x, y: p.y, question }); render(box, r.session); follow(box, r.session.id); } catch (err) { box.textContent = err.message; }
-    return;
-  }
-  const now = Date.now(); send([{ kind: now - lastTap < 300 ? "double" : "tap", ...p }]); lastTap = now;
-});
-$("frame").addEventListener("wheel", e => { if ($("tap-mode").value === "control") { e.preventDefault(); send([{ kind: "scroll", ...point(e), dy: e.deltaY > 0 ? -3 : 3 }]); } }, { passive: false });
-let controlling = false;
-async function send(events) { try { await api("/api/control/input", { events }); } catch (e) { status(e.message); } }
-async function startControl() { const pin = await askPin("PIN to control the laptop"); if (!pin) return; try { await api("/api/control/start", { pin }); controlling = true; $("tap-mode").value = "control"; status("Controlling"); } catch (e) { status(e.message); } }
-function stopControl() { controlling = false; api("/api/control/stop", {}).catch(() => {}); status("Control ended"); }
-$("control-go").addEventListener("click", startControl);
-$("control-stop").addEventListener("click", stopControl);
-$("pad-go").addEventListener("click", startControl);
-$("pad-stop").addEventListener("click", stopControl);
+$("frame").addEventListener("load", drawCursor);
+window.addEventListener("resize", drawCursor);
+$("screen-go").addEventListener("click", () => { closeSheets(); startScreen(); });
+$("screen-stop").addEventListener("click", () => { viewing = false; note("Screen paused. Tap ⋯ More → Resume the screen."); api("/api/screen/stop", {}).catch(() => {}); closeSheets(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("app").hidden && !viewing && lastHash) startScreen(); });
 
-// ---- Z5: trackpad (moves from where the cursor is) and a live keyboard ---------------------------------------------------
+// ---- control: starts by itself on the first touch, when the laptop allows it ------------------------------------------
+function showControl() {
+  $("control").classList.toggle("on", controlling); $("control-name").textContent = controlling ? "On" : "Control";
+  $("stage").classList.toggle("controlling", controlling);
+}
+async function ensureControl() {
+  if (controlling) return true;
+  if (!controlAllowed) { status("Control is off. At the laptop say \"phone control on karo\" once."); return false; }
+  try { await withPin("PIN to control the laptop", pin => api("/api/control/start", pin ? { pin } : {})); controlling = true; showControl(); return true; }
+  catch (e) { status(e.message); return false; }
+}
+function stopControl() { controlling = false; showControl(); api("/api/control/stop", {}).catch(() => {}); status("Control ended"); }
+$("control").addEventListener("click", () => controlling ? stopControl() : ensureControl());
+$("control-stop").addEventListener("click", () => { stopControl(); closeSheets(); });
 let inputs = Promise.resolve();
-function queued(path, data) { inputs = inputs.then(() => api(path, data)).catch(e => status(e.message)); return inputs; }   // in order
-const here = kind => queued("/api/control/input", { events: [{ kind, at: "cursor" }] });
-const SPEED = 2.2, touches = new Map();
-let moved = { dx: 0, dy: 0 }, flushing = null, gesture = null, dragging = false;
+function queued(path, data) {   // in order, one at a time; a session that timed out is started again once
+  inputs = inputs.then(() => api(path, data)).catch(async e => {
+    if (/Start control/.test(e.message)) { controlling = false; showControl(); if (await ensureControl()) return api(path, data).catch(x => status(x.message)); }
+    else status(e.message);
+  });
+  return inputs;
+}
+const send = events => queued("/api/control/input", { events });
+const here = kind => send([{ kind, at: "cursor" }]);
+
+// ---- touch on the screen: trackpad (default), tap where I touch, or ask about a spot ----------------------------------
+const SPEED = 1.6, touches = new Map();
+let moved = { dx: 0, dy: 0 }, flushing = null, gesture = null, pressTimer = null, dragging = false;
+const mode = () => $("tap-mode").value;
+function point(x, y) { const r = frameRect(); return { x: Math.min(1, Math.max(0, (x - r.left) / r.width)), y: Math.min(1, Math.max(0, (y - r.top) / r.height)) }; }
 function flush() {
   flushing = null; const dx = Math.round(moved.dx), dy = Math.round(moved.dy); if (!dx && !dy) return;
   moved = { dx: 0, dy: 0 };
-  queued("/api/control/input", { events: [{ kind: "nudge", dx: Math.max(-400, Math.min(400, dx)), dy: Math.max(-400, Math.min(400, dy)) }] });
+  send([{ kind: "nudge", dx: Math.max(-400, Math.min(400, dx)), dy: Math.max(-400, Math.min(400, dy)) }]);
 }
-$("pad").addEventListener("pointerdown", e => {
-  $("pad").setPointerCapture(e.pointerId); touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (touches.size === 1) gesture = { at: Date.now(), travel: 0, fingers: 1 }; else if (gesture) gesture.fingers = Math.max(gesture.fingers, touches.size);
+function setDragging(on) { dragging = on; $("stage").classList.toggle("dragging", on); if (on && navigator.vibrate) navigator.vibrate(25); }
+$("stage").addEventListener("pointerdown", async e => {
+  $("stage").setPointerCapture(e.pointerId); touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (touches.size === 1) {
+    gesture = { at: Date.now(), travel: 0, fingers: 1, x: e.clientX, y: e.clientY, ready: mode() === "ask" || await ensureControl() };
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {   // a still long-press: trackpad = drag, direct = right click
+      if (!gesture || !gesture.ready || gesture.travel > 10 || touches.size !== 1) return;
+      if (mode() === "pad") { setDragging(true); here("down"); }
+      else if (mode() === "direct") { send([{ kind: "right", ...point(gesture.x, gesture.y) }]); gesture.used = true; }
+    }, 450);
+  } else if (gesture) gesture.fingers = Math.max(gesture.fingers, touches.size);
 });
-$("pad").addEventListener("pointermove", e => {
+$("stage").addEventListener("pointermove", e => {
   const last = touches.get(e.pointerId); if (!last || !gesture) return;
   const dx = e.clientX - last.x, dy = e.clientY - last.y; touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
   gesture.travel += Math.abs(dx) + Math.abs(dy);
-  if (touches.size >= 2) { gesture.scroll = (gesture.scroll || 0) + dy; if (Math.abs(gesture.scroll) > 24) { queued("/api/control/input", { events: [{ kind: "scroll", at: "cursor", dy: gesture.scroll > 0 ? 2 : -2 }] }); gesture.scroll = 0; } return; }
-  moved.dx += dx * SPEED; moved.dy += dy * SPEED; if (!flushing) flushing = setTimeout(flush, 30);
+  if (!gesture.ready || mode() === "ask") return;
+  if (touches.size >= 2) {   // two fingers: scroll
+    gesture.scroll = (gesture.scroll || 0) + dy;
+    if (Math.abs(gesture.scroll) > 22) { send([mode() === "direct" ? { kind: "scroll", ...point(e.clientX, e.clientY), dy: gesture.scroll > 0 ? 2 : -2 } : { kind: "scroll", at: "cursor", dy: gesture.scroll > 0 ? 2 : -2 }]); gesture.scroll = 0; }
+    return;
+  }
+  if (mode() !== "pad") return;
+  const accel = 1 + Math.min(Math.hypot(dx, dy) / 10, 2);   // slow = precise, fast = far
+  moved.dx += dx * SPEED * accel; moved.dy += dy * SPEED * accel;
+  if (!flushing) flushing = setTimeout(flush, 30);
 });
-for (const ev of ["pointerup", "pointercancel"]) $("pad").addEventListener(ev, e => {
+for (const ev of ["pointerup", "pointercancel"]) $("stage").addEventListener(ev, async e => {
   touches.delete(e.pointerId); if (touches.size || !gesture) return;
-  const tap = Date.now() - gesture.at < 250 && gesture.travel < 12; if (tap) here(gesture.fingers >= 2 ? "right" : "tap"); gesture = null;
+  clearTimeout(pressTimer); const g = gesture; gesture = null;
+  if (dragging) { if (flushing) { clearTimeout(flushing); flush(); } here("up"); setDragging(false); return; }
+  if (!g.ready || g.used || ev === "pointercancel") return;
+  const tap = Date.now() - g.at < 300 && g.travel < 14; if (!tap) return;
+  if (mode() === "ask") {
+    const p = point(g.x, g.y), question = prompt("Is jagah ke baare mein kya karna hai? (\"ye kya hai\", \"isko band karo\")"); if (!question) return;
+    openSheet("chat"); bubble("👆 " + question, "me"); const box = bubble("…", "her");
+    try { const r = await api("/api/point", { x: p.x, y: p.y, question }); render(box, r.session); follow(box, r.session.id); } catch (err) { box.textContent = err.message; }
+  } else if (mode() === "direct") send([{ kind: g.fingers >= 2 ? "right" : "tap", ...point(g.x, g.y) }]);
+  else here(g.fingers >= 2 ? "right" : "tap");   // two quick taps make a double click on the laptop
 });
-$("pad-left").addEventListener("click", () => here("tap"));
-$("pad-right").addEventListener("click", () => here("right"));
-$("pad-up").addEventListener("click", () => queued("/api/control/input", { events: [{ kind: "scroll", at: "cursor", dy: 3 }] }));
-$("pad-down").addEventListener("click", () => queued("/api/control/input", { events: [{ kind: "scroll", at: "cursor", dy: -3 }] }));
-$("pad-drag").addEventListener("click", () => { dragging = !dragging; here(dragging ? "down" : "up"); $("pad-drag").textContent = "Drag: " + (dragging ? "on" : "off"); $("pad").classList.toggle("drag", dragging); });
+$("mode").addEventListener("click", () => {
+  const next = { pad: "direct", direct: "ask", ask: "pad" }[mode()]; $("tap-mode").value = next;
+  $("mode-name").textContent = { pad: "Trackpad", direct: "Tap here", ask: "Ask" }[next];
+});
+$("tap-mode").addEventListener("change", () => { $("mode-name").textContent = { pad: "Trackpad", direct: "Tap here", ask: "Ask" }[mode()]; });
+$("zoom").addEventListener("click", () => {
+  const on = $("stage").classList.toggle("zoomed"); $("zoom-name").textContent = on ? "2x" : "Fit";
+  $("zoom").classList.toggle("on", on); if (!on) { $("stage").scrollLeft = 0; $("stage").scrollTop = 0; } setTimeout(drawCursor, 50);
+});
+
+// ---- keyboard: the phone keyboard types live on the laptop; the key row sends single keys ----------------------------
 // Phone keyboards rarely report keys, so the field keeps two spaces: shorter = Backspace, longer = new text.
 const KEEP = "  "; $("live-keys").value = KEEP;
-async function key(combo) { try { await queued("/api/control/keys", { combo }); } catch {} }
+async function key(combo) {
+  if (!await ensureControl()) return;
+  if (combo === "alt+f4" && !confirm("Pakka band karun?")) return;
+  queued("/api/control/keys", { combo }).then(() => {});
+}
+$("kbd").addEventListener("click", async () => { if (!await ensureControl()) return; $("live-keys").focus(); $("kbd").classList.add("on"); });
+$("live-keys").addEventListener("blur", () => $("kbd").classList.remove("on"));
 $("live-keys").addEventListener("input", () => {
   const value = $("live-keys").value; $("live-keys").value = KEEP;
-  if (value.length < KEEP.length) { for (let i = value.length; i < KEEP.length; i++) key("backspace"); return; }
+  if (value.length < KEEP.length) { for (let i = value.length; i < KEEP.length; i++) queued("/api/control/keys", { combo: "backspace" }); return; }
   const text = value.slice(KEEP.length); if (text) queued("/api/control/text", { text });
 });
-$("live-keys").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); key("enter"); } });
-
-// ---- P6: typing and shortcut bar ---------------------------------------------------------------------------------------
-async function typeText(enter) {
-  const text = $("type-text").value; if (!text && !enter) return;
-  try { await api("/api/control/text", { text, enter }); $("type-text").value = ""; }
-  catch (e) { if (/PIN/.test(e.message)) { const pin = await askPin(e.message); if (pin) api("/api/control/text", { text, enter, pin }).catch(x => status(x.message)); } else status(e.message); }
+$("live-keys").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); sendKeyWithPin("enter"); } });
+async function sendKeyWithPin(combo) {   // Enter or paste into a command window needs the PIN every time
+  try { await withPin("PIN: this window can run commands", pin => api("/api/control/keys", pin ? { combo, pin } : { combo })); }
+  catch (e) { status(e.message); }
 }
-$("type-send").addEventListener("click", () => typeText(false));
-$("type-enter").addEventListener("click", () => typeText(true));
-for (const combo of ["esc", "tab", "enter", "backspace", "delete", "up", "down", "left", "right", "home", "end", "pageup", "pagedown", "ctrl+c", "ctrl+v", "ctrl+z", "ctrl+s", "alt+tab", "win+d", "alt+f4"]) {
-  const b = el("button", "", combo);
-  b.addEventListener("click", async () => {
-    if (combo === "alt+f4" && !confirm("Pakka band karun?")) return;
-    try { await api("/api/control/keys", { combo }); } catch (e) { if (/PIN/.test(e.message)) { const pin = await askPin(e.message); if (pin) api("/api/control/keys", { combo, pin }).catch(x => status(x.message)); } else status(e.message); }
-  });
+const KEY_ROW = [["Esc", "esc"], ["Tab", "tab"], ["Enter", "enter"], ["⌫", "backspace"], ["Del", "delete"], ["←", "left"], ["↑", "up"],
+  ["↓", "down"], ["→", "right"], ["Ctrl+C", "ctrl+c"], ["Ctrl+V", "ctrl+v"], ["Ctrl+Z", "ctrl+z"], ["Ctrl+A", "ctrl+a"],
+  ["Ctrl+S", "ctrl+s"], ["Alt+Tab", "alt+tab"], ["Desktop", "win+d"], ["Win", "win"], ["Home", "home"], ["End", "end"],
+  ["PgUp", "pageup"], ["PgDn", "pagedown"], ["F5", "f5"], ["Close app", "alt+f4"]];
+for (const [label, combo] of KEY_ROW) {
+  const b = el("button", "", label);
+  b.addEventListener("click", async () => { if (combo === "enter" || combo === "ctrl+v") { if (await ensureControl()) sendKeyWithPin(combo); } else key(combo); });
   $("keys").append(b);
 }
 
-// ---- P7: clipboard -----------------------------------------------------------------------------------------------------
-$("clip-get").addEventListener("click", async () => { const pin = await askPin("PIN to read the laptop clipboard"); if (!pin) return; try { const r = await api("/api/clipboard/get", { pin }); $("type-text").value = r.text; try { await navigator.clipboard.writeText(r.text); } catch {} status("Clipboard copied"); } catch (e) { status(e.message); } });
-$("clip-paste").addEventListener("click", async () => { const text = $("type-text").value; if (!text) return; try { await api("/api/clipboard/set", { text, paste: true }); } catch (e) { status(e.message); } });
+// ---- sheets: Chutku, Files and More open over the screen --------------------------------------------------------------
+function closeSheets() { for (const s of document.querySelectorAll(".sheet")) s.hidden = true; }
+function openSheet(name) { closeSheets(); $("sheet-" + name).hidden = false; }
+document.querySelectorAll("[data-sheet]").forEach(b => b.addEventListener("click", () => {
+  const sheet = $("sheet-" + b.dataset.sheet); const open = sheet.hidden; closeSheets(); sheet.hidden = !open;
+}));
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", closeSheets));
+
+// ---- typing a whole text, clipboard ----------------------------------------------------------------------------------
+async function typeText(enter) {
+  const text = $("type-text").value; if ((!text && !enter) || !await ensureControl()) return;
+  try { await withPin("PIN: this window can run commands", pin => api("/api/control/text", pin ? { text, enter, pin } : { text, enter })); $("type-text").value = ""; }
+  catch (e) { status(e.message); }
+}
+$("type-send").addEventListener("click", () => typeText(false));
+$("type-enter").addEventListener("click", () => typeText(true));
+$("clip-get").addEventListener("click", async () => {
+  try { const r = await withPin("PIN to read the laptop clipboard", pin => api("/api/clipboard/get", pin ? { pin } : {})); $("type-text").value = r.text; try { await navigator.clipboard.writeText(r.text); } catch {} status("Clipboard copied"); }
+  catch (e) { status(e.message); }
+});
+$("clip-paste").addEventListener("click", async () => {
+  const text = $("type-text").value; if (!text || !await ensureControl()) return;
+  try { await withPin("PIN: this window can run commands", pin => api("/api/clipboard/set", pin ? { text, paste: true, pin } : { text, paste: true })); } catch (e) { status(e.message); }
+});
 
 // ---- P8: files ---------------------------------------------------------------------------------------------------------
 $("upload-go").addEventListener("click", async () => {
@@ -291,10 +396,14 @@ $("upload-go").addEventListener("click", async () => {
   try { const r = await api("/api/files/upload?name=" + encodeURIComponent(file.name), file, true); $("upload-out").textContent = "Saved: " + r.saved; } catch (e) { $("upload-out").textContent = e.message; }
 });
 $("get-go").addEventListener("click", async () => {
-  const pin = await askPin("PIN to fetch a laptop file"); if (!pin) return;
-  try { const response = await api("/api/files/get", { path: $("get-path").value, pin }); const blob = await response.blob(); const a = el("a"); a.href = URL.createObjectURL(blob); a.download = $("get-path").value.split(/[\\/]/).pop(); a.click(); $("get-out").textContent = "Downloaded " + blob.size + " bytes"; }
-  catch (e) { $("get-out").textContent = e.message; }
+  try {
+    const path = $("get-path").value; const response = await withPin("PIN to fetch a laptop file", pin => api("/api/files/get", pin ? { path, pin } : { path }));
+    const blob = await response.blob(); const a = el("a"); a.href = URL.createObjectURL(blob); a.download = path.split(/[\\/]/).pop(); a.click(); $("get-out").textContent = "Downloaded " + blob.size + " bytes";
+  } catch (e) { $("get-out").textContent = e.message; }
 });
+
+// ---- entering the app: everything starts by itself ---------------------------------------------------------------------
+async function enterApp() { show("app"); await refresh(); startScreen(); }
 
 // ---- the phone app: one account (ID + password made on the laptop), logged in once ------------------------------------
 $("account-go").addEventListener("click", async () => {
@@ -310,7 +419,7 @@ $("account-go").addEventListener("click", async () => {
       await api("/relay/change", { password, new_id: null, new_password: keys.auth });
     }
     store.token = r.token; store.key = keys.raw; store.account = id; e2eKey = null;
-    $("account-password").value = ""; show("app"); status(r.id); refresh();
+    $("account-password").value = ""; status(r.id); await enterApp();
   } catch (e) { status(e.message); }
 });
 $("logout").addEventListener("click", async () => {
@@ -322,7 +431,7 @@ async function start() {
   try { const info = await fetch("/relay/info"); relay = info.ok && (await info.json()).relay === true; } catch { relay = false; }
   if (!relay) { show(store.credential ? "login" : "pair"); return; }
   if (!store.token) { show("account"); return; }
-  show("app"); status("…"); refresh();
+  status("…"); enterApp();
 }
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 start();

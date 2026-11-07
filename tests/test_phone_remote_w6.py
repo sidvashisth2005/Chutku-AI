@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 import threading
 import time
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -93,6 +94,13 @@ class AuthTests(unittest.TestCase):
             self.store.rate("d")
         with self.assertRaises(RemoteDenied):
             self.store.rate("d")
+        # owner 2026-11-07: a live screen (3 frames/s) must not use up the general budget, and vice versa
+        for _ in range(auth.RATES["frame"][0]):
+            self.store.rate("d", "frame")
+        with self.assertRaises(RemoteDenied):
+            self.store.rate("d", "frame")
+        self.store.rate("d", "input")
+        self.store.rate("d", "poll")
 
 
 class TailscaleTests(unittest.TestCase):
@@ -311,20 +319,54 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 409)
         self.assertIn("laptop", body["error"])
 
+    def test_the_pin_once_per_session_and_risky_steps_still_ask(self):
+        # owner 2026-11-07: the login PIN unlocks screen, clipboard and files for PIN_SESSION; risky approvals ask
+        self.pair_and_login()
+        with patch.object(remote_server, "_keep_awake"):
+            self.assertEqual(self.request("/api/screen/start", {})[0], 200)            # no PIN: the login counted
+        self.assertTrue(self.request("/api/whoami")[1]["pin_ok"])
+        self.assertEqual(self.request("/api/screen/start", {"pin": "0000"})[0], 403)  # a wrong PIN is still wrong
+        device = next(iter(self.server.pin_ok))
+        self.server.pin_ok[device] = 0                                              # the session ran out
+        self.assertFalse(self.request("/api/whoami")[1]["pin_ok"])
+        self.assertEqual(self.request("/api/screen/start", {})[0], 403)
+        self.assertEqual(self.request("/api/screen/start", {"pin": "4321"})[0], 200)   # and a PIN renews it
+        self.assertTrue(self.request("/api/whoami")[1]["pin_ok"])
+
+    def test_risky_approvals_need_the_pin_even_inside_a_session(self):
+        self.pair_and_login()
+        handler = remote_server.PhoneHandler.__new__(remote_server.PhoneHandler)
+        handler.server = self.server
+        record = {"device": next(iter(self.server.pin_ok))}
+        handler._pin(record, None)                                                  # in session: fine
+        with self.assertRaises(RemoteDenied):
+            handler._pin(record, None, strict=True)
+        handler._pin(record, "4321", strict=True)
+
     def test_screen_view_needs_the_pin_and_sends_only_changes(self):
         self.pair_and_login()
         self.assertEqual(self.request("/api/screen/frame")[0], 403)
         from chutku.vision import Shot
         shot = Shot(np.full((500, 1000, 3), 40, np.uint8), 0, 0, 1000, 500, {})
-        with patch("chutku.vision.capture", return_value=shot), patch.object(remote_server, "_keep_awake"):
+        with patch("chutku.vision.capture", return_value=shot), patch.object(remote_server, "_keep_awake"), \
+                patch("chutku.remote.control.cursor_pos", return_value=(250, 125)):
             self.assertEqual(self.request("/api/screen/start", {"pin": "0000"})[0], 403)
             self.assertEqual(self.request("/api/screen/start", {"pin": "4321"})[0], 200)
-            status, png, headers = self.request("/api/screen/frame")
+            status, image, headers = self.request("/api/screen/frame")
             self.assertEqual(status, 200)
-            self.assertEqual(png[:8], b"\x89PNG\r\n\x1a\n")
-            self.assertEqual(self.request("/api/screen/frame?h=" + headers["X-Frame-Hash"])[0], 204)
+            self.assertTrue(image[:3] == b"\xff\xd8\xff" or image[:8] == b"\x89PNG\r\n\x1a\n")   # JPEG, PNG fallback
+            self.assertEqual(json.loads(headers["X-Cursor"]), [0.25, 0.25])               # the phone draws it
+            for _ in range(10):   # 10 frames in a row no longer hit the old 30/min limit (they died after ~10 s)
+                self.assertEqual(self.request("/api/screen/frame?h=" + headers["X-Frame-Hash"])[0], 204)
+            self.assertEqual(self.request("/api/whoami")[0], 200)
             self.server.screen["beat"] -= remote_server.SCREEN_BEAT + 1                  # the phone went quiet
             self.assertEqual(self.request("/api/screen/frame")[0], 403)
+        with patch("chutku.vision.capture", side_effect=OSError("secure desktop")), \
+                patch.object(remote_server, "_keep_awake"):   # locked laptop: a clear 503, not a dropped connection
+            self.assertEqual(self.request("/api/screen/start", {"pin": "4321"})[0], 200)
+            status, body, _ = self.request("/api/screen/frame")
+            self.assertEqual(status, 503)
+            self.assertIn("locked", body["error"])
 
     def test_control_needs_arming_at_the_laptop_then_the_pin(self):
         self.pair_and_login()
@@ -416,6 +458,26 @@ class PhraseTests(unittest.TestCase):
                 self.assertEqual(server.server_address[0], "127.0.0.1")
             finally:
                 server.server_close()
+
+
+class KeepAwakeTests(unittest.TestCase):
+    """Owner 2026-11-07: while phone access runs and the laptop is on mains power, it must not sleep."""
+
+    def test_on_mains_only_and_released_when_phone_access_stops(self):
+        from chutku.remote.manager import RemoteManager
+        calls = []
+        manager = RemoteManager.__new__(RemoteManager)
+        server = SimpleNamespace(stopped=threading.Event())
+        manager.server = server
+        power = iter([True, False])
+
+        def fake_keep(on):
+            calls.append(on)
+            if len(calls) == 2:
+                manager.server = None   # phone access turned off
+        with patch("chutku.nightshift.keep_awake", fake_keep):
+            manager._keep_awake(server, every=0, check=lambda: next(power))
+        self.assertEqual(calls, [True, False, False])   # mains, then battery, then released
 
 
 if __name__ == "__main__":

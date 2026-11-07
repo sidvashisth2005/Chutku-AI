@@ -16,6 +16,45 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: Phone remote 2.0 (R1-R3): the screen shows, touch is the trackpad, PIN once, laptop stays awake
+- **Setup on the PC:** Tailscale 1.104.5 installed (winget). The laptop `buddy.tail473865.ts.net` and the owner's
+  Redmi Note 12 Pro are on one tailnet; HTTPS certificates are on; "phone connect karo" gives a 200 with a valid
+  certificate. The owner's phone is paired.
+  - The phone's first failure was DNS_PROBE: Android or Chrome private/secure DNS bypassing MagicDNS. The owner
+    fixed it in the settings.
+- **Root causes, each fixed with a test:**
+  - **The screen never showed:** frames (3/s) shared the single 30/min budget, so the reply was 429 after about
+    10 s and the loop stopped. Fix: per-kind budgets (`auth.RATES`: frame, input, poll, general), and the phone
+    backs off instead of stopping.
+  - A capture error dropped the connection; it now gives a 503 ("locked or asleep").
+  - The heartbeat is now 45 s.
+  - Every trackpad move ran a full screen capture; the monitor is now cached for 2 s.
+  - Frames are JPEG through PyAV (57 KB vs 109 KB PNG on a flat screen, much smaller on photos and video), with the
+    cursor position in `X-Cursor`; the relay forwards it.
+  - **WhatsApp not in front:** `everyday._launch` never called `WindowsDesktop.focus` for non-browser apps. It now
+    does, and reports `in_front`.
+- **Owner decisions:**
+  - the standing control permission (`control_allowed` persists; Ctrl+Alt+Shift+P revokes it);
+  - the PIN once per session (`PIN_SESSION` 30 min, renewed by use; risky approvals and command windows are `strict`;
+    a missing PIN answers "PIN needed" and is never counted as wrong);
+  - keep-awake while phone access runs on mains (`RemoteManager._keep_awake`, one owning thread, released on stop).
+    It replaces a no-op: the old call ran on a short-lived request thread, and Windows releases the request when that
+    thread exits.
+- **R3, one Remote screen:**
+  - the live screen starts by itself; touch is the trackpad (move, tap, two-finger right-click and scroll,
+    long-press drag);
+  - Tap-here and Ask modes; 2x zoom that follows the cursor;
+  - a key row, the live keyboard, and sheets for Chutku, Files and More; control starts by itself on the first
+    touch when it is allowed.
+- **Live, headless phone viewport through Tailscale:** pairing → the first picture in 1.4 s with no tap or PIN, the
+  cursor drawn, 8 changed frames in 5 s (screenshot checked). The test device was removed afterwards; only the
+  owner's phone stays paired.
+- **Tests:** `test_phone_remote_w6` (per-kind budgets; 10 frames in a row no longer 429; 503 on a locked capture;
+  `X-Cursor`; the PIN session and strict approvals; keep-awake on mains only and released) and `test_phone_z5`
+  (needles updated on purpose: no Trackpad tab). Full suite OK.
+- **Next (web Claude):** `docs/WEB_CLAUDE_TASKS_PHONE.md` (emergency file browser and search, quick actions, adaptive
+  quality, the dashboard's Phone panel, the guide).
+
 ### 2026-11-07: Owner fixes: spoken "resume" while paused, English-only replies, Pita Shri's number
 - **Resume:** the owner said the local model never caught their spoken "resume".
   - Kokoro voices through the local Whisper showed why: "Resume karo." was heard at confidence 0.95 but refused

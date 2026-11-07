@@ -29,6 +29,9 @@ MAX_DEVICES = 3
 SESSION_SECONDS = 12 * 3600
 PIN_TRIES = 5
 RATE_PER_MINUTE = 30
+# Owner 2026-11-07, "the screen never shows": frames (3/s), the trackpad and chat polling all spent the one 30/min
+# budget, so the view died after ~10 s with 429. Each kind now has its own (count, seconds) budget per phone.
+RATES = {"general": (RATE_PER_MINUTE, 60.0), "frame": (24, 3.0), "input": (180, 3.0), "poll": (9, 3.0)}
 NONCE_SECONDS = 300
 RELAY_DEVICE = "relay"   # the phone app reaching this laptop through the account relay (chutku/relay)
 _lock = threading.RLock()
@@ -58,7 +61,8 @@ class RemoteStore:
         self.clock = clock
         self.sessions = {}     # token hash -> {device, until, csrf}     (memory only: a restart logs the phone out)
         self.nonces = {}       # nonce -> {session, step, until}
-        self.hits = {}         # device -> [timestamps]
+        self.hits = {}         # (device, kind) -> [timestamps]
+        self.last_seen = {}    # device -> the time of its latest request
 
     # -- storage --------------------------------------------------------------------------------------------------
     def load(self) -> dict:
@@ -217,17 +221,20 @@ class RemoteStore:
                     device["last_seen"] = self.clock()
             self.save(data)
 
-    def rate(self, device_id):
+    def rate(self, device_id, kind="general"):
+        limit, window = RATES[kind]
         now = self.clock()
-        recent = [t for t in self.hits.get(device_id, []) if now - t < 60]
-        if len(recent) >= RATE_PER_MINUTE:
-            raise RemoteDenied("Too many requests from this phone; wait a minute.", 429)
-        self.hits[device_id] = recent + [now]
+        key = (device_id, kind)
+        recent = [t for t in self.hits.get(key, []) if now - t < window]
+        if len(recent) >= limit:
+            raise RemoteDenied("Too many requests from this phone; slow down a moment.", 429)
+        self.hits[key] = recent + [now]
+        self.last_seen[device_id] = now
 
     def active(self, within=120):
         now = self.clock()
         return any(r["until"] > now for r in self.sessions.values()) and any(
-            now - max(self.hits.get(r["device"], [0])) < within for r in self.sessions.values())
+            now - self.last_seen.get(r["device"], 0) < within for r in self.sessions.values())
 
     # -- approvals ------------------------------------------------------------------------------------------------
     def approval_nonce(self, session_id: str, step_key: str) -> str:

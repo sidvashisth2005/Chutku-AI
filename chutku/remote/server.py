@@ -35,7 +35,11 @@ STATIC = {"/": ("index.html", "text/html; charset=utf-8"), "/phone.js": ("phone.
 MAX_BODY = 2 * 1024 * 1024                 # JSON and voice clips
 MAX_UPLOAD = 200 * 1024 * 1024             # P8 phone -> laptop files
 SCREEN_MAX = 30 * 60
-SCREEN_BEAT = 15.0
+SCREEN_BEAT = 45.0   # one slow round trip (relay, mobile data) must not end the view
+PIN_SESSION = 30 * 60   # owner 2026-11-07: the PIN once per session, renewed while the phone is used
+MONITOR_SECONDS = 2.0   # trackpad input reuses the monitor rectangle instead of a capture per move
+KINDS = {"/api/screen/frame": "frame", "/api/session": "poll", "/api/presence": "poll", "/api/say": "poll",
+         "/api/whoami": "poll", "/api/control/input": "input", "/api/control/text": "input", "/api/control/keys": "input"}
 INBOX = Path(user_folder("ChutkuInbox"))
 BLOCKED_SUFFIXES = {".exe", ".msi", ".bat", ".cmd", ".ps1", ".vbs", ".js", ".scr", ".lnk", ".com", ".hta", ".jar"}
 # Steps that may never be approved from the phone, whatever the PIN: they wait for the laptop's own card.
@@ -85,6 +89,7 @@ class RemoteServer(ThreadingHTTPServer):
         # The account relay's laptop client (chutku/relay/client.py) forwards phone requests here over loopback with
         # this secret; it lives only in this process's memory.
         self.relay_secret = secrets.token_urlsafe(32)
+        self.pin_ok = {}                  # device -> monotonic time its PIN session ends (in memory only)
         super().__init__(("127.0.0.1", port), PhoneHandler)
 
     # -- laptop-side state ----------------------------------------------------------------------------------------
@@ -107,6 +112,7 @@ class RemoteServer(ThreadingHTTPServer):
         self.disarm(reason)
         self.screen = None
         self.store.sessions.clear()
+        self.pin_ok.clear()
 
     def _border(self, on):
         import subprocess
@@ -208,8 +214,10 @@ class PhoneHandler(BaseHTTPRequestHandler):
         return ""
 
     def _session(self, mutation):
+        kind = KINDS.get(urlsplit(self.path).path, "general")
         if self._relayed():   # signed in at the relay with the account's device token; no cookie, so no CSRF
-            self.server.store.rate(RELAY_DEVICE)
+            self.server.store.rate(RELAY_DEVICE, kind)
+            self._renew_pin(RELAY_DEVICE)
             return {"device": RELAY_DEVICE, "csrf": ""}
         settings = self._tailnet()
         record = self.server.store.session(self._cookie())
@@ -217,7 +225,8 @@ class PhoneHandler(BaseHTTPRequestHandler):
             if self.headers.get("X-Chutku-CSRF") != record["csrf"] or \
                     self.headers.get("Origin") != "https://" + settings["host"]:
                 raise RemoteDenied("Request refused (CSRF).")
-        self.server.store.rate(record["device"])
+        self.server.store.rate(record["device"], kind)
+        self._renew_pin(record["device"])
         return record
 
     def _body(self, limit=MAX_BODY):
@@ -235,8 +244,21 @@ class PhoneHandler(BaseHTTPRequestHandler):
             raise RemoteDenied("Send a JSON object.", 400)
         return data
 
-    def _pin(self, record, pin):
+    def _renew_pin(self, device):
+        now = time.monotonic()
+        if self.server.pin_ok.get(device, 0) > now:
+            self.server.pin_ok[device] = now + PIN_SESSION
+
+    def _pin(self, record, pin, strict=False):
+        """The PIN once per session: within PIN_SESSION of a correct PIN (login counts), screen, control, clipboard and
+        files need no PIN again. strict (risky approvals, typing into a command window) always checks it."""
+        now = time.monotonic()
+        if not pin:   # no PIN sent: fine inside a PIN session, else ask for it (never counted as a wrong PIN)
+            if not strict and self.server.pin_ok.get(record["device"], 0) > now:
+                return
+            raise RemoteDenied("PIN needed for this.", 403)
         self.server.store.check_pin(record["device"], pin)
+        self.server.pin_ok[record["device"]] = now + PIN_SESSION
 
     # -- GET ------------------------------------------------------------------------------------------------------
     def do_GET(self):
@@ -257,6 +279,8 @@ class PhoneHandler(BaseHTTPRequestHandler):
                 device = next((d for d in settings["devices"] if d["id"] == record["device"]), {})
                 from chutku import identity
                 self._reply(200, {"device": device.get("name"), "control_allowed": settings["control_allowed"],
+                                  "pin_ok": self.server.pin_ok.get(record["device"], 0) > time.monotonic(),
+                                  "controlling": self.server.controlling(),
                                   "paused": self._paused(), "csrf": record["csrf"],
                                   "assistant": identity.load(Path(self.server.core.base) / ".env")["ASSISTANT_NAME"]})
             elif path == "/api/session":
@@ -277,6 +301,9 @@ class PhoneHandler(BaseHTTPRequestHandler):
             self._deny(error)
         except (KeyError, ValueError) as error:
             self._reply(400, {"error": str(error)[:200]})
+        except OSError:   # the screen could not be read (locked, asleep, a secure desktop): say so, keep the connection
+            self._reply(503, {"error": "The laptop screen can't be read right now (locked, asleep or a secure "
+                                       "screen). Files and Chutku still work."})
 
     # -- POST -----------------------------------------------------------------------------------------------------
     def do_POST(self):
@@ -291,6 +318,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
                 self._tailnet()
                 data = self._json()
                 login = self.server.store.login(data.get("credential"), data.get("pin"))
+                self.server.pin_ok[login["device_id"]] = time.monotonic() + PIN_SESSION
                 cookie = (f"chutku_phone={login['token']}; HttpOnly; Secure; SameSite=Strict; Path=/; "
                           f"Max-Age={12 * 3600}")
                 self._reply(200, {"device_id": login["device_id"], "name": login["name"], "csrf": login["csrf"]},
@@ -364,7 +392,8 @@ class PhoneHandler(BaseHTTPRequestHandler):
         if self._laptop_only(pending.get("approval") or {}):
             raise RemoteDenied("Ye laptop pe approve karna hoga.", 409)
         self.server.store.use_nonce(data.get("nonce"), snapshot["id"], _step_key(pending))   # spent even on a bad PIN
-        self._pin(record, data.get("pin"))
+        approval = pending.get("approval") or {}
+        self._pin(record, data.get("pin"), strict=int(approval.get("risk") or 0) >= 3 or bool(approval.get("deletes")))
         if type(data.get("approve")) is not bool:
             raise RemoteDenied("Say approve or cancel.", 400)
         result = self.server.core.confirm_session(snapshot["id"], data["approve"])
@@ -459,15 +488,21 @@ class PhoneHandler(BaseHTTPRequestHandler):
             raise RemoteDenied("Screen view ended (30 min max, or the phone went quiet). Start it again.", 403)
         screen["beat"] = now
         from chutku import vision
+        from chutku.remote.control import cursor_pos
         shot = vision.capture()
-        width = 1280 if self.server.controlling() else 960
-        pixels = vision.scaled(shot.pixels, width)
-        digest = hashlib.sha1(pixels[::8, ::8].tobytes()).hexdigest()
+        controlling = self.server.controlling()
+        pixels = vision.scaled(shot.pixels, 1280)
+        x, y = cursor_pos()
+        cursor = json.dumps([round((x - shot.left) / max(shot.width, 1), 4), round((y - shot.top) / max(shot.height, 1), 4)])
+        digest = hashlib.sha1(pixels[::8, ::8].tobytes() + cursor.encode()).hexdigest()
+        headers = {"X-Frame-Hash": digest, "X-Cursor": cursor}
         if digest == last_hash:
-            self._reply(204, b"", "text/plain", headers={"X-Frame-Hash": digest})
+            self._reply(204, b"", "text/plain", headers=headers)
             return
-        self._reply(200, _png(pixels, level=1), "image/png",
-                    headers={"X-Frame-Hash": digest, "X-Monitor": json.dumps([shot.left, shot.top, shot.width, shot.height])})
+        self.server.monitor_seen = (time.monotonic(), (shot.left, shot.top, shot.width, shot.height))
+        body, mime = _jpeg(pixels, 5 if controlling else 8)
+        self._reply(200, body, mime,
+                    headers={**headers, "X-Monitor": json.dumps([shot.left, shot.top, shot.width, shot.height])})
 
     # -- P5/P6: direct control ---------------------------------------------------------------------------------------
     def _post_control_start(self, record, data):
@@ -488,8 +523,13 @@ class PhoneHandler(BaseHTTPRequestHandler):
     def _monitor(self):
         if self.server.monitor is not None:
             return self.server.monitor
+        seen = getattr(self.server, "monitor_seen", None)   # the latest frame's monitor: no capture per trackpad move
+        if seen and time.monotonic() - seen[0] < MONITOR_SECONDS:
+            return seen[1]
         from chutku.remote.control import primary_monitor
-        return primary_monitor()
+        rect = primary_monitor()
+        self.server.monitor_seen = (time.monotonic(), rect)
+        return rect
 
     def _post_control_input(self, record, data):
         events = data.get("events")
@@ -499,15 +539,15 @@ class PhoneHandler(BaseHTTPRequestHandler):
 
     def _post_control_text(self, record, data):
         pin_ok = False
-        if data.get("pin") is not None:
-            self._pin(record, data.get("pin"))
+        if data.get("pin") is not None:   # only sent when the laptop asked for it (a command window): always checked
+            self._pin(record, data.get("pin"), strict=True)
             pin_ok = True
         return self._control().text(data.get("text", ""), enter=bool(data.get("enter")), pin_ok=pin_ok)
 
     def _post_control_keys(self, record, data):
         pin_ok = False
         if data.get("pin") is not None:
-            self._pin(record, data.get("pin"))
+            self._pin(record, data.get("pin"), strict=True)
             pin_ok = True
         return self._control().keys(data.get("combo", ""), pin_ok=pin_ok)
 
@@ -536,7 +576,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
         if data.get("paste"):
             pin_ok = False
             if data.get("pin") is not None:
-                self._pin(record, data.get("pin"))
+                self._pin(record, data.get("pin"), strict=True)
                 pin_ok = True
             self._control().keys("ctrl+v", pin_ok=pin_ok)
         return {"copied": len(text), "pasted": bool(data.get("paste"))}
@@ -684,6 +724,21 @@ def wav(text):
     audio = (np.clip(np.concatenate(parts), -1, 1) * 32767).astype("<i2").tobytes()
     return (b"RIFF" + struct.pack("<I", 36 + len(audio)) + b"WAVEfmt " + struct.pack("<IHHIIHH", 16, 1, 1, rate,
             rate * 2, 2, 16) + b"data" + struct.pack("<I", len(audio)) + audio)
+
+
+def _jpeg(rgb, quality):
+    """JPEG through PyAV's MJPEG encoder (already installed for speech), else PNG. quality: 2 (best) .. 31."""
+    try:
+        import av
+        import numpy as np
+        height, width = rgb.shape[0] - rgb.shape[0] % 2, rgb.shape[1] - rgb.shape[1] % 2
+        codec = av.CodecContext.create("mjpeg", "w")
+        codec.width, codec.height, codec.pix_fmt = width, height, "yuvj420p"
+        codec.qmin = codec.qmax = quality
+        frame = av.VideoFrame.from_ndarray(np.ascontiguousarray(rgb[:height, :width]), format="rgb24")
+        return b"".join(bytes(packet) for packet in codec.encode(frame.reformat(format="yuvj420p"))), "image/jpeg"
+    except Exception:   # no PyAV or no MJPEG encoder: the lossless frame still works
+        return _png(rgb, level=1), "image/png"
 
 
 def _png(rgb, level=1):

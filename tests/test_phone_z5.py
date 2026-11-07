@@ -88,11 +88,15 @@ class PhonePageTests(unittest.TestCase):
     PAGE = PROJECT_ROOT / "chutku" / "web" / "phone"
 
     def test_the_page_has_the_trackpad_keyboard_and_laptop_sound(self):
+        # Remote 2.0 (owner 2026-11-07): no separate Trackpad tab; touching the live screen is the trackpad.
         html = (self.PAGE / "index.html").read_text(encoding="utf-8")
-        for needle in ('data-tab="pad"', 'id="pad"', 'id="live-keys"', 'id="laptop-say"', 'id="laptop-talk"'):
+        for needle in ('id="stage"', 'id="frame"', 'id="cursor"', 'id="keys"', 'id="kbd"', 'id="live-keys"',
+                       'id="laptop-say"', 'id="laptop-talk"', 'data-sheet="chat"', 'data-sheet="files"'):
             self.assertIn(needle, html)
+        self.assertNotIn('data-tab="pad"', html)
         script = (self.PAGE / "phone.js").read_text(encoding="utf-8")
-        for needle in ('kind: "nudge"', 'at: "cursor"', "/api/laptop/say", "/api/laptop/voice", "Ek approval chahiye"):
+        for needle in ('kind: "nudge"', 'at: "cursor"', "/api/laptop/say", "/api/laptop/voice", "Ek approval chahiye",
+                       "X-Cursor", "startScreen()", "ensureControl()", "withPin("):
             self.assertIn(needle, script)
 
     @unittest.skipUnless(shutil.which("node"), "node is not installed")

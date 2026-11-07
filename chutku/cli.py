@@ -255,7 +255,7 @@ def main() -> None:
     browser.add_argument("browser_action", choices=("login",))
     browser.add_argument("url", nargs="?", default="https://accounts.google.com")
     account = subparsers.add_parser("account", help="Phone app account: status, login, logout, change ID/password, PIN")
-    account.add_argument("account_action", choices=("status", "login", "logout", "change", "pin"))
+    account.add_argument("account_action", choices=("status", "new", "login", "logout", "change", "pin"))
     night = subparsers.add_parser("nightshift", help="Night Shift: nightly self-improvement jobs (run, install, report)")
     night.add_argument("night_action", choices=("run", "install", "report"))
     night.add_argument("--no-model", action="store_true", help="run: skip the model round of the regression replay")
