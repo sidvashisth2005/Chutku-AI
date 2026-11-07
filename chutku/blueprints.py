@@ -39,6 +39,9 @@ CATALOG = {
                        "every": WEEK, "slots": {"day": "sun", "time": "11:00"}, "goal": "organize my downloads"},
     "research-watch": {"about": "Every day: research a topic on the web and report (H15)", "every": DAY,
                        "slots": {"time": "10:00", "topic": None}, "goal": "research karke batao {topic}"},
+    # W6: any request the owner repeats every day ("har roz 8 baje weather batao"; offered by suggest.py's habits)
+    "daily": {"about": "Every day at a time: one of your own requests", "every": DAY,
+              "slots": {"time": None, "goal": None}, "goal": "{goal}"},
 }
 _TIME = re.compile(r"^(?P<h>[01]?\d|2[0-3])(?::(?P<m>[0-5]\d))?$")
 
@@ -75,6 +78,10 @@ def build(name, given=None, now=None):
     topic = slots.get("topic")
     if topic is not None and not re.fullmatch(r"[\w .,&+'-]{2,60}", topic):
         raise ValueError("The topic must be 2 to 60 plain characters.")
+    if "goal" in slots:
+        slots["goal"] = " ".join(str(slots["goal"]).split())
+        if not 3 <= len(slots["goal"]) <= 200:
+            raise ValueError("Say what to do every day (3 to 200 characters).")
     when = _next(slots, blueprint["every"], now or datetime.now())
     goal = blueprint["goal"].format(**slots)
     return [{"tool": "task.schedule", "arguments": {"goal": goal, "at": when.strftime("%Y-%m-%dT%H:%M"),
@@ -96,6 +103,8 @@ PHRASES = [
     ("news-digest", re.compile(r"^(?:har\s+(?:roz|din)\s+(?P<topic>[\w .&+'-]{2,40}?)\s+ki\s+news\s+(?:batana|bata\s+dena|"
                                r"dena)|news\s+digest\s*[:\-]\s*(?P<topic2>[\w .&+'-]{2,40}))\s*[.!]?$", re.I)),
     ("research-watch", re.compile(r"^research\s+watch\s*[:\-]\s*(?P<topic>[\w .&+'-]{2,60})\s*[.!]?$", re.I)),
+    ("daily", re.compile(rf"^(?:har\s+roz|har\s+din|roz|every\s+day)(?:\s+subah|\s+shaam)?\s+(?:at\s+)?{_CLOCK}"
+                         r"\s+(?!(?:baje|bje|am|pm|o'?clock)\b)(?P<goal>.{3,200}?)\s*[.!]?$", re.I)),
 ]
 EXPLICIT = re.compile(r"^(?:automation|blueprint)\s+(?P<name>[a-z-]{3,30})(?P<slots>(?:\s+[a-z]+=[^\s=]+)*)\s*$", re.I)
 LIST = re.compile(r"^(?:(?:kaun\s*si|kya\s+kya)\s+automations?\s+(?:hain|hai|hai\s+tumhare\s+paas)|automations?\s+"

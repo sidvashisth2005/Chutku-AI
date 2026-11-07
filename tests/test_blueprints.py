@@ -18,7 +18,8 @@ class BlueprintTests(unittest.TestCase):
         registry = real_registry()
         schedule = registry.get("task.schedule")
         for name, item in blueprints.CATALOG.items():
-            slots = {slot: "cricket" for slot, value in item["slots"].items() if value is None}
+            slots = {slot: "08:00" if slot == "time" else "cricket" for slot, value in item["slots"].items()
+                     if value is None}
             now = datetime.now()   # the real contract checks against the real clock
             steps = blueprints.build(name, slots)
             self.assertEqual([s["tool"] for s in steps], ["task.schedule"], name)

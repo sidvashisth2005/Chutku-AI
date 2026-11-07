@@ -57,6 +57,49 @@ def store_key(provider, key):
     store(key, PROVIDERS[provider]["credential"])
 
 
+# H9 key pool (W6): extra keys in Credential Manager as "Chutku/Groq#2" ... "#5". Slot 1 is api_key() (the environment
+# variable or "Chutku/Groq"). A key's text is never logged or stored in a file: cooldowns name its slot only.
+POOL_SLOTS = 5
+
+
+def slot_target(credential, slot):
+    return credential if int(slot) == 1 else f"{credential}#{int(slot)}"
+
+
+def keys(provider):
+    """[(slot, key)] in the order they are tried; duplicates removed."""
+    found, seen = [], set()
+    first = api_key(provider)
+    if first:
+        found.append(("1", first))
+        seen.add(first)
+    try:
+        from chutku.cloud_planner import stored_key
+    except Exception:
+        return found
+    for slot in range(2, POOL_SLOTS + 1):
+        try:
+            value = stored_key(slot_target(PROVIDERS[provider]["credential"], slot))
+        except Exception:
+            value = None
+        if value and value not in seen:
+            found.append((str(slot), value))
+            seen.add(value)
+    return found
+
+
+def add_key(provider, key, *, stored=None, store=None):
+    """Store one more key in the first free pool slot; returns the slot. ValueError when the pool is full."""
+    from chutku.cloud_planner import store_key as _store, stored_key as _stored
+    stored, store = stored or _stored, store or _store
+    credential = PROVIDERS[provider]["credential"]
+    for slot in range(1, POOL_SLOTS + 1):
+        if not stored(slot_target(credential, slot)):
+            store(key, slot_target(credential, slot))
+            return slot
+    raise ValueError(f"All {POOL_SLOTS} {provider} key slots are used.")
+
+
 def configured(base=None):
     """Providers with a key, in ladder order."""
     return [name for name in ORDER if api_key(name)]
@@ -149,20 +192,37 @@ def ladder(base=None, now=None):
 
 
 def ask(system, user, *, base=None, transport=None, timeout=25, rungs=None):
-    """Try each rung until one answers. Returns (parsed, {"provider", "model", "seconds", "tried"})."""
+    """Try each rung until one answers. Returns (parsed, {"provider", "model", "seconds", "tried"}).
+
+    H9 key pool: on a quota or rejected-key answer the same model is tried with the provider's next key; the model
+    (or, for rejected keys, the provider) cools down only when its last key failed."""
     tried = []
     for provider, model in (rungs if rungs is not None else ladder(base)):
-        try:
-            parsed, seconds = chat_json(provider, model, system, user, transport=transport, timeout=timeout)
-            return parsed, {"provider": provider, "model": model, "seconds": seconds, "tried": tried}
-        except ProviderError as error:
-            tried.append(f"{provider}/{model}: {error.kind}")
-            if error.kind == "quota":
-                cool_down(f"{provider}/{model}", error.retry_after or QUOTA_COOLDOWN, base)
-            elif error.kind == "auth":
-                cool_down(provider, 24 * 3600, base)
-            elif error.kind == "retired":
-                cool_down(f"{provider}/{model}", 24 * 3600, base)
-            elif error.kind == "unavailable":
-                cool_down(f"{provider}/{model}", ERROR_COOLDOWN, base)
+        cold = cooling(base)
+        pool = [(slot, key) for slot, key in keys(provider) if f"{provider}#{slot}" not in cold
+                and f"{provider}/{model}#{slot}" not in cold] or [(None, None)]
+        for index, (slot, key) in enumerate(pool):
+            last = index == len(pool) - 1
+            try:
+                parsed, seconds = chat_json(provider, model, system, user, key=key, transport=transport,
+                                            timeout=timeout)
+                return parsed, {"provider": provider, "model": model, "seconds": seconds, "tried": tried,
+                                "key_slot": slot}
+            except ProviderError as error:
+                tried.append(f"{provider}/{model}" + (f" key {slot}" if slot and len(pool) > 1 else "")
+                             + f": {error.kind}")
+                if error.kind == "quota":
+                    cool_down(f"{provider}/{model}" + ("" if last else f"#{slot}"),
+                              error.retry_after or QUOTA_COOLDOWN, base)
+                    if not last:
+                        continue
+                elif error.kind == "auth":
+                    cool_down(provider if last else f"{provider}#{slot}", 24 * 3600, base)
+                    if not last:
+                        continue
+                elif error.kind == "retired":
+                    cool_down(f"{provider}/{model}", 24 * 3600, base)
+                elif error.kind == "unavailable":
+                    cool_down(f"{provider}/{model}", ERROR_COOLDOWN, base)
+                break   # a model problem, not a key problem: the next rung
     raise ProviderError("No free cloud model answered: " + "; ".join(tried or ["no key stored"]), kind="exhausted")

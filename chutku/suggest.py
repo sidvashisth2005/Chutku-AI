@@ -100,6 +100,15 @@ def candidates(base=None, *, now=None, free_c_gb=None):
             continue
         out.append({"kind": "habit", "id": _id("habit", habit["said"] + str(today)),
                     "text": f"You usually say “{habit['said'][:60]}” around now. Do it?", "command": habit["said"]})
+    from chutku import scheduled   # W6 (H23): a daily habit can become an automation (only on the owner's Accept)
+    planned = {_habit_key(job["goal"]) for job in scheduled.active(base)}
+    for habit in (data.get("habits") or {}).values():
+        hour, said = habit.get("hour"), str(habit.get("said") or "")
+        if not isinstance(hour, int) or not 0 <= hour <= 23 or not said or _habit_key(said) in planned:
+            continue
+        out.append({"kind": "automation", "id": _id("automation", said),
+                    "text": f"You say “{said[:60]}” around {hour}:00 most days. Make it automatic every day at "
+                            f"{hour}:00?", "command": f"har roz {hour}:00 baje {said}"})
     if free_c_gb is None:
         try:
             free_c_gb = shutil.disk_usage("C:\\").free / 1e9

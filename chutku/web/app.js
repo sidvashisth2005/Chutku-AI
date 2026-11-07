@@ -8,7 +8,7 @@ if(location.hash)history.replaceState(null,"",location.pathname);
 let sessionToken = tokenFromLink || "";
 try{sessionToken = sessionToken || sessionStorage.getItem("chutku-token") || "";}catch{}
 let state=null, busy=false;
-const labels={settings:"Settings",phone:"Phone",voicelock:"Voice lock",skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Command center",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
+const labels={board:"Board",automations:"Automations",settings:"Settings",phone:"Phone",voicelock:"Voice lock",skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Command center",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
 const MODE_HELP={
   review:"Review: every step waits for your click before it runs.",
   auto_safe:"Auto (safe): looking, opening apps/files/sites and other easily reversible steps run by themselves. File changes and anything risky wait for your click.",
@@ -27,7 +27,7 @@ async function api(path,data){
   if(!response.ok)throw new Error(payload.error||"The request failed.");
   return payload;
 }
-function switchTab(id){if(id==="settings")loadSetup();if(id==="phone")loadPhone();if(id==="mind")loadMind();if(id==="reliability")loadReliability();if(id==="skills")loadSkills();if(id==="voicelock")loadVoiceLock();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
+function switchTab(id){if(id==="board")loadBoard();if(id==="automations")loadAutomations();if(id==="settings")loadSetup();if(id==="phone")loadPhone();if(id==="mind")loadMind();if(id==="reliability")loadReliability();if(id==="skills")loadSkills();if(id==="voicelock")loadVoiceLock();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
 document.querySelectorAll("[data-tab]").forEach(e=>e.addEventListener("click",()=>switchTab(e.dataset.tab)));
 
 // ---- autonomy selector (remembered per browser) ----
@@ -467,3 +467,37 @@ function renderSetup(s){
   box.append(end);
 }
 api("/api/setup").then(s=>{if(!s.done&&!startTab)switchTab("settings");}).catch(()=>{});
+
+// ---- W6: Board and Automations tabs ----
+const BOARD_STATE={todo:"waiting",ready:"in line",running:"running",blocked:"stopped",review:"check it",done:"done",archived:"archived"};
+let boardPoll=null;
+async function loadBoard(){try{renderBoard(await api("/api/board"));}catch(e){error(e.message);}}
+function renderBoard(b){
+  const box=$("board-list");box.replaceChildren();clearTimeout(boardPoll);
+  if(!b.tasks.length){box.append(node("p","muted","The board is empty."));return;}
+  const table=node("table","reliability");const head=node("tr");["#","Task","Kind","Status",""].forEach(h=>head.append(node("th","",h)));table.append(head);
+  for(const t of b.tasks.slice().reverse()){
+    const tr=node("tr");tr.append(node("td","",String(t.id)),node("td","",t.title+(t.error?` (${t.error})`:"")),node("td","",t.kind==="research"?"research":"yours"),node("td","",BOARD_STATE[t.status]||t.status));
+    const cell=node("td","row-buttons");
+    if(b.running.includes(t.id))cell.append(button("Stop",async()=>renderBoard((await api("/api/board/stop",{id:t.id})).board),"danger"));
+    if(t.kind==="owner"&&t.status!=="done")cell.append(button("Done",async()=>renderBoard(await api("/api/board",{action:"done",id:t.id}))));
+    if(t.kind==="research"&&(t.status==="review"||t.status==="blocked")){cell.append(button("Looks right",async()=>renderBoard(await api("/api/board",{action:"done",id:t.id}))),button("Again",async()=>renderBoard(await api("/api/board",{action:"again",id:t.id}))));}
+    if(t.status==="done")cell.append(button("Archive",async()=>renderBoard(await api("/api/board",{action:"archive",id:t.id}))));
+    tr.append(cell);table.append(tr);
+  }
+  box.append(table);
+  if(b.running.length)boardPoll=setTimeout(()=>{if(!$("board").hidden)loadBoard();},3000);
+}
+async function loadAutomations(){try{renderAutomations(await api("/api/automations"));}catch(e){error(e.message);}}
+function renderAutomations(a){
+  const active=$("automation-active");active.replaceChildren();
+  if(!a.active.length)active.append(node("p","muted","None yet."));
+  for(const job of a.active){const row=node("div","row-buttons");row.append(node("span","",job.summary||job.goal),button("Cancel",async()=>renderAutomations(await api("/api/automations",{action:"cancel",id:job.id})),"danger"));active.append(row);}
+  const box=$("automation-catalog");box.replaceChildren();
+  for(const item of a.catalog){
+    const row=node("div","memory-form");row.append(node("strong","",`${item.name} (${item.every})`),node("span","muted",item.about));
+    const inputs={};for(const [slot,value] of Object.entries(item.slots)){inputs[slot]=input(slot==="time"?"time":"text",value||"",value===null?"required":"",200);row.append(field(slot,inputs[slot]));}
+    row.append(button("Create",async()=>{const slots={};for(const [k,e] of Object.entries(inputs))if(e.value)slots[k]=e.value;renderAutomations(await api("/api/automations",{action:"create",name:item.name,slots}));},"primary"));
+    box.append(row);
+  }
+}

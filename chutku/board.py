@@ -131,6 +131,17 @@ def set_status(base, task_id, status, *, error=None, result_path=None, now=None)
     return get(base, task_id)
 
 
+def retry(base, task_id):
+    """Run a research task again from scratch ("dobara karo", the Board tab): attempts and errors reset."""
+    task = get(base, task_id)
+    if task["kind"] != "research":
+        raise ValueError("Only research runs again.")
+    with _Db(base) as db:
+        db.execute("UPDATE tasks SET status='ready', attempts=0, not_before=NULL, error=NULL, updated=? WHERE id=?",
+                   (time.time(), task["id"]))
+    return get(base, task["id"])
+
+
 def promote(base):
     """todo -> ready when every parent is done. Returns the promoted ids."""
     with _Db(base) as db:
@@ -385,10 +396,7 @@ def register_board_tools(registry, base):
             return ToolResult({"error": str(error)}, Verification.FAIL)
         if task["kind"] != "research":
             return ToolResult({"error": "Sirf research dobara chalti hai."}, Verification.FAIL)
-        with _Db(base) as db:
-            db.execute("UPDATE tasks SET status='ready', attempts=0, not_before=NULL, error=NULL, updated=? "
-                       "WHERE id=?", (time.time(), task["id"]))
-        return ToolResult({"task": get(base, task["id"]), "summary": "Theek hai, dobara research karti hoon."},
+        return ToolResult({"task": retry(base, task["id"]), "summary": "Theek hai, dobara research karti hoon."},
                           Verification.PASS)
 
     def archive(arguments, _context):

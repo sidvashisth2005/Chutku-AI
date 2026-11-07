@@ -233,9 +233,9 @@ def main() -> None:
     autostart = subparsers.add_parser("autostart", help="Start Chutku automatically when you sign in to Windows")
     autostart.add_argument("autostart_action", choices=("on", "off", "status"))
     gemini = subparsers.add_parser("gemini", help="Configure Gemini as the secondary planner (off unless cloud.gemini is granted)")
-    gemini.add_argument("gemini_action", choices=("status", "set-key"))
+    gemini.add_argument("gemini_action", choices=("status", "set-key", "add-key"))
     cloud = subparsers.add_parser("cloud", help="Free cloud brain (Groq, Cerebras): store a key, see status, test")
-    cloud.add_argument("cloud_action", choices=("status", "set-key", "test"))
+    cloud.add_argument("cloud_action", choices=("status", "set-key", "add-key", "test"))
     cloud.add_argument("provider", nargs="?", choices=("groq", "cerebras"), default=None)
     telegram = subparsers.add_parser("telegram", help="H16 Telegram remote: store the BotFather token, get a pairing "
                                                       "code, unpair, or see status")
@@ -364,6 +364,19 @@ def main() -> None:
         return
     if namespace.command == "gemini":
         from chutku import cloud_planner
+        if namespace.gemini_action == "add-key":   # H9 key pool
+            import getpass
+            from chutku.providers import POOL_SLOTS
+            key = getpass.getpass("Gemini API key (input hidden): ").strip()
+            free = next((slot for slot in range(2, POOL_SLOTS + 1)
+                         if not cloud_planner.stored_key(f"{cloud_planner.CREDENTIAL_TARGET}#{slot}")), None)
+            if not cloud_planner.stored_key():
+                free = 1
+            if free is None:
+                raise SystemExit(f"All {POOL_SLOTS} Gemini key slots are used.")
+            cloud_planner.store_key(key, cloud_planner.CREDENTIAL_TARGET + ("" if free == 1 else f"#{free}"))
+            print(f"Stored as Gemini key {free} of {POOL_SLOTS}.")
+            return
         if namespace.gemini_action == "set-key":
             import getpass
             cloud_planner.store_key(getpass.getpass("Gemini API key (input hidden): "))
@@ -403,6 +416,14 @@ def main() -> None:
         return
     if namespace.command == "cloud":
         from chutku import providers
+        if namespace.cloud_action == "add-key":   # H9 key pool: one more key, tried when another hits its quota
+            if namespace.provider is None:
+                raise SystemExit("Say which: python -m chutku.cli cloud add-key groq   (or cerebras)")
+            import getpass
+            slot = providers.add_key(namespace.provider,
+                                     getpass.getpass(f"{namespace.provider} API key (input hidden): ").strip())
+            print(f"Stored as key {slot} of {providers.POOL_SLOTS} for {namespace.provider}.")
+            return
         if namespace.cloud_action == "set-key":
             if namespace.provider is None:
                 raise SystemExit("Say which: python -m chutku.cli cloud set-key groq   (or cerebras)")

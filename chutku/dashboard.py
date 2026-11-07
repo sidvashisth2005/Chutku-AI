@@ -491,6 +491,51 @@ class DashboardServer(ThreadingHTTPServer):
             setup_wizard._mark(self.base, done=False)
         return self.setup_view()
 
+    # -- W6: the Automations tab (H23 blueprints) -----------------------------------------------------------------
+    def automations_view(self):
+        from chutku import blueprints, scheduled
+        catalog = [{"name": name, "about": item["about"], "every": "daily" if item["every"] == blueprints.DAY
+                    else "weekly", "slots": item["slots"]} for name, item in blueprints.CATALOG.items()]
+        active = [{"id": job["id"], "goal": job["goal"], "summary": scheduled.describe(job),
+                   "every_minutes": job.get("every_minutes")} for job in scheduled.active(self.base)]
+        return {"catalog": catalog, "active": active}
+
+    def automation_action(self, data):
+        """create (blueprint name + slots) or cancel (id). The owner's click is the request: the real task.schedule /
+        task.cancel tools run through the policy kernel as user-stated steps."""
+        from chutku import blueprints
+        action = data.get("action") if isinstance(data, dict) else None
+        if action == "create":
+            slots = data.get("slots") or {}
+            if not isinstance(slots, dict) or not all(isinstance(v, str) for v in slots.values()):
+                raise ValueError("Slots must be text.")
+            steps = blueprints.build(str(data.get("name", "")), slots)
+            calls = [("task.schedule", step["arguments"]) for step in steps]
+        elif action == "cancel" and isinstance(data.get("id"), str) and data["id"]:
+            calls = [("task.cancel", {"id": data["id"]})]
+        else:
+            raise ValueError("Give action create (name, slots) or cancel (id).")
+        with create_runtime(self.base) as runtime:
+            runtime.approvals = self.approvals
+            results = [runtime.run(tool, arguments, provenance="user_stated") for tool, arguments in calls]
+        failed = [r for r in results if str(r.get("state")) != "COMPLETED"]
+        if failed:
+            raise ValueError(str(failed[0].get("error") or failed[0].get("reason") or failed[0].get("state"))[:300])
+        return self.automations_view()
+
+    def board_action(self, data):
+        """The Board tab's buttons: done / again / archive one task (owner clicks; nothing is ever deleted)."""
+        from chutku import board
+        if set(data) != {"action", "id"} or type(data.get("id")) is not int or data["action"] not in {
+                "done", "again", "archive"}:
+            raise ValueError("Give action done, again or archive, and the task id.")
+        task = board.get(self.base, data["id"])
+        if data["action"] == "again":
+            board.retry(self.base, task["id"])
+        else:
+            board.set_status(self.base, task["id"], "done" if data["action"] == "done" else "archived")
+        return self.board_view(include_done=True)
+
     def board_view(self, include_done=False):
         """H15: the board for the dashboard (open tasks; with include_done also finished ones) and running workers."""
         from chutku import board
@@ -1617,6 +1662,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 session = self.server.agent_sessions.get(parse_qs(parts.query).get("id", [""])[0])
                 self._reply(200, {"session": session.snapshot()})
                 return
+            if parts.path == "/api/automations":   # W6: blueprints and the scheduled automations (files only)
+                self._reply(200, self.server.automations_view())
+                return
             if parts.path == "/api/setup":   # W5: the first-run page (polled while packs download): no runtime
                 self._reply(200, self.server.setup_view())
                 return
@@ -1784,7 +1832,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path in {"/api/chat", "/api/agent/confirm", "/api/agent/stop", "/api/voice/ask", "/api/preferences",
                     "/api/suggestions", "/api/reflexes", "/api/voice/enroll", "/api/nightshift", "/api/board/stop",
-                    "/api/telegram", "/api/setup"}:
+                    "/api/telegram", "/api/setup", "/api/automations", "/api/board"}:
             self._reply(*self._agent_post(path, data))
             return
         if not self.server.action_lock.acquire(blocking=False):
@@ -1993,6 +2041,10 @@ def _agent_post(self, path, data):
                 gateway.unpair()
             return 200, {"token_stored": bool(telegram.token()), "paired": telegram.paired(server.base) is not None,
                          "handoff": gateway.handed_off(), "running": server.telegram is not None}
+        if path == "/api/automations":   # W6: create from a blueprint, or cancel
+            return 200, server.automation_action(data)
+        if path == "/api/board":   # W6: the Board tab's done / again / archive buttons
+            return 200, server.board_action(data)
         if path == "/api/setup":   # W5: one first-run step (the key is stored, never echoed back)
             return 200, server.setup_action(data)
         if path == "/api/board/stop":   # H15: the running-workers strip's Stop button

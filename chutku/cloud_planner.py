@@ -87,6 +87,13 @@ def api_key():
     return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or stored_key()
 
 
+def api_keys():
+    """H9 key pool (W6): the Gemini key, then "Chutku/Gemini#2" ... "#5" (tried in order on quota / rejection)."""
+    from chutku.providers import POOL_SLOTS
+    found = [api_key()] + [stored_key(f"{CREDENTIAL_TARGET}#{slot}") for slot in range(2, POOL_SLOTS + 1)]
+    return list(dict.fromkeys(key for key in found if key))
+
+
 # Results Gemini may see so it can plan long tasks: public web data, system status and file
 # *names*. Private content (file text, clipboard, screen text, memory, messages) stays local.
 SHAREABLE_PREFIXES = ("web.", "youtube.", "system.get_time", "system.environment", "system.performance",
@@ -207,7 +214,8 @@ class CloudAgentPlanner:
         from chutku import providers
         if getattr(session, "think", False) and self.gemini is not None:
             # H21 "dhyan se socho": Gemini with its full budget (60 s, 8K tokens) instead of the fast free models.
-            careful = GeminiAgentPlanner(self.gemini.key, self.gemini.model, self.gemini.transport, careful=True)
+            careful = GeminiAgentPlanner(self.gemini.key, self.gemini.model, self.gemini.transport, careful=True,
+                                         keys=self.gemini.keys)
             try:
                 proposal, meta = careful.propose(session, runtime, check)
                 self.name = "gemini:careful"
@@ -240,8 +248,9 @@ class CloudAgentPlanner:
 class GeminiAgentPlanner:
     name = "gemini"
 
-    def __init__(self, key, model=None, transport=None, *, fast=False, careful=False):
+    def __init__(self, key, model=None, transport=None, *, fast=False, careful=False, keys=None):
         self.key = key
+        self.keys = list(keys or [key])   # H9 key pool: the next key is used when one hits its quota
         # careful (H21 "dhyan se socho"): the goal's own tools like fast (the full catalog's enum gets HTTP 400), with
         # the full budget: 60 s, 8K tokens, one retry.
         self.careful = careful
@@ -255,10 +264,15 @@ class GeminiAgentPlanner:
         from chutku.gemini import GeminiUnavailable
         schemas, catalog = planner_catalog(runtime, session if (self.fast or self.careful) else None)
         system = AGENT_SYSTEM.replace(" /no_think", "") + "TOOL_CATALOG=" + catalog
-        try:
-            envelope = (self.transport or self._call)(system, cloud_view(session, runtime), cloud_schema(schemas))
-        except GeminiUnavailable as error:
-            raise OSError(str(error)) from error
+        for index, key in enumerate(self.keys):
+            self.key = key
+            try:
+                envelope = (self.transport or self._call)(system, cloud_view(session, runtime), cloud_schema(schemas))
+                break
+            except GeminiUnavailable as error:
+                if getattr(error, "status", None) in (429, 401, 403) and index < len(self.keys) - 1:
+                    continue   # quota or a rejected key: the pool's next key
+                raise OSError(str(error)) from error
         return proposal_from(envelope["plan"], runtime, schemas, "Gemini"), {
             "planner": self.name, "backend": envelope.get("model"), "seconds": None}
 
@@ -337,8 +351,8 @@ def gemini_planner(base=PROJECT_ROOT):
     try:
         with create_runtime(base) as runtime:
             runtime.current_capability("cloud.gemini")
-        key = api_key()
-        return GeminiAgentPlanner(key) if key else None
+        keys = api_keys()
+        return GeminiAgentPlanner(keys[0], keys=keys) if keys else None
     except ValueError:
         return None   # cloud.gemini is not granted: the normal case without Gemini
     except Exception:
