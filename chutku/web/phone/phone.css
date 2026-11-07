@@ -29,6 +29,7 @@ body:has(#app:not([hidden])){height:100dvh;overflow:hidden}
 .stage:not(.zoomed) #frame{max-height:100%;object-fit:contain}
 .cursor{position:absolute;width:14px;height:14px;margin:-2px 0 0 -2px;border-left:3px solid #fff;border-top:3px solid #fff;
   transform:skewX(-8deg);filter:drop-shadow(0 0 2px #000) drop-shadow(0 0 1px #000);pointer-events:none}
+.cursor.glide{transition:left 70ms linear,top 70ms linear}   /* the laptop's own moves: smooth; yours: instant */
 .note{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#0d1524ee;border:1px solid var(--line);
   border-radius:12px;padding:10px 14px;font-size:13px;color:var(--muted);text-align:center;max-width:86%}
 .stage.dragging{box-shadow:inset 0 0 0 3px var(--warn)}

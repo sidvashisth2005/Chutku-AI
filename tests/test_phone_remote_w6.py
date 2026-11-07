@@ -360,17 +360,27 @@ class ServerTests(unittest.TestCase):
         with patch("chutku.core.paths.protected_zones", return_value=[str(self.base.resolve()).casefold()]):
             self.assertEqual(self.request("/api/files/stream?path=" + str(movie))[0], 403)
 
-    def test_the_stream_needs_a_screen_view_and_draws_the_cursor(self):
+    def test_the_streams_need_a_screen_view_and_the_phone_draws_the_pointer(self):
         self.pair_and_login()
         self.assertEqual(self.request("/api/screen/stream")[0], 403)                    # no view started
+        self.assertEqual(self.request("/api/cursor/stream")[0], 403)
         from chutku.vision import Shot
-        shot = Shot(np.zeros((400, 800, 3), np.uint8), 0, 0, 800, 400, {})
-        drawn = remote_server._with_cursor(shot, (100, 100))
-        self.assertTrue((drawn[104:110, 101] == 255).all())                           # a white arrow below the tip
-        self.assertFalse(shot.pixels.any())                                            # the capture itself untouched
-        body, mime = remote_server._jpeg(drawn, 8, width=400)
-        if mime == "image/jpeg":
-            self.assertEqual(body[:3], b"\xff\xd8\xff")
+        shot = Shot(np.zeros((500, 1000, 3), np.uint8), 0, 0, 1000, 500, {})
+        with patch("chutku.vision.capture", return_value=shot), patch.object(remote_server, "_keep_awake"), \
+                patch("chutku.remote.control.cursor_pos", return_value=(250, 125)):
+            self.assertEqual(self.request("/api/screen/start", {"pin": "4321"})[0], 200)
+            self.server.screen["until"] = time.monotonic() + 0.3                       # both streams end by themselves
+            start = time.perf_counter()
+            status, body, headers = self.request("/api/cursor/stream")
+            self.assertEqual((status, headers["Content-Type"]), (200, "text/event-stream"))
+            self.assertEqual(body.split(b"\n\n")[0], b"data: [0.25, 0.25]")             # sent once: it did not move
+            self.assertLess(time.perf_counter() - start, 2)
+            self.server.screen["until"] = time.monotonic() + 0.3
+            status, body, _ = self.request("/api/screen/stream")
+            self.assertEqual(status, 200)
+            jpeg = body[body.index(b"\r\n\r\n") + 4:]
+            frame = remote_server._jpeg(shot.pixels, 9, width=1280)[0]                 # the stream's own settings
+            self.assertEqual(jpeg[:len(frame)], frame)                                  # the picture has no pointer in it
 
     def test_screen_view_needs_the_pin_and_sends_only_changes(self):
         self.pair_and_login()

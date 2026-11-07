@@ -203,19 +203,63 @@ async function startScreen() {
     if (!relay && streamFails < 3) attachStream(); else frames();   // the relay can't carry a stream: frame by frame
   } catch (e) { note(e.message === "Cancelled" ? "Tap ⋯ More → Resume the screen" : e.message); }
 }
-// Owner 2026-11-07, "frames are still laggy": on the tailnet the screen is one continuous MJPEG stream (~18 frames/s,
-// the cursor drawn in), not a request per picture. Three failed streams in a row fall back to frame by frame.
-let streamFails = 0, streaming = false, resumeStream = false;
+// Owner 2026-11-07, "frames are still laggy": on the tailnet the screen is one continuous MJPEG stream (~18 frames/s),
+// not a request per picture. Three failed streams in a row fall back to frame by frame.
+// It is read here, not by <img src=stream>: Chrome shows an MJPEG part only when the NEXT one arrives (measured: every
+// frame one frame late, the last change of a burst ~2 s late until the keep-alive); read here, each frame shows as soon
+// as its last byte is in (measured 22-60 ms).
+let streamFails = 0, streaming = false, resumeStream = false, streamStop = null;
 function attachStream() {
   streaming = true; cursorAt = null; $("cursor").hidden = true;
-  $("frame").onerror = () => {
-    if (!streaming) return; streaming = false; streamFails++; note("Reconnecting the screen…");
+  if (streamStop) streamStop.abort();
+  const stop = streamStop = new AbortController();
+  readStream(stop.signal).catch(() => {}).finally(() => {
+    if (streamStop !== stop || !streaming) return;   // replaced or stopped on purpose
+    streaming = false; streamFails++; note("Reconnecting the screen…");
     setTimeout(() => { if (!document.hidden && !$("app").hidden) startScreen(); }, 1000);
-  };
-  $("frame").onload = () => { streamFails = 0; note(""); };
-  $("frame").src = "/api/screen/stream?w=1280&t=" + Date.now();
+  });
+  openPointer();
 }
-function detachStream() { streaming = false; $("frame").onerror = null; $("frame").removeAttribute("src"); }
+async function readStream(signal) {   // multipart parts, each with Content-Length: show each the moment it is complete
+  const response = await fetch("/api/screen/stream?w=1280&t=" + Date.now(), { credentials: "same-origin", signal });
+  if (!response.ok || !response.body) throw new Error("no stream");
+  const reader = response.body.getReader(), ascii = new TextDecoder("latin1");
+  let buf = new Uint8Array(0);
+  for (;;) {
+    const { value, done } = await reader.read(); if (done) return;
+    const joined = new Uint8Array(buf.length + value.length); joined.set(buf); joined.set(value, buf.length); buf = joined;
+    for (;;) {
+      const text = ascii.decode(buf.subarray(0, Math.min(buf.length, 512))), head = text.indexOf("\r\n\r\n");
+      if (head < 0) break;
+      const length = /content-length:\s*(\d+)/i.exec(text.slice(0, head)), start = head + 4;
+      if (!length) { buf = buf.subarray(start); continue; }
+      if (buf.length < start + +length[1]) break;
+      showFrame(buf.slice(start, start + +length[1])); buf = buf.subarray(start + +length[1]);
+    }
+  }
+}
+function showFrame(jpeg) {
+  const url = URL.createObjectURL(new Blob([jpeg], { type: "image/jpeg" })), old = $("frame").src;
+  $("frame").src = url; if (old.startsWith("blob:")) URL.revokeObjectURL(old);
+  streamFails = 0; note("");
+}
+function detachStream() {
+  streaming = false; if (streamStop) { streamStop.abort(); streamStop = null; } $("frame").removeAttribute("src");
+  if (pointerFeed) { pointerFeed.close(); pointerFeed = null; }
+}
+// Owner 2026-11-07, "the cursor still lags": like Chrome Remote Desktop, RustDesk and Parsec, the pointer is not in the
+// video. The phone draws it and moves it the instant your finger moves; the laptop's real position (a tiny event stream,
+// checked 60 times a second) corrects it once you stop, and shows moves made at the laptop itself.
+let pointerFeed = null, serverAt = null, settle = null;
+function openPointer() {
+  if (pointerFeed) pointerFeed.close();
+  pointerFeed = new EventSource("/api/cursor/stream");
+  pointerFeed.onmessage = e => {
+    try { serverAt = JSON.parse(e.data); } catch { return; }
+    if (Date.now() - localMoveAt > 400 && !inFlight) glideTo(serverAt);   // your own move wins until the laptop caught up
+  };
+}
+function glideTo(at) { cursorAt = at; $("cursor").classList.add("glide"); drawCursor(); }
 async function frames() {
   if (looping) return; looping = true;
   try {
@@ -249,7 +293,9 @@ async function frames() {
 }
 function frameRect() { return $("frame").getBoundingClientRect(); }
 function drawCursor(follow) {
-  if (!cursorAt || !$("frame").naturalWidth) { $("cursor").hidden = true; return; }
+  if (!cursorAt || !$("frame").naturalWidth) {   // the position can arrive before the first picture: try again shortly
+    $("cursor").hidden = true; if (cursorAt && streaming) setTimeout(drawCursor, 250); return;
+  }
   const img = frameRect(), canvas = $("canvas").getBoundingClientRect();
   $("cursor").style.left = (img.left - canvas.left + cursorAt[0] * img.width) + "px";
   $("cursor").style.top = (img.top - canvas.top + cursorAt[1] * img.height) + "px";
@@ -328,7 +374,8 @@ function moveBy(dx, dy) {
   pending.dx += dx; pending.dy += dy; pump();
   if (cursorAt && monitorPx) {   // the pointer moves on the phone at once; the next frames correct it
     cursorAt = [Math.min(1, Math.max(0, cursorAt[0] + dx / monitorPx[0])), Math.min(1, Math.max(0, cursorAt[1] + dy / monitorPx[1]))];
-    localMoveAt = Date.now(); drawCursor(true);
+    localMoveAt = Date.now(); $("cursor").classList.remove("glide"); drawCursor(true);
+    clearTimeout(settle); settle = setTimeout(() => { if (serverAt && !inFlight && streaming) glideTo(serverAt); }, 450);
   }
 }
 

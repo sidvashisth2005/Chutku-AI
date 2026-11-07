@@ -39,8 +39,9 @@ SCREEN_MAX = 30 * 60
 SCREEN_BEAT = 45.0   # one slow round trip (relay, mobile data) must not end the view
 PIN_SESSION = 30 * 60   # owner 2026-11-07: the PIN once per session, renewed while the phone is used
 MONITOR_SECONDS = 2.0
+CURSOR_TICK = 1 / 60    # the pointer stream checks the mouse 60 times a second and sends only moves
 STREAM_FRAME = 1 / 20   # the stream's fastest pace (capture ~30 ms + scale/encode ~30 ms in practice)   # trackpad input reuses the monitor rectangle instead of a capture per move
-KINDS = {"/api/screen/frame": "frame", "/api/screen/stream": "frame", "/api/files/stream": "frame", "/api/session": "poll", "/api/presence": "poll", "/api/say": "poll",
+KINDS = {"/api/screen/frame": "frame", "/api/screen/stream": "frame", "/api/cursor/stream": "frame", "/api/files/stream": "frame", "/api/session": "poll", "/api/presence": "poll", "/api/say": "poll",
          "/api/whoami": "poll", "/api/files/list": "poll", "/api/files/search": "poll", "/api/files/recent": "poll",
          "/api/files/places": "poll", "/api/control/input": "input", "/api/control/text": "input", "/api/control/keys": "input"}
 INBOX = Path(user_folder("ChutkuInbox"))
@@ -298,6 +299,8 @@ class PhoneHandler(BaseHTTPRequestHandler):
                 self._frame(record, query.get("h", [""])[0])
             elif path == "/api/screen/stream":
                 self._stream(record, query)
+            elif path == "/api/cursor/stream":
+                self._cursor_stream(record)
             elif path == "/api/files/stream":
                 self._file_stream(record, query.get("path", [""])[0])
             elif path == "/api/say":
@@ -563,13 +566,13 @@ class PhoneHandler(BaseHTTPRequestHandler):
 
     def _stream(self, record, query):
         """GET /api/screen/stream: the screen as one continuous MJPEG stream (multipart/x-mixed-replace), shown by a
-        plain <img>. No round trip per frame (owner 2026-11-07: "frames are still laggy"); the cursor is drawn in.
+        plain <img>. No round trip per frame (owner 2026-11-07: "frames are still laggy"). The pointer is not in the
+        picture: the phone draws it from /api/cursor/stream and moves it at once under your finger.
         Ends when the phone goes away, the view is stopped or replaced, or after SCREEN_MAX."""
         screen = self.server.screen
         if not screen or screen["device"] != record["device"] or time.monotonic() > screen["until"]:
             raise RemoteDenied("Start screen view with your PIN.", 403)
         from chutku import vision
-        from chutku.remote.control import cursor_pos
         width = max(640, min(1920, int((query.get("w") or ["1280"])[0])))
         screen["stream"] = token = secrets.token_hex(4)   # a newer stream from this phone replaces this one
         self.send_response(200)
@@ -586,7 +589,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
                 screen["beat"] = started
                 try:
                     shot = vision.capture()
-                    pixels = _with_cursor(shot, cursor_pos())
+                    pixels = shot.pixels
                 except OSError:   # locked or a secure desktop: try again shortly, keep the stream open
                     time.sleep(1.0)
                     continue
@@ -601,6 +604,36 @@ class PhoneHandler(BaseHTTPRequestHandler):
                 time.sleep(max(0.0, STREAM_FRAME - (time.monotonic() - started)))
         except (BrokenPipeError, ConnectionError, OSError):
             pass   # the phone closed the stream
+
+    def _cursor_stream(self, record):
+        """GET /api/cursor/stream: where the mouse is (0..1 of the streamed monitor), as server-sent events, whenever it
+        moves (owner 2026-11-07, "the cursor still lags"). Like Chrome Remote Desktop / RustDesk / Parsec, the phone
+        draws the pointer itself; this only corrects it, and shows moves made at the laptop. A newer one replaces it."""
+        screen = self.server.screen
+        if not screen or screen["device"] != record["device"] or time.monotonic() > screen["until"]:
+            raise RemoteDenied("Start screen view with your PIN.", 403)
+        from chutku.remote.control import cursor_pos
+        screen["cursor"] = token = secrets.token_hex(4)
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        last, sent_at = None, 0.0
+        try:
+            while self.server.screen is screen and screen.get("cursor") == token and time.monotonic() < screen["until"] \
+                    and not self.server.stopped.is_set():
+                left, top, width, height = self._monitor()
+                x, y = cursor_pos()
+                at = [round((x - left) / max(width, 1), 4), round((y - top) / max(height, 1), 4)]
+                now = time.monotonic()
+                if at != last or now - sent_at > 10:   # a keep-alive every 10 s finds a phone that went away
+                    self.wfile.write(b"data: " + json.dumps(at).encode() + b"\n\n")
+                    self.wfile.flush()
+                    last, sent_at = at, now
+                time.sleep(CURSOR_TICK)
+        except (BrokenPipeError, ConnectionError, OSError):
+            pass
 
     # -- P5/P6: direct control ---------------------------------------------------------------------------------------
     def _post_control_start(self, record, data):
@@ -874,25 +907,6 @@ def _jpeg(rgb, quality, width=None):
     except Exception:   # no PyAV or no MJPEG encoder: the lossless frame still works
         from chutku import vision
         return _png(vision.scaled(rgb, width or rgb.shape[1]), level=1), "image/png"
-
-
-def _with_cursor(shot, point):
-    """The screen with a small arrow where the mouse is (the stream has no headers per frame to carry it)."""
-    pixels = shot.pixels
-    x, y = point[0] - shot.left, point[1] - shot.top
-    height, width = pixels.shape[:2]
-    if not (0 <= x < width and 0 <= y < height):
-        return pixels
-    pixels = pixels.copy()
-    size = max(14, width // 90)   # still visible after scaling to the phone
-    for row in range(size):
-        if y + row >= height:
-            break
-        span = row // 2 + 1
-        left, right = x, min(width, x + span + 2)
-        pixels[y + row, left:right] = (0, 0, 0)
-        pixels[y + row, left + 1:min(width, x + span)] = (255, 255, 255)
-    return pixels
 
 
 def _png(rgb, level=1):

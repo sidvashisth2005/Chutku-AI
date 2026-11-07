@@ -16,6 +16,39 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: Phone remote: the pointer moves on the phone instantly; frames show the moment they arrive
+- Owner: "the cursor still lags sometimes", and "see how similar apps do it".
+- **Cause 1, the pointer.** It was drawn into the video on the laptop, so every move waited for the input round
+  trip, a capture and encode, and the trip back. Measured now: phone↔laptop goes through Tailscale's DERP relay in
+  Mumbai at 81–98 ms (`tailscale ping`). No direct path: both ends look like they're behind carrier NAT.
+- **Fix 1** (how Chrome Remote Desktop, RustDesk and Parsec do it): the pointer is no longer in the video.
+  - The phone draws it and moves it the instant your finger moves.
+  - New `GET /api/cursor/stream` (`server.py` `_cursor_stream`, server-sent events) checks the laptop's pointer 60
+    times a second and sends only moves. It needs a screen view, and a newer one replaces the older.
+  - The phone uses it only once you've stopped (450 ms after your last move, nothing in flight), gliding over 70 ms,
+    and to show moves made at the laptop. `_with_cursor` was removed (unused).
+- **Cause 2, found while testing: Chrome showed every streamed MJPEG frame one frame late.** It puts a part on
+  screen only when the next part arrives. Measured by reading screenshot pixels: 2.5 s late with frames sent 2.5 s
+  apart, for 8 KB and 246 KB frames alike. Sending the boundary after each frame, adding the next part's headers,
+  or pre-sending the next frame's first bytes did not help. On a real laptop, the last change of a burst (the result
+  of a click) waited up to 2 s for the keep-alive frame.
+- **Fix 2:** `phone.js` `readStream` reads the same stream with `fetch` and shows each frame as soon as its last byte
+  arrives, using the Content-Length each part already carries. Measured: 22–60 ms after sending (it was 2.5 s). No
+  server change.
+- **Verified:**
+  - `test_the_streams_need_a_screen_view_and_the_phone_draws_the_pointer`: both streams return 403 without a view.
+    The pointer stream sends `data: [0.25, 0.25]` once for a still pointer. The video frame equals the plain capture
+    (no pointer drawn in).
+  - Playwright, real page against a fake laptop with a 90 ms input delay, 30-step swipe:
+    - the phone pointer moved with every touch event;
+    - no backward jumps;
+    - 300 ms after the swipe, phone 0.6575 vs laptop 0.6573;
+    - the pointer was visible before the first touch.
+  - Pinch-zoom checks rerun: unchanged.
+  - Phone tests: 51 OK.
+- **Not verified live:** the running Chutku still has the old `server.py` until it restarts. Until then the phone
+  gets no pointer stream and the old pointer drawn into the video still shows.
+
 ### 2026-11-07: Phone remote: pinch to zoom into one part of the laptop screen, then tap there
 - Owner request: zoom in to see small text or tap buttons that are close together.
 - `phone.js` `setZoom`: a pinch (fingers spreading or closing more than 24 px) zooms the view on the phone, 1–6x,
