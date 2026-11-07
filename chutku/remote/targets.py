@@ -25,8 +25,12 @@ _local = threading.local()
 
 def _uia():
     if getattr(_local, "ua", None) is None:
+        import ctypes
         import comtypes
         import comtypes.client
+        # physical pixels, like the screen capture and the taps (live 2026-11-08: at 125% display scaling a thread
+        # that is not DPI aware gets every point and rectangle shrunk by 1.25, so lookups hit the wrong spot)
+        ctypes.windll.user32.SetThreadDpiAwarenessContext(ctypes.c_void_p(-4))   # PER_MONITOR_AWARE_V2
         comtypes.CoInitialize()
         comtypes.client.GetModule("UIAutomationCore.dll")
         from comtypes.gen import UIAutomationClient as U
@@ -119,6 +123,114 @@ def snap(x, y, radius, monitor, *, timeout=0.15):
 def hover(x, y, monitor, *, timeout=0.05):
     """The target under the pointer (for the magnetic pointer and the highlight), or None."""
     return _run(lambda: _target_at(x, y, monitor[2] * monitor[3]), timeout)
+
+
+def _plain(text):
+    return " ".join("".join(ch if ch.isalnum() else " " for ch in str(text or "").casefold()).split())
+
+
+def _bones(text):
+    """The consonants only: spellings of the same word from Hindi script and English differ mostly in vowels."""
+    return "".join(ch for ch in text if ch.isalpha() and ch not in "aeiouy")
+
+
+def best_name(want, names):
+    """Index of the name that best matches what was said (voice click), or None: exact, then whole words, then a close
+    spelling (Whisper writes "sev" for "Save")."""
+    import difflib
+    want = _plain(want)
+    if not want:
+        return None
+    best, score = None, 0.0
+    for index, name in enumerate(names):
+        name = _plain(name)
+        if not name:
+            continue
+        if name == want:
+            value = 1.0
+        elif f" {want} " in f" {name} ":
+            value = 0.9 - min(0.2, (len(name) - len(want)) / 200)   # "save" in "save as": the shorter wins
+        elif len(_bones(want)) >= 2 and _bones(want) == _bones(name):
+            value = 0.8                                              # Hindi script read back: "sev" = "Save"
+        else:
+            value = difflib.SequenceMatcher(None, want, name).ratio() * 0.85
+        if value > score:
+            best, score = index, value
+    return best if score >= 0.6 else None
+
+
+def find_by_name(name, monitor, *, timeout=2.0):
+    """The clickable element in the front window whose name was said (voice click, owner 2026-11-08), or None. One
+    cached UI Automation query: names, types and places come back together."""
+    def job():
+        import ctypes
+        u = _uia()
+        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        if not hwnd:
+            return None
+        root = u.ua.ElementFromHandle(hwnd)
+        condition = None
+        for type_id in KINDS:
+            one = u.ua.CreatePropertyCondition(30003, type_id)          # UIA_ControlTypePropertyId
+            condition = one if condition is None else u.ua.CreateOrCondition(condition, one)
+        cache = u.ua.CreateCacheRequest()
+        for prop in (30005, 30003, 30001, 30010, 30022):                 # name, type, rectangle, enabled, offscreen
+            cache.AddProperty(prop)
+        found = root.FindAllBuildCache(4, condition, cache)                  # TreeScope_Descendants
+        left, top, width, height = monitor
+        candidates = []
+        for i in range(min(found.Length, 4000)):
+            element = found.GetElement(i)
+            rect = element.CachedBoundingRectangle
+            if not element.CachedIsEnabled or element.CachedIsOffscreen or rect.right <= rect.left:
+                continue
+            if not (left <= rect.left < left + width and top <= rect.top < top + height):
+                continue
+            candidates.append({"kind": KINDS[element.CachedControlType], "name": str(element.CachedName or "")[:60],
+                               "rect": (rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)})
+        index = best_name(name, [c["name"] for c in candidates])
+        return None if index is None else candidates[index]
+    return _run(job, timeout)
+
+
+def text_at(x, y, *, timeout=0.8):
+    """The paragraph of text under (x, y) for read aloud (owner 2026-11-08), or None: through the app's text pattern
+    when it has one, else the text element's own words."""
+    def job():
+        u = _uia()
+        point = u.U.tagPOINT(int(x), int(y))
+        element = node = u.ua.ElementFromPoint(point)
+        for _ in range(6):
+            if not node:
+                break
+            try:
+                pattern = node.GetCurrentPattern(10014)                      # UIA_TextPatternId
+                if pattern:
+                    text_range = pattern.QueryInterface(u.U.IUIAutomationTextPattern).RangeFromPoint(point)
+                    text_range.ExpandToEnclosingUnit(4)                      # TextUnit_Paragraph
+                    text = text_range.GetText(4000).strip()
+                    if text:
+                        return text
+                    break
+            except Exception:   # an app with a partial text pattern: the fallbacks below
+                break
+            node = u.walker.GetParentElement(node)
+        node = element
+        for _ in range(3):
+            if not node:
+                break
+            if node.CurrentControlType == 50020 and str(node.CurrentName or "").strip():   # Text
+                return str(node.CurrentName).strip()[:4000]
+            if node.CurrentControlType == 50004:                             # a text box: its whole text
+                try:
+                    value = node.GetCurrentPattern(10002).QueryInterface(u.U.IUIAutomationValuePattern).CurrentValue
+                    if str(value or "").strip():
+                        return str(value).strip()[:4000]
+                except Exception:
+                    pass
+            node = u.walker.GetParentElement(node)
+        return None
+    return _run(job, timeout)
 
 
 def on_monitor(target, monitor):

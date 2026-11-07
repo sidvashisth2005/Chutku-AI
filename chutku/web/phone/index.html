@@ -40,6 +40,13 @@
     <div id="screen-note" class="note">Connecting to the laptop screen…</div>
   </div>
   <div id="toast" class="toast" role="status" hidden></div>
+  <button id="watch-exit" class="watch-exit" aria-label="Leave Watch">✕</button>
+
+  <section id="sheet-windows" class="sheet" hidden>
+    <div class="sheet-head"><strong>Windows</strong><button class="text" data-close>Close ✕</button></div>
+    <p class="muted small" style="padding:0 14px">Tap one: it comes to the front and the view fits it.</p>
+    <div id="window-list" class="file-list"><p class="muted small">Loading…</p></div>
+  </section>
   <div id="dock" class="dock">
     <div class="keys" id="keys"></div>
     <div class="toolbar">
@@ -47,6 +54,10 @@
       <button id="mode" aria-label="Touch mode">🖱<span id="mode-name">Trackpad</span></button>
       <button id="zoom" aria-label="Zoom">🔍<span id="zoom-name">Fit</span></button>
       <button id="control" aria-label="Control">✋<span id="control-name">Control</span></button>
+      <button id="sound" aria-label="Laptop sound">🔈<span>Sound</span></button>
+      <button id="watch" aria-label="Watch: only video and sound, full screen">⛶<span>Watch</span></button>
+      <button id="voice" aria-label="Hold and say: click Save, or words to type">🎙<span>Voice</span></button>
+      <button data-sheet="windows" aria-label="Windows">🪟<span>Windows</span></button>
       <button data-sheet="chat" aria-label="Chutku">💬<span>Chutku</span></button>
       <button data-sheet="files" aria-label="Files">📁<span>Files</span></button>
       <button data-sheet="more" aria-label="More">⋯<span>More</span></button>
@@ -87,6 +98,9 @@
     <div class="card"><h2>Type a whole text</h2>
       <div class="row"><input id="type-text" placeholder="Type on the laptop (Hindi too)"></div>
       <div class="row"><button id="type-send">Type</button><button id="type-enter">Type + Enter</button></div></div>
+    <div class="card"><h2>Connection speed</h2>
+      <button id="speed-go">Test laptop → phone speed</button><p id="speed-out" class="small"></p>
+      <p class="muted small">Watch uses about 70% of this. Tailscale's relay (when there is no direct path) is slower and uneven.</p></div>
     <div class="card"><h2>Clipboard</h2>
       <div class="row"><button id="clip-get">Get laptop clipboard</button><button id="clip-paste">Paste my text</button></div></div>
     <div class="card"><h2>Touch mode</h2>

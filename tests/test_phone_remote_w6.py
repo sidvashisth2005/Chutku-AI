@@ -257,6 +257,32 @@ class ControlTests(unittest.TestCase):
             thread.join()
         self.assertEqual(position["x"], 560)
 
+    def test_spoken_clicks_and_names(self):
+        from chutku.remote import targets
+        for said, name in (("Save pe click karo.", "save"), ("click on the Save button", "save"), ("OK dabao", "ok"),
+                           ("सेव पे क्लिक करो", "sev"), ("Send button par click kar do", "send"), ("tap cancel", "cancel"),
+                           ("hello how are you", None), ("मैं घर आ रहा हूँ", None)):
+            self.assertEqual(control.spoken_click(said), name, said)
+        self.assertEqual(targets.best_name("sev", ["Save as", "Save", "Cancel"]), 1)       # Hindi script read back
+        self.assertEqual(targets.best_name("save", ["Save as", "Save"]), 1)                # exact beats a longer one
+        self.assertEqual(targets.best_name("ok", ["Book", "OK"]), 1)
+        self.assertIsNone(targets.best_name("delete everything", ["Save", "Cancel"]))       # nothing close: no click
+
+    def test_switching_windows_needs_a_listed_window(self):
+        fronted, logged = [], []
+        session = control.ControlSession("b", inject=FakeInjector(), log=logged.append, locked=lambda: False,
+                                         window=lambda: {}, local_tick=lambda: None, now_tick=lambda: 0,
+                                         windows=lambda monitor: [{"id": 7, "title": "Notes", "app": "notepad.exe",
+                                                                   "minimized": True, "rect": None}],
+                                         front=fronted.append, rect=lambda hwnd, monitor: [0.1, 0.2, 0.5, 0.5])
+        answer = session.focus(7, (0, 0, 100, 100))
+        self.assertEqual((fronted, answer["window"]["rect"], answer["window"]["minimized"]), ([7], [0.1, 0.2, 0.5, 0.5], False))
+        self.assertEqual(logged[-1]["kind"], "window")
+        with self.assertRaises(control.ControlRefused):
+            session.focus(99, (0, 0, 100, 100))                                         # not an open window
+        self.assertEqual(fronted, [7])
+        session.keys("win+tab")                                                         # three-finger swipe up
+
     def test_target_helpers(self):
         from chutku.remote import targets
         button = {"kind": "button", "name": "OK", "rect": (100, 100, 40, 20)}
@@ -458,12 +484,16 @@ class ServerTests(unittest.TestCase):
         from chutku.vision import Shot
         count = {"n": 0}
 
-        def capture():   # a screen where one pixel changes every frame
-            count["n"] += 1
-            pixels = np.full((360, 640, 3), 80, np.uint8)
-            pixels[10, count["n"] % 600] = 255
-            return Shot(pixels, 0, 0, 640, 360, {})
-        with patch("chutku.vision.capture", side_effect=capture), patch.object(remote_server, "_keep_awake"):
+        class Capturer:   # a BGRA screen where one pixel changes every frame
+            def grab(self):
+                count["n"] += 1
+                pixels = np.full((360, 640, 4), 80, np.uint8)
+                pixels[10, count["n"] % 600] = 255
+                return Shot(pixels, 0, 0, 640, 360, {})
+
+            def close(self):
+                count["closed"] = True
+        with patch("chutku.vision.Capturer", Capturer), patch.object(remote_server, "_keep_awake"):
             self.assertEqual(self.request("/api/screen/start", {"pin": "4321"})[0], 200)
             self.server.screen["until"] = time.monotonic() + 0.5
             status, body, headers = self.request("/api/screen/h264?w=640")
@@ -480,8 +510,77 @@ class ServerTests(unittest.TestCase):
             frames += decoder.decode(av.Packet(data))
         self.assertGreaterEqual(len(frames), 5)                                         # every change was sent
         self.assertEqual((frames[0].width, frames[0].height), (640, 360))
+        time.sleep(0.2)
+        self.assertTrue(count.get("closed"))                                            # the capturer let go of GDI
         self.assertNotEqual(remote_server._changed(np.zeros((4, 4, 3), np.uint8)),
                             remote_server._changed(np.pad(np.ones((1, 1, 3), np.uint8), ((0, 3), (0, 3), (0, 0)))))
+
+    def test_speed_test_sound_read_aloud_windows_and_voice(self):
+        import struct
+        self.pair_and_login()
+        status, body, _ = self.request("/api/speedtest?mb=2")
+        self.assertEqual((status, len(body)), (200, 2 * 1024 * 1024))
+        self.assertEqual(self.request("/api/screen/audio")[0], 403)                      # no screen view
+        self.assertEqual(self.request("/api/control/read", {"x": 0.5, "y": 0.5})[0], 403)
+        from chutku.vision import Shot
+        shot = Shot(np.zeros((500, 1000, 3), np.uint8), 0, 0, 1000, 500, {})
+
+        class Loopback:
+            rate = 48000
+
+            def __init__(self):
+                self.calls = 0
+
+            def read(self):
+                self.calls += 1
+                return np.zeros((960, 2), np.float32) if self.calls < 4 else None
+
+            def close(self):
+                pass
+
+        class Opus:
+            def __init__(self, rate):
+                pass
+
+            def encode(self, samples):
+                return [b"opus-packet"]
+        with patch("chutku.vision.capture", return_value=shot), patch.object(remote_server, "_keep_awake"):
+            self.assertEqual(self.request("/api/screen/start", {"pin": "4321"})[0], 200)
+            with patch("chutku.remote.audio.Loopback", Loopback), patch("chutku.remote.audio.Opus", Opus):
+                self.server.screen["until"] = time.monotonic() + 0.3
+                status, body, _ = self.request("/api/screen/audio")
+            self.assertEqual(status, 200)
+            self.assertEqual(body, (struct.pack(">I", 11) + b"opus-packet") * 3)                # length-prefixed
+            self.server.screen["until"] = time.monotonic() + 60
+            with patch("chutku.remote.audio.Loopback", side_effect=OSError("no device")):
+                self.assertEqual(self.request("/api/screen/audio")[0], 409)
+            with patch("chutku.remote.targets.text_at", return_value="Second paragraph.") as text_at:
+                status, body, _ = self.request("/api/control/read", {"x": 0.5, "y": 0.2})
+            self.assertEqual((status, body), (200, {"text": "Second paragraph."}))
+            self.assertEqual(text_at.call_args[0], (500, 100))                           # 0..1 -> pixels
+        # the window switcher and voice need control
+        self.assertEqual(self.request("/api/control/windows")[0], 409)
+        done = []
+        fake = SimpleNamespace(alive=lambda: True, end=lambda reason: None,
+                               windows=lambda monitor: [{"id": 7, "title": "Notes", "app": "notepad.exe"}],
+                               focus=lambda wid, monitor: {"window": {"id": wid, "rect": [0.1, 0.1, 0.5, 0.5]}},
+                               pointer=lambda events, monitor: done.append(("pointer", events)),
+                               text=lambda text: done.append(("text", text)), keys=lambda combo: done.append(("keys", combo)))
+        self.server.control = fake
+        self.assertEqual(self.request("/api/control/windows")[1]["windows"][0]["title"], "Notes")
+        self.assertEqual(self.request("/api/control/window", {"id": 7})[1]["window"]["id"], 7)
+        button = {"kind": "button", "name": "Save", "rect": (400, 200, 100, 50)}
+        for heard, found, expect in (("Save pe click karo.", button, ("pointer", [{"kind": "tap", "x": 0.45, "y": 0.45}])),
+                                     ("hello how are you", None, ("text", "hello how are you")),
+                                     ("press Enter", None, ("keys", "enter"))):
+            with patch.object(remote_server, "decode_audio", return_value=b"\0" * 32000), \
+                    patch("chutku.voice.whisper_stt.transcribe_pcm", return_value={"text": heard, "confidence": 0.9}), \
+                    patch("chutku.remote.targets.find_by_name", return_value=found):
+                status, body, _ = self.request("/api/control/voice", raw=b"audio", extra={"Content-Type": "audio/webm"})
+            self.assertEqual(status, 200, body)
+            self.assertEqual(done[-1], expect)
+        self.assertEqual(body["did"], "key")
+        self.server.control = None
 
     def test_the_pointer_stream_says_what_is_under_the_pointer_while_controlling(self):
         self.pair_and_login()

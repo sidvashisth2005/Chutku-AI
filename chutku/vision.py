@@ -145,6 +145,65 @@ def capture():
     return Shot(np.ascontiguousarray(bgra[:, :, 2::-1]), left, top, width, height, window)
 
 
+class Capturer:
+    """Repeated screen captures for the phone's video (owner 2026-11-08, "faster frames"). Keeps the GDI objects between
+    frames and returns BGRA as captured: measured BitBlt 18.5 ms + GetDIBits 0.8 ms of 1080p, where capture() also
+    builds and frees them and copies to RGB (~35 ms). Same monitor rule as capture(). Use from one thread."""
+
+    def __init__(self):
+        gdi = self.gdi = ctypes.WinDLL("gdi32", use_last_error=True)
+        gdi.CreateCompatibleDC.restype = w.HDC
+        gdi.CreateCompatibleDC.argtypes = [w.HDC]
+        gdi.CreateCompatibleBitmap.restype = w.HBITMAP
+        gdi.CreateCompatibleBitmap.argtypes = [w.HDC, ctypes.c_int, ctypes.c_int]
+        gdi.SelectObject.restype = w.HGDIOBJ
+        gdi.SelectObject.argtypes = [w.HDC, w.HGDIOBJ]
+        gdi.BitBlt.argtypes = [w.HDC, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, w.HDC,
+                               ctypes.c_int, ctypes.c_int, w.DWORD]
+        gdi.GetDIBits.argtypes = [w.HDC, w.HBITMAP, w.UINT, w.UINT, ctypes.c_void_p, ctypes.c_void_p, w.UINT]
+        gdi.DeleteObject.argtypes = [w.HGDIOBJ]
+        gdi.DeleteDC.argtypes = [w.HDC]
+        self.size = self.screen = self.memory = self.bitmap = self.old = None
+
+    def grab(self):
+        """A Shot whose pixels are BGRA (height, width, 4)."""
+        try:
+            with dpi_aware() as user32:
+                monitor = user32.MonitorFromWindow(user32.GetForegroundWindow(), 2)
+                info = _MonitorInfo()
+                info.cbSize = ctypes.sizeof(_MonitorInfo)
+                if not monitor or not user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+                    raise OSError("Could not find the monitor to capture.")
+                rect = info.rcMonitor
+                left, top, width, height = rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top
+                if self.size != (width, height):
+                    self.close()
+                    self.screen = user32.GetDC(None)
+                    self.memory = self.gdi.CreateCompatibleDC(self.screen)
+                    self.bitmap = self.gdi.CreateCompatibleBitmap(self.screen, width, height)
+                    self.old = self.gdi.SelectObject(self.memory, self.bitmap)
+                    self.size = (width, height)
+                if not self.gdi.BitBlt(self.memory, 0, 0, width, height, self.screen, left, top, 0x00CC0020 | 0x40000000):
+                    raise OSError("Screen capture failed.")
+                pixels = np.empty((height, width, 4), np.uint8)
+                header = _BitmapInfoHeader(ctypes.sizeof(_BitmapInfoHeader), width, -height, 1, 32, 0, 0, 0, 0, 0, 0)
+                if self.gdi.GetDIBits(self.memory, self.bitmap, 0, height, pixels.ctypes.data,
+                                      ctypes.byref(header), 0) != height:
+                    raise OSError("Reading the screen capture failed.")
+        except OSError:
+            self.close()   # locked or a secure desktop: start again from new GDI objects next time
+            raise
+        return Shot(pixels, left, top, width, height, {})
+
+    def close(self):
+        if self.memory:
+            self.gdi.SelectObject(self.memory, self.old)
+            self.gdi.DeleteObject(self.bitmap)
+            self.gdi.DeleteDC(self.memory)
+            ctypes.windll.user32.ReleaseDC(None, self.screen)
+        self.size = self.screen = self.memory = self.bitmap = self.old = None
+
+
 # -- encoding ------------------------------------------------------------------------
 
 def encode_png(rgb):
@@ -547,3 +606,10 @@ def scroll_at(x, y, clicks):
         user32.SetCursorPos(int(x), int(y))
     time.sleep(0.05)
     _send((0x0800, 120 * clicks))  # positive = up
+
+
+def hscroll_at(x, y, clicks):
+    with dpi_aware() as user32:
+        user32.SetCursorPos(int(x), int(y))
+    time.sleep(0.05)
+    _send((0x01000, 120 * clicks))  # MOUSEEVENTF_HWHEEL, positive = right

@@ -46,7 +46,7 @@ body:has(#app:not([hidden])){height:100dvh;overflow:hidden}
 .dock{flex:none;background:#0a111ef2;border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
 .keys{display:flex;gap:5px;overflow-x:auto;padding-bottom:5px;scrollbar-width:none}.keys::-webkit-scrollbar{display:none}
 .keys button{flex:none;padding:8px 11px;font-size:13px;border-radius:9px}
-.toolbar{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.toolbar{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
 .toolbar button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;font-size:18px;border-radius:10px}
 .toolbar button span{font-size:10px;font-weight:600;color:var(--muted)}
 .toolbar button.on{border-color:var(--accent)}.toolbar button.on span{color:var(--accent)}
@@ -63,6 +63,7 @@ body:has(#app:not([hidden])){height:100dvh;overflow:hidden}
   .dock{position:absolute;right:0;bottom:0;width:var(--side);border-left:1px solid var(--line);border-radius:14px 0 0 0;
     padding:6px calc(6px + env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) 6px}
   .toolbar{grid-template-columns:repeat(4,1fr)}
+  .toolbar button{padding:3px 2px;font-size:16px}
   .note,.toast{left:calc(50% - var(--side) / 2)}
   .toast{max-width:calc(92% - var(--side))}
 }
@@ -98,4 +99,13 @@ body:has(#app:not([hidden])){height:100dvh;overflow:hidden}
 .banner{background:#2a1118;border:1px solid #5b1f2c;border-radius:12px;padding:10px;margin:6px 12px}
 dialog{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;width:min(320px,90vw)}
 dialog::backdrop{background:#000b}
+/* Watch (owner 2026-11-08): only the laptop's picture and sound, full screen; the ✕ brings everything back */
+.watch-exit{display:none}
+body.watch header,body.watch .dock,body.watch .sheet,body.watch #cursor,body.watch #hilite,body.watch #flash,body.watch .note{display:none!important}
+body.watch #app{padding:0}
+body.watch .stage:not(.zoomed) .canvas{justify-content:center}
+body.watch .stage:not(.zoomed) :is(#frame,#video){width:100%;max-width:100%;height:100%;max-height:100%;object-fit:contain}
+body.watch .watch-exit{display:block;position:fixed;top:calc(8px + env(safe-area-inset-top));right:calc(8px + env(safe-area-inset-right));
+  z-index:7;width:40px;height:40px;padding:0;border-radius:50%;background:#0008;color:#fff;opacity:.35;font-size:18px}
+body.watch .watch-exit:active,body.watch .watch-exit:focus-visible{opacity:1}
 [hidden]{display:none!important}

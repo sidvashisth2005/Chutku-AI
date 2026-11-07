@@ -20,7 +20,10 @@ $f = New-Object Windows.Forms.Form; $f.Text = 'Chutku snap test'; $f.TopMost = $
 $f.StartPosition = 'Manual'; $f.Left = 200; $f.Top = 200
 $b = New-Object Windows.Forms.Button; $b.Text = 'Snap OK'; $b.Left = 20; $b.Top = 20; $b.Width = 90; $b.Height = 30
 $t = New-Object Windows.Forms.TextBox; $t.Name = 'field'; $t.Left = 20; $t.Top = 90; $t.Width = 220
-$f.Controls.Add($b); $f.Controls.Add($t)
+$l = New-Object Windows.Forms.Label; $l.Text = 'Read me aloud please'; $l.Left = 20; $l.Top = 130; $l.Width = 300
+$m = New-Object Windows.Forms.TextBox; $m.Multiline = $true; $m.Left = 260; $m.Top = 20; $m.Width = 140; $m.Height = 100
+$m.Text = "First paragraph here.`r`nSecond paragraph text."
+$f.Controls.Add($b); $f.Controls.Add($t); $f.Controls.Add($l); $f.Controls.Add($m)
 $timer = New-Object Windows.Forms.Timer; $timer.Interval = 15000; $timer.Add_Tick({ $f.Close() }); $timer.Start()
 [void]$f.ShowDialog()
 """
@@ -39,6 +42,28 @@ def rect_of(name):
         r = found.CurrentBoundingRectangle
         return r.left, r.top, r.right - r.left, r.bottom - r.top
     return targets._run(job, 5)
+
+
+def window_of():
+    def job():
+        u = targets._uia()
+        window = u.ua.GetRootElement().FindFirst(2, u.ua.CreatePropertyCondition(30005, "Chutku snap test"))
+        r = window.CurrentBoundingRectangle
+        return r.left, r.top, r.right - r.left, r.bottom - r.top
+    return targets._run(job, 5)
+
+
+def edits():
+    def job():
+        u = targets._uia()
+        window = u.ua.GetRootElement().FindFirst(2, u.ua.CreatePropertyCondition(30005, "Chutku snap test"))
+        found = window.FindAll(4, u.ua.CreatePropertyCondition(30003, 50004))      # Edit
+        rects = []
+        for i in range(found.Length):
+            r = found.GetElement(i).CurrentBoundingRectangle
+            rects.append((r.left, r.top, r.right - r.left, r.bottom - r.top))
+        return rects
+    return targets._run(job, 5) or []
 
 
 def main():
@@ -74,6 +99,32 @@ def main():
                            below, None))
         hovered = targets.hover(bx + 3, by + 3, monitor)
         checks.append(("hover over the button finds it", hovered and hovered["kind"] == "button", hovered, None))
+        # voice click (2026-11-08): the button by its spoken name, in the front window
+        from chutku.remote import control
+        control.bring_to_front(next(w["id"] for w in control.open_windows(monitor) if w["title"] == "Chutku snap test"))
+        time.sleep(0.3)
+        start = time.perf_counter()
+        named = targets.find_by_name("snap ok", monitor)
+        took = (time.perf_counter() - start) * 1000
+        checks.append(('voice click: "snap ok" finds the button', named and named["rect"] == button, named, took))
+        sloppy = targets.find_by_name("snep ok", monitor)
+        checks.append(('voice click: a Hindi-style spelling "snep ok" still finds it', sloppy and sloppy["rect"] == button, sloppy, None))
+        checks.append(('voice click: "delete everything" finds nothing', targets.find_by_name("delete everything", monitor) is None, None, None))
+        # read aloud: the paragraph under the finger, and a label's words
+        label = rect_of("Read me aloud please")
+        if label:
+            said = targets.text_at(label[0] + 5, label[1] + label[3] // 2)
+            checks.append(("read aloud: a label's words", said == "Read me aloud please", said, None))
+        tall = max(edits(), key=lambda r: r[3], default=None)   # the multi-line text box
+        if tall:
+            said = targets.text_at(tall[0] + 10, tall[1] + 8)
+            checks.append(("read aloud: the text box's text", said and said.startswith("First paragraph"), said, None))
+        # window switcher: the window is listed with its place on the screen (physical pixels, any display scaling)
+        listed = [w for w in control.open_windows(monitor) if w["title"] == "Chutku snap test"]
+        rect, placed = (listed[0]["rect"] if listed else None), window_of()
+        checks.append(("window switcher lists the window at its place on the screen",
+                       rect and placed and abs(rect[0] * monitor[2] - placed[0]) < 12 and abs(rect[1] * monitor[3] - placed[1]) < 12,
+                       (listed, placed), None))
         failed = 0
         for name, ok, got, ms in checks:
             failed += not ok

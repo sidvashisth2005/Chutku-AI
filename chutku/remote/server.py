@@ -40,10 +40,10 @@ SCREEN_BEAT = 45.0   # one slow round trip (relay, mobile data) must not end the
 PIN_SESSION = 30 * 60   # owner 2026-11-07: the PIN once per session, renewed while the phone is used
 MONITOR_SECONDS = 2.0
 CURSOR_TICK = 1 / 60    # the pointer stream checks the mouse 60 times a second and sends only moves
-VIDEO_FRAME = 1 / 30   # H.264: up to 30 frames/s (the capture, ~34 ms, is the limit in practice)
+VIDEO_FRAME = 1 / 30   # H.264: up to 30 frames/s (capture ~20 ms runs while the last frame is encoded)
 HOVER_EVERY = 0.08      # what is under the pointer: looked up at most ~12 times a second (2-5 ms each)
 STREAM_FRAME = 1 / 20   # the stream's fastest pace (capture ~30 ms + scale/encode ~30 ms in practice)   # trackpad input reuses the monitor rectangle instead of a capture per move
-KINDS = {"/api/screen/frame": "frame", "/api/screen/stream": "frame", "/api/screen/h264": "frame", "/api/cursor/stream": "frame", "/api/files/stream": "frame", "/api/session": "poll", "/api/presence": "poll", "/api/say": "poll",
+KINDS = {"/api/screen/frame": "frame", "/api/screen/stream": "frame", "/api/screen/h264": "frame", "/api/screen/audio": "frame", "/api/cursor/stream": "frame", "/api/files/stream": "frame", "/api/session": "poll", "/api/presence": "poll", "/api/say": "poll",
          "/api/whoami": "poll", "/api/files/list": "poll", "/api/files/search": "poll", "/api/files/recent": "poll",
          "/api/files/places": "poll", "/api/control/input": "input", "/api/control/text": "input", "/api/control/keys": "input"}
 INBOX = Path(user_folder("ChutkuInbox"))
@@ -305,6 +305,12 @@ class PhoneHandler(BaseHTTPRequestHandler):
                 self._h264(record, query)
             elif path == "/api/cursor/stream":
                 self._cursor_stream(record)
+            elif path == "/api/screen/audio":
+                self._audio(record)
+            elif path == "/api/speedtest":
+                self._speedtest(query)
+            elif path == "/api/control/windows":
+                self._reply(200, {"windows": self._control().windows(self._monitor())})
             elif path == "/api/files/stream":
                 self._file_stream(record, query.get("path", [""])[0])
             elif path == "/api/say":
@@ -361,7 +367,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
             self._reply(400, {"error": str(error)[:300]})
 
     def _voice_or_json(self, path):
-        if path in ("/api/voice", "/api/laptop/voice"):
+        if path in ("/api/voice", "/api/laptop/voice", "/api/control/voice"):
             return {"audio": self._body(MAX_BODY)}
         return self._json()
 
@@ -617,19 +623,24 @@ class PhoneHandler(BaseHTTPRequestHandler):
         screen = self.server.screen
         if not screen or screen["device"] != record["device"] or time.monotonic() > screen["until"]:
             raise RemoteDenied("Start screen view with your PIN.", 403)
-        from chutku import vision
         import struct
         width = max(640, min(1920, int((query.get("w") or ["1280"])[0])))
-        try:
-            shot = vision.capture()
-        except OSError:
+        grab = _Grabber()
+        grab.start()
+        first = grab.take(3.0)
+        if first is None:
+            grab.stop.set()
             raise RemoteDenied("The laptop is locked or showing a secure screen.", 503)
-        size = (shot.width, shot.height)
-        out_w = min(width, shot.width)
+        size = (first[0].width, first[0].height)
+        out_w = min(width, size[0])
         try:
-            encoder = H264(out_w, round(shot.height * out_w / shot.width))
+            kbps = max(500, min(8000, int((query.get("kbps") or ["3000"])[0])))   # Watch mode asks for more
+            encoder = H264(out_w, round(size[1] * out_w / size[0]), bit_rate=kbps * 1000)
         except (OSError, ImportError):
+            grab.stop.set()
             raise RemoteDenied("No H.264 encoder on this laptop.", 409)
+        grab.latest = first
+        grab.fresh.set()   # the first capture is the first frame
         screen["stream"] = token = secrets.token_hex(4)   # a newer stream from this phone replaces this one
         self.send_response(200)
         self.send_header("Content-Type", "application/octet-stream")
@@ -641,28 +652,120 @@ class PhoneHandler(BaseHTTPRequestHandler):
         try:
             while self.server.screen is screen and screen.get("stream") == token and time.monotonic() < screen["until"] \
                     and not self.server.stopped.is_set():
-                started = time.monotonic()
-                screen["beat"] = started
-                if shot is None:
-                    try:
-                        shot = vision.capture()
-                    except OSError:   # locked for a moment: keep the stream open
-                        time.sleep(1.0)
-                        continue
+                taken = grab.take(1.0)
+                screen["beat"] = time.monotonic()
+                if taken is None:   # locked for a moment: keep the stream open
+                    continue
+                shot, digest = taken
                 if (shot.width, shot.height) != size:
                     break
-                digest = _changed(shot.pixels)
                 settle = 3 if digest != last else settle - 1
                 if settle >= 0:
-                    self.server.monitor_seen = (started, (shot.left, shot.top, shot.width, shot.height))
-                    for key, data in encoder.encode(shot.pixels):
+                    self.server.monitor_seen = (time.monotonic(), (shot.left, shot.top, shot.width, shot.height))
+                    for key, data in encoder.encode(shot.pixels, "bgra"):
                         self.wfile.write(struct.pack(">IB", len(data), key) + data)
                     self.wfile.flush()
                     last = digest
-                shot = None
-                time.sleep(max(0.0, VIDEO_FRAME - (time.monotonic() - started)))
         except (BrokenPipeError, ConnectionError, OSError):
             pass   # the phone closed the stream
+        finally:
+            grab.stop.set()
+
+    # -- owner 2026-11-08: sound, speed test, window switcher, read aloud, voice click / voice typing -----------------
+    def _audio(self, record):
+        """GET /api/screen/audio: what the laptop plays, as Opus packets [4-byte length][Opus 20 ms] (chutku/remote/audio.py),
+        while the screen view lasts. 409 when there is no sound device to record from. Silence sends nothing."""
+        screen = self.server.screen
+        if not screen or screen["device"] != record["device"] or time.monotonic() > screen["until"]:
+            raise RemoteDenied("Start screen view with your PIN.", 403)
+        import struct
+        from chutku.remote import audio
+        try:
+            source = audio.Loopback()
+            encoder = audio.Opus(source.rate)
+        except Exception:
+            raise RemoteDenied("No sound device to record from on this laptop.", 409)
+        screen["audio"] = token = secrets.token_hex(4)   # a newer one from this phone replaces this one
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            while self.server.screen is screen and screen.get("audio") == token and time.monotonic() < screen["until"] \
+                    and not self.server.stopped.is_set():
+                samples = source.read()
+                if samples is not None:
+                    for packet in encoder.encode(samples):
+                        self.wfile.write(struct.pack(">I", len(packet)) + packet)
+                    self.wfile.flush()
+                time.sleep(0.02)
+        except (BrokenPipeError, ConnectionError, OSError):
+            pass   # the phone closed it
+        finally:
+            source.close()
+
+    def _speedtest(self, query):
+        """GET /api/speedtest?mb=N: N MB (1-20) for the phone to time, laptop -> phone, over whatever path Tailscale
+        uses right now (direct or a relay)."""
+        size = max(1, min(20, int((query.get("mb") or ["5"])[0]))) * 1024 * 1024
+        chunk = secrets.token_bytes(64 * 1024)
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(size))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        try:
+            for start in range(0, size, len(chunk)):
+                self.wfile.write(chunk[:min(len(chunk), size - start)])
+        except (BrokenPipeError, ConnectionError, OSError):
+            pass
+
+    def _post_control_window(self, record, data):
+        return self._control().focus(int(data.get("id")), self._monitor())
+
+    def _post_control_read(self, record, data):
+        """Read aloud: the paragraph of text under the finger (the phone speaks it), while the screen is shared."""
+        screen = self.server.screen
+        if not screen or screen["device"] != record["device"] or time.monotonic() > screen["until"]:
+            raise RemoteDenied("Start screen view with your PIN.", 403)
+        from chutku.remote import targets
+        from chutku.remote.control import to_pixels
+        x, y = to_pixels(self._monitor(), data.get("x"), data.get("y"))
+        return {"text": targets.text_at(x, y)}
+
+    def _post_control_voice(self, record, data):
+        """Voice click and voice typing: "Save pe click karo" / "click Save" clicks the button named Save in the front
+        window (UI Automation); anything else said is typed where the text cursor is."""
+        control = self._control()
+        pcm = decode_audio(data["audio"])
+        if len(pcm) > 15 * 32000:
+            raise RemoteDenied("Keep it under 15 seconds.", 413)
+        from chutku.voice.recognition import command_language
+        from chutku.voice.whisper_stt import transcribe_pcm
+        heard = transcribe_pcm(pcm, language=command_language(self.server.core.base), base=self.server.core.base)
+        text = (heard.get("text") or "").strip()
+        if not text or heard.get("confidence", 0) < 0.35:
+            return {"heard": None, "message": "Theek se sunai nahi diya, phir se bolo."}
+        from chutku.remote import targets
+        from chutku.remote.control import spoken_click
+        monitor = self._monitor()
+        name = spoken_click(text)
+        if name is None:
+            control.text(text)
+            return {"heard": text, "did": "type"}
+        target = targets.find_by_name(name, monitor)
+        if not target:
+            from chutku.remote.control import VK
+            if name in VK:   # "press Enter", "Escape dabao": no button by that name, so the key itself
+                control.keys(name)
+                return {"heard": text, "did": "key", "key": name}
+            return {"heard": text, "message": f'"{name}" naam ka button is window mein nahi mila.'}
+        left, top, width, height = target["rect"]
+        x = min(1.0, max(0.0, (left + width / 2 - monitor[0]) / monitor[2]))
+        y = min(1.0, max(0.0, (top + height / 2 - monitor[1]) / monitor[3]))
+        control.pointer([{"kind": "tap", "x": x, "y": y}], monitor)
+        return {"heard": text, "did": "click", "target": targets.on_monitor(target, monitor)}
 
     def _cursor_stream(self, record):
         """GET /api/cursor/stream: where the mouse is (0..1 of the streamed monitor), as server-sent events, whenever it
@@ -986,7 +1089,40 @@ def _changed(pixels):
     """A checksum of every pixel (~5 ms for 1080p): a typed letter or a blinking caret is a change. The old sample of
     every 16th row and column missed them until the 2 s keep-alive."""
     import zlib
-    return zlib.crc32(pixels.tobytes())
+    import numpy as np
+    return zlib.crc32(np.ascontiguousarray(pixels))   # the array itself: no 6-8 MB copy
+
+
+class _Grabber(threading.Thread):
+    """Captures the next screen while the last one is encoded and sent (owner 2026-11-08: capture ~34 ms and encode
+    ~15 ms took turns, ~17 frames/s). take() gives the newest capture, never an old one twice."""
+
+    def __init__(self):
+        super().__init__(daemon=True, name="chutku-screen-grab")
+        self.latest, self.fresh, self.stop = None, threading.Event(), threading.Event()
+
+    def run(self):
+        from chutku import vision
+        capturer = vision.Capturer()   # BGRA, GDI objects kept: ~20 ms a frame instead of ~35
+        try:
+            while not self.stop.is_set():
+                started = time.monotonic()
+                try:
+                    shot = capturer.grab()
+                except OSError:   # locked or a secure screen for a moment
+                    time.sleep(1.0)
+                    continue
+                self.latest = (shot, _changed(shot.pixels))
+                self.fresh.set()
+                time.sleep(max(0.0, VIDEO_FRAME - (time.monotonic() - started)))
+        finally:
+            capturer.close()
+
+    def take(self, timeout):
+        if not self.fresh.wait(timeout):
+            return None
+        self.fresh.clear()
+        return self.latest
 
 
 H264_ENCODERS = (("h264_nvenc", {"preset": "p1", "tune": "ull", "zerolatency": "1", "delay": "0"}),   # the GPU
@@ -1018,11 +1154,12 @@ class H264:
             return
         raise OSError("No H.264 encoder works on this laptop.")
 
-    def encode(self, rgb):
-        """[(keyframe, Annex B bytes)] for one screen picture (the first is a keyframe)."""
+    def encode(self, pixels, layout="rgb24"):
+        """[(keyframe, Annex B bytes)] for one screen picture (the first is a keyframe). layout: "rgb24", or "bgra"
+        straight from vision.Capturer (no RGB copy; scaling from BGRA measured 12.7 ms against 18.5 ms)."""
         import av
         import numpy as np
-        frame = av.VideoFrame.from_ndarray(np.ascontiguousarray(rgb), format="rgb24")
+        frame = av.VideoFrame.from_ndarray(np.ascontiguousarray(pixels), format=layout)
         frame = frame.reformat(width=self.size[0], height=self.size[1], format=self.codec.pix_fmt, interpolation="AREA")
         frame.pts, self.count = self.count, self.count + 1
         return [(bool(packet.is_keyframe), bytes(packet)) for packet in self.codec.encode(frame)]

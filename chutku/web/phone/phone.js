@@ -229,7 +229,7 @@ function attachStream() {
     streaming = false; streamFails++; note("Reconnecting the screen…");
     setTimeout(() => { if (!document.hidden && !$("app").hidden) startScreen(); }, 1000);
   });
-  openPointer();
+  if (!watching) openPointer();   // Watch sends only video and sound
 }
 async function readStream(signal) {   // multipart parts, each with Content-Length: show each the moment it is complete
   const response = await fetch("/api/screen/stream?w=1280&t=" + Date.now(), { credentials: "same-origin", signal });
@@ -281,7 +281,8 @@ function avcCodec(data) {   // "avc1.PPCCLL" from the keyframe's SPS (profile, c
   return "avc1.42e01f";
 }
 async function readVideo(signal, shown) {   // packets: [4-byte length][1 byte: 1 = keyframe][H.264 Annex B]
-  const response = await fetch("/api/screen/h264?w=1280&t=" + Date.now(), { credentials: "same-origin", signal });
+  const quality = watching ? "w=1920&kbps=" + watchKbps() : "w=1280";   // Watch: sharper, as fast as the link allows
+  const response = await fetch("/api/screen/h264?" + quality + "&t=" + Date.now(), { credentials: "same-origin", signal });
   if (!response.ok || !response.body) throw new Error("no video");
   const canvas = $("video"), paint = canvas.getContext("2d"), reader = response.body.getReader();
   let decoder = null, broken = null, buf = new Uint8Array(0);
@@ -457,7 +458,7 @@ let pending = { dx: 0, dy: 0, events: [] }, inFlight = 0, monitorPx = null, loca
 // so its pointer follows ~3x more often over the ~90 ms relay; clicks and drags wait for the moves before them.
 const MOVES_IN_FLIGHT = 3;
 function pump() {
-  const clicks = pending.events.length > 0;
+  const clicks = pending.events.some(e => !e.again);   // a double tap's second tap goes at once (the laptop keeps order)
   if (clicks ? inFlight > 0 : inFlight >= MOVES_IN_FLIGHT) return;
   const events = [];
   let dx = Math.round(pending.dx), dy = Math.round(pending.dy); pending.dx -= dx; pending.dy -= dy;
@@ -474,7 +475,7 @@ const send = events => { pending.events.push(...events); pump(); };
 // smart tap (owner 2026-11-08): taps carry a finger's reach (as a part of the laptop screen's width); the laptop lands
 // them on the button, link or field they were meant for and says which, so it is shown here
 const reach = px => px / Math.max(1, frameRect().width);
-const here = kind => send([{ kind, at: "cursor", ...(kind === "tap" || kind === "right" ? { snap: reach(10) } : {}) }]);
+const here = kind => send([{ kind, at: "cursor" }]);   // drag: press and release where the pointer is
 function moveBy(dx, dy) {
   if (hovered && cursorAt && small(hovered.rect) && inside(cursorAt, hovered.rect)) { dx *= 0.45; dy *= 0.45; }   // magnetic
   pending.dx += dx; pending.dy += dy; pump();
@@ -492,6 +493,8 @@ const mode = () => $("tap-mode").value;
 function point(x, y) { const r = frameRect(); return { x: Math.min(1, Math.max(0, (x - r.left) / r.width)), y: Math.min(1, Math.max(0, (y - r.top) / r.height)) }; }
 function setDragging(on) { dragging = on; $("stage").classList.toggle("dragging", on); if (on && navigator.vibrate) navigator.vibrate(25); }
 $("stage").addEventListener("pointerdown", async e => {
+  if (watching) return;   // Watch: the screen is only watched
+  if ("speechSynthesis" in window && speechSynthesis.speaking) speechSynthesis.cancel();   // a touch stops reading aloud
   $("stage").setPointerCapture(e.pointerId); touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (touches.size === 1) {
     const g = gesture = { at: Date.now(), travel: 0, fingers: 1, x: e.clientX, y: e.clientY, ready: false };   // zoom works before control
@@ -501,7 +504,10 @@ $("stage").addEventListener("pointerdown", async e => {
     pressTimer = setTimeout(() => {   // a still long-press: trackpad = drag, direct = right click
       if (!gesture || !gesture.ready || gesture.travel > 10 || touches.size !== 1) return;
       if (mode() === "pad") { setDragging(true); here("down"); }
-      else if (mode() === "direct") { send([{ kind: "right", ...point(gesture.x, gesture.y), snap: reach(22) }]); gesture.used = true; }
+      else if (mode() === "direct") {   // on text: read it aloud here; anywhere else: right click
+        const at = point(gesture.x, gesture.y); gesture.used = true;
+        readAloud(at).then(read => { if (!read) send([{ kind: "right", ...at, snap: reach(22) }]); });
+      }
     }, 450);
   } else if (gesture) gesture.fingers = Math.max(gesture.fingers, touches.size);
 });
@@ -509,23 +515,40 @@ $("stage").addEventListener("pointermove", e => {
   const last = touches.get(e.pointerId); if (!last || !gesture) return;
   const dx = e.clientX - last.x, dy = e.clientY - last.y; touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
   gesture.travel += Math.abs(dx) + Math.abs(dy);
+  if (touches.size >= 3 || gesture.three) {   // three fingers, as on a Windows touchpad (owner 2026-11-08)
+    gesture.used = true;
+    if (touches.size < 3) return;
+    const all = [...touches.values()], c = { x: all.reduce((s, p) => s + p.x, 0) / all.length, y: all.reduce((s, p) => s + p.y, 0) / all.length };
+    const three = gesture.three = gesture.three || { start: c, done: false };
+    const mx = c.x - three.start.x, my = c.y - three.start.y;
+    if (!three.done && gesture.ready && Math.max(Math.abs(mx), Math.abs(my)) > 60) {   // up: all windows; down: desktop; sideways: switch app
+      three.done = true; key(Math.abs(my) > Math.abs(mx) ? (my < 0 ? "win+tab" : "win+d") : "alt+tab");
+    }
+    return;
+  }
   if (touches.size >= 2) {   // two fingers: a pinch zooms the view here on the phone; moving together scrolls the laptop
     const [a, b] = [...touches.values()], dist = Math.hypot(a.x - b.x, a.y - b.y), mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
     const two = gesture.two = gesture.two || { dist, mid, kind: null };
-    if (!two.kind) two.kind = Math.abs(dist - two.dist) > 24 ? "pinch" : Math.abs(mid.y - two.mid.y) > 22 ? "scroll" : null;
+    if (!two.kind) two.kind = Math.abs(dist - two.dist) > 24 ? "pinch" : Math.abs(mid.y - two.mid.y) > 22 ? "scroll"
+      : Math.abs(mid.x - two.mid.x) > 22 ? "hscroll" : null;
     if (two.kind === "pinch") {
       gesture.used = true;
       $("stage").scrollLeft += two.mid.x - mid.x; $("stage").scrollTop += two.mid.y - mid.y;   // the fingers also pan
       setZoom(zoom * dist / two.dist, mid.x, mid.y); two.dist = dist; two.mid = mid;
       return;
     }
-    if (two.kind !== "scroll") return;
+    if (two.kind !== "scroll" && two.kind !== "hscroll") return;
   } else if (gesture.used && gesture.two) return;   // one finger left after a pinch: not a trackpad move
   else if (zoom > 1 && mode() !== "pad") { $("stage").scrollLeft -= dx; $("stage").scrollTop -= dy; return; }   // pan the zoomed view
   if (!gesture.ready || mode() === "ask") return;
-  if (touches.size >= 2) {   // two fingers moving together: scroll
-    gesture.scroll = (gesture.scroll || 0) + dy;
-    if (Math.abs(gesture.scroll) > 22) { send([mode() === "direct" ? { kind: "scroll", ...point(e.clientX, e.clientY), dy: gesture.scroll > 0 ? 2 : -2 } : { kind: "scroll", at: "cursor", dy: gesture.scroll > 0 ? 2 : -2 }]); gesture.scroll = 0; }
+  if (touches.size >= 2) {   // two fingers moving together: scroll (sideways too), the page follows the fingers
+    const sideways = gesture.two && gesture.two.kind === "hscroll";
+    gesture.scroll = (gesture.scroll || 0) + (sideways ? dx : dy);
+    if (Math.abs(gesture.scroll) > 22) {
+      const where = mode() === "direct" ? point(e.clientX, e.clientY) : { at: "cursor" };
+      send([sideways ? { kind: "hscroll", ...where, dx: gesture.scroll > 0 ? -2 : 2 } : { kind: "scroll", ...where, dy: gesture.scroll > 0 ? 2 : -2 }]);
+      gesture.scroll = 0;
+    }
     return;
   }
   if (mode() !== "pad") return;
@@ -542,9 +565,18 @@ for (const ev of ["pointerup", "pointercancel"]) $("stage").addEventListener(ev,
     const p = point(g.x, g.y), question = prompt("Is jagah ke baare mein kya karna hai? (\"ye kya hai\", \"isko band karo\")"); if (!question) return;
     openSheet("chat"); bubble("👆 " + question, "me"); const box = bubble("…", "her");
     try { const r = await api("/api/point", { x: p.x, y: p.y, question }); render(box, r.session); follow(box, r.session.id); } catch (err) { box.textContent = err.message; }
-  } else if (mode() === "direct") send([{ kind: g.fingers >= 2 ? "right" : "tap", ...point(g.x, g.y), snap: reach(22) }]);
-  else here(g.fingers >= 2 ? "right" : "tap");   // two quick taps make a double click on the laptop
+    return;
+  }
+  // Double tap (owner 2026-11-08): a second tap within 400 ms and 40 px repeats the first one exactly (a finger lands a
+  // few px off, which is more than Windows' 4 px double-click box) and is sent at once, so Windows sees a double click.
+  const again = lastTap && g.fingers === 1 && Date.now() - lastTap.at < 400 && Math.hypot(g.x - lastTap.x, g.y - lastTap.y) < 40;
+  const event = again ? { ...lastTap.event, again: true }
+    : mode() === "direct" ? { kind: g.fingers >= 2 ? "right" : "tap", ...point(g.x, g.y), snap: reach(22) }
+    : { kind: g.fingers >= 2 ? "right" : "tap", at: "cursor", snap: reach(10) };
+  lastTap = again || g.fingers > 1 ? null : { at: Date.now(), x: g.x, y: g.y, event };
+  send([event]);
 });
+let lastTap = null;
 $("mode").addEventListener("click", () => {
   const next = { pad: "direct", direct: "ask", ask: "pad" }[mode()]; $("tap-mode").value = next;
   $("mode-name").textContent = { pad: "Trackpad", direct: "Tap here", ask: "Ask" }[next];
@@ -568,6 +600,171 @@ function setZoom(z, cx, cy) {   // (cx, cy): the spot on the phone that stays un
 }
 $("zoom").addEventListener("click", () => {   // zoomed: back to Fit; at Fit: 2x on the middle of the screen
   const r = frameRect(); setZoom(zoom > 1 ? 1 : 2, r.left + r.width / 2, r.top + r.height / 2);
+});
+
+// ---- owner 2026-11-08: laptop sound, Watch, the window switcher, voice click / typing, read aloud, speed test --------
+// Sound: the laptop's own sound (what its speakers play) as Opus, decoded here (WebCodecs) and played with a small
+// cushion so it doesn't stutter; nothing is sent while the laptop is silent.
+const sound = { on: false, ctx: null, stop: null, at: 0 };
+async function setSound(on) {
+  sound.on = on; $("sound").classList.toggle("on", on); $("sound").firstChild.textContent = on ? "🔊" : "🔈";
+  if (sound.stop) { sound.stop.abort(); sound.stop = null; }
+  if (!on) return;
+  if (!("AudioDecoder" in window)) { status("This browser can't play the laptop's sound."); return setSound(false); }
+  sound.ctx = sound.ctx || new AudioContext({ latencyHint: "interactive" });
+  await sound.ctx.resume();
+  const stop = sound.stop = new AbortController();
+  playSound(stop.signal).catch(e => {
+    if (e.message === "nosound") { status("The laptop has no sound device to send from."); setSound(false); }
+  }).finally(() => { if (sound.stop === stop && sound.on) setTimeout(() => { if (sound.stop === stop && sound.on) setSound(true); }, 1500); });
+}
+async function playSound(signal) {   // packets: [4-byte length][Opus 20 ms]
+  const response = await fetch("/api/screen/audio?t=" + Date.now(), { credentials: "same-origin", signal });
+  if (response.status === 409) throw new Error("nosound");
+  if (!response.ok || !response.body) throw new Error("no sound stream");
+  const ctx = sound.ctx, reader = response.body.getReader();
+  const decoder = new AudioDecoder({
+    output: data => {
+      const buffer = ctx.createBuffer(data.numberOfChannels, data.numberOfFrames, data.sampleRate);
+      for (let c = 0; c < data.numberOfChannels; c++) {
+        const plane = new Float32Array(data.numberOfFrames);
+        data.copyTo(plane, { planeIndex: c, format: "f32-planar" }); buffer.copyToChannel(plane, c);
+      }
+      data.close();
+      const now = ctx.currentTime;
+      if (sound.at < now + 0.02 || sound.at > now + 0.6) sound.at = now + 0.08;   // 80 ms cushion; a gap or drift resets it
+      const source = ctx.createBufferSource(); source.buffer = buffer; source.connect(ctx.destination);
+      source.start(sound.at); sound.at += buffer.duration;
+    },
+    error: () => {},
+  });
+  decoder.configure({ codec: "opus", sampleRate: 48000, numberOfChannels: 2 });
+  let buf = new Uint8Array(0), stamp = 0;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) return;
+      const joined = new Uint8Array(buf.length + value.length); joined.set(buf); joined.set(value, buf.length); buf = joined;
+      while (buf.length >= 4) {
+        const length = ((buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]) >>> 0;
+        if (buf.length < 4 + length) break;
+        decoder.decode(new EncodedAudioChunk({ type: "key", timestamp: stamp, data: buf.slice(4, 4 + length) }));
+        stamp += 20000; buf = buf.subarray(4 + length);
+      }
+    }
+  } finally { if (decoder.state !== "closed") decoder.close(); }
+}
+$("sound").addEventListener("click", () => setSound(!sound.on));
+
+// Watch: only the laptop's picture and sound, full screen, sharper (1920 wide, ~70% of the measured speed); no pointer
+// stream, no buttons. The ✕ brings everything back as it was.
+let watching = false, soundBeforeWatch = false, measuredKbps = +kept("chutku-kbps") || 0;
+const watchKbps = () => Math.round(Math.min(8000, Math.max(1500, measuredKbps ? measuredKbps * 0.7 : 2500)));
+function setWatch(on) {
+  if (on === watching) return;
+  watching = on; document.body.classList.toggle("watch", on); $("watch").classList.toggle("on", on);
+  if (on) {
+    closeSheets(); setZoom(1, 0, 0); soundBeforeWatch = sound.on;
+    if (pointerFeed) { pointerFeed.close(); pointerFeed = null; }
+    if (!sound.on) setSound(true);
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen)
+      document.documentElement.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+  } else {
+    if (!soundBeforeWatch) setSound(false);
+    if (!sideways.matches && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+  if (streaming) attachStream();   // the video again at the new quality (and the pointer stream when leaving Watch)
+}
+$("watch").addEventListener("click", () => setWatch(true));
+$("watch-exit").addEventListener("click", () => setWatch(false));
+
+// Window switcher: the laptop's open windows; one tap brings it to the front and the view fits it.
+document.querySelector('[data-sheet="windows"]').addEventListener("click", loadWindows);
+async function loadWindows() {
+  const list = $("window-list");
+  if (!await ensureControl()) { closeSheets(); return; }
+  list.replaceChildren(el("p", "muted small", "Loading…"));
+  try {
+    const { windows } = await api("/api/control/windows");
+    list.replaceChildren(...windows.map(item => {
+      const b = el("button", "file-main");
+      b.append(el("span", "file-icon", item.minimized ? "🗕" : "🪟"), el("span", "file-name", item.title), el("span", "file-meta", item.app));
+      b.addEventListener("click", () => switchTo(item.id));
+      return b;
+    }));
+    if (!windows.length) list.replaceChildren(el("p", "muted small", "No open windows."));
+  } catch (e) { list.replaceChildren(el("p", "small", e.message)); }
+}
+async function switchTo(id) {
+  try {
+    const r = await api("/api/control/window", { id });
+    closeSheets(); status("🪟 " + r.window.title);
+    if (r.window.rect) fitTo(r.window.rect);
+  } catch (e) { status(e.message); }
+}
+function fitTo(r) {   // zoom so the window fills the view (Fit when it is nearly the whole screen), then centre it
+  const stage = $("stage"), img = frameRect(), fitW = img.width / zoom, fitH = img.height / zoom;
+  const want = Math.min(6, stage.clientWidth / (r[2] * fitW), stage.clientHeight / (r[3] * fitH));
+  if (want < 1.15) { setZoom(1, 0, 0); return; }
+  setZoom(want, img.left + (r[0] + r[2] / 2) * img.width, img.top + (r[1] + r[3] / 2) * img.height);
+  const box = stage.getBoundingClientRect(), now = frameRect();
+  stage.scrollLeft += now.left + (r[0] + r[2] / 2) * now.width - (box.left + stage.clientWidth / 2);
+  stage.scrollTop += now.top + (r[1] + r[3] / 2) * now.height - (box.top + stage.clientHeight / 2);
+  drawCursor();
+}
+
+// Voice: hold 🎙 and say "Save pe click karo" / "click Save" (the button by its name) or "press Enter"; anything else
+// is typed where the text cursor is.
+let voiceRec = null, voiceHeld = false;
+$("voice").addEventListener("pointerdown", async () => {
+  voiceHeld = true;
+  if (!await ensureControl()) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true }), parts = [];
+    voiceRec = new MediaRecorder(stream);
+    voiceRec.ondataavailable = e => parts.push(e.data);
+    voiceRec.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop()); $("voice").classList.remove("on"); status("🎙 …");
+      try {
+        const r = await api("/api/control/voice", new Blob(parts, { type: voiceRec.mimeType || "audio/webm" }), true);
+        if (r.target) hit(r.target);
+        status(r.did === "click" ? `🎙 "${r.heard}": clicked ${r.target.name || r.target.kind}`
+          : r.did === "type" ? `🎙 Typed: ${r.heard}` : r.did === "key" ? `🎙 Pressed ${r.key}` : (r.message || "🎙 ?"));
+      } catch (e) { status(e.message); }
+    };
+    voiceRec.start(); $("voice").classList.add("on");
+    if (!voiceHeld) voiceRec.stop();   // let go before the microphone was ready
+    setTimeout(() => voiceRec && voiceRec.state === "recording" && voiceRec.stop(), 15000);
+  } catch { status("Microphone not allowed"); }
+});
+for (const ev of ["pointerup", "pointerleave", "pointercancel"]) $("voice").addEventListener(ev, () => {
+  voiceHeld = false; if (voiceRec && voiceRec.state === "recording") voiceRec.stop();
+});
+
+// Read aloud: a long press on text in Tap-here mode reads that paragraph here (a touch stops it).
+async function readAloud(at) {
+  try {
+    const { text } = await api("/api/control/read", at);
+    if (!text || !("speechSynthesis" in window)) return false;
+    const say = new SpeechSynthesisUtterance(text);
+    say.lang = /[\u0900-\u097F]/.test(text) ? "hi-IN" : "en-IN";
+    speechSynthesis.cancel(); speechSynthesis.speak(say);
+    status("🔊 " + (text.length > 70 ? text.slice(0, 70) + "…" : text));
+    return true;
+  } catch { return false; }
+}
+
+// Speed test: what the link from the laptop to this phone really carries right now.
+$("speed-go").addEventListener("click", async () => {
+  const out = $("speed-out"); out.textContent = "Testing…";
+  try {
+    const pings = [];
+    for (let i = 0; i < 4; i++) { const t = performance.now(); await api("/api/whoami"); pings.push(performance.now() - t); }
+    const t = performance.now(), r = await fetch("/api/speedtest?mb=4&t=" + Date.now(), { credentials: "same-origin" });
+    if (!r.ok) throw new Error("The speed test was refused (" + r.status + ").");
+    const bytes = (await r.arrayBuffer()).byteLength, mbps = bytes * 8 / ((performance.now() - t) / 1000) / 1e6;
+    measuredKbps = mbps * 1000; keep("chutku-kbps", String(Math.round(measuredKbps)));
+    out.textContent = `${mbps.toFixed(1)} Mbit/s laptop → phone, round trip ${Math.round(Math.min(...pings))} ms. Watch will use ${(watchKbps() / 1000).toFixed(1)} Mbit/s.`;
+  } catch (e) { out.textContent = e.message; }
 });
 
 // ---- keyboard: the phone keyboard types live on the laptop; the key row sends single keys ----------------------------

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import ctypes
 import math
+import re
 from ctypes import wintypes as w
 import threading
 import time
@@ -101,12 +102,14 @@ class ControlSession:
     """One live phone control session. Injectors are patchable for tests (no real input)."""
 
     def __init__(self, base, *, clock=time.monotonic, inject=None, log=None, locked=None, window=None,
-                 local_tick=None, now_tick=None, cursor=None, snap=None):
+                 local_tick=None, now_tick=None, cursor=None, snap=None, windows=None, front=None, rect=None):
         import sys
         module = sys.modules[__name__]    # looked up now, so tests can patch the module's functions
         self.base, self.clock = base, clock
         self.cursor = cursor or module.cursor_pos
         self.snap = snap or module.snap_target
+        self.windows = windows or module.open_windows
+        self.front, self.rect = front or module.bring_to_front, rect or module.window_rect
         self.busy = threading.Lock()      # the phone may send up to 3 batches at once: one at a time here, none lost
         self.started = self.last_used = clock()
         self.inject = inject or module.Injector()
@@ -154,7 +157,7 @@ class ControlSession:
 
     # -- pointer --------------------------------------------------------------------------------------------------
     def pointer(self, events, monitor):
-        """events: [{"kind": tap|double|right|move|down|up|scroll, "x": 0..1, "y": 0..1, "dy": int}].
+        """events: [{"kind": tap|double|right|move|down|up|scroll|hscroll, "x": 0..1, "y": 0..1, "dy"/"dx": int}].
         Z5 trackpad: {"kind": "nudge", "dx": px, "dy": px} moves from where the cursor is, and "at": "cursor" clicks
         or scrolls where it is; both stay on the streamed monitor.
         Smart tap (owner 2026-11-08): a tap/double/right with "snap": r (0..1 of the monitor width) lands on the button,
@@ -168,7 +171,7 @@ class ControlSession:
         done, hit = 0, None
         for event in events[:60]:
             kind = event.get("kind")
-            if kind not in {"tap", "double", "right", "move", "down", "up", "scroll", "nudge"}:
+            if kind not in {"tap", "double", "right", "move", "down", "up", "scroll", "hscroll", "nudge"}:
                 raise ControlRefused(f"Unknown input {kind!r}.")
             if kind == "nudge":
                 cx, cy = self.cursor()
@@ -183,7 +186,7 @@ class ControlSession:
                     if snapped:
                         x, y = on_monitor(monitor, snapped[0], snapped[1])
                         hit = snapped[2]
-                self.inject.pointer(kind, x, y, int(event.get("dy", 0)))
+                self.inject.pointer(kind, x, y, int(event.get("dx" if kind == "hscroll" else "dy", 0)))
             self._mark()
             done += 1
             if kind not in ("move", "nudge"):
@@ -193,6 +196,20 @@ class ControlSession:
             from chutku.remote.targets import on_monitor as rect_on_monitor
             return {"done": done, "target": rect_on_monitor(hit, monitor)}
         return {"done": done}
+
+    # -- windows (owner 2026-11-08: the phone's window switcher) ----------------------------------------------------
+    def focus(self, window_id, monitor):
+        """Bring one of the listed windows to the front; its rectangle (after restoring) lets the phone fit to it."""
+        with self.busy:
+            self._check()
+            match = next((item for item in self.windows(monitor) if item["id"] == window_id), None)
+            if match is None:
+                raise ControlRefused("That window is not open any more.")
+            self.front(window_id)
+            self._mark()                  # focusing taps Alt once: that input is ours
+            self._log("window", {"app": match["app"], "title": match["title"]})
+            time.sleep(0.15)              # a restored window settles before it is measured
+            return {"window": {**match, "minimized": False, "rect": self.rect(window_id, monitor)}}
 
     # -- keyboard -------------------------------------------------------------------------------------------------
     def text(self, text, *, enter=False, pin_ok=False):
@@ -247,6 +264,66 @@ def on_monitor(monitor, x, y):
     return min(max(int(x), left), left + width - 1), min(max(int(y), top), top + height - 1)
 
 
+def window_rect(hwnd, monitor):
+    """The window's visible part as [x, y, w, h], 0..1 of the streamed monitor, or None when it is not on it."""
+    from chutku import vision
+    rect = w.RECT()
+    with vision.dpi_aware():
+        if ctypes.windll.dwmapi.DwmGetWindowAttribute(w.HWND(hwnd), 9, ctypes.byref(rect), ctypes.sizeof(rect)) != 0:
+            ctypes.windll.user32.GetWindowRect(w.HWND(hwnd), ctypes.byref(rect))   # DWMWA_EXTENDED_FRAME_BOUNDS failed
+    left, top, width, height = monitor
+    x1, y1 = max(rect.left, left), max(rect.top, top)
+    x2, y2 = min(rect.right, left + width), min(rect.bottom, top + height)
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return [round((x1 - left) / width, 4), round((y1 - top) / height, 4),
+            round((x2 - x1) / width, 4), round((y2 - y1) / height, 4)]
+
+
+def open_windows(monitor):
+    """The phone's window switcher (owner 2026-11-08): visible, titled windows, without hidden (cloaked) app windows
+    and tool windows. [{"id", "title", "app", "minimized", "rect"}]."""
+    import os
+    from chutku.tools.everyday import Desktop
+    desktop, found = Desktop(), []
+    for hwnd in desktop.windows():
+        cloaked = w.DWORD()
+        if ctypes.windll.dwmapi.DwmGetWindowAttribute(w.HWND(hwnd), 14, ctypes.byref(cloaked), 4) == 0 and cloaked.value:
+            continue                                                                   # DWMWA_CLOAKED
+        if ctypes.windll.user32.GetWindowLongW(w.HWND(hwnd), -20) & 0x80:             # WS_EX_TOOLWINDOW
+            continue
+        info = desktop.describe(hwnd)
+        title = info["title"].strip()
+        if not title or title == "Program Manager":
+            continue
+        found.append({"id": int(hwnd), "title": title[:80], "app": os.path.basename(info["executable"] or "")[:40],
+                      "minimized": info["minimized"], "rect": None if info["minimized"] else window_rect(hwnd, monitor)})
+    return found
+
+
+_CLICK = (re.compile(r"^(?:please\s+)?(?:click|tap|press|select)\s+(?:on\s+)?(?:the\s+)?(.+)$"),
+          re.compile(r"^(.+?)\s+(?:pe|par|per|pr|ko)\s+(?:click|klik|kilik|tap)(?:\s+(?:karo|kar do|kardo|krdo|kro|kariye|kar|kare))?$"),
+          re.compile(r"^(.+?)\s+(?:dabao|daba do|dabado|dabaa do|dabaiye|press karo)$"))
+
+
+def spoken_click(text):
+    """The button named in a spoken click ("Save pe click karo", "click on save", "OK dabao", Hindi script too), or
+    None when it is not a click (then it is typed)."""
+    from chutku.translit import roman
+    said = " ".join(roman(str(text)).casefold().replace(",", " ").split()).strip(" .!?।")
+    for pattern in _CLICK:
+        match = pattern.match(said)
+        if match:
+            name = re.sub(r"\s+(?:button|batan|link|tab|wala|vala|wale)$", "", match.group(1).strip())
+            return name or None
+    return None
+
+
+def bring_to_front(hwnd):
+    from chutku.tools.windows_apps import WindowsDesktop
+    WindowsDesktop().focus(hwnd)
+
+
 def snap_target(x, y, radius, monitor):
     from chutku.remote import targets
     return targets.snap(x, y, radius, monitor)
@@ -277,6 +354,8 @@ class Injector:
             vision._send((0x0002, 0))
         elif kind == "up":
             vision._send((0x0004, 0))
+        elif kind == "hscroll":   # two fingers sideways (owner 2026-11-08)
+            vision.hscroll_at(x, y, max(-15, min(15, dy)))
         elif kind == "scroll":
             vision.scroll_at(x, y, max(-15, min(15, dy)))
 

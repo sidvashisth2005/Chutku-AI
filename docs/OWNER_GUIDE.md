@@ -214,6 +214,21 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
   pointer slows down over small buttons so it stops on them.
 - **Text boxes:** tap one and the view zooms to it and your phone keyboard opens.
 - **Keys row:** Esc, **Space** (pauses a video), Tab, Enter, and more.
+- **Trackpad gestures (2026-11-08):**
+  - double-tap = double click (the second tap reuses the first spot exactly);
+  - two fingers sideways = scroll left/right;
+  - three fingers up = all windows (Win+Tab), down = desktop (Win+D), sideways = switch app (Alt+Tab).
+  - Drag with a long press. Tap-then-drag is not supported: on a file it would open it.
+- **🔈 Sound:** the laptop's own sound plays on the phone (what its speakers play). Tap again to stop.
+- **⛶ Watch:** only the picture and sound, full screen, sharper. Taps do nothing, so nothing gets clicked by
+  mistake. The ✕ in the corner brings the buttons back.
+- **🎙 Voice (hold and speak):** "Save pe click karo" / "click Save" / "OK dabao" clicks that button in the front window;
+  "press Enter" presses the key; anything else is typed where the text cursor is.
+- **🪟 Windows:** the laptop's open windows. Tap one: it comes to the front and the view fits it.
+- **Read aloud:** in Tap-here mode, long-press on text and the phone reads that paragraph. Touch to stop. A long press
+  anywhere else is still a right click.
+- **Speed test:** ⋯ More → Connection speed. It shows laptop → phone Mbit/s and the round trip, and Watch uses ~70% of
+  it. Through Tailscale's relay (no direct path, as now) expect a few Mbit/s; a direct connection is much faster.
 - **Messages:** shown whole over the screen. "Someone is using the laptop: phone control resumes in 7 s" counts down
   live. A bug that made your own clicks look like someone at the laptop is fixed.
 

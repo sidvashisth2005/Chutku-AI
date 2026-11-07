@@ -16,6 +16,85 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (2): Phone remote: gestures, laptop sound, Watch, window switcher, voice click/typing, read aloud, speed test, faster capture
+- **Owner request:** double-tap and gestures; sound with the video; a Watch button (only video and sound, full screen);
+  ~29 frames/s; voice click; window switcher; read aloud; voice typing; how much bandwidth Tailscale gives.
+- **Gestures** (`phone.js`; `control.py` `hscroll`, `vision.hscroll_at`):
+  - Double-tap: a second tap within 400 ms and 40 px reuses the first tap's exact spot (a finger lands a few px off,
+    more than Windows' 4 px double-click box) and skips the click queue.
+  - Two fingers sideways: horizontal wheel.
+  - Three fingers up/down/sideways: Win+Tab / Win+D / Alt+Tab, once per swipe.
+  - Tap-then-drag left out on purpose: its first tap is already a click, so the drag's press makes a double click,
+    which opens a file you meant to drag. Long-press drag stays.
+- **Laptop sound** (`chutku/remote/audio.py`, `/api/screen/audio`):
+  - WASAPI loopback through comtypes (the installed PortAudio has no loopback device), then PyAV libopus, 20 ms packets
+    at ~96 kbit/s.
+  - The phone decodes with WebCodecs `AudioDecoder` and plays with an 80 ms cushion.
+  - 409 when there is no sound device; silence sends nothing.
+- **Watch** (`body.watch`): the picture fills the screen; header, buttons, trackpad, pointer and outlines are hidden;
+  touches send nothing; the pointer stream is closed. Video comes at 1920 wide and `kbps` = 70% of the measured speed
+  (default 2.5 Mbit/s, 1.5–8). Sound turns on. The ✕ restores everything, including sound off if it was off.
+- **Speed test** (`/api/speedtest?mb=N`, More → Connection speed): laptop → phone Mbit/s plus the round trip. The
+  result sets Watch's rate.
+  - Tailscale has no cap of its own. Direct paths run near line speed.
+  - Its shared DERP relays are throttled for fairness: 2.2 Mbit/s average in Tailscale's own transoceanic test, against
+    27–35 Mbit/s for Peer Relays.
+  - The owner's phone currently goes through DERP "bom".
+- **Window switcher** (`/api/control/windows`, `/api/control/window`; `control.open_windows`, `ControlSession.focus`):
+  - Lists visible, titled windows, without cloaked app windows and tool windows.
+  - A tap focuses only a listed window, logged.
+  - The phone zooms to the window's rectangle (DWM visible bounds, physical pixels).
+- **Voice click and voice typing** (`/api/control/voice`, `control.spoken_click`, `targets.find_by_name`):
+  - Hold 🎙: Whisper, then "X pe click karo" / "click X" / "X dabao" (Hindi script via `translit.roman`).
+  - One cached UI Automation query finds the button in the front window: exact, whole word, consonant skeleton
+    ("sev" = Save), then close spelling (≥0.6).
+  - "press Enter" with no such button presses the key.
+  - Anything else is typed through `ControlSession.text` (same rules: Enter in a terminal needs the PIN).
+- **Read aloud** (`/api/control/read`, `targets.text_at`):
+  - Long-press in Tap-here mode: UI Automation TextPattern paragraph, else a Text element's words, else a text box's
+    value. The phone speaks it (`speechSynthesis`, hi-IN for Devanagari).
+  - No text there: right click as before. A touch stops it.
+- **Fixed, found live (display at 125%):** the UI Automation worker thread wasn't DPI aware, so points and rectangles
+  were shrunk by 1.25. Smart tap, hover, voice click and read aloud would have looked at the wrong spot on this laptop.
+  It is now per-monitor aware (`SetThreadDpiAwarenessContext(-4)`); UIA gives 250 px where GetWindowRect (aware) gives
+  250.
+- **Faster video capture** (`vision.Capturer`, `server._Grabber`): GDI objects kept, BGRA straight to the encoder (no
+  RGB copy), checksum on the array itself (2.8 ms, was 4.7).
+  - The next frame is captured while the last is encoded.
+  - Animated-window test, same run each time: 9–12 → 16–18 and 19 → 22 frames/s.
+  - Capturing a changing screen through GDI takes ~36 ms (18.5 ms when still), so GDI tops out near 28.
+  - The next step is DXGI Desktop Duplication (`dxcam`, MIT, cp313 wheel). Installing it was blocked by the permission
+    check pending the owner's OK, so `pyproject.toml` and `requirements.lock` are unchanged.
+- **Verified:**
+  - `tests/test_phone_remote_w6.py`: 41 OK, with new tests for:
+    - the speed test (2 MB);
+    - sound (403 without a view; length-prefixed packets; 409 with no device);
+    - read aloud (403 without a view; 0..1 → pixels);
+    - windows and voice (409 without control; listed and focused; voice → click at the button's middle, type,
+      press Enter);
+    - spoken clicks (including Hindi script, not a sentence) and name matching;
+    - window focus only for listed windows;
+    - Win+Tab allowed;
+    - the H.264 stream through a fake `Capturer` (closed afterwards).
+  - Live on this laptop:
+    - **Loopback:** a quiet 440 Hz tone played → 1.24 s captured → 62 Opus packets (~244 B) → decoded 1.24 s, strongest
+      440 Hz.
+    - **Windows:** two injected taps 165 ms and 300 ms apart → WinForms `MouseDoubleClick`.
+    - **`scripts/verify_smart_tap.py` 11/11:** adds voice click ("snap ok", "snep ok", nothing for "delete
+      everything"), read aloud of a label and a text box, and the window switcher's rectangle against UIA.
+  - Playwright (Edge, fake microphone) against a fake laptop, 15/15:
+    - Opus decoded and scheduled;
+    - Watch hides the UI, fills 915×412, asks `w=1920&kbps=2500`, sound on, no pointer stream, touches send nothing;
+      ✕ restores;
+    - Windows lists, focuses and fits (zoom 4.3);
+    - Voice uploads 15 KB and shows "clicked Save" with the flash;
+    - Read aloud speaks or right-clicks;
+    - the speed test shows Mbit/s and the round trip.
+  - Gestures 11/11 (double tap 149–165 ms apart at one spot in both modes; sideways scroll; three-finger swipes).
+  - Earlier checks rerun: features 15/15, pinch both orientations, H.264 and fallback in order (13–108 ms).
+  - Full suite: 1646 OK.
+  - **Not yet tried on the owner's real phone.**
+
 ### 2026-11-08: Phone remote: smart tap, magnetic pointer, text-field zoom, H.264 video, Space key, whole messages
 - **Owner request:** add a Space key; make the pointer almost instant; fix "it shows someone is using the laptop" and
   the message cut off with "..."; build smart tap, the magnetic pointer and text-field zoom with the keyboard; use
