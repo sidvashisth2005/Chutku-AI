@@ -1647,6 +1647,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             file, mime = static[parts.path]
             self._reply(200, (Path(__file__).parent / "web" / file).read_bytes(), mime)
             return
+        if parts.path == "/help":   # W7: the user guide (public text, like the page itself)
+            from chutku.core.paths import CODE_ROOT
+            self._reply(200, (CODE_ROOT / "docs" / "USER_GUIDE.md").read_bytes(), "text/plain; charset=utf-8")
+            return
         if not self._authorized():
             self._reply(403, {"error": "Open the complete dashboard link printed by Chutku, including its session token."})
             return

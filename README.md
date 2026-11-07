@@ -1,87 +1,100 @@
-# Chutku
+# Chutku (developer README)
 
-**A free, open-source voice assistant that runs your Windows PC.** Say what you want in English, Hindi or
-Hinglish: "Spotify pe After Party chalao", "meri last PDF kholo", "build me a calculator app",
-"bluetooth settings kholo", "D drive mein kitni jagah hai". Chutku plans the steps, does them, checks each result
-independently, and tells you honestly what happened.
+Chutku is a voice and chat assistant that runs a Windows PC, in English, Hindi and Hinglish. This README is for
+developers. Users get [`installer/README_PUBLIC.md`](installer/README_PUBLIC.md) (the public releases page) and
+[`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) (the in-app Help).
 
-It works with **free cloud brains** (Groq, Gemini) when you are online and **local models** when you are not.
-Your files, screen text and memory stay on your PC.
+Measured results and their limits are in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md). What is planned is in
+[docs/MASTER_PLAN.md](docs/MASTER_PLAN.md).
 
-> Status: works daily on the author's PC. Measured results, with the limits that are still open, are in
-> [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md). Things that are not proven yet say so there.
+## Architecture
 
-## What it can do
-
-| Area | Examples |
-|---|---|
-| Apps and windows | Open, close and switch apps; minimize, maximize and focus windows; recipes for Spotify, VLC, Telegram, VS Code, Explorer, Settings, Notepad, ChatGPT and Discord |
-| Files | Find, open, copy, move, rename, organize and recycle files on any drive. Every change can be undone ("pichhle 10 minute ka sab wapas karo") |
-| Web | Search, read pages, news, weather, YouTube, and form steps in a separate browser |
-| PC | Volume, brightness, Wi-Fi/Bluetooth settings, battery, disk, RAM, CPU and GPU status, screenshots, clipboard |
-| Screen | "What's on my screen?", and "click the first video" on what is visible |
-| Messages | WhatsApp and Telegram drafts and sends, which always ask first |
-| Coding | "Build me a snake game": writes the project, tests it, fixes its own errors and opens it in VS Code |
-| Memory | Remembers people, preferences and what you did ("wo PDF jo kal shaam khola tha") |
-| Routines and timers | "30 min baad ...", "har 15 min ...", reminders, scheduled tasks |
-| Phone | Pair your phone over your own Tailscale network for chat, voice and approvals (setup needed) |
-
-Talk with **Ctrl+Alt+Space** from any app. The emergency stop is **Ctrl+Alt+F12**.
-
-## Safety model
-
-- An LLM never decides what is allowed. Each tool has a fixed risk level, and the policy kernel outside the model
-  decides.
-- You choose how much runs by itself. Deleting, sending messages, running code or commands, power actions and
-  messages to unknown people **always** wait for your click.
-- System folders (Windows, Program Files, AppData...) are never modified.
-- Every step is verified by an independent check. The answer ends with a tally such as
-  `[Verified: 2 of 2 steps completed.]`.
-- Text read from files and web pages is treated as untrusted and cannot order Chutku around.
-- Everything is logged locally with a hash chain. Private browser windows are never recorded.
-
-Details: [docs/SECURITY.md](docs/SECURITY.md) and [docs/DESIGN.md](docs/DESIGN.md).
-
-## Requirements
-
-- Windows 10 or 11, as a normal (non-administrator) user.
-- Python 3.11 or newer from [python.org](https://www.python.org/downloads/).
-- A microphone for voice.
-- For offline use: about 8 GB of disk space for the local models. A GPU with Vulkan support (4 GB or more) makes
-  them much faster. Without one, Chutku uses the cloud brains or the CPU.
-
-## Install
-
-```powershell
-git clone https://github.com/<you>/Chutku.git
-cd Chutku
-.\Install-Chutku.cmd                 # packages + health check
-.\Install-Chutku.cmd -Models         # also download the local models (offline use, hash-checked)
-.\Install-Chutku.cmd -Autostart      # also start Chutku when you sign in
+```text
+voice (Gemini Live by default; local whisper offline) / typed chat / phone (E2E relay)
+  -> quick_intents: deterministic instant phrases (no model)      -> chutku/quick_intents.py
+  -> agent loop: cloud brain (Groq/Cerebras/Gemini, key pool) or the local llama.cpp planner
+  -> Runtime: argument schema -> policy kernel (fixed risk per tool, grants, never-rules)
+     -> approval when required -> tool -> independent verification (PASS / FAIL / UNKNOWN)
+  -> hash-chained action log, undo journal, task trace -> honest reply with a verified tally
 ```
 
-Then double-click **Start-Chutku.cmd**.
+- **The model never authorizes.** Each tool (`chutku/tools/`, registered in `tools/builtin.py`) has a fixed risk
+  level. `chutku/core/` holds policy, grants, the protected zones and elevation refusal.
+- **Text read from the outside is untrusted.** It is defanged before any model sees it, and it makes later changes
+  ask first.
+- **The dashboard** (`chutku/dashboard.py`, `chutku/web/`) is loopback only, behind a session token. `chutku/guard.py`
+  supervises it and restarts it on a hang.
+- **Desktop control** goes through UI Automation (agent-desktop, `chutku/tools/desktop.py`). The signed-in browser
+  goes through agent-browser. Both are headless and never use the mouse.
+- **State lives in `paths.home()`:**
+  - `CHUTKU_HOME`, if set;
+  - otherwise the repository in a git checkout;
+  - otherwise `%LOCALAPPDATA%\Chutku` in an installed app.
+  - Code-relative files use `paths.CODE_ROOT` / `paths.resource()`.
 
-**Free brains (optional, recommended).** Make a free key at [console.groq.com/keys](https://console.groq.com/keys)
-and/or [aistudio.google.com](https://aistudio.google.com/apikey), then:
+More: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DESIGN.md](docs/DESIGN.md),
+[docs/SECURITY.md](docs/SECURITY.md), [docs/DEVELOPER.md](docs/DEVELOPER.md), [docs/RELAY.md](docs/RELAY.md).
+
+## Dev setup (Windows 10/11, a normal user, Python 3.11+; the package bundles 3.13; Node.js LTS for app control)
 
 ```powershell
-.\.venv\Scripts\python.exe -m chutku.cli cloud set-key groq
-.\.venv\Scripts\python.exe -m chutku.cli gemini set-key
-.\.venv\Scripts\python.exe -m chutku.cli authority grant cloud.gemini
+git clone https://github.com/sidvashisth2005/Chutku-AI.git
+cd Chutku-AI
+.\Install-Chutku.cmd                 # venv, hash-locked packages, agent-desktop/agent-browser, health check
+.\Install-Chutku.cmd -Models         # also the local models (hash-checked)
+.\Start-Chutku.cmd                   # then Open-Chutku.cmd; Stop-Chutku.cmd stops it
 ```
 
-Keys are kept in Windows Credential Manager, never in a file. The cloud sees your request, the tool list and public
-results. File contents, clipboard, screen text and your memory are not sent.
+In a checkout, data stays in the repo's `data/` (git-ignored), exactly as before the installer existed. Useful CLI
+commands are `python -m chutku.cli doctor`, `setup`, `cloud set-key groq`, `cloud add-key groq` and
+`authority list`. The full list is in [docs/DEVELOPER.md](docs/DEVELOPER.md).
 
-## Docs
+## Tests
 
-- [docs/OWNER_GUIDE.md](docs/OWNER_GUIDE.md): everything to say, controls, safety rules, troubleshooting
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/DEVELOPER.md](docs/DEVELOPER.md): how it is built, CLI
-  and verification scripts
-- [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute (tests, the delivery gate, coding principles)
+```powershell
+.venv\Scripts\python.exe -m unittest discover -s tests    # the whole suite (on the PC)
+.venv\Scripts\python.exe scripts\check_phrases.py         # instant-phrase coverage and speed
+python scripts\ci_tests.py                                 # what CI runs on windows-latest
+```
+
+- Tests never start real models, send messages or touch the network: they use fakes (`tests/agent_fakes.py`,
+  `tests/test_desktop_d1.py`'s fake agent-desktop).
+- On Linux about 580 tests fail because they are Windows-only. Compare against that set, never against zero.
+- CI (`.github/workflows/tests.yml`) runs on `main` and `claude/**` pushes.
+
+## Build and release
+
+```powershell
+python scripts\build_release.py --out dist        # dist\Chutku-<version>-win64.zip + .sha256 (embedded CPython 3.13)
+python -c "from chutku.icon import icon_bytes; open('installer/chutku.ico','wb').write(icon_bytes())"
+iscc /DAppVersion=<version> installer\chutku.iss  # dist\ChutkuSetup.exe (Inno Setup 6)
+```
+
+- **`package.yml`** builds both on `windows-latest` for every push, then installs, runs doctor, sends a text command
+  and uninstalls (`installer/ci_install_check.ps1`).
+- **A tag `v*`** runs `release.yml`, which publishes the zip, `latest.json` and the setup to the public releases
+  repository. It needs the owner's `RELEASES_TOKEN`; the steps are in
+  [installer/RELEASES_REPO.md](installer/RELEASES_REPO.md).
+- **Signing** is optional (`installer/sign.ps1`, two secrets).
+- **The package holds** `.pyc` files only, no `data/`, no `.env` and no ASIO DLLs. The stage check refuses anything
+  else.
+
+## The delivery gate
+
+From [AGENTS.md](AGENTS.md). Before calling a change delivered:
+
+1. Run the relevant tests.
+2. Run one real command path for changed behaviour.
+3. Inspect the result.
+4. Fix failures first.
+5. Write the evidence in `IMPLEMENTATION_STATUS.md` in the same change.
+
+Safety-sensitive changes also need a negative case that proves they fail closed. What could not be checked is
+written as "needs the Windows check", never as verified. Coding principles: think first, minimum code, surgical
+changes, goal-driven checks ([CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 
-MIT; see [LICENSE](LICENSE). Third-party components and models have their own licenses, listed in
-[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+MIT ([LICENSE](LICENSE)). Bundled components and models keep their own licences, listed in
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) and the package `NOTICE`. The openWakeWord models are
+CC BY-NC-SA 4.0 (non-commercial).

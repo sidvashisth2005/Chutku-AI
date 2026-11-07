@@ -11,7 +11,7 @@ The package holds:
   bin/             agent-desktop and agent-browser win32-x64 exes (their own .sha256 checked when shipped)
   models/          manifest.json and the essential models present at build time (wake word, speaker, embed)
   vendor/          the pinned llama.cpp runtimes, when present at build time
-  docs/apps/       the app feature maps (read by apps.howto)
+  docs/apps/       the app feature maps (read by apps.howto); docs/USER_GUIDE.md, the in-app Help
   Chutku.exe       the launcher (installer/launcher.cs), built with the .NET Framework csc.exe on Windows
   LICENSE, THIRD_PARTY_LICENSES.md, NOTICE, version.json, pyproject.toml, requirements.lock
 
@@ -228,6 +228,7 @@ def copy_bundles(stage, tools=None):
     else:
         notes.append("vendor/ (llama.cpp runtimes) was not present: the offline brain needs it")
     _copy_tree(ROOT / "docs" / "apps", stage / "docs" / "apps")
+    shutil.copy2(ROOT / "docs" / "USER_GUIDE.md", stage / "docs" / "USER_GUIDE.md")   # W7: the app's Help page
     for name in ("LICENSE", "THIRD_PARTY_LICENSES.md", "pyproject.toml", "requirements.lock"):
         shutil.copy2(ROOT / name, stage / name)
     modules = Path(tools or ROOT / "tools" / "node_modules")

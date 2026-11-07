@@ -1,0 +1,214 @@
+# Chutku: User Guide
+
+How to use, control and look after Chutku. This is the general guide that the app opens as **Help**. Examples are
+written the way people actually talk to Chutku, in English, Hindi or Hinglish.
+
+> Chutku is female. Her name in Hindi is छुटकू (said "Chhutku"). You can give her another name in **Settings**.
+
+---
+
+## 1. Starting, opening and stopping
+
+| What | How |
+|---|---|
+| Start | The **Chutku** shortcut in the Start menu (or on the desktop). If you chose "start when I sign in" during setup, she is already running. |
+| Open the window | Click the shortcut again, or the Chutku icon in the tray (near the clock). |
+| Talk from anywhere | **Ctrl+Alt+Space**, then speak. With the wake phrase switched on (Settings), say **"Oye Chutku"**. |
+| Type | Type in the chat box of the Chutku window. |
+| Emergency stop | **Ctrl+Alt+F12**. Everything stops at once and actions stay paused until you click **Resume actions**. |
+| Pause / resume | The **Pause** button at the top of the window, or say "pause" / "resume". |
+| Quit | Right-click the tray icon, then **Quit Chutku (close everything)**. |
+
+If Chutku hangs or crashes, she restarts by herself (up to 3 times in half an hour).
+
+---
+
+## 2. First-run setup and Settings
+
+The first time Chutku opens, the **Settings** page walks you through a few short steps. You can change any of them
+later in the same tab:
+
+1. **Her name** and **your name**.
+2. **A free cloud brain (optional, recommended).** Paste a free key from Groq (console.groq.com/keys) or Google AI
+   Studio. The key is stored in Windows Credential Manager, never in a file. Without one, Chutku uses its local
+   models (download the Brain pack in step 5) or answers only the instant phrases.
+3. **The microphone.** Speak and watch the level bar move.
+4. **How much she does on her own** (see section 3).
+5. **Extra packs (optional downloads):** Voice (speech recognition and her voice), Brain (offline thinking) and
+   Screen (reading pictures and the screen). Every file is checked against a pinned checksum; a damaged download is
+   deleted and never used. A download that stops resumes where it left off.
+6. **Your phone (optional).** See section 8.
+
+---
+
+## 3. How much Chutku does on its own
+
+| Level | What runs without asking |
+|---|---|
+| **Safe steps** (the default) | Looking at things, answering questions, opening apps, sites and files, volume and brightness. |
+| **Safe steps and file edits** | All of the above, plus file changes Chutku can undo (writing, moving, copying). |
+| **Full** | Also closing apps, typing and clicking, settings, building projects, reminders, memory, and messages to people you taught her. |
+
+**In every level Chutku still asks before:**
+- deleting anything (files always go to the Recycle Bin);
+- shutting down, restarting, ending a program, or turning the network off;
+- running a script or a program, or typing into a command window (Command Prompt, PowerShell, Terminal, Run);
+- sending a message to someone she does not know yet;
+- pressing a button that sends, pays, deletes, submits or installs something in an app;
+- anything right after she read a web page or a message, so a page can never give her orders.
+
+**Approving by voice:** "haan", "yes", "ok", "kar do" approves; "nahi", "no", "ruko", "cancel" cancels. A yes counts
+only when it is short and clear, so background talk cannot approve anything. Without a clear answer the **Approve**
+button stays on screen.
+
+---
+
+## 4. Things you can say
+
+**Apps and windows**
+- "Spotify kholo" / "open notepad" / "VS Code band karo"
+- "minimize this" / "window left side pe karo" / "switch to Chrome"
+- "Spotify pe lofi chalao" / "next song" / "volume 30 karo"
+
+**Files** (every change can be undone)
+- "meri resume file dhundo" / "find invoice march" / "open my downloads"
+- "meri last pdf kholo" / "latest photo dikhao"
+- "organize my Downloads folder" / "rename draft.txt to final.txt"
+
+**Web**
+- "search best free PDF editor" / "aaj ki news" / "weather kaisa hai"
+- "YouTube pe cooking video chalao"
+
+**Your PC**
+- "kitni jagah bachi hai" / "battery kitni hai" / "brightness 60"
+- "screenshot lo" / "bluetooth settings kholo"
+
+**Screen**
+- "screen pe kya hai?" / "click the first video"
+- "screen survey karo" / "what's open on my screen": a short list of the open windows and what is in them (nothing
+  is saved or sent).
+
+**Messages** (sending always asks the first time for each person)
+- "Rahul ko WhatsApp pe hi bhejo" / "did Rahul reply?"
+- Teach people once: "remember Rahul is my college friend".
+
+**Memory**
+- "remember city = Pune" / "mera birthday 12 March hai" / "what do you know about me"
+- "forget Rahul's number" (asks first)
+
+**Timers, reminders and automations**
+- "30 min baad yaad dilana pani peena" / "har roz 8:00 baje weather batao"
+- "kaun si automations hain" / the **Automations** tab
+
+**Tasks and research**
+- "ye kaam board pe daal do: DBMS notes banana" / "board dikhao" / the **Board** tab
+- "research karke batao best free PDF editor for Windows": she works on it in the background and tells you when
+  it is done.
+
+**Coding**
+- "build me a snake game": she writes the project, tests it, fixes her own errors and opens it.
+
+**Undo and history**
+- "undo" / "pichhle 10 minute ka sab wapas karo" / "what did you do today"
+
+---
+
+## 5. Routines, and teaching Chutku a task
+
+**Routines** run several things from one phrase:
+- **Save:** "save routine work: open visual studio code, play lofi on youtube, set volume to 30"
+- **Run:** "start work mode" / "work mode on karo", or just say its name.
+- **Shortcut style:** "jab main 'padhai time' bolun to volume 30 karo aur focus mode on karo".
+- A routine can also press things inside an app by name: `click "Lofi" in Spotify`,
+  `toggle "Dark mode" in Settings`, `type "hello" into "Search" in Spotify`.
+- **See / delete:** "list my routines" / ask to forget one (asks first).
+
+**Teach mode:** show Chutku a task once and she saves it as a routine.
+1. Open the app, then say "sikho dark setup settings mein" or "teach me dark setup in Settings".
+2. Do the task yourself in that window: type into fields, tick boxes, open menus.
+3. Say **"ho gaya"**. Chutku tells you the steps she saw and saves them under that name.
+
+Notes:
+- She watches only that one window, for at most 5 minutes, and never takes screenshots.
+- **Password, PIN and OTP fields are never recorded**, not even that you typed in them.
+- A plain button click is not seen yet. Add it with a routine step: `click "Save" in Notepad`.
+- Buttons that send, pay or delete are never pressed by a routine; those always ask.
+- Watch the first replay of a taught task.
+
+---
+
+## 6. The Chutku window
+
+- **Command center:** chat, the Today panel (clock, weather, drive space, reminders, to-dos, what Chutku did),
+  suggestions with **Yes** and **Not now**, and health alerts (disk, battery, memory).
+- **Board:** your tasks and Chutku's research jobs, with **Done**, **Again** and **Archive**.
+- **Automations:** ready-made automations (daily briefing, weekly backup ...) and the ones you scheduled, with
+  **Cancel**.
+- **Activity:** every task with its full trace, and what Chutku heard by voice.
+- **Memory** and **Mind map:** what you told Chutku.
+- **Reliability:** how often each kind of step really worked.
+- **Skills I learned:** request shapes she learned to do instantly; each can be switched off.
+- **Phone:** link your phone.
+- **Settings:** the setup steps, packs and modes.
+- **Help:** this guide.
+
+---
+
+## 7. Safety rules (fixed in the code)
+
+- **Chutku never runs as administrator**, and never changes Windows or program folders (Windows, Program Files,
+  ProgramData, AppData, drive roots), at any level, with any approval.
+- **Delete means the Recycle Bin**, and always asks. Permanent delete happens only when *you* ask for it.
+- **Every step is checked independently.** Answers end with a tally like `[Verified: 2 of 2 steps completed.]`, and
+  she never claims a step that did not happen.
+- **Text she reads cannot give her orders.** Instruction-like lines from pages, files or messages are removed, and
+  every change in that task waits for your click.
+- **Your own "never" rules:** "never touch D:\Exams" or "D:\Exams ko kabhi mat chhoona" blocks that folder in every
+  mode. "never rules" lists them; removing one asks first.
+- **Everything is logged** on this PC with a hash chain, so any edit to the log is detected. If the log cannot be
+  written, Chutku refuses to act.
+- **Keys and passwords** are stored in Windows Credential Manager, never in files or logs.
+
+---
+
+## 8. Privacy and your phone
+
+- Your files, screen text, clipboard and memory stay on this PC.
+- If you add a cloud brain key, the cloud sees your request, the list of tools and public results only.
+- Private browser windows are never recorded.
+
+**Phone app (optional).** Link it in the **Phone** tab or in Settings, through your own relay server or your own
+Tailscale network. Traffic through the relay is **end-to-end encrypted**: the relay forwards only sealed messages and
+never sees your password, your requests or the screen. The phone asks for your PIN before approvals, screen view and
+control. Some steps (deleting for good, power, running code) can only be approved at the PC.
+
+---
+
+## 9. Where things live
+
+| Path | What |
+|---|---|
+| `%LOCALAPPDATA%\Programs\Chutku` | The app. Updating or reinstalling replaces it; your data is not here. |
+| `%LOCALAPPDATA%\Chutku\data` | Your data: memory, conversations, routines, settings, the action log. |
+| `%LOCALAPPDATA%\Chutku\models` | Downloaded packs (voice, brain, screen). |
+| Windows Credential Manager | Keys, the phone link and sign-in tokens (entries named `Chutku/...`). |
+
+"backup bana lo" saves Chutku's memory to a zip in a `ChutkuBackups` folder, keeping the last 4. Restoring a backup never brings back security
+settings (phone pairing, approvals, never rules) unless you confirm that separately.
+
+---
+
+## 10. When something goes wrong
+
+| Symptom | Fix |
+|---|---|
+| "Actions are paused" | The message says who paused and why. Click **Resume actions** or say "resume". A pause after a hang lifts itself within a minute. |
+| The hotkey does nothing | Another app owns Ctrl+Alt+Space; the window shows "Hotkey unavailable". Close that app or restart Chutku. |
+| Every request asks for approval | You are on a stricter level. Change it in Settings (section 3). |
+| "quota" or "busy" from the cloud brain | The free tier is used up for now. Wait a little, or add a key for the other provider (Groq or Gemini) in Settings; Chutku falls back to local models if the Brain pack is installed. |
+| She reacts to sounds you did not make | Open **Activity**, then **What I heard**, to see what she acted on. Turn the wake phrase off in Settings if needed. |
+| Something seems broken | Say "khud ko theek karo" / "apna checkup karo", or run `Chutku.exe --doctor` from the app folder for a health report. |
+| The log "hash chain broken" | The log was edited or damaged. Keep the file; do not delete it. |
+
+**Uninstall:** Windows Settings, then Apps, then Chutku, then Uninstall. It asks whether to delete your data as well;
+say no to keep it for a later install.

@@ -999,7 +999,7 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [x] W4 (P4, 2026-11-07, windows-latest install check; the public download needs the owner's RELEASES_TOKEN): `ChutkuSetup.exe` + release workflow
 - [x] W5 (P5, 2026-11-07, Linux tests + windows-latest): first-run setup page
 - [x] W6 (P6, 2026-11-07, Linux tests + windows-latest; A14-A16, E2E phone and key pool need the Windows live check): Board/Automations tabs, habit suggestions, key pool, relay E2E, A14-A16
-- [ ] W7 (P7): READMEs and docs
+- [x] W7 (P7, 2026-11-07, Linux tests): READMEs and docs (public README, developer README, USER_GUIDE as in-app Help, licences)
 - [ ] W8 (P8): release gate
 
 # Parked (needs a later owner decision)

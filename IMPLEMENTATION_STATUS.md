@@ -16,6 +16,37 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: W7 (cloud session): READMEs, user guide, licences
+
+**What changed**
+- `installer/README_PUBLIC.md`, the README for the public releases repo, written for normal users. It covers:
+  - what Chutku does, then download and install, including the SmartScreen "More info, then Run anyway" step;
+  - first start and things to say;
+  - privacy and safety in plain words;
+  - uninstall, and an FAQ that includes the non-commercial note.
+- `README.md` is now for developers: architecture, dev setup, tests (with the Linux baseline note), build and release
+  commands, and the delivery gate. The user-facing text moved to the two documents around it.
+- `docs/USER_GUIDE.md` is a generic version of OWNER_GUIDE. It has no owner PC details, people, shows or paths, and
+  no §10. It is served in the app as **Help**: `GET /help` returns it as text, with the same Host check as the page
+  and no session token (public text). The sidebar has a Help link, and the package now ships the guide.
+- Licences:
+  - `THIRD_PARTY_LICENSES.md` gains openWakeWord (models CC BY-NC-SA 4.0), espeak-ng (GPL-3.0-or-later, with a source
+    link) and cryptography;
+  - the ASIO row now says the variants are excluded from the package;
+  - Chutku's own licence is MIT (it said "not declared").
+  - The package `NOTICE` (W3) already names these.
+- `docs/RELAY.md` describes the E2E encryption and what the relay can still see: who is online, when, and message
+  sizes.
+
+**Evidence (Linux)**
+- `tests/test_docs_w7.py` (3 tests):
+  - a real dashboard serves `/help` without a token, and a foreign Host gets 403 (negative case);
+  - the public docs carry none of the owner's personal markers; the same pattern does match OWNER_GUIDE, which proves
+    the check bites;
+  - the licence entries are present.
+- `tests/test_build_release_w3.py` still passes with the guide copied into the stage.
+- **Needs the Windows check:** the Help link inside the installed app.
+
 ### 2026-11-07: W6 (cloud session): Board/Automations tabs, habit cards, key pool, relay E2E, App Mastery A14-A16
 
 **What changed**

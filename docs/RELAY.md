@@ -70,7 +70,19 @@ To bake your relay address into the app: `android\gradlew assembleRelease -Prela
 
 ## Security, honestly
 
-- **Passwords:** stored only as scrypt hashes. 5 wrong passwords lock the ID for 15 minutes.
+- **End-to-end encrypted (since 2026-11-07):**
+  - **Keys:** the phone and the laptop each derive an AES-256-GCM key from your password (PBKDF2-SHA256, 600 000
+    rounds). The relay gets only a separate secret derived from the same password, so it never sees your password and
+    cannot work out the key.
+  - **What the relay forwards:** sealed `{v, iv, ct}` envelopes. It cannot read requests, answers, screen frames or
+    which page was asked for.
+  - **Replays:** a request older than 2 minutes, or one seen before, is refused. The answer carries the request's
+    nonce, so the relay cannot swap answers.
+  - **Plaintext:** the old plaintext route answers 426 ("update the app").
+  - **Older accounts** are upgraded the next time the laptop signs in.
+  - **Where the key lives:** Windows Credential Manager on the laptop. On the phone it is kept in the app's local
+    storage, like the sign-in token, and removed at logout.
+- **Passwords:** the relay stores only scrypt hashes of the derived secret. 5 wrong passwords lock the ID for 15 minutes.
 - **Tokens:** random, stored only as SHA-256 hashes. They last until logout or a password change.
 - **Kept apart:** a phone's requests reach only its own account's laptop. Phones cannot collect requests, and laptops
   cannot send them.
@@ -78,7 +90,6 @@ To bake your relay address into the app: `android\gradlew assembleRelease -Prela
   - the PIN for approvals, the screen and control;
   - laptop-only steps (R4, power, deleting for good, running code);
   - direct control must be armed at the laptop, and a red border shows.
-- **What the relay can see:** the traffic it forwards, including screen frames, because TLS ends at the relay. Run it
-  yourself, on a server you trust. End-to-end encryption between phone and laptop is a planned improvement.
+- **What the relay can see:** which account is online, when, and how big each sealed message is; never what is in it.
 - **The APK** is signed with the Android debug key so it installs at once. Sign it with your own key before publishing
   it anywhere.
