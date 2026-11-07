@@ -16,6 +16,46 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: P1 release recheck and security baseline (H30/O6 first pass)
+Plan: Chutku 1.0 as a professional app (one-click `ChutkuSetup.exe`, public releases repo, no tech visible). The
+work that needs the owner's PC was done here. The rest is written for the cloud session in
+`docs/WEB_CLAUDE_TASKS.md` (W1–W8).
+
+**Fixed (each with a test):**
+- **Relay:**
+  - listens on 127.0.0.1 by default;
+  - refuses plain HTTP off loopback unless `--tls-cert`, `--behind-proxy` or `--home-network` is given
+    (`Start-Relay.cmd` passes the last);
+  - `X-Forwarded-For` is believed only from a local proxy.
+  - Test: `tests/test_relay_exposure.py`. Real path: `--host 0.0.0.0` exits with the refusal; the default serves on
+    127.0.0.1.
+- **System programs** are called by their System32 path (`health.system_exe`): `know_me`, the audio-devices query,
+  reminder clean-up, nvidia-smi, explorer.
+- **Telegram:** file downloads no longer let urllib errors (whose URL holds the bot token) travel up. Test:
+  `tests/test_telegram_token_leak.py`.
+- **Dashboard:** no longer prints the session link with its token to stdout, which the guard copies to
+  `data/logs/guard-console.txt`.
+- **Dependencies:** `requirements.lock` carries PyPI SHA-256 hashes for all 55 pins (`scripts/hash_lock.py`). CI and
+  `install.ps1` use `--require-hashes`. A clean venv install with `--require-hashes` succeeded (the lock is
+  complete). `doctor` reads the hashed lock.
+- **Security review, finding 1 (HIGH, confidence 8):** signed-in browser pages did not mark the session private, so
+  an injected mail line could make Chutku open an attacker URL with an OTP.
+  - `browser.*` are now PRIVATE.
+  - Opening an address is its own egress tool, `browser.open`. Re-reading the page (`browser.look`) and clicking
+    (`browser.act`) are not egress.
+  - Test: `SignedInPagesArePrivateTest`, where in owner mode `browser.open` and `browser.type` ask after a private
+    read and `browser.act` does not.
+  - Live through the running Chutku, first run: "…/wiki/Ada_Lovelace kholo aur batao … kis saal paida hui thi" ran
+    `browser.open` unasked. The planner's extra `web.read` then asked (fail-closed), because the outline had no page
+    text.
+  - Fix: `browser.open`/`browser.look` now return up to 4,000 characters of the page's main text.
+  - Re-run: `browser.open` only, 9.7 s, "born in 1815" (correct). Cursor and foreground unchanged.
+- **Findings 2 (`skill.import` runs README-driven code during import, confidence 7) and 3 (restore brings back
+  pairing state, confidence 5):** open. They are task W1 for the cloud session.
+
+Full suite: 1,540 tests OK before the final browser change, and re-run after it (see the commit).
+`check_phrases` 159/159.
+
 ### 2026-11-07: D1 background app control (agent-desktop) and Z6/D2 the signed-in browser (agent-browser)
 The owner pointed at vercel-labs' agent-desktop and asked to take everything useful from vercel-labs. Survey: of the
 org's popular repos, agent-desktop and agent-browser fit a Windows assistant; the rest are web, compiler, GPU or

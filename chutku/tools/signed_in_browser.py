@@ -39,6 +39,9 @@ IDLE_MS = 10 * 60 * 1000
 TIMEOUT = 60
 MAX_LINES = 150
 MAX_CHARS = 9000
+MAX_TEXT_CHARS = 4000
+MAIN_TEXT = ("(document.querySelector('main, article, [role=main]') || document.body)"
+             ".innerText.slice(0, 20000)")   # the content, not the menus
 REF_SECONDS = 300
 # Clicking what the page offers cannot carry Chutku's own text off the PC; typing (and Enter, which submits) can, so
 # typing is its own tool with network_egress: after private data was read in the task, it asks (exposure rule).
@@ -49,9 +52,11 @@ VERBS = CLICK_VERBS | TYPE_VERBS
 _REF = re.compile(r"^@?(e[0-9]{1,4})$")
 _KEY = re.compile(r"^(?:(?:Control|Shift|Alt|Meta)\+)*[A-Za-z0-9]{1,12}$")
 
-_LOOK_SCHEMA = {"type": "object", "properties": {"url": {"type": "string", "maxLength": 2048},
-                                                 "find": {"type": "string", "maxLength": 120}},
+_LOOK_SCHEMA = {"type": "object", "properties": {"find": {"type": "string", "maxLength": 120}},
                 "additionalProperties": False}
+_OPEN_SCHEMA = {"type": "object", "properties": {"url": {"type": "string", "maxLength": 2048},
+                                                 "find": {"type": "string", "maxLength": 120}},
+                "required": ["url"], "additionalProperties": False}
 
 
 def _schema(verbs, *required, **extra):
@@ -116,9 +121,13 @@ def run(commands):
 
 def _read():
     """The current page as outline lines; remembers its refs for browser.act."""
-    snapshot, url, title = run([["snapshot", "-i", "-c", "-u"], ["get", "url"], ["get", "title"]])
+    snapshot, url, title, text = run([["snapshot", "-i", "-c", "-u"], ["get", "url"], ["get", "title"],
+                                      ["eval", MAIN_TEXT]])
     lines = str(snapshot.get("snapshot", "")).splitlines()
-    page = {"url": (url or {}).get("url"), "title": (title or {}).get("title")}
+    # The outline lists only what can be acted on; the page's words are what a question is answered from (live
+    # 2026-11-07: without them the planner fetched the same page again with web.read).
+    page = {"url": (url or {}).get("url"), "title": (title or {}).get("title"),
+            "text": " ".join(str((text or {}).get("result") or "").split())[:MAX_TEXT_CHARS]}
     with _lock:
         _refs.update({"map": dict(snapshot.get("refs") or {}), "at": time.monotonic(), "url": page["url"]})
     return page, lines
@@ -250,11 +259,17 @@ def login(url="https://accounts.google.com"):
 
 def register_signed_in_browser_tools(registry):
     need = ("Brave or Edge; agent-browser installed (tools/); signed in once with `chutku.cli browser login`",)
-    registry.register(Tool("browser.look", "Open a page (url=) or read the current one in the owner's SIGNED-IN "
-        "browser (Gmail, YouTube, Amazon ... in the background): title, url and its links, buttons and fields "
-        "with refs (e3 ...). find=<words> lists only matching elements.", Risk.OBSERVATION, _look, _validate_look, required_capability="browser.navigate",
-        argument_schema=_LOOK_SCHEMA, prerequisites=need, reversibility="not_applicable", network_egress=True,
+    # Release review 2026-11-07: signed-in pages are private (mail, orders), so opening an address is its own
+    # egress tool: after a private read, a URL the planner built (it could carry an OTP) asks first.
+    registry.register(Tool("browser.open", "Open url= in the owner's SIGNED-IN browser (Gmail, YouTube, Amazon ... "
+        "in the background) and list its links, buttons and fields with refs (e3 ...). find=<words> narrows.",
+        Risk.OBSERVATION, _look, _validate_look, required_capability="browser.navigate",
+        argument_schema=_OPEN_SCHEMA, prerequisites=need, reversibility="not_applicable", network_egress=True,
         success_predicate="page_elements_listed"))
+    registry.register(Tool("browser.look", "Read the page open in the signed-in browser again: title, url, refs. "
+        "find=<words> lists only matching elements.", Risk.OBSERVATION, _look, _validate_look,
+        required_capability="browser.navigate", argument_schema=_LOOK_SCHEMA, prerequisites=need,
+        reversibility="not_applicable", success_predicate="page_elements_listed"))
     registry.register(Tool("browser.act", "Act on the signed-in browser page: click / select (text=) / check / "
         "uncheck a ref from browser.look, or scroll, back. Returns the new page. Send/delete/pay/buy-like: "
         "browser.act_risky.", Risk.REVERSIBLE, lambda a, c: _act(a, c, risky_allowed=False),

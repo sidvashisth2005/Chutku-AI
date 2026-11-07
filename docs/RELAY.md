@@ -27,8 +27,11 @@ It listens on port 8780. Windows asks once whether to allow it on private networ
 python -m chutku.relay --port 8780 --db /var/lib/chutku/relay.sqlite3
 ```
 
-Put a TLS proxy in front of it (Caddy: `relay.example.com { reverse_proxy 127.0.0.1:8780 }`), or pass
-`--tls-cert` and `--tls-key`.
+It listens on 127.0.0.1 by default. Put a TLS proxy in front of it and pass `--behind-proxy` (Caddy:
+`relay.example.com { reverse_proxy 127.0.0.1:8780 }`), or listen publicly with `--host 0.0.0.0 --tls-cert ...
+--tls-key ...`. Plain HTTP on a non-loopback address is refused unless `--home-network` is given (what
+`Start-Relay.cmd` does for the home Wi-Fi setup; never port-forward that). With `--behind-proxy`, the client
+address in `X-Forwarded-For` is believed only when the proxy connects from this machine.
 - The laptop refuses a plain `http://` relay unless it is on this PC or your home network.
 - Back up the database file: it holds the accounts.
 

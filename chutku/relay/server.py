@@ -296,8 +296,11 @@ class RelayHandler(BaseHTTPRequestHandler):
         return data
 
     def _client_ip(self):
+        """The client's address for sign-up limits. X-Forwarded-For is believed only from a proxy on this machine;
+        anyone else could set it to dodge the limits (release review 2026-11-07)."""
+        peer = self.client_address[0]
         forwarded = (self.headers.get("X-Forwarded-For") or "").split(",")[-1].strip()
-        return forwarded if self.server.behind_proxy and forwarded else self.client_address[0]
+        return forwarded if self.server.behind_proxy and forwarded and _loopback(peer) else peer
 
     def _token(self):
         header = self.headers.get("Authorization") or ""
@@ -385,7 +388,26 @@ class RelayHandler(BaseHTTPRequestHandler):
         self._handle("POST")
 
 
-def serve(port=8780, db="relay.sqlite3", host="0.0.0.0", cert=None, key=None, behind_proxy=False):
+def _loopback(host):
+    import ipaddress
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return host == "localhost"
+
+
+def check_exposure(host, cert=None, behind_proxy=False, home_network=False):
+    """Plain HTTP on a non-loopback address carries passwords and screens in clear text: refused unless TLS is on,
+    a local HTTPS proxy is in front, or the owner said this is the home network (Start-Relay.cmd)."""
+    if _loopback(host) or cert or behind_proxy or home_network:
+        return
+    raise SystemExit(f"Refusing plain HTTP on {host}: pass --tls-cert/--tls-key, run behind an HTTPS proxy "
+                     "(--behind-proxy, listening on 127.0.0.1), or --home-network for a home Wi-Fi only setup.")
+
+
+def serve(port=8780, db="relay.sqlite3", host="127.0.0.1", cert=None, key=None, behind_proxy=False,
+          home_network=False):
+    check_exposure(host, cert, behind_proxy, home_network)
     server = RelayServer((host, port), db, behind_proxy=behind_proxy)
     if cert:
         import ssl

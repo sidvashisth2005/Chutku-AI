@@ -85,7 +85,7 @@ TAINTING_TOOLS = frozenset({
     "skill.procedure",     # an imported SKILL.md is outside text (X17)
     "browser.extract",     # tables and lists from a web page are outside text (X14)
     "desktop.look", "desktop.act", "desktop.act_risky",   # an app window's text is outside text
-    "browser.look", "browser.act", "browser.type", "browser.act_risky",   # web pages, mail included (Z6)
+    "browser.open", "browser.look", "browser.act", "browser.type", "browser.act_risky",   # web pages, mail (Z6)
 })
 SKILL_PREFIX = "skill."   # self-written skills (X15): their output is outside text and may hold private data
 # Tools that read the user's private data. After one of these, network requests need a click,
@@ -100,8 +100,9 @@ PRIVATE_TOOLS = frozenset({
     "timeline.search",   # what the owner had open
     "history.search",    # what the owner said before
     "desktop.look", "desktop.act", "desktop.act_risky",   # what the owner's app windows show
-    # browser.* pages are outside text (TAINTING) but not exposure: clicking what a page offers cannot leak,
-    # and browser.type (network_egress) still asks after the files, clipboard or screen were read.
+    # Signed-in pages (mail, orders) are private: after them, browser.open / browser.type / web requests ask
+    # (release review 2026-11-07). Clicking what the page offers (browser.act) is not egress.
+    "browser.open", "browser.look", "browser.act", "browser.type", "browser.act_risky",
 })
 # On-screen actions may legitimately repeat with identical arguments (press "5" twice, look again after a
 # click); other completed steps are never re-run. Step and round limits still bound any loop.
@@ -139,7 +140,7 @@ AGENT_SYSTEM = (
     "after it. Prefer apps.launch for opening apps, apps.quit for closing an app, files.open for documents and folders, web.search/web.open for "
     "websites (web.search already shows the results page; use browser.inspect/browser.workflow only when asked to read or fill a web page), filesystem.recycle for deleting (recoverable), web.news for news, web.weather for weather, web.results then web.read for facts, prices and research, audio.volume / display.brightness for volume and brightness, code.build_project (ONE step; it writes, opens in "
     "VS Code, tests and fixes the code itself) when the user asks to build/make/code an app, program, website or game, "
-    "with path = CONTEXT.projects_folder + a short lowercase name. To use the buttons, fields, checkboxes or menus of an open app, prefer desktop.look (app) then desktop.act (ref from that look): it works in the background without the mouse and returns the window's new state. For the owner's own accounts on websites (Gmail, YouTube, shopping orders, any site they are signed in to) use browser.look url=... then browser.act / browser.type: the signed-in browser, in the background. web.open only SHOWS a page to the owner in a visible window; when you must read, click or fill something on a page yourself (or the owner says signed-in, logged in, my account), use browser.look instead of web.open. To SEE the screen (images, video, games, or what desktop.look cannot list) use screen.understand (when='hotkey_moment' for 'this / is / yahan / ye / what I am looking at', else 'now'), then act with screen.click (element ids from the latest screen.understand), keyboard.type_text/press_enter/shortcut and screen.scroll, and call screen.understand again to check the result. To SAVE a new file under a given name: keyboard.edit action=save (opens the Save As dialog), then keyboard.type_text with the full path (the file name box is focused), then keyboard.press_enter; close an app only after its work is saved. Apps like Notepad may reopen the user's own files: when writing NEW text, first open a blank document (keyboard.shortcut new_tab) and check the window title; keyboard tools refuse a window showing an existing document unless the user named it (argument document). To close a window you opened, use windows.close with the window_id/process_id/executable from apps.launch (apps.quit closes EVERY window of that app, including the user's own). System folders (Windows, Program Files, ProgramData, "
+    "with path = CONTEXT.projects_folder + a short lowercase name. To use the buttons, fields, checkboxes or menus of an open app, prefer desktop.look (app) then desktop.act (ref from that look): it works in the background without the mouse and returns the window's new state. For the owner's own accounts on websites (Gmail, YouTube, shopping orders, any site they are signed in to) use browser.open url=... then browser.act / browser.type (browser.look reads the open page again): the signed-in browser, in the background. web.open only SHOWS a page to the owner in a visible window; when you must read, click or fill something on a page yourself (or the owner says signed-in, logged in, my account), use browser.open instead of web.open. To SEE the screen (images, video, games, or what desktop.look cannot list) use screen.understand (when='hotkey_moment' for 'this / is / yahan / ye / what I am looking at', else 'now'), then act with screen.click (element ids from the latest screen.understand), keyboard.type_text/press_enter/shortcut and screen.scroll, and call screen.understand again to check the result. To SAVE a new file under a given name: keyboard.edit action=save (opens the Save As dialog), then keyboard.type_text with the full path (the file name box is focused), then keyboard.press_enter; close an app only after its work is saved. Apps like Notepad may reopen the user's own files: when writing NEW text, first open a blank document (keyboard.shortcut new_tab) and check the window title; keyboard tools refuse a window showing an existing document unless the user named it (argument document). To close a window you opened, use windows.close with the window_id/process_id/executable from apps.launch (apps.quit closes EVERY window of that app, including the user's own). System folders (Windows, Program Files, ProgramData, "
     "AppData) and Chutku's own folders can never be changed: refuse such requests at once with status=clarify. "
     "Never delete or overwrite many files at once. To repeat ONE action (move, copy, rename, open) for all items of a "
     "list an earlier step returned, use steps.for_each in one step (all items share one approval) instead of asking "
@@ -187,7 +188,7 @@ CORE_TOOLS = frozenset({
     "filesystem.list", "filesystem.search", "filesystem.inspect", "filesystem.largest", "file.extract_text",
     "filesystem.write_text", "filesystem.create_directory", "filesystem.copy", "filesystem.move", "filesystem.recycle",
     "web.search", "web.open", "web.results", "web.read", "screen.understand", "screen.click", "screen.scroll",
-    "desktop.look", "desktop.act", "browser.look", "browser.act", "browser.type", "keyboard.type_text", "keyboard.press_enter", "keyboard.shortcut", "keyboard.keys", "mouse.click",
+    "desktop.look", "desktop.act", "browser.open", "browser.look", "browser.act", "browser.type", "keyboard.type_text", "keyboard.press_enter", "keyboard.shortcut", "keyboard.keys", "mouse.click",
     "system.get_time", "system.environment", "system.disk_space", "message.send", "code.build_project",
     "memory.search", "mind.who", "mind.show",
 })

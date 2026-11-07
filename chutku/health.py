@@ -118,8 +118,14 @@ TOAST_SHOW = _TOAST[_TOAST.index("# Toasts carry"):]   # reused by the reminder 
 
 def powershell_exe():
     """The real Windows PowerShell, never whatever "powershell" is first on PATH."""
+    return system_exe("WindowsPowerShell/v1.0/powershell.exe")
+
+
+def system_exe(name):
+    """A Windows program by its System32 path, never whatever of that name is first on PATH or in the working
+    folder (release review 2026-11-07)."""
     import os
-    return str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe")
+    return str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / name)
 
 
 TOAST_TIMEOUT = 15

@@ -29,11 +29,13 @@ def inspect_foundation(base):
                 raise ValueError
             direct[match[1].casefold()] = match[2]
         locked = {}
-        for line in (base / "requirements.lock").read_text(encoding="utf-8").splitlines():
-            if not line or line.lstrip().startswith("#"):
+        text = (base / "requirements.lock").read_text(encoding="utf-8")
+        for line in re.sub(r"\\\r?\n\s*", " ", text).splitlines():   # a pin and its --hash lines are one line
+            parts = line.split()
+            if not parts or parts[0].startswith("#"):
                 continue
-            match = re.fullmatch(r"([A-Za-z0-9_.-]+)==([A-Za-z0-9_.+-]+)", line.strip())
-            if not match:
+            match = re.fullmatch(r"([A-Za-z0-9_.-]+)==([A-Za-z0-9_.+-]+)", parts[0])
+            if not match or any(not part.startswith("--hash=sha256:") for part in parts[1:]):
                 raise ValueError
             locked[match[1].casefold()] = match[2]
         lock_aligned = bool(direct) and all(locked.get(name) == version for name, version in direct.items())

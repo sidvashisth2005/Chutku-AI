@@ -2185,8 +2185,9 @@ def serve(port: int = 8765, open_browser: bool = False, *, base=PROJECT_ROOT, he
         server.heal_when_healthy()
         server.start_remote()
         _write_session_link(base, server.url)
-        print("Chutku is ready. Open this local session link:", flush=True)
-        print(server.url, flush=True)
+        # The token stays out of stdout: the guard copies stdout into data/logs (release review 2026-11-07).
+        print(f"Chutku is ready at {server.origin}/ (open it with `chutku.cli open`; the session link is in "
+              "data/dashboard-session.json).", flush=True)
         print("Keep this terminal running. Press Ctrl+C to stop. Planning is local; Gemini is used only if you granted cloud.gemini.", flush=True)
         if open_browser:
             import webbrowser

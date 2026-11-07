@@ -56,7 +56,7 @@ if (-not (Test-Path $venvPython)) {
 
 # 3. Exactly the pinned packages.
 Step "Installing pinned packages (requirements.lock)"
-& $venvPython -m pip install --disable-pip-version-check --no-cache-dir -r requirements.lock
+& $venvPython -m pip install --disable-pip-version-check --no-cache-dir --require-hashes -r requirements.lock
 if ($LASTEXITCODE -ne 0) { Fail "a package failed to install (see the lines above)" }
 
 # 3b. The pinned helper CLIs (tools/package-lock.json, integrity-checked by npm): agent-desktop for background app

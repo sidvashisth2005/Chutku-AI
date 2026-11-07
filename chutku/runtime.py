@@ -197,7 +197,7 @@ class Runtime:
         contact = self._contact_change(tool, arguments)
         if contact:
             return contact
-        if tool.name in {"browser.inspect", "browser.workflow", "browser.look"} and arguments.get("url"):   # no url: validation refuses
+        if tool.name in {"browser.inspect", "browser.workflow", "browser.open"} and arguments.get("url"):   # no url: validation refuses
             from chutku.tools.internet import Blocked, check_public_url
             try:
                 check_public_url(str(arguments.get("url", "")))

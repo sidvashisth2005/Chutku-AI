@@ -74,7 +74,8 @@ def main():
         if reminder_id in data:
             data[reminder_id]["fired"] = True
             save(data, ROOT)
-    subprocess.run(["schtasks", "/Delete", "/TN", f"\\Chutku\\Reminder-{reminder_id}", "/F"],
+    from chutku.health import system_exe
+    subprocess.run([system_exe("schtasks.exe"), "/Delete", "/TN", f"\\Chutku\\Reminder-{reminder_id}", "/F"],
                    capture_output=True, timeout=20, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                    check=False)
     return 0

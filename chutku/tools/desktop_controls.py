@@ -522,7 +522,8 @@ def _performance(_arguments, _context):
               "battery": None if power.BatteryFlag == 128 or power.BatteryLifePercent == 255 else {
                   "percent": power.BatteryLifePercent, "charging": power.ACLineStatus == 1}}
     try:
-        done = subprocess.run(["nvidia-smi", "--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu",
+        from chutku.health import system_exe   # the NVIDIA driver puts it in System32
+        done = subprocess.run([system_exe("nvidia-smi.exe"), "--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu",
                                "--format=csv,noheader,nounits"], capture_output=True, text=True, timeout=5,
                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         name, util, used, total, temp = [part.strip() for part in done.stdout.strip().split(",")[:5]]

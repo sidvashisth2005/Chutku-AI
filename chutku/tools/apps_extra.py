@@ -174,7 +174,8 @@ def _send_to_named_chat(name, text, *, dry_run=False, keep_open=False):
             app = resolve_app({"name": "WhatsApp"}, start_apps())
         except (ValueError, OSError):
             return ToolResult({"error": "WhatsApp is not installed."}, Verification.FAIL)
-        subprocess.Popen(["explorer.exe", "shell:AppsFolder\\" + app["app_id"]])
+        explorer = str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "explorer.exe")
+        subprocess.Popen([explorer, "shell:AppsFolder\\" + app["app_id"]])
         deadline = time.monotonic() + 25
         while info is None and time.monotonic() < deadline:
             time.sleep(0.5)

@@ -242,7 +242,8 @@ def recent_files(limit=60):
               "$s = New-Object -ComObject WScript.Shell; $input | ForEach-Object { "
               "try { $s.CreateShortcut($_).TargetPath } catch { '' } }")
     try:   # names can hold emoji and Devanagari: UTF-8 both ways
-        done = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+        from chutku.health import powershell_exe
+        done = subprocess.run([powershell_exe(), "-NoProfile", "-NonInteractive", "-Command", script],
                               input="\n".join(str(p) for p in links), capture_output=True, text=True, timeout=30,
                               encoding="utf-8", errors="replace",
                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))

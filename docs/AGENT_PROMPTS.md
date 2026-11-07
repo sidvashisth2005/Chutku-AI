@@ -634,3 +634,68 @@ Rules:
 
 Report: the design as built, files, tools/flags, the protected-path list as enforced, test counts and the full-suite line, the real-path evidence/proposals output, limits (be explicit about what Evolve can and cannot change), and (1) proposed ledger text, (2) proposed owner-guide lines. Under 900 words plus the two texts.
 ````
+
+## 22. Explore: map install, first-run and app shell (2026-11-07)
+Why: plan the professional installer (owner: "single click setup ... user must not know the tech stack").
+Outcome: found that all data lives in the install folder, setup is console-only, the launch shows a console, there is
+no uninstaller, and the defaults suit the owner. These became plan phases P2–P5 (`docs/WEB_CLAUDE_TASKS.md`).
+
+````text
+Repo: D:\Project\Chutku (Python Windows voice assistant "Chutku"). Thoroughness: medium. Read-only.
+Goal: understand everything a "professional one-click installer + app experience" would build on. Report concisely with file paths and key function names:
+1. Install path today: Install-Chutku.cmd, scripts/install.ps1 (all steps), scripts/setup_all.py (model download, sizes per model in models/manifest.json), requirements.lock (rough package count, any heavy ones like torch), pyproject.toml, tools/package.json.
+2. First-run / setup: chutku/setup_wizard.py (the 6 questions, is it CLI-only?), chutku/identity.py (.env), any dashboard first-run wizard in chutku/web/ (index.html/app.js) or chutku/dashboard.py.
+3. How the app runs for a user: Start-Chutku.cmd -> chutku/guard.py -> what starts (dashboard, presence UI chutku/presence.py with pywebview?, tray icon?, HUD, voice). Is there a tray icon, window icon (.ico) anywhere, app name/branding assets? Do any console windows show? chutku/autostart.py (how sign-in start works).
+4. Uninstall/stop paths, where user data lives (data/), whether code writes into its own install folder (would break if installed under Program Files / read-only).
+5. Hard-coded owner/PC specific paths or assumptions still present (D:\, C:\Users\siddh, Brave, etc.) — grep for them in chutku/ and scripts/.
+6. README.md, CONTRIBUTING.md, docs/RELEASE_CHECKLIST.md, docs/OWNER_GUIDE.md: current state and headings.
+7. .github/workflows contents.
+Keep the report under 900 words.
+````
+
+## 23. Explore: inventory for the release recheck (2026-11-07)
+Why: "recheck everything ... no vulnerabilities ... nothing must remain undone".
+Outcome:
+- Listed the 32 unticked plan items, the owner-only items and the 5 `# shortcut:` notes.
+- Found that the relay defaults to `0.0.0.0` over plain HTTP, that `X-Forwarded-For` can be spoofed, that the lock has
+  no hashes, and that `know_me` calls a bare `powershell`.
+- All of these were fixed this session (relay exposure, absolute System32 paths, `--require-hashes`).
+
+````text
+Repo: D:\Project\Chutku (Python Windows assistant). Thoroughness: medium. Read-only.
+Goal: inventory what a final "recheck everything, no vulnerabilities, nothing undone" release pass must cover. Report concisely with paths:
+1. docs/MASTER_PLAN.md: list every item still unticked "- [ ]" (ID + one-line summary), and the "Parked" and "Owner-only items" sections verbatim-short.
+2. docs/RELEASE_CHECKLIST.md and docs/HANDOFF.md section 5: open findings/items.
+3. IMPLEMENTATION_STATUS.md: any entries that say "not live", "not verified", "owner step", "shortcut:", "TODO", "not done yet" in the newest ~15 entries (summarize).
+4. grep the chutku/ package for "# shortcut:", "TODO", "FIXME", "XXX", "NotImplemented", "pass  #" and list counts + notable ones.
+5. Network-listening components and their bind addresses/auth: chutku/dashboard.py, chutku/remote/server.py, chutku/relay/server.py (look for bind host, token checks, CSP, http vs https).
+6. Secret handling: grep for keyring/CredentialManager usage, any place writing tokens/keys to files or logs; .env handling in chutku/identity.py.
+7. subprocess/shell usage with shell=True, eval/exec, pickle, yaml.load, tempfile mktemp — list locations.
+8. Dependencies: requirements.lock count and whether hashes are pinned (--hash).
+Keep under 900 words.
+````
+
+## 24. Security review of c851336..HEAD plus working tree (2026-11-07, `security-review` skill sub-task)
+Why: the release review (H30/O6) over the roughly 9,100 lines added since the last audit.
+
+Outcome, three findings:
+
+| # | Finding | Confidence | Status |
+|---|---|---|---|
+| 1 | Signed-in browser pages did not mark the session as private, so an injected mail line could make Chutku open an attacker URL carrying an OTP | 8/10, HIGH | **Fixed** (`browser.open` split out as egress; `browser.*` added to PRIVATE_TOOLS; test `SignedInPagesArePrivateTest`; live re-check) |
+| 2 | `skill.import` runs code written from an untrusted README during the import step | 7/10, MEDIUM | Handed to web Claude: `docs/WEB_CLAUDE_TASKS.md` W1 |
+| 3 | Restoring a backup zip can bring in pairing state and approved skills | 5/10 | Handed to web Claude: W1 |
+
+The prompt was the skill's standard template (objective, categories, exclusions, method, output format) with this
+scope prepended:
+
+````text
+You are a senior security engineer doing a focused security review of a Python project at D:\Project\Chutku (a Windows voice assistant "Chutku" that runs local tools on its owner's PC). Read-only: do not modify any file.
+
+SCOPE (the "PR"): the changes in `git diff c851336 HEAD -- chutku android scripts Start-Relay.cmd` PLUS the uncommitted working-tree changes (`git diff` and the untracked files scripts/hash_lock.py, tests/test_relay_exposure.py, tests/test_telegram_token_leak.py). About 9,100 lines in 83 files under chutku/. Use git and file reading/search tools to inspect it.
+
+Priority areas: [HTTP servers (dashboard, remote, relay); Telegram gateway; skills and skill import; Evolve; steps.for_each, research workers, learning inbox, backup/restore; desktop.py and signed_in_browser.py; policy bypasses (TAINTING/PRIVATE, kernel, step_question, user_only/runs_code/deletes)]
+
+Security model to respect: same-user programs are out of scope. Attackers of interest: web pages / messages / documents Chutku reads (prompt injection steering tools), network clients of the relay / phone server / dashboard, a malicious Telegram user, a malicious skill repo or backup zip.
+[then the security-review skill's objective, categories, exclusions, method and output-format text, unchanged]
+````

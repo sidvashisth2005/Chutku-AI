@@ -109,8 +109,13 @@ def _real_transport(bot_token):
         return body.get("result")
 
     def download(file_path, timeout):
-        with urllib.request.urlopen(f"{API}/file/bot{bot_token}/{file_path}", timeout=timeout) as response:
-            return response.read(VOICE_MAX_BYTES + 1)
+        try:
+            with urllib.request.urlopen(f"{API}/file/bot{bot_token}/{file_path}", timeout=timeout) as response:
+                return response.read(VOICE_MAX_BYTES + 1)
+        except urllib.error.HTTPError as error:   # its url holds the token: never let it travel up
+            raise TelegramError(f"Telegram answered HTTP {error.code} to a file download.") from None
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError) as error:
+            raise TelegramError(f"Telegram is not reachable ({type(error).__name__}).") from None
     call.download = download
     return call
 

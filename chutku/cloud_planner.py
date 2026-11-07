@@ -93,7 +93,7 @@ SHAREABLE_PREFIXES = ("web.", "youtube.", "system.get_time", "system.environment
                       "apps.installed", "windows.list", "media.status", "audio.volume", "display.brightness",
                       "games.", "reminder.list", "filesystem.search", "filesystem.list", "filesystem.inspect",
                       "filesystem.largest", "code.build_project", "screen.understand", "screen.click", "desktop.",
-                      "browser.look", "browser.act", "browser.type",
+                      "browser.open", "browser.look", "browser.act", "browser.type",
                       "screen.scroll", "keyboard.", "apps.")
 SHARED_STEPS = 15
 SHARED_CHARS = 2500

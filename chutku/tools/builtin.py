@@ -106,9 +106,10 @@ def _environment(_: dict[str, Any], __: ExecutionContext) -> ToolResult:
 
 
 def _gpu_status(_: dict[str, Any], __: ExecutionContext) -> ToolResult:
+    from chutku.health import system_exe
     try:
         completed = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,driver_version,memory.total", "--format=csv,noheader,nounits"],
+            [system_exe("nvidia-smi.exe"), "--query-gpu=name,driver_version,memory.total", "--format=csv,noheader,nounits"],
             capture_output=True,
             text=True,
             timeout=3,
@@ -123,10 +124,11 @@ def _gpu_status(_: dict[str, Any], __: ExecutionContext) -> ToolResult:
 
 
 def _audio_devices(_: dict[str, Any], __: ExecutionContext) -> ToolResult:
+    from chutku.health import powershell_exe
     query = "Get-CimInstance -ClassName Win32_SoundDevice | Select-Object Name,Status | ConvertTo-Json -Compress"
     try:
         completed = subprocess.run(
-            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", query],
+            [powershell_exe(), "-NoProfile", "-NonInteractive", "-Command", query],
             capture_output=True,
             text=True,
             timeout=3,
