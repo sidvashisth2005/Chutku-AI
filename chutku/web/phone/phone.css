@@ -41,6 +41,20 @@ body:has(#app:not([hidden])){height:100dvh;overflow:hidden}
 .toolbar button span{font-size:10px;font-weight:600;color:var(--muted)}
 .toolbar button.on{border-color:var(--accent)}.toolbar button.on span{color:var(--accent)}
 .live-keys{position:absolute;left:-9999px;width:40px;opacity:0}   /* focused by ⌨ to open the phone keyboard */
+/* phone turned sideways (owner 2026-11-07): full screen, the laptop screen large on the left, a side column on the
+   right with the trackpad (the stage itself) on top and the buttons at the bottom; the header shrinks to a status line */
+@media (orientation:landscape) and (max-height:540px){
+  body:has(#app:not([hidden])) header{position:fixed;top:0;right:0;width:var(--side);padding:4px 8px;z-index:4;pointer-events:none}
+  body:has(#app:not([hidden])) :is(.logo,#assistant-name,#logout){display:none}
+  body:has(#app:not([hidden])) .status{margin:0;max-width:100%}
+  :root{--side:236px}
+  #app{padding-left:env(safe-area-inset-left)}
+  .stage:not(.zoomed) #frame{width:auto;max-width:calc(100vw - var(--side) - env(safe-area-inset-left));max-height:100%}
+  .dock{position:absolute;right:0;bottom:0;width:var(--side);border-left:1px solid var(--line);border-radius:14px 0 0 0;
+    padding:6px calc(6px + env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) 6px}
+  .toolbar{grid-template-columns:repeat(4,1fr)}
+  .note{left:calc(50% - var(--side) / 2)}
+}
 .sheet{position:absolute;left:0;right:0;bottom:0;max-height:82%;overflow:auto;background:var(--bg);border-top:1px solid var(--line);
   border-radius:18px 18px 0 0;box-shadow:0 -10px 30px #000a;padding-bottom:env(safe-area-inset-bottom);z-index:5}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 4px;position:sticky;top:0;background:var(--bg)}

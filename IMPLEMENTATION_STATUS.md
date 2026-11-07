@@ -16,6 +16,30 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: Phone remote sideways: full screen, large screen on the left, trackpad and buttons on the right
+- Owner request: in landscape the laptop screen was small and centred, with trackpad on both sides, and the header
+  and Chrome's bar took up height.
+- `chutku/web/phone/phone.css` adds a landscape layout for phones only (`orientation:landscape and max-height:540px`):
+  - the screen sits at the left, as large as fits next to a 236 px right column;
+  - in that column, the trackpad (the black stage) is on top and the dock (keys row plus a 4-column toolbar) is at the
+    bottom right;
+  - the header shrinks to its status line in the top-right corner.
+  - Portrait is unchanged.
+- `phone.js`: the first touch after turning sideways enters full screen (browsers allow it only from a touch).
+  Upright leaves it. If you leave full screen yourself while sideways, it stays off until you turn again.
+- The manifest's `"orientation": "portrait"` is now `"any"`, so an installed copy can turn too.
+- **Verified:** Playwright at phone sizes with a 1920×1080 test frame.
+  - Portrait 412×915: the frame is full width, as before.
+  - Landscape 915×356 (Chrome's bar shown): frame 0–633 px wide, full height; dock 679–915 × 192–356.
+  - Landscape 915×412 (full screen): frame 0–679 px, 382 px tall (was about 270 px in the centre); dock 679–915 ×
+    248–412.
+  - Landscape 740×360: frame 0–504 px.
+  - The frame never overlaps the dock, and the trackpad area above the dock is 236 × 160–224 px.
+  - A tap in landscape set `document.fullscreenElement`.
+  - Phone tests: 51 OK.
+  - The live server (`https://buddy.tail473865.ts.net/`) serves the new CSS and JS.
+  - Not yet seen on the owner's real phone.
+
 ### 2026-11-07: Sign in from the phone on the lock screen (built, refusals verified; live sign-in waits for the owner's admin setup)
 - Owner request: at boot, Telegram gets a link. The phone shows the Windows lock screen and can click, type the
   password and press Enter, only there. Chutku stays non-admin. This replaces the line in the RustDesk entry below

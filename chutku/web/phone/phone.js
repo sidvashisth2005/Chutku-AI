@@ -262,6 +262,20 @@ function drawCursor() {
 }
 $("frame").addEventListener("load", drawCursor);
 window.addEventListener("resize", drawCursor);
+// owner 2026-11-07: sideways = full screen (no browser bar). Browsers allow it only from a touch, so the first touch after
+// turning does it; upright leaves it. If you leave full screen yourself while sideways, it stays off until you turn again.
+const sideways = matchMedia("(orientation: landscape) and (max-height: 540px)");
+let autoFull = true;
+function goFull() {
+  if (autoFull && sideways.matches && !$("app").hidden && !document.fullscreenElement && document.documentElement.requestFullscreen)
+    document.documentElement.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+}
+document.addEventListener("pointerup", goFull, true);
+sideways.addEventListener("change", () => {
+  if (sideways.matches) { autoFull = true; goFull(); }
+  else if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+});
+document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && sideways.matches) autoFull = false; });
 $("screen-go").addEventListener("click", () => { closeSheets(); startScreen(); });
 $("screen-stop").addEventListener("click", () => { viewing = false; detachStream(); note("Screen paused. Tap ⋯ More → Resume the screen."); api("/api/screen/stop", {}).catch(() => {}); closeSheets(); });
 document.addEventListener("visibilitychange", () => {   // a hidden page stops the stream (data, battery); back = resume
