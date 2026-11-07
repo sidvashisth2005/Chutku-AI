@@ -16,6 +16,163 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: W6 (cloud session): Board/Automations tabs, habit cards, key pool, relay E2E, App Mastery A14-A16
+
+**What changed**
+- **Tabs:** the dashboard has Board and Automations tabs.
+  - Routes: `GET/POST /api/automations` and `POST /api/board`, behind the session token.
+  - Create/cancel run the real `task.schedule`/`task.cancel` through the kernel.
+  - Board buttons: done, again (`board.retry`, shared with the tool) and archive (never a delete).
+- **H23 daily automation:**
+  - the blueprint `daily` (slots `time` and `goal`, goal 3–200 chars);
+  - the phrase "har roz HH:MM baje <goal>";
+  - a habit becomes an "automation" suggestion card once, and none if it is already scheduled.
+- **H9 key pool:**
+  - up to 5 keys per provider (`Chutku/Groq#2..#5`; `cli cloud add-key`, `cli gemini add-key`);
+  - a 429 or a rejected key moves to the next key of the same model;
+  - only `provider/model#slot` cools down (never the key text); the model cools when its last key is out;
+  - Gemini rotates the same way.
+- **Relay end-to-end encryption** (`chutku/relay/e2e.py`, `chutku/web/phone/e2e.js`; SECURITY.md §4b-2):
+  - keys: PBKDF2-SHA256 at 600k iterations gives the AES-256-GCM key, and a separate auth secret is all the relay
+    sees;
+  - envelopes are `{v,iv,ct}` with the account and direction as associated data;
+  - replay protection: a 120 s window plus a nonce, and the answer repeats the nonce;
+  - `/t/api/*` answers 426; legacy accounts are upgraded at login;
+  - `cryptography==50.0.2` is pinned with hashes;
+  - fixed in passing: the phone's logout now sends its token.
+- **App Mastery (needs the Windows live check):**
+  - `desktop.do` (R1, desktop.input): acts on an element by its name. It goes through `desktop.act`, so Send, Delete,
+    Pay and similar names are refused (desktop.act_risky only).
+  - A14: routines also take app-window steps: `click "X" in App`, `toggle`, `expand`, `collapse`,
+    `type "text" into "Field" in App`.
+  - A15: teach mode (`chutku/apps/teach.py`). "sikho <name> <app> mein" or "teach me <name> in <app>" watches ONE
+    window. "ho gaya" saves the changes (typed text, toggles, expands, selections) as a routine. Password, PIN, OTP
+    and masked fields are never recorded. A plain button click is not seen (a `shortcut:` comment).
+  - A16: `desktop.survey` (R0): skeletons of the visible windows, summarized; it is read-only and stores nothing.
+- **Installer:** setup unpacks with Windows `tar.exe` (Expand-Archive took 221 s in CI) and falls back to
+  Expand-Archive.
+
+**Evidence**
+- **Linux:**
+  - `tests/test_w6_tabs_pool.py` (10 tests): pool rotation, slot-only cooldowns, add-key limits, Gemini 429 rotation,
+    the daily phrase and slot validation, the habit card shown once, and a bad token refused (403) on every tab
+    route. It runs the real dashboard server.
+  - `tests/test_relay_e2e_w6.py` (7 tests): a real relay on loopback with the real laptop client.
+    - The relay's queue and SQLite file never hold the marker, the password or the key.
+    - Tampering, a wrong key, a wrong account or a wrong direction are refused.
+    - A replay gets no answer (504).
+    - Plaintext is refused with 426/400.
+    - A legacy upgrade means the old password stops working.
+    - Node's WebCrypto `e2e.js` agrees with Python byte for byte.
+  - `tests/test_app_mastery_w6.py` (9 tests, fake agent-desktop):
+    - desktop.do toggles by name; set_text goes through stdin, not argv;
+    - "Send" is refused and nothing is clicked (negative case); a missing name searches, then fails;
+    - a routine mixes `audio.volume` with `desktop.do`; a bad step is refused at save;
+    - teach turns h→he→hello into one typed step plus a toggle and replays it. The secret and masked fields are absent
+      from the stored routine. Nothing shown saves nothing. "ho gaya" is not hijacked when not teaching;
+    - the survey uses only list-windows and skeleton snapshots.
+  - `check_phrases.py`: 157/163 instant (the 4 new phrases hit; the 6 misses are the pre-existing Linux-only
+    `files.*`).
+  - Full suite: 1,586 tests, no failure outside the Linux baseline.
+- **windows-latest:**
+  - the tests job was green for the tabs/pool commit (run 36);
+  - the relay E2E test needed a cleanup fix (SQLite file still open, WinError 32), now fixed;
+  - the package job stays green.
+- **Needs the Windows live check (owner's PC):**
+  - desktop.do, teach mode and survey on real apps;
+  - the phone's E2E login and chat through the real relay;
+  - adding a second Groq key and hitting a real quota.
+
+### 2026-11-07: W5 (cloud session): first-run setup page
+
+**What changed**
+- `chutku/models.py`:
+  - packs `voice` (stt, tts), `brain` (model, runtime, gpu_runtime) and `screen` (vision);
+  - `download()` resumes with Range and deletes a file whose SHA-256 does not match;
+  - a `Downloads` thread reports progress.
+  - `scripts/setup_all.py` is now a thin wrapper keeping its old names.
+- `chutku/setup_wizard.py` holds the step functions, shared with the CLI wizard: assistant name, owner name, brain
+  key (validated, stored in Credential Manager only), autonomy (safe/edits/full), mic level, phone link and
+  finish/reopen. State is in `data/setup.json`.
+- The dashboard serves `GET /api/setup` (on the memory-only fast path) and `POST /api/setup` (session token).
+- The web Settings tab renders the page (`renderSetup`).
+- `install.ps1` now says 6 questions.
+
+**Evidence**
+- **Linux:** `tests/test_setup_page_w5.py` (9 tests) with a real dashboard server.
+  - A bad token is refused (403) on every setup endpoint.
+  - The steps persist and finish hides the page.
+  - A key is stored in the (faked) vault and never echoed back.
+  - A wrong-hash download is refused and deleted; a partial download resumes with Range.
+  - A pack installs only its own files; a path outside `models/` is refused.
+  - A failing background job is reported, and the CLI marks setup done.
+  - The page was rendered in Chromium and the screenshot checked.
+  - Full suite: no new failures.
+- **windows-latest:** the tests job is green.
+- **Needs the Windows check:** a real pack download and the mic level on the PC.
+
+### 2026-11-07: W4 (cloud session): ChutkuSetup.exe and the release workflow
+
+**What changed**
+- `installer/chutku.iss` (Inno Setup 6.7.1):
+  - a per-user install to `%LOCALAPPDATA%\Programs\Chutku` with lowest privileges;
+  - optional tasks: autostart (HKCU Run `--background`) and a desktop icon;
+  - setup downloads `latest.json`, checks the URL prefix, downloads with a SHA-256 check (or uses `/PACKAGE=` checked
+    against `<zip>.sha256`), then unpacks;
+  - `SafeAppFolder` guards every DelTree;
+  - the uninstaller runs `--stop` and asks before deleting data (`/DELETEDATA=yes` for silent use).
+- `installer/sign.ps1` signs only when `CHUTKU_SIGN_PFX_BASE64` and its password are set, and skips otherwise.
+- `installer/ci_install_check.ps1` checks:
+  - a tampered package is refused;
+  - install, doctor and a text command through `/api/chat` with the session token;
+  - uninstall.
+- `.github/workflows/release.yml` runs on a `v*` tag and publishes to the public releases repo with `RELEASES_TOKEN`,
+  failing clearly if the token is missing. `installer/RELEASES_REPO.md` has the owner's steps.
+
+**Evidence (windows-latest, package job run 42354796413)**
+- Setup is 1.96 MB, unsigned (no certificate).
+- A tampered package was refused (exit 7).
+- Install took 221.2 s with Expand-Archive. The tar.exe change is in W6; its time is in that job's table.
+- Doctor reported OK apart from "Not elevated".
+- The text command got an answer: the administrator refusal, as expected on a CI runner.
+- Uninstall left nothing behind.
+- **Needs the PC:** a real download from the public releases repo (it needs the owner's RELEASES_TOKEN and repo).
+  Signing needs an optional certificate.
+
+### 2026-11-07: W3 (cloud session): app package and the Chutku.exe launcher
+
+**What changed**
+- `scripts/build_release.py` builds the package in this order:
+  1. a pin check, then the embeddable CPython 3.13.17 (hash in `models/manifest.json`);
+  2. `pip --require-hashes --only-binary --platform win_amd64`, with an sdist build only for `proxy-tools`;
+  3. stripping the ASIO DLLs (licence);
+  4. compiling Chutku to `.pyc` only;
+  5. bundling the manifest, essential models, vendor, web, licences and `bin/` exes, each with its `.sha256`;
+  6. building the launcher with csc, then NOTICE and `version.json`;
+  7. a stage check (no `.py` sources, no `data/`, no `.env`), then the zip and its `.sha256`.
+- `installer/launcher.cs` (`Chutku.exe`):
+  - one instance (`Local\Chutku.Launcher`); a second launch opens the window;
+  - it runs pythonw `-m chutku.guard` with `CHUTKU_HOME`, `PYTHONNOUSERSITE` and `PYTHONDONTWRITEBYTECODE` set;
+  - `--background`, `--stop` and `--doctor` are supported.
+- `autostart.launch_command()` uses `Chutku.exe --background` in a package.
+- `.github/workflows/package.yml` builds, checks, makes setup and runs the install check on `windows-latest`.
+
+**Evidence**
+- **Linux:** `tests/test_build_release_w3.py` (12 tests). They cover:
+  - test-only pins left out with their hashes kept, and the `._pth`;
+  - a tampered or unpinned Python zip refused (negative case);
+  - `.pyc` only, with no source shipped;
+  - personal and source files refused by the stage check;
+  - a native helper whose `.sha256` does not match refused;
+  - the NOTICE licences, the launcher source and autostart in a package.
+
+  A real build on Linux used a stand-in embeddable zip.
+- **windows-latest (run 42354796413):**
+  - build 2 min 26 s; zip 220.4 MB; installed 614.5 MB;
+  - unzip 23.5 s; first launch 1.2 s;
+  - doctor OK; the app folder untouched after a run.
+- **Needs the PC:** a real launch from the Start menu, and the tray.
+
 ### 2026-11-07: W2 (cloud session): data outside the app folder
 
 **What changed**

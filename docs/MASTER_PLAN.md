@@ -814,9 +814,9 @@ Full spec: `docs/APP_MASTERY_PLAN.md`.
 - [x] A11: VLC (12/15 lab-verified; pause/resume go through media.control)
 - [x] A12: Telegram (7/7 lab-verified)
 - [x] A13: File Explorer + Notepad (12/12 + 7/7 lab-verified)
-- [ ] A14: Cross-app recipes — needs new atlas actions recorded + lab-verified on the PC (docs/HANDOFF.md §3)
-- [ ] A15: Teach mode — needs new atlas actions recorded + lab-verified on the PC (docs/HANDOFF.md §3)
-- [ ] A16: Screen survey (later)
+- [ ] A14: Cross-app recipes — code + fake tests done (W6: routines take `click "X" in App` steps via desktop.do); needs the Windows live check
+- [ ] A15: Teach mode — code + fake tests done (W6: `chutku/apps/teach.py`); needs the Windows live check
+- [ ] A16: Screen survey — code + fake tests done (W6: `desktop.survey`); needs the Windows live check
 
 ---
 # Phase 3b: Hermes-inspired upgrades + remote phone access (planned 2026-10-07)
@@ -995,10 +995,10 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 # Phase 9: Chutku 1.0 (owner 2026-11-07; spec `docs/WEB_CLAUDE_TASKS.md`; W-numbers are this phase's own)
 - [x] W1 (2026-11-07, Linux tests): skill.import runs nothing until approve (README untrusted); backup restore skips security state (`--include-security` + typed YES)
 - [x] W2 (P2, 2026-11-07, Linux tests + windows-latest CI): data outside the app folder (`paths.home()`); the owner's checkout is unchanged
-- [ ] W3 (P3): app package + `Chutku.exe` launcher
-- [ ] W4 (P4): `ChutkuSetup.exe` + release workflow
-- [ ] W5 (P5): first-run setup page
-- [ ] W6 (P6): Board/Automations tabs, habit suggestions, key pool, relay E2E, A14-A16
+- [x] W3 (P3, 2026-11-07, Linux tests + windows-latest package job): app package + `Chutku.exe` launcher
+- [x] W4 (P4, 2026-11-07, windows-latest install check; the public download needs the owner's RELEASES_TOKEN): `ChutkuSetup.exe` + release workflow
+- [x] W5 (P5, 2026-11-07, Linux tests + windows-latest): first-run setup page
+- [x] W6 (P6, 2026-11-07, Linux tests + windows-latest; A14-A16, E2E phone and key pool need the Windows live check): Board/Automations tabs, habit suggestions, key pool, relay E2E, A14-A16
 - [ ] W7 (P7): READMEs and docs
 - [ ] W8 (P8): release gate
 
