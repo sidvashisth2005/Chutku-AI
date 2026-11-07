@@ -26,6 +26,9 @@ CASES = [
     ("kaun si automations hain", "blueprint.list"),
     ("jab main 'padhai time' bolun to volume 30 karo aur lock the pc", "routine.save"),
     ("khud ko theek karo", "system.self_repair"), ("apna checkup karo", "system.self_repair"),
+    # W6 A15 teach mode, A16 screen survey
+    ("sikho padhai setup notepad mein", "teach.start"), ("teach me dark mode in Settings", "teach.start"),
+    ("screen survey karo", "desktop.survey"), ("what's open on my screen", "desktop.survey"),
     # messages (typed, Hinglish, and the live voice rewrites from 2026-10-03)
     ("send hi to AK on whatsapp", "message.send"),
     ('send "hi" to AK on whatsapp', "message.send"),

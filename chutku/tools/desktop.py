@@ -1,5 +1,5 @@
 """Background desktop control through agent-desktop (vercel-labs, Apache-2.0): desktop.look, desktop.act,
-desktop.act_risky.
+desktop.act_risky, desktop.do and desktop.survey.
 
 - desktop.look reads one app window's accessibility tree (UI Automation) as a short outline. Every element that can
   be acted on gets a ref (e2 or @<snapshot>:e2). No screenshot and no vision model: about 0.3 s for a small window.
@@ -12,6 +12,9 @@ desktop.act_risky.
 - A ref is used only if the latest look (within ELEMENT_SECONDS) returned it, so a ref cannot be invented.
 - After an action the window is read again: the result carries the new outline (no extra look round) and whether
   anything changed.
+- desktop.do (A14/A15) acts on an element found by its NAME, in one step: what routines and taught steps replay
+  (refs last 3 minutes, names survive). It goes through desktop.act, so consequential names are refused the same way.
+- desktop.survey (A16) summarizes the skeleton of every visible window: titles, regions, element counts.
 """
 from __future__ import annotations
 
@@ -53,6 +56,12 @@ _ACT_SCHEMA = {"type": "object", "properties": {
     "label": {"type": "string", "maxLength": 120}},
     "required": ["ref", "action"], "additionalProperties": False}
 _RISKY_SCHEMA = {**_ACT_SCHEMA, "required": ["ref", "action", "label"]}
+_DO_SCHEMA = {"type": "object", "properties": {
+    "app": {"type": "string", "minLength": 1, "maxLength": 120},
+    "name": {"type": "string", "minLength": 1, "maxLength": 120},
+    "action": {"type": "string", "enum": ["click", "set_text", "toggle", "expand", "collapse"]},
+    "text": {"type": "string", "maxLength": MAX_TEXT}},
+    "required": ["app", "name", "action"], "additionalProperties": False}
 
 _lock = threading.Lock()
 _seen = {}      # full ref -> {"role", "name", "window", "at"}
@@ -253,6 +262,65 @@ def _act(arguments, _context, *, risky_allowed):
     return ToolResult(output, Verification.PASS if delivery.startswith("delivered") else Verification.UNKNOWN)
 
 
+def _do(arguments, _context):
+    """Find the element named `name` in the app's window (exact name first, then one containing it), then act on it
+    through _act, so a consequential name is refused here exactly as desktop.act refuses it."""
+    wanted = arguments["name"].strip().casefold()
+    try:
+        window = _window(arguments["app"])
+        snapshot, _lines = _snapshot(window)
+        with _lock:
+            named = [(ref, seen["name"].casefold()) for ref, seen in _seen.items()
+                     if ref.startswith(f"@{snapshot}:") and seen["window"]["id"] == window["id"]]
+        refs = [r for r, n in named if n == wanted] or [r for r, n in named if wanted in n]
+        if not refs:   # a skeleton read hides nested elements: ask agent-desktop to search the window
+            data = call("find", "--window-id", window["id"], "--text", arguments["name"], "--limit", "20")
+            found = {}
+            for match in data.get("matches", []):
+                found |= _outline(match, window)[1]
+            _remember(data.get("snapshot_id"), found)
+            refs = ([r for r, s in found.items() if s["name"].casefold() == wanted]
+                    or [r for r, s in found.items() if wanted in s["name"].casefold()])
+    except (OSError, LookupError, ValueError, subprocess.TimeoutExpired) as error:
+        return ToolResult({"error": str(error)}, Verification.FAIL)
+    if not refs:
+        return ToolResult({"error": f"No {arguments['name']!r} in {window.get('title')} right now."},
+                          Verification.FAIL)
+    act = {"ref": refs[0], "action": arguments["action"]}
+    if "text" in arguments:
+        act["text"] = arguments["text"]
+    return _act(act, None, risky_allowed=False)
+
+
+def _validate_do(arguments):
+    if arguments.get("action") == "set_text" and "text" not in arguments:
+        raise ValueError("set_text needs text.")
+
+
+def survey(limit=8):
+    """A16: the skeleton of each visible window (title, app, element count, top regions). Nothing is stored."""
+    rows = []
+    for window in [w for w in call("list-windows") if w.get("visible", True) and not w.get("minimized")][:limit]:
+        try:
+            data = call("snapshot", "--window-id", window["id"], "--compact", "--skeleton", "--timeout-ms", "5000")
+            lines = _outline(data.get("tree") or {}, window)[0]
+        except (OSError, subprocess.TimeoutExpired):
+            lines = []
+        regions = [line.strip() for line in lines if line.startswith(" ") and not line.startswith("  ")][:6]
+        rows.append({"title": window.get("title"), "app": window.get("app_name"), "elements": len(lines),
+                     "regions": regions})
+    summary = "; ".join(f"{row['app']}: {row['title'] or '(untitled)'} ({row['elements']} items)" for row in rows)
+    return {"windows": rows, "summary": "Open windows: " + summary if rows else "No visible windows.",
+            "provenance": "external_untrusted"}
+
+
+def _survey(_arguments, _context):
+    try:
+        return ToolResult(survey(), Verification.PASS)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return ToolResult({"error": str(error)}, Verification.FAIL)
+
+
 def _validate_look(arguments):
     if not str(arguments.get("app", "")).strip():
         raise ValueError("app is required.")
@@ -303,3 +371,13 @@ def register_desktop_tools(registry):
         Risk.EXTERNAL_SIDE_EFFECT, lambda a, c: _act(a, c, risky_allowed=True), _validate_risky,
         required_capability="desktop.input", argument_schema=_RISKY_SCHEMA, sensitive_argument_names=frozenset({"text"}),
         prerequisites=background, reversibility="none", success_predicate="semantic_action_delivered"))
+    registry.register(Tool("desktop.do", "Act on the element of an open app window that has this exact name: click, "
+        "set_text (text=), toggle, expand, collapse, in the background. Used by routines and taught steps. "
+        "Send/delete/pay-like elements are refused (desktop.act_risky).",
+        Risk.REVERSIBLE, _do, _validate_do, required_capability="desktop.input", argument_schema=_DO_SCHEMA,
+        sensitive_argument_names=frozenset({"text"}), prerequisites=background, reversibility="transient",
+        success_predicate="semantic_action_delivered"))
+    registry.register(Tool("desktop.survey", "Screen survey: the skeleton of every visible window (titles, regions, "
+        "element counts), summarized. No screenshot.", Risk.OBSERVATION, _survey, required_capability="screen.observe",
+        argument_schema={"type": "object", "properties": {}, "additionalProperties": False}, prerequisites=background,
+        reversibility="not_applicable", success_predicate="window_elements_listed"))

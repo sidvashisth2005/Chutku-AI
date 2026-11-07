@@ -454,6 +454,8 @@ def register_builtin_tools(registry: ToolRegistry) -> None:
     register_screen_vision(registry)
     from chutku.tools.desktop import register_desktop_tools
     register_desktop_tools(registry)
+    from chutku.apps.teach import register_teach_tools
+    register_teach_tools(registry)
     from chutku.tools.signed_in_browser import register_signed_in_browser_tools
     register_signed_in_browser_tools(registry)
     from chutku.voice.recognition import register_recognition

@@ -213,6 +213,9 @@ def quick_proposal(goal, apps=None):
     shortcut = _shortcut(goal) or _shortcut_save(goal)
     if shortcut is not None:   # H23: one of the owner's own shortcut names, or a new shortcut
         return shortcut
+    taught = _teach(goal)
+    if taught is not None:   # A15 teach mode, A16 screen survey
+        return taught
     from chutku import blueprints
     automation = blueprints.parse(goal)
     if automation is not None:   # H23: "subah ka briefing set karo 8 baje" -> task.schedule steps
@@ -244,6 +247,31 @@ def _shortcut(goal):
         return None
     return {"status": "continue", "reply": f"{name} shuru.", "declared_plan": [f"Run the {name} routine"],
             "next_steps": steps, "finish": True}
+
+
+_TEACH_START = r"^(?:(?:dekh|dekho)\s*,?\s*aise karte hain\s*[:,-]?\s*|(?:teach me|sikho|seekho)\s+)"
+_TEACH = re.compile(_TEACH_START + r"(?P<name>[a-z][a-z0-9 -]{0,29}?)\s+in\s+(?P<app>[\w .-]{2,40}?)\s*[.!]?$", re.I)
+_TEACH_HI = re.compile(_TEACH_START + r"(?P<name>[a-z][a-z0-9 -]{0,29}?)\s+(?P<app>[\w.-]{2,40})\s+(?:mein|me)\s*[.!]?$",
+                       re.I)   # "sikho padhai setup notepad mein": the app is the word before "mein"
+_TEACH_DONE = re.compile(r"^(?:ho gaya|ho gya|bas|done|done teaching|finished|ho gaya,? save karo)\s*[.!]?$", re.I)
+_SURVEY = re.compile(r"^(?:screen survey(?: karo)?|survey (?:my |the )?screen|what(?:'s| is) open on (?:my|the) "
+                     r"screen|screen pe kya kya khula hai|kaun kaun si windows? khuli hai[n]?)\s*[?.!]?$", re.I)
+
+
+def _teach(goal):
+    """A15: "sikho padhai setup notepad mein" starts teach mode; "ho gaya" ends it only while it is on. A16 survey."""
+    from chutku.apps.teach import teaching
+    text = " ".join(goal.split())
+    if _SURVEY.match(text):
+        return _proposal("desktop.survey", {}, "Survey the open windows", "", finish=False)
+    if teaching() and _TEACH_DONE.match(text):
+        return _proposal("teach.stop", {}, "Save what you showed me", "", finish=False)
+    match = _TEACH.match(text) or _TEACH_HI.match(text)
+    if match:
+        name, app = " ".join(match["name"].split()).casefold(), match["app"].strip()
+        return _proposal("teach.start", {"app": app, "name": name}, f"Watch {app} while you show {name}", "",
+                         finish=False)
+    return None
 
 
 _SHORTCUT_SAVE = re.compile(
