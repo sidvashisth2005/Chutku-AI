@@ -168,7 +168,21 @@ A test (`tests/test_taint_v2.py`) fails if any name in these lists is not a real
   - only GET/POST to `/api/*` is replayed, on the phone server over loopback, with that server's per-run secret (`X-Chutku-Relay`, compared in constant time; loopback only);
   - such a request is the `relay` device: rate limit, its PIN (set at setup; 5 wrong revoke it) for approvals, screen and control, laptop-only steps, and control armed only at the laptop all apply as for a paired phone;
   - CSRF is not used, because a bearer token is not sent by a browser on its own.
-- **Transport:** the laptop refuses a plain-http relay unless it is loopback or a private address. The relay listens on 127.0.0.1 by default and refuses plain HTTP on any other address unless `--tls-cert`, `--behind-proxy` or `--home-network` is given; with `--behind-proxy`, sign-up limits count real clients through X-Forwarded-For, believed only from a proxy on the same machine. It sees the forwarded content (screen frames included). End-to-end encryption is not done yet.
+- **Transport:** the laptop refuses a plain-http relay unless it is loopback or a private address. The relay listens on 127.0.0.1 by default and refuses plain HTTP on any other address unless `--tls-cert`, `--behind-proxy` or `--home-network` is given; with `--behind-proxy`, sign-up limits count real clients through X-Forwarded-For, believed only from a proxy on the same machine. It cannot read the forwarded content (below).
+- **End-to-end encryption (W6, 2026-11-07, `chutku/relay/e2e.py`, `chutku/web/phone/e2e.js`):**
+  - the phone and the laptop each derive the same AES-256-GCM key from the account password
+    (PBKDF2-HMAC-SHA256, 600 000 iterations, salt `chutku-e2e-key:<id>`);
+  - the relay is given a different value as the password (`chutku-e2e-auth:<id>`), so it never sees the password
+    and cannot derive the key. An account made before W6 is upgraded at its next login: one login with the
+    password, which is then replaced by the auth value;
+  - every phone request (method, path, body) and every answer travels as `{v, iv, ct}` on `/t/e2e`. The associated
+    data binds the account and the direction, a request older than 2 minutes or seen before is dropped, and the
+    answer repeats the request's nonce. The plaintext route answers 426, and the relay stores and forwards only
+    ciphertext;
+  - the relay still learns the account, the time and the size of each message;
+  - PBKDF2 rather than scrypt: WebCrypto has no scrypt, and a hand-written one would be unvetted;
+  - the laptop keeps the key in Credential Manager (`Chutku/RelayKey`). The phone keeps it in its browser storage
+    next to its token. Logging out removes it.
 - **Replies:** a reply is kept only for a request of the same account that is still waiting. A late reply, or one from another account, is dropped.
 
 ## 4c. What Chutku learns about the owner (2026-11-01)

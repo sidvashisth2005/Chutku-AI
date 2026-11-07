@@ -9,7 +9,30 @@ const kept = name => { try { return localStorage.getItem(name) || ""; } catch { 
 const store = {
   get credential() { return kept("chutku-credential"); }, set credential(v) { keep("chutku-credential", v); },
   get token() { return kept("chutku-relay-token"); }, set token(v) { keep("chutku-relay-token", v); },
+  // W6: the end-to-end key (raw, base64) and the account it belongs to.
+  // shortcut: kept in localStorage like the token; a non-extractable IndexedDB CryptoKey would resist page scripts better.
+  get key() { return kept("chutku-relay-key"); }, set key(v) { keep("chutku-relay-key", v); },
+  get account() { return kept("chutku-relay-id"); }, set account(v) { keep("chutku-relay-id", v); },
 };
+let e2eKey = null;
+async function sealedFetch(path, options) {
+  // W6: the relay sees only {v, iv, ct}: method, path, body and the answer are encrypted end to end.
+  if (!store.key) throw new Error("Log in again on this phone (encryption key missing).");
+  e2eKey = e2eKey || await ChutkuE2E.importKey(store.key);
+  let body = "";
+  if (options.body !== undefined) {
+    const bytes = new Uint8Array(await new Response(options.body).arrayBuffer());
+    body = ChutkuE2E.b64(bytes);
+  }
+  const n = ChutkuE2E.nonce();
+  const inner = { m: options.method || "GET", p: path, t: options.headers["Content-Type"] || (options.body && options.body.type) || "", b: body, ts: Math.floor(Date.now() / 1000), n };
+  const envelope = await ChutkuE2E.seal(e2eKey, store.account, "req", inner);
+  const response = await fetch("/t/e2e", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + store.token }, body: JSON.stringify(envelope) });
+  if (!response.ok) return response;   // relay errors (401, 503 laptop offline...) are plain JSON from the relay
+  const answer = await ChutkuE2E.open(e2eKey, store.account, "res", await response.json());
+  if (answer.n !== n) throw new Error("The answer did not belong to this request.");
+  return new Response(answer.s === 204 ? null : ChutkuE2E.unb64(answer.b || ""), { status: answer.s, headers: answer.h || {} });
+}
 
 async function api(path, data, raw) {
   const options = { credentials: "same-origin", headers: {} };
@@ -18,8 +41,8 @@ async function api(path, data, raw) {
     if (!relay) options.headers["X-Chutku-CSRF"] = csrf;
     if (raw) { options.body = data; } else { options.headers["Content-Type"] = "application/json"; options.body = JSON.stringify(data); }
   }
-  if (relay && path.startsWith("/api/")) { path = "/t" + path; options.headers["Authorization"] = "Bearer " + store.token; }
-  const response = await fetch(path, options);
+  if (relay && path.startsWith("/relay/")) options.headers["Authorization"] = "Bearer " + store.token;
+  const response = relay && path.startsWith("/api/") ? await sealedFetch(path, options) : await fetch(path, options);
   if (response.status === 204) return null;
   const type = response.headers.get("Content-Type") || "";
   if (!type.startsWith("application/json")) { if (!response.ok) throw new Error("failed"); return response; }
@@ -276,14 +299,24 @@ $("get-go").addEventListener("click", async () => {
 // ---- the phone app: one account (ID + password made on the laptop), logged in once ------------------------------------
 $("account-go").addEventListener("click", async () => {
   try {
-    const r = await api("/relay/login", { id: $("account-id").value.trim(), password: $("account-password").value, device: "phone", name: "phone app" });
-    store.token = r.token; $("account-password").value = ""; show("app"); status(r.id); refresh();
+    const id = $("account-id").value.trim().toLowerCase(), password = $("account-password").value;
+    status("Securing the connection…");
+    const keys = await ChutkuE2E.derive(password, id);   // the relay never receives the password itself
+    let r;
+    try { r = await api("/relay/login", { id, password: keys.auth, device: "phone", name: "phone app" }); }
+    catch (first) {   // an account made before end-to-end encryption: upgrade it once
+      r = await api("/relay/login", { id, password, device: "phone", name: "phone app" });
+      store.token = r.token;
+      await api("/relay/change", { password, new_id: null, new_password: keys.auth });
+    }
+    store.token = r.token; store.key = keys.raw; store.account = id; e2eKey = null;
+    $("account-password").value = ""; show("app"); status(r.id); refresh();
   } catch (e) { status(e.message); }
 });
 $("logout").addEventListener("click", async () => {
   if (!confirm("Log out of this phone?")) return;
   try { await api("/relay/logout", {}); } catch {}
-  store.token = ""; show("account");
+  store.token = ""; store.key = ""; store.account = ""; e2eKey = null; show("account");
 });
 async function start() {
   try { const info = await fetch("/relay/info"); relay = info.ok && (await info.json()).relay === true; } catch { relay = false; }

@@ -29,6 +29,7 @@ from chutku.remote.auth import RELAY_DEVICE, RemoteDenied, RemoteStore
 
 WEB = Path(__file__).resolve().parents[1] / "web" / "phone"
 STATIC = {"/": ("index.html", "text/html; charset=utf-8"), "/phone.js": ("phone.js", "text/javascript; charset=utf-8"),
+          "/e2e.js": ("e2e.js", "text/javascript; charset=utf-8"),
           "/phone.css": ("phone.css", "text/css; charset=utf-8"), "/sw.js": ("sw.js", "text/javascript; charset=utf-8"),
           "/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json")}
 MAX_BODY = 2 * 1024 * 1024                 # JSON and voice clips

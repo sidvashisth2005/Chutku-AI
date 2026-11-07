@@ -112,6 +112,12 @@ class EndToEndTests(unittest.TestCase):
         patcher = patch.object(relay_server, "POLL_SECONDS", 1.0)   # short long-polls keep the test quick
         patcher.start()
         self.addCleanup(patcher.stop)
+        from chutku.relay import e2e   # W6: end-to-end encryption; fast PBKDF2 and no real Credential Manager here
+        for name, value in (("ITERATIONS", 1000), ("store_key", lambda key: None)):
+            patcher = patch.object(e2e, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.key, auth = e2e.derive("secret-pass-1", "asha")
         self.temp = TemporaryDirectory()
         base = Path(self.temp.name)
         self.relay = relay_server.RelayServer(("127.0.0.1", 0), base / "relay.sqlite3")
@@ -125,9 +131,9 @@ class EndToEndTests(unittest.TestCase):
         threading.Thread(target=self.phone_server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
         relay_client.register(self.url, "asha", "secret-pass-1")
         self.laptop = relay_client.RelayClient(self.url, relay_client.login(self.url, "asha", "secret-pass-1"),
-                                               lambda: self.phone_server)
+                                               lambda: self.phone_server, key=self.key, account_id="asha")
         self.laptop.start()
-        self.phone = relay_client.call(self.url, "/relay/login", {"id": "asha", "password": "secret-pass-1",
+        self.phone = relay_client.call(self.url, "/relay/login", {"id": "asha", "password": auth,
                                                                   "device": "phone", "name": "Pixel"})["token"]
         deadline = time.monotonic() + 5
         while self.laptop.state != "online" and time.monotonic() < deadline:
@@ -146,6 +152,23 @@ class EndToEndTests(unittest.TestCase):
         self.temp.cleanup()
 
     def phone_call(self, path, data=None, token=None, raw=None, content_type="application/json"):
+        if path.startswith("/t/api/"):   # W6: the phone app seals every laptop request; the relay sees ciphertext
+            import base64
+            import secrets as _secrets
+            from chutku.relay import e2e
+            body = raw if raw is not None else (json.dumps(data).encode() if data is not None else b"")
+            nonce = _secrets.token_urlsafe(12)
+            inner = {"m": "POST" if data is not None or raw is not None else "GET", "p": path[2:],
+                     "t": content_type if body else "", "b": base64.b64encode(body).decode(), "ts": time.time(),
+                     "n": nonce}
+            status, answer = self.phone_call("/t/e2e", e2e.seal(self.key, "asha", "req", inner), token=token)
+            if status != 200:
+                return status, answer
+            opened = e2e.open_envelope(self.key, "asha", "res", answer)
+            self.assertEqual(opened["n"], nonce)
+            payload = base64.b64decode(opened["b"])
+            kind = (opened.get("h") or {}).get("Content-Type", "")
+            return opened["s"], json.loads(payload) if kind.startswith("application/json") else payload
         connection = http.client.HTTPConnection("127.0.0.1", self.relay.server_port, timeout=40)
         headers = {"Authorization": "Bearer " + (token or self.phone)}
         body = raw if raw is not None else (json.dumps(data) if data is not None else None)
@@ -177,8 +200,9 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(self.phone_call("/relay/poll", {}, token=self.phone)[0], 403)   # a phone never collects
         self.assertEqual(self.phone_call("/t/api/whoami", token=self.laptop.token)[0], 403)
         relay_client.register(self.url, "other", "other-pass-1")
-        stranger = relay_client.call(self.url, "/relay/login", {"id": "other", "password": "other-pass-1",
-                                                                "device": "phone"})["token"]
+        from chutku.relay import e2e
+        stranger = relay_client.call(self.url, "/relay/login", {"id": "other", "device": "phone",
+                                                                "password": e2e.derive("other-pass-1", "other")[1]})["token"]
         status, body = self.phone_call("/t/api/whoami", token=stranger)
         self.assertEqual(status, 503)                       # "other" has no laptop online; never asha's laptop
         self.assertIn("offline", body["error"])

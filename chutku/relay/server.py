@@ -11,11 +11,12 @@ What it does, and nothing more:
   own account's laptop, which runs it through the phone server's own rules (PIN, approvals, control limits) and
   replies. Phones never reach another account's laptop, and laptops never receive requests from another account.
 
-Honest limit: the relay sees the forwarded traffic (TLS ends at the relay). Run it on a server you trust.
+End-to-end encryption (W6, chutku/relay/e2e.py): the phone and the laptop share a key derived from the account
+password; the relay is given only a separate auth secret (never the password) and forwards only ciphertext
+(`/t/e2e`). It cannot read or change requests and answers. What it still sees: which account, when, and how big.
 """
 from __future__ import annotations
 
-import base64
 import hashlib
 import hmac
 import json
@@ -40,10 +41,10 @@ FAILS_BEFORE_LOCK, LOCK_SECONDS = 5, 15 * 60
 REGISTER_PER_HOUR = 10
 WEB = Path(__file__).resolve().parents[1] / "web" / "phone"
 STATIC = {"/": ("index.html", "text/html; charset=utf-8"), "/phone.js": ("phone.js", "text/javascript; charset=utf-8"),
+          "/e2e.js": ("e2e.js", "text/javascript; charset=utf-8"),
           "/phone.css": ("phone.css", "text/css; charset=utf-8"), "/sw.js": ("sw.js", "text/javascript; charset=utf-8"),
           "/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json"),
           "/icon.png": ("../icon.png", "image/png")}
-FORWARD_REPLY_HEADERS = ("Content-Type", "X-Frame-Hash", "X-Monitor", "Content-Disposition")
 
 
 class RelayError(Exception):
@@ -347,24 +348,24 @@ class RelayHandler(BaseHTTPRequestHandler):
             if kind != "laptop":
                 raise RelayError(403, "Only the laptop answers requests.")
             data = json.loads(self._body(MAX_REPLY + MAX_REPLY // 2) or b"{}")
-            mailbox.reply(account, str(data.get("rid")), {
-                "status": int(data.get("status", 502)), "body": str(data.get("body") or ""),
-                "headers": {k: str(v)[:500] for k, v in (data.get("headers") or {}).items()
-                            if k in FORWARD_REPLY_HEADERS}})
+            envelope = data.get("e2e")
+            if not isinstance(envelope, dict) or set(envelope) != {"v", "iv", "ct"}:
+                raise RelayError(400, "Only encrypted answers are forwarded.")
+            mailbox.reply(account, str(data.get("rid")), {"e2e": envelope})
             self._reply(200, {"ok": True})
-        elif path.startswith("/t/api/"):
+        elif method == "POST" and path == "/t/e2e":
+            # W6: the phone's request is an encrypted envelope; the relay only queues and returns ciphertext.
             if kind != "phone":
                 raise RelayError(403, "Only the phone app sends requests to the laptop.")
-            body = self._body(MAX_REQUEST)
-            answer = mailbox.ask(account, {
-                "method": method, "path": self.path[2:],
-                "content_type": (self.headers.get("Content-Type") or "")[:100],
-                "body": base64.b64encode(body).decode("ascii")})
-            data = base64.b64decode(answer["body"]) if answer["body"] else b""
-            if len(data) > MAX_REPLY:
-                raise RelayError(502, "The laptop's answer was too large.")
-            headers = dict(answer["headers"])
-            self._reply(answer["status"], data, headers.pop("Content-Type", "application/octet-stream"), headers)
+            envelope = json.loads(self._body(MAX_REQUEST) or b"{}")
+            if not isinstance(envelope, dict) or envelope.get("v") != 1 or set(envelope) != {"v", "iv", "ct"}:
+                raise RelayError(400, "Only encrypted requests are forwarded (update the phone app).")
+            answer = mailbox.ask(account, {"e2e": envelope})
+            if not isinstance(answer.get("e2e"), dict):
+                raise RelayError(502, "The laptop's answer was not encrypted.")
+            self._reply(200, answer["e2e"])
+        elif path.startswith("/t/api/"):
+            raise RelayError(426, "The phone app must be updated: requests are now end-to-end encrypted.")
         else:
             raise RelayError(404, "Not found.")
 

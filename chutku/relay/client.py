@@ -5,6 +5,9 @@
   phone server (127.0.0.1, with that server's per-run secret), so every phone rule there (PIN, approvals, control
   limits, laptop-only steps) applies unchanged; the answer goes back to the relay.
 
+W6: every phone request arrives end-to-end encrypted (chutku/relay/e2e.py); the relay never sees the password, the key
+or any content. Register, login and change send the relay only the derived auth secret.
+
 The device token is kept in Windows Credential Manager ("Chutku/RelayToken"), never in a file. It works until this
 laptop logs out or the password is changed from another device.
 """
@@ -68,16 +71,43 @@ def call(url, path, data=None, token=None, timeout=35):
 
 
 def register(url, account_id, password):
-    return call(url, "/relay/register", {"id": account_id, "password": password})["id"]
+    """Create the account; the relay is given only the derived auth secret, and this laptop keeps the E2E key."""
+    from chutku.relay import e2e
+    key, auth = e2e.derive(password, account_id)
+    made = call(url, "/relay/register", {"id": account_id, "password": auth})["id"]
+    e2e.store_key(key)
+    return made
 
 
 def login(url, account_id, password, name="laptop"):
-    return call(url, "/relay/login", {"id": account_id, "password": password, "device": "laptop", "name": name})["token"]
+    """Log in with the derived auth secret and keep the E2E key. An account made before E2E (the relay stored the real
+    password) is upgraded once: log in with the password, then replace it with the auth secret."""
+    from chutku.relay import e2e
+    key, auth = e2e.derive(password, account_id)
+    body = {"id": account_id, "password": auth, "device": "laptop", "name": name}
+    try:
+        token = call(url, "/relay/login", body)["token"]
+    except RelayCallError as error:
+        if error.status not in (401, 403):
+            raise
+        token = call(url, "/relay/login", dict(body, password=password))["token"]
+        call(url, "/relay/change", {"password": password, "new_id": None, "new_password": auth}, token=token)
+    e2e.store_key(key)
+    return token
 
 
-def change(url, token, password, new_id=None, new_password=None):
-    return call(url, "/relay/change", {"password": password, "new_id": new_id, "new_password": new_password},
-                token=token)["id"]
+def change(url, token, password, new_id=None, new_password=None, *, account_id=None):
+    """Change the ID and/or password. The relay's auth secret depends on both, so it is replaced whenever either
+    changes, and the E2E key is derived again (the phone app logs in again)."""
+    from chutku.relay import e2e
+    current = account_id or new_id
+    _, auth = e2e.derive(password, current)
+    final_id, final_password = new_id or current, new_password or password
+    key, new_auth = e2e.derive(final_password, final_id)
+    changed = call(url, "/relay/change", {"password": auth, "new_id": new_id, "new_password": new_auth},
+                   token=token)["id"]
+    e2e.store_key(key)
+    return changed
 
 
 def me(url, token):
@@ -89,6 +119,8 @@ def logout(url, token):
         call(url, "/relay/logout", {}, token=token)
     finally:
         store_token("")
+        from chutku.relay import e2e
+        e2e.store_key(None)   # W6: the end-to-end key goes with the session
 
 
 def stored_token():
@@ -107,9 +139,11 @@ def store_token(token):
 class RelayClient(threading.Thread):
     """Long-polls the relay and answers each phone request through the local phone server."""
 
-    def __init__(self, url, token, phone_server, *, call=call):
+    def __init__(self, url, token, phone_server, *, call=call, key=None, account_id=""):
         super().__init__(name="chutku-relay", daemon=True)
+        from chutku.relay.e2e import ReplayGuard
         self.url, self.token, self.phone_server, self.call = check_url(url), token, phone_server, call
+        self.key, self.account_id, self.guard = key, account_id, ReplayGuard()   # W6 end-to-end encryption
         self.stopping = threading.Event()
         self.state = "starting"            # starting | online | offline | logged_out
         self.served = 0
@@ -142,14 +176,28 @@ class RelayClient(threading.Thread):
                 threading.Thread(target=self.serve, args=(request,), name="chutku-relay-request", daemon=True).start()
 
     def serve(self, request):
+        """Decrypt one phone request, run it on the local phone server, encrypt the answer (W6). A request that does
+        not decrypt, is too old or was already seen gets no answer at all (nothing the relay could learn from)."""
+        from chutku.relay import e2e
+        if self.key is None or not isinstance(request.get("e2e"), dict):
+            return
         try:
-            status, headers, body = self.forward(request)
+            inner = e2e.open_envelope(self.key, self.account_id, "req", request["e2e"])
+            self.guard.check(inner.get("ts"), inner.get("n"))
+        except ValueError as error:
+            _log.warning("relay: a request was refused (%s)", error)
+            return
+        try:
+            status, headers, body = self.forward({"method": inner.get("m"), "path": inner.get("p"),
+                                                  "content_type": inner.get("t"), "body": inner.get("b")})
         except Exception as error:   # the phone gets an answer either way
             status, headers, body = 502, {"Content-Type": "application/json"}, json.dumps(
                 {"error": f"The laptop could not answer ({type(error).__name__})."}).encode("utf-8")
+        answer = {"s": status, "h": headers, "b": base64.b64encode(body).decode("ascii"), "n": inner.get("n")}
         try:
-            self.call(self.url, "/relay/reply", {"rid": request.get("rid"), "status": status, "headers": headers,
-                                                 "body": base64.b64encode(body).decode("ascii")}, token=self.token)
+            self.call(self.url, "/relay/reply", {"rid": request.get("rid"),
+                                                 "e2e": e2e.seal(self.key, self.account_id, "res", answer)},
+                      token=self.token)
             self.served += 1
         except RelayCallError:
             pass   # the relay is gone; the phone sees a timeout
@@ -213,7 +261,7 @@ def account_command(base, action, *, ask=input, secret=None):
     new_password = secret("New password [Enter = keep]: ") or None
     if new_password and secret("New password again: ") != new_password:
         raise ValueError("The new passwords differ.")
-    changed = change(url, token, password, new_id, new_password)
+    changed = change(url, token, password, new_id, new_password, account_id=account_id)
     identity.save({"CHUTKU_ACCOUNT_ID": changed}, env)
     return f"Changed. ID: {changed}." + (" Other devices (the phone app) must log in again with the new password."
                                           if new_password else "")
@@ -227,7 +275,12 @@ def start(core):
     remote = getattr(core, "remote", None)
     if not url or not token or remote is None or not remote.store.relay_ready():
         return None
+    from chutku.relay import e2e
+    key = e2e.stored_key()
+    if key is None:   # signed in before W6: the phone app needs a fresh login on this laptop to get the key
+        _log.warning("relay: no end-to-end key yet; run chutku.cli account login")
+        return None
     remote.start(for_relay=True)
-    client = RelayClient(url, token, lambda: remote.server)
+    client = RelayClient(url, token, lambda: remote.server, key=key, account_id=settings["CHUTKU_ACCOUNT_ID"])
     client.start()
     return client
