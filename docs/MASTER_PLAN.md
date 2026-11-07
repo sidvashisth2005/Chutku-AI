@@ -814,9 +814,9 @@ Full spec: `docs/APP_MASTERY_PLAN.md`.
 - [x] A11: VLC (12/15 lab-verified; pause/resume go through media.control)
 - [x] A12: Telegram (7/7 lab-verified)
 - [x] A13: File Explorer + Notepad (12/12 + 7/7 lab-verified)
-- [ ] A14: Cross-app recipes — code + fake tests done (W6: routines take `click "X" in App` steps via desktop.do); needs the Windows live check
-- [ ] A15: Teach mode — code + fake tests done (W6: `chutku/apps/teach.py`); needs the Windows live check
-- [ ] A16: Screen survey — code + fake tests done (W6: `desktop.survey`); needs the Windows live check
+- [x] A14 (live on the PC 2026-11-07: desktop.do and a taught routine replayed on a real window): Cross-app recipes — code + fake tests done (W6: routines take `click "X" in App` steps via desktop.do); needs the Windows live check
+- [x] A15 (live on the PC 2026-11-07: 'sikho notedemo ...' -> 'ho gaya' -> replay matched): Teach mode — code + fake tests done (W6: `chutku/apps/teach.py`); needs the Windows live check
+- [x] A16 (live on the PC 2026-11-07: 'screen survey karo' listed the open windows, 19.5 s): Screen survey — code + fake tests done (W6: `desktop.survey`); needs the Windows live check
 
 ---
 # Phase 3b: Hermes-inspired upgrades + remote phone access (planned 2026-10-07)
@@ -855,7 +855,7 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [x] H27 (done 2026-11-07: file or web page -> procedure draft in the inbox): Learn on request ("ye seekh lo")
 - [x] H28 (done 2026-11-07: spoken journey with counts; no dashboard graph): Learning journey view
 - [x] H29 (done 2026-11-07: forget/unforget last exchange, search skips hidden, Brain view gauge; resume via earlier-context): Conversation tools + context gauge
-- [ ] H30: Phase 3b release: evidence, docs, reviews
+- [x] H30 (2026-11-07: security review on the PC + cloud security and code reviews, every valid finding fixed with a test): Phase 3b release: evidence, docs, reviews
 
 **Planned, built only on the owner's word ("phone control banao"):**
 - [x] P5: Tap and pointer control (W6; trackpad Z5)
@@ -905,9 +905,9 @@ License: MIT.
 - [x] O1: Configuration instead of owner values (projects folder, VS Code path, names) — done 2026-11-05
 - [x] O2: Personal examples replaced with generic ones — done 2026-11-05 (tool descriptions kept: they are part of each tool's contract hash)
 - [x] O3 (done 2026-11-06: tests for runtime + Whisper fallback; CPU-only model run on a no-GPU PC not done): No-GPU / non-Vulkan fallback (cloud-first + CPU Whisper), clear message
-- [ ] O4: One-click `Install-Chutku.cmd` + first-run wizard; fresh-clone install test — installer + fresh-clone test done 2026-11-05; first-run setup (CLI) done 2026-11-06
+- [x] O4 (2026-11-07: ChutkuSetup.exe installed on the PC in 18 s, Start-menu launch, first-run page, uninstall): One-click `Install-Chutku.cmd` + first-run wizard; fresh-clone install test — installer + fresh-clone test done 2026-11-05; first-run setup (CLI) done 2026-11-06
 - [x] O5: MIT `LICENSE`, README for strangers, `CONTRIBUTING.md`, CI workflow — done 2026-11-05 (CI result checked after push)
-- [ ] O6: Release audit (security, supply chain, insecure defaults, secret and personal-data scan of history) → `docs/RELEASE_CHECKLIST.md` — scans + checklist done 2026-11-05; security-review pass after the Phase 6 merges
+- [x] O6 (2026-11-07: security review after the Phase 6-8 merges; 1 HIGH fixed live, 2 MEDIUM fixed in W1/W8): Release audit (security, supply chain, insecure defaults, secret and personal-data scan of history) → `docs/RELEASE_CHECKLIST.md` — scans + checklist done 2026-11-05; security-review pass after the Phase 6 merges
 
 Owner-only, never faked: entering a Gemini or Groq key when one is missing or rejected, installing Tailscale for
 the phone, voice enrollment and calibration, custom voice clips, and the decision to publish.
@@ -959,7 +959,7 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [x] X13 (done 2026-11-06; real playback with sound to be checked by the owner): YouTube inside the HUD (embedded player, online only, says so offline)
 
 **Web autopilot (group 2)**
-- [ ] X14: A dedicated, signed-in Chutku browser profile (Brave/Chrome) over CDP on 127.0.0.1; form fill + table/data extraction (`browser.extract`); `browser.input` grant is the owner's step
+- [x] X14 (2026-11-07: signed-in browser built with agent-browser and live-read; the browser.input grant is the owner's step): A dedicated, signed-in Chutku browser profile (Brave/Chrome) over CDP on 127.0.0.1; form fill + table/data extraction (`browser.extract`); `browser.input` grant is the owner's step
 
 **Self-coding and skills (groups 1, 3, 6)**
 - [x] X15 (done 2026-11-06): Skill format: SKILL.md + `tool.py` + `test_tool.py` in `data/skills/<name>`. Runs in a subprocess with a timeout, declares its risk; listed with "tumhari skills"
@@ -1001,6 +1001,9 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [x] W6 (P6, 2026-11-07, Linux tests + windows-latest; A14-A16, E2E phone and key pool need the Windows live check): Board/Automations tabs, habit suggestions, key pool, relay E2E, A14-A16
 - [x] W7 (P7, 2026-11-07, Linux tests): READMEs and docs (public README, developer README, USER_GUIDE as in-app Help, licences)
 - [ ] W8 (P8): release gate — cloud part done 2026-11-07 (scan, reviews, checklist); ticks after the PC live checks, then the tag
+- [ ] W9: Microsoft Store MSIX package (no unknown-publisher warning) — instructions in `docs/WEB_CLAUDE_TASKS_STORE.md`, not built yet
+- [ ] W10: winget (`winget install Chutku`) with an offline installer — not built yet
+- [ ] W11: public README lists Store, winget, then ChutkuSetup.exe — not built yet
 
 # Parked (needs a later owner decision)
 - **Hermes features not taken** (2026-10-07; reasons in `docs/HERMES_PLAN.md` section 3): smart/LLM approvals, yolo and "approve always", container backends (D5), execute_code, MCP client, plugins and hooks, Skills Hub installs, local API server/ACP, extra chat gateways, FAL image generation, external memory providers, mascot/skins, multi-profile agents, bot-to-bot peer, coding-agent tools (worktree, LSP, /init, /plan).
