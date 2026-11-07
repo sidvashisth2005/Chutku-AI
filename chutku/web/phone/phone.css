@@ -50,7 +50,10 @@ body:has(#app:not([hidden])){height:100dvh;overflow:hidden}
 .toolbar button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;font-size:18px;border-radius:10px}
 .toolbar button span{font-size:10px;font-weight:600;color:var(--muted)}
 .toolbar button.on{border-color:var(--accent)}.toolbar button.on span{color:var(--accent)}
-.live-keys{position:absolute;left:-9999px;width:40px;opacity:0}   /* focused by ⌨ to open the phone keyboard */
+/* focused by ⌨ to open the phone keyboard. Fixed at the top and invisible, so focusing it never scrolls the page (owner
+   2026-11-08: the page slid up and the laptop screen went off the top); the page shrinks above the keyboard instead */
+.live-keys{position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:0;opacity:0;pointer-events:none}
+body.typing .toolbar{display:none}   /* while typing: the key row (Esc, Space, Enter...) stays, the screen keeps the room */
 /* phone turned sideways (owner 2026-11-07): full screen, the laptop screen large on the left, a side column on the
    right with the trackpad (the stage itself) on top and the buttons at the bottom; the header shrinks to a status line */
 @media (orientation:landscape) and (max-height:540px){

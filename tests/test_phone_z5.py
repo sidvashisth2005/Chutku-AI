@@ -17,7 +17,7 @@ class TrackpadTests(unittest.TestCase):
         self.injector = FakeInjector()
         return control.ControlSession("base", inject=self.injector, log=lambda r: None, locked=lambda: False,
                                       window=lambda: {"executable": "brave.exe", "title": "x"},
-                                      local_tick=lambda: None, now_tick=lambda: 0, cursor=lambda: cursor)
+                                      local_seen=lambda: None, cursor=lambda: cursor)
 
     def test_nudges_move_from_the_cursor_and_clicks_land_where_it_is(self):
         session = self.session()

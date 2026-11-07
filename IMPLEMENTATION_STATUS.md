@@ -16,6 +16,58 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (4): Smooth sound and video, "someone is using the laptop" only for a real person, keyboard layout
+- **Owner (real phone):** "the audio is still laggy and cracking, so does the video... real issue is smoothness"; "someone
+  else is using comes out of nowhere randomly: until a click from the PC or the mouse moves too much, don't trigger";
+  a photo showing the page slid up with the keyboard open, so the laptop screen was gone.
+- **Cause:** over Tailscale's DERP relay packets bunch up and stall. The page played sound with an 80 ms cushion (one
+  AudioBufferSource per packet, re-anchored on every underrun: cracks) and drew every frame on arrival (motion
+  followed the network).
+- **Laptop side** (`server.py`):
+  - Every video packet is `[len][key][capture ms]` and every Opus packet `[len][capture ms]`, on one clock
+    (`_clock_ms`).
+  - The encoder keeps a steady bitrate: `maxrate` = bitrate, `bufsize` = 250 ms, NVENC `rc=cbr`. Measured on noisy
+    frames: NVENC keyframe 67 KB, then ~5–8 KB a frame; libx264's keyframe burst went from 342+148 KB to 40 KB.
+  - `h264_mf` removed: it output nothing here, with or without rate options.
+- **Phone side** (`phone.js`):
+  - `arrivals()` learns each stream's fastest delivery and its 95th-percentile lateness from the capture stamps.
+  - Video frames are decoded at once and shown from a queue when due, at their captured spacing. The delay is at most
+    80 ms while controlling; in Watch 60–400 ms and following the sound for lip sync (the averaged sound level).
+  - The delay moves at most 2 ms per refresh: a jumping delay measured worse than none (Watch 75 ms → 8 ms).
+  - No frame within 4 s means JPEG.
+  - Sound: an `AudioWorklet` ring buffer (48 kHz). The target is lateness + 40 ms (0.1/0.15–0.5 s), plus 50 ms each
+    time it runs dry. It fades 5 ms out and in instead of clicking, and skips back to the target after a burst.
+- **"Someone is using the laptop"** (`control.LocalInput`, `person_seen`):
+  - Windows Raw Input on a message-only window from the real mouse, touchpad and keyboard. Injected input (the phone,
+    Chutku) has no device (`hDevice` 0) and is ignored.
+  - Counts: a button down, a key down, or more than 150 counts of movement within 1 s (a wheel notch = 60). Jitter
+    does not count.
+  - Control waits 10 s after the last such moment, with a countdown.
+  - Replaces the GetLastInputInfo tick bookkeeping (`local_tick`/`now_tick`/`_mark` removed). If Raw Input cannot start,
+    Windows' last-input time is the fallback.
+- **Keyboard layout:**
+  - `interactive-widget=resizes-content`: the page shrinks above the keyboard.
+  - The hidden typing field is `position: fixed` at the top, so focusing it never scrolls.
+  - `body.typing` hides the toolbar and keeps the key row.
+- **Verified:**
+  - Jittery-link test: real H.264 at 30 fps and real Opus with stamps, released in bursts with stalls of 0–180 ms.
+
+    | Mode | Frame gaps on arrival (95%) | Frame gaps on screen (95%) | Sound after learning |
+    |---|---|---|---|
+    | Controlling | 136 ms | 25 ms | 0 dry spells in 8 s (cushion ~180 ms; 1 while learning) |
+    | Watch | 134 ms | 8 ms (under one 16.7 ms refresh) | 0 dry spells (cushion ~205 ms) |
+
+  - **Live Raw Input:** 8 injected events (±200 px moves, Shift) all received and ignored; no person seen.
+  - **Keyboard (Edge, 412 px wide, viewport 915 → 500):** no scroll, the screen fully above the key row, toolbar
+    hidden, all back after.
+  - `tests/test_phone_remote_w6.py` 43 OK:
+    - the person rule (injected ignored, jitter ignored, a click, a key, a 160-count move; "resumes in 5 s", then
+      control again);
+    - video and sound packets carry ordered capture stamps.
+  - End-to-end scripts: new features 15/15, gestures 11/11, features 15/15, H.264 + fallback PASS.
+  - Full suite: 1648 OK.
+  - **A real person's clicks and moves at the laptop, and the feel on the real phone, are the owner's check.**
+
 ### 2026-11-08 (3): Phone remote faster: GPU capture, 17 ms clicks, video sized to the link
 - **Owner:** "can we make it even faster?", then "continue". That approved installing `dxcam`, which the permission
   check had blocked.

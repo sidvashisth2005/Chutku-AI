@@ -232,6 +232,15 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
   - Clicks land in ~17 ms instead of ~110.
   - The video measures your connection once a session and never asks for more than it carries (smaller and lighter on
     a slow link, so it doesn't build up lag).
+- **Smooth (2026-11-08):**
+  - Sound and picture are played at the pace they were recorded, with a small cushion that grows when your connection
+    is jumpy (sound ~0.1–0.5 s), so a late packet no longer cracks or jerks.
+  - While you control the laptop the picture waits at most 0.08 s; in Watch it waits longer and stays in step with
+    the sound.
+- **"Someone is using the laptop"** now appears only for a real click, a real key press, or a clear mouse/touchpad
+  move at the laptop. A small jitter, or input from the phone or from Chutku itself, never triggers it.
+- **⌨ keyboard:** the page shrinks above the phone keyboard instead of sliding up. The laptop screen stays in view,
+  and the big buttons hide while you type (the key row with Esc, Space and Enter stays).
 - **Speed test:** ⋯ More → Connection speed. It shows laptop → phone Mbit/s and the round trip, and Watch uses ~70% of
   it. Through Tailscale's relay (no direct path, as now) expect a few Mbit/s; a direct connection is much faster.
 - **Messages:** shown whole over the screen. "Someone is using the laptop: phone control resumes in 7 s" counts down

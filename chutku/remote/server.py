@@ -617,7 +617,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
 
     def _h264(self, record, query):
         """GET /api/screen/h264: the screen as H.264 (owner 2026-11-08: "no lag or jitter"), decoded on the phone by
-        WebCodecs. Each packet is [4-byte length][1 byte: 1 = keyframe][Annex B bytes]; the first is a keyframe. 409
+        WebCodecs. Each packet is [4-byte length][1 byte: 1 = keyframe][4-byte capture ms, _clock_ms][Annex B bytes]; the first is a keyframe. 409
         when no encoder works here: the phone falls back to /api/screen/stream. A still screen is sent 3 more times so
         it sharpens, then nothing until it changes. A different screen size ends the stream (the phone reconnects)."""
         screen = self.server.screen
@@ -662,8 +662,9 @@ class PhoneHandler(BaseHTTPRequestHandler):
                 settle = 3 if digest != last else settle - 1
                 if settle >= 0:
                     self.server.monitor_seen = (time.monotonic(), (shot.left, shot.top, shot.width, shot.height))
+                    stamp = _clock_ms(shot.taken)
                     for key, data in encoder.encode(shot.pixels, "bgra"):
-                        self.wfile.write(struct.pack(">IB", len(data), key) + data)
+                        self.wfile.write(struct.pack(">IBI", len(data), key, stamp) + data)
                     self.wfile.flush()
                     last = digest
         except (BrokenPipeError, ConnectionError, OSError):
@@ -673,7 +674,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
 
     # -- owner 2026-11-08: sound, speed test, window switcher, read aloud, voice click / voice typing -----------------
     def _audio(self, record):
-        """GET /api/screen/audio: what the laptop plays, as Opus packets [4-byte length][Opus 20 ms] (chutku/remote/audio.py),
+        """GET /api/screen/audio: what the laptop plays, as Opus packets [4-byte length][4-byte capture ms][Opus 20 ms] (chutku/remote/audio.py),
         while the screen view lasts. 409 when there is no sound device to record from. Silence sends nothing."""
         screen = self.server.screen
         if not screen or screen["device"] != record["device"] or time.monotonic() > screen["until"]:
@@ -696,8 +697,10 @@ class PhoneHandler(BaseHTTPRequestHandler):
                     and not self.server.stopped.is_set():
                 samples = source.read()
                 if samples is not None:
-                    for packet in encoder.encode(samples):
-                        self.wfile.write(struct.pack(">I", len(packet)) + packet)
+                    packets, now = encoder.encode(samples), time.monotonic()
+                    for index, packet in enumerate(packets):
+                        stamp = _clock_ms(now - 0.02 * (len(packets) - 1 - index))
+                        self.wfile.write(struct.pack(">II", len(packet), stamp) + packet)
                     self.wfile.flush()
                 time.sleep(0.02)
         except (BrokenPipeError, ConnectionError, OSError):
@@ -1085,6 +1088,11 @@ def _jpeg(rgb, quality, width=None):
         return _png(vision.scaled(rgb, width or rgb.shape[1]), level=1), "image/png"
 
 
+def _clock_ms(monotonic):
+    """The laptop clock both streams are stamped with (ms, wraps at 2^32): the phone lines sound and picture up by it."""
+    return int(monotonic * 1000) & 0xFFFFFFFF
+
+
 def _changed(pixels):
     """A checksum of every pixel (~5 ms for 1080p): a typed letter or a blinking caret is a change. The old sample of
     every 16th row and column missed them until the 2 s keep-alive."""
@@ -1131,8 +1139,8 @@ class _Grabber(threading.Thread):
 
 
 H264_ENCODERS = (("h264_nvenc", {"preset": "p1", "tune": "ull", "zerolatency": "1", "delay": "0"}),   # the GPU
-                 ("libx264", {"preset": "ultrafast", "tune": "zerolatency"}),
-                 ("h264_mf", {"rate_control": "cbr", "scenario": "display_remoting"}))
+                 ("libx264", {"preset": "ultrafast", "tune": "zerolatency"}))   # in PyAV itself: every laptop
+# (h264_mf left out 2026-11-08: on this laptop it gave no frames at all, with or without rate limits)
 
 
 class H264:
@@ -1151,7 +1159,10 @@ class H264:
                 codec.pix_fmt = "yuv420p" if name == "libx264" else "nv12"
                 codec.time_base, codec.framerate = Fraction(1, 30), Fraction(30, 1)
                 codec.bit_rate, codec.gop_size, codec.max_b_frames = bit_rate, 600, 0
-                codec.options = options
+                # a steady stream (owner 2026-11-08, "smoothness"): at most bit_rate, with a 250 ms buffer, so one big
+                # frame never arrives as a burst that stalls the relay; NVENC in constant-bitrate mode
+                codec.options = {**options, "maxrate": str(bit_rate), "bufsize": str(bit_rate // 4),
+                                 **({"rc": "cbr"} if name == "h264_nvenc" else {})}
                 codec.open()
             except Exception:   # this encoder is missing or the GPU is busy: the next one
                 continue

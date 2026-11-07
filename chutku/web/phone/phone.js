@@ -280,38 +280,81 @@ function avcCodec(data) {   // "avc1.PPCCLL" from the keyframe's SPS (profile, c
   }
   return "avc1.42e01f";
 }
-async function readVideo(signal, shown) {   // packets: [4-byte length][1 byte: 1 = keyframe][H.264 Annex B]
+// Smooth playback (owner 2026-11-08, "audio laggy and cracking, video too: smoothness is the real issue"). Over
+// Tailscale's relay packets bunch up and stall. Every packet now carries the laptop's capture time; each stream learns
+// its fastest delivery (offset) and how late packets usually are (95th percentile), and plays everything that much
+// after capture, at the spacing it was captured with: lateness is absorbed instead of heard as a crack or seen as a jerk.
+function arrivals() {
+  const late = [];
+  return { offset: null, late95: 0,
+    note(capture) {
+      const seen = performance.now() - capture;
+      if (this.offset === null || Math.abs(seen - this.offset) > 3e8) { this.offset = seen; late.length = 0; }   // new, or the clock wrapped
+      else if (seen < this.offset) this.offset = seen;
+      else this.offset += 0.002;   // follows a slow drift between the two clocks
+      late.push(seen - this.offset); if (late.length > 120) late.shift();
+      this.late95 = [...late].sort((a, b) => a - b)[Math.floor(late.length * 0.95)] || 0;
+    } };
+}
+function videoDelay(clock) {   // ms after the fastest delivery: snappy (<= 80) while controlling; in Watch smooth, with the sound
+  let want = Math.min(80, clock.late95);
+  if (watching) {
+    want = Math.min(400, Math.max(60, clock.late95));
+    if (sound.on && sound.clock && sound.clock.offset !== null && sound.ctx)   // lips in time with the voice
+      want = Math.min(800, Math.max(want, sound.clock.offset + sound.level * 1000 + (sound.ctx.outputLatency || 0) * 1000 - clock.offset));
+  }
+  // it moves by at most 2 ms a screen refresh: a jumping delay shakes the picture as much as a late frame (measured)
+  clock.delay = clock.delay === undefined ? want : clock.delay + Math.max(-2, Math.min(2, want - clock.delay));
+  return clock.delay;
+}
+async function readVideo(signal, shown) {   // packets: [4-byte length][1 byte: 1 = keyframe][4-byte capture ms][H.264 Annex B]
   const quality = usedQuality = watching ? "w=1920&kbps=" + watchKbps() : normalQuality();   // never more than the link carries
   const response = await fetch("/api/screen/h264?" + quality + "&t=" + Date.now(), { credentials: "same-origin", signal });
   if (!response.ok || !response.body) throw new Error("no video");
-  const canvas = $("video"), paint = canvas.getContext("2d"), reader = response.body.getReader();
+  const canvas = $("video"), paint = canvas.getContext("2d"), reader = response.body.getReader(), clock = arrivals(), queue = [];
   let decoder = null, broken = null, buf = new Uint8Array(0);
+  const giveUp = setTimeout(() => { if (!shown.any) { broken = new Error("no frames"); reader.cancel().catch(() => {}); } }, 4000);
+  const present = () => {   // every screen refresh: show the newest frame that is due
+    if (signal.aborted || broken) { queue.splice(0).forEach(f => f.close()); return; }
+    const due = performance.now() - clock.offset - videoDelay(clock);
+    let frame = null;
+    while (queue.length && queue[0].timestamp / 1000 <= due) { if (frame) frame.close(); frame = queue.shift(); }
+    if (frame) {
+      if (canvas.width !== frame.displayWidth) { canvas.width = frame.displayWidth; canvas.height = frame.displayHeight; }
+      paint.drawImage(frame, 0, 0); frame.close();
+      if (!shown.any) { shown.any = true; clearTimeout(giveUp); showing("video"); }
+      streamFails = 0; note("");
+    }
+    requestAnimationFrame(present);
+  };
+  requestAnimationFrame(present);
   try {
     for (;;) {
+      const { value, done } = await reader.read();
       if (broken) throw broken;
-      const { value, done } = await reader.read(); if (done) return;
+      if (done) return;
       const joined = new Uint8Array(buf.length + value.length); joined.set(buf); joined.set(value, buf.length); buf = joined;
-      while (buf.length >= 5) {
+      while (buf.length >= 9) {
         const length = ((buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]) >>> 0;
-        if (buf.length < 5 + length) break;
-        const key = (buf[4] & 1) === 1, data = buf.slice(5, 5 + length); buf = buf.subarray(5 + length);
+        if (buf.length < 9 + length) break;
+        const key = (buf[4] & 1) === 1, capture = ((buf[5] << 24) | (buf[6] << 16) | (buf[7] << 8) | buf[8]) >>> 0;
+        const data = buf.slice(9, 9 + length); buf = buf.subarray(9 + length);
+        clock.note(capture);
         if (!decoder) {
           if (!key) continue;
           decoder = new VideoDecoder({
-            output: frame => {
-              if (canvas.width !== frame.displayWidth) { canvas.width = frame.displayWidth; canvas.height = frame.displayHeight; }
-              paint.drawImage(frame, 0, 0); frame.close();
-              if (!shown.any) { shown.any = true; showing("video"); }
-              streamFails = 0; note("");
-            },
+            output: frame => { queue.push(frame); if (queue.length > 30) queue.shift().close(); },
             error: e => { broken = e; },
           });
           decoder.configure({ codec: avcCodec(data), optimizeForLatency: true });
         }
-        decoder.decode(new EncodedVideoChunk({ type: key ? "key" : "delta", timestamp: performance.now() * 1000, data }));
+        decoder.decode(new EncodedVideoChunk({ type: key ? "key" : "delta", timestamp: capture * 1000, data }));
       }
     }
-  } finally { if (decoder && decoder.state !== "closed") decoder.close(); }
+  } finally {
+    clearTimeout(giveUp); broken = broken || new Error("ended");
+    if (decoder && decoder.state !== "closed") decoder.close();
+  }
 }
 // Owner 2026-11-07, "the cursor still lags": like Chrome Remote Desktop, RustDesk and Parsec, the pointer is not in the
 // video. The phone draws it and moves it the instant your finger moves; the laptop's real position (a tiny event stream,
@@ -603,52 +646,102 @@ $("zoom").addEventListener("click", () => {   // zoomed: back to Fit; at Fit: 2x
 });
 
 // ---- owner 2026-11-08: laptop sound, Watch, the window switcher, voice click / typing, read aloud, speed test --------
-// Sound: the laptop's own sound (what its speakers play) as Opus, decoded here (WebCodecs) and played with a small
-// cushion so it doesn't stutter; nothing is sent while the laptop is silent.
-const sound = { on: false, ctx: null, stop: null, at: 0 };
+// Sound: the laptop's own sound (what its speakers play) as Opus, decoded here (WebCodecs) into a jitter buffer (an
+// AudioWorklet ring) that starts once it holds the usual lateness + 40 ms (100-500 ms) and plays at an even pace; if
+// it ever runs dry it fades out and in (5 ms) instead of cracking, and after a burst it skips back to that target.
+const JITTER_WORKLET = `
+class Jitter extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.size = sampleRate * 4; this.l = new Float32Array(this.size); this.r = new Float32Array(this.size);
+    this.read = 0; this.write = 0; this.filled = 0; this.target = Math.round(0.12 * sampleRate);
+    this.playing = false; this.gain = 0; this.lastL = 0; this.lastR = 0; this.under = 0; this.tick = 0;
+    this.port.onmessage = e => {
+      const m = e.data;
+      if (m.clear) { this.read = this.write = this.filled = 0; this.playing = false; return; }
+      if (m.target) this.target = Math.round(m.target * sampleRate);
+      if (m.l) {
+        const n = Math.min(m.l.length, this.size - this.filled);
+        for (let i = 0; i < n; i++) { this.l[this.write] = m.l[i]; this.r[this.write] = m.r[i]; this.write = (this.write + 1) % this.size; }
+        this.filled += n;
+        if (this.filled > this.target + 0.3 * sampleRate) {   // far behind after a stall: back to the target
+          const drop = this.filled - this.target; this.read = (this.read + drop) % this.size; this.filled -= drop; this.gain = 0;
+        }
+      }
+    };
+  }
+  process(inputs, outputs) {
+    const left = outputs[0][0], right = outputs[0][1] || left, step = 1 / (0.005 * sampleRate);
+    if (!this.playing && this.filled >= this.target) this.playing = true;
+    for (let i = 0; i < left.length; i++) {
+      if (this.playing && this.filled > 0) {
+        this.lastL = this.l[this.read]; this.lastR = this.r[this.read];
+        this.read = (this.read + 1) % this.size; this.filled--; this.gain = Math.min(1, this.gain + step);
+      } else {
+        if (this.playing) { this.playing = false; this.under++; }
+        this.gain = Math.max(0, this.gain - step);
+      }
+      left[i] = this.lastL * this.gain; right[i] = this.lastR * this.gain;
+    }
+    if (++this.tick % 16 === 0) this.port.postMessage({ filled: this.filled / sampleRate, under: this.under });
+    return true;
+  }
+}
+registerProcessor("chutku-jitter", Jitter);`;
+const sound = { on: false, ctx: null, node: null, stop: null, clock: null, buffered: 0, level: 0, under: 0 };
+async function soundOutput() {
+  if (sound.node) return;
+  sound.ctx = new AudioContext({ sampleRate: 48000, latencyHint: "playback" });
+  await sound.ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([JITTER_WORKLET], { type: "text/javascript" })));
+  sound.node = new AudioWorkletNode(sound.ctx, "chutku-jitter", { numberOfInputs: 0, outputChannelCount: [2] });
+  sound.node.port.onmessage = e => {   // level: the cushion averaged over ~1.5 s (it swings as bursts arrive)
+    sound.buffered = e.data.filled; sound.under = e.data.under; sound.level += (e.data.filled - sound.level) * 0.03;
+  };
+  sound.node.connect(sound.ctx.destination);
+}
 async function setSound(on) {
   sound.on = on; $("sound").classList.toggle("on", on); $("sound").firstChild.textContent = on ? "🔊" : "🔈";
   if (sound.stop) { sound.stop.abort(); sound.stop = null; }
+  if (sound.node) sound.node.port.postMessage({ clear: true });
   if (!on) return;
-  if (!("AudioDecoder" in window)) { status("This browser can't play the laptop's sound."); return setSound(false); }
-  sound.ctx = sound.ctx || new AudioContext({ latencyHint: "interactive" });
-  await sound.ctx.resume();
+  if (!("AudioDecoder" in window) || !window.AudioWorkletNode) { status("This browser can't play the laptop's sound."); return setSound(false); }
+  try { await soundOutput(); await sound.ctx.resume(); } catch { status("This phone can't play the laptop's sound."); return setSound(false); }
   const stop = sound.stop = new AbortController();
   playSound(stop.signal).catch(e => {
     if (e.message === "nosound") { status("The laptop has no sound device to send from."); setSound(false); }
   }).finally(() => { if (sound.stop === stop && sound.on) setTimeout(() => { if (sound.stop === stop && sound.on) setSound(true); }, 1500); });
 }
-async function playSound(signal) {   // packets: [4-byte length][Opus 20 ms]
+async function playSound(signal) {   // packets: [4-byte length][4-byte capture ms][Opus 20 ms]
   const response = await fetch("/api/screen/audio?t=" + Date.now(), { credentials: "same-origin", signal });
   if (response.status === 409) throw new Error("nosound");
   if (!response.ok || !response.body) throw new Error("no sound stream");
-  const ctx = sound.ctx, reader = response.body.getReader();
+  const reader = response.body.getReader(), clock = sound.clock = arrivals();
   const decoder = new AudioDecoder({
     output: data => {
-      const buffer = ctx.createBuffer(data.numberOfChannels, data.numberOfFrames, data.sampleRate);
-      for (let c = 0; c < data.numberOfChannels; c++) {
-        const plane = new Float32Array(data.numberOfFrames);
-        data.copyTo(plane, { planeIndex: c, format: "f32-planar" }); buffer.copyToChannel(plane, c);
-      }
+      const n = data.numberOfFrames, l = new Float32Array(n), r = new Float32Array(n);
+      data.copyTo(l, { planeIndex: 0, format: "f32-planar" });
+      data.copyTo(r, { planeIndex: Math.min(1, data.numberOfChannels - 1), format: "f32-planar" });
       data.close();
-      const now = ctx.currentTime;
-      if (sound.at < now + 0.02 || sound.at > now + 0.6) sound.at = now + 0.08;   // 80 ms cushion; a gap or drift resets it
-      const source = ctx.createBufferSource(); source.buffer = buffer; source.connect(ctx.destination);
-      source.start(sound.at); sound.at += buffer.duration;
+      sound.node.port.postMessage({ l, r }, [l.buffer, r.buffer]);
     },
     error: () => {},
   });
   decoder.configure({ codec: "opus", sampleRate: 48000, numberOfChannels: 2 });
-  let buf = new Uint8Array(0), stamp = 0;
+  let buf = new Uint8Array(0), target = 0, floor = 0, dry = sound.under;
   try {
     for (;;) {
       const { value, done } = await reader.read(); if (done) return;
       const joined = new Uint8Array(buf.length + value.length); joined.set(buf); joined.set(value, buf.length); buf = joined;
-      while (buf.length >= 4) {
+      while (buf.length >= 8) {
         const length = ((buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]) >>> 0;
-        if (buf.length < 4 + length) break;
-        decoder.decode(new EncodedAudioChunk({ type: "key", timestamp: stamp, data: buf.slice(4, 4 + length) }));
-        stamp += 20000; buf = buf.subarray(4 + length);
+        if (buf.length < 8 + length) break;
+        const capture = ((buf[4] << 24) | (buf[5] << 16) | (buf[6] << 8) | buf[7]) >>> 0;
+        clock.note(capture);
+        decoder.decode(new EncodedAudioChunk({ type: "key", timestamp: capture * 1000, data: buf.slice(8, 8 + length) }));
+        buf = buf.subarray(8 + length);
+        if (sound.under > dry) { dry = sound.under; floor = Math.min(0.5, floor + 0.05); }   // it ran dry: keep 50 ms more
+        const want = Math.min(0.5, Math.max(watching ? 0.15 : 0.1, floor, (clock.late95 + 40) / 1000));   // seconds of cushion
+        if (Math.abs(want - target) > 0.01) { target = want; sound.node.port.postMessage({ target }); }
       }
     }
   } finally { if (decoder.state !== "closed") decoder.close(); }
@@ -790,8 +883,10 @@ async function key(combo) {
   if (combo === "alt+f4" && !confirm("Pakka band karun?")) return;
   queued("/api/control/keys", { combo }).then(() => {});
 }
-$("kbd").addEventListener("click", async () => { if (!await ensureControl()) return; $("live-keys").focus(); $("kbd").classList.add("on"); });
-$("live-keys").addEventListener("blur", () => $("kbd").classList.remove("on"));
+$("kbd").addEventListener("click", async () => { if (!await ensureControl()) return; $("live-keys").focus({ preventScroll: true }); $("kbd").classList.add("on"); });
+$("live-keys").addEventListener("focus", () => { document.body.classList.add("typing"); scrollTo(0, 0); setTimeout(drawCursor, 300); });
+$("live-keys").addEventListener("blur", () => { $("kbd").classList.remove("on"); document.body.classList.remove("typing"); setTimeout(drawCursor, 300); });
+if (window.visualViewport) visualViewport.addEventListener("resize", () => { scrollTo(0, 0); drawCursor(); });   // the keyboard came or went
 $("live-keys").addEventListener("input", () => {
   const value = $("live-keys").value; $("live-keys").value = KEEP;
   if (value.length < KEEP.length) { for (let i = value.length; i < KEEP.length; i++) queued("/api/control/keys", { combo: "backspace" }); return; }

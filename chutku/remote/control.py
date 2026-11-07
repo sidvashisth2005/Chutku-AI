@@ -56,14 +56,113 @@ def last_input_tick():
     return info.dwTime
 
 
-def _tick_gap(a, b):
-    """a - b in ms for two GetTickCount values, signed and wrap-safe (Windows can stamp our own injected input one
-    16 ms tick before we note it; unsigned, that -16 became ~4.29 billion and our own click looked like a person)."""
-    return ((a - b + 0x80000000) & 0xFFFFFFFF) - 0x80000000
+class LocalInput:
+    """A person at the laptop (owner 2026-11-08: "someone is using the laptop comes out of nowhere"). Windows Raw Input
+    from the real mouse, touchpad and keyboard only: injected input (the phone, Chutku's own automation) comes with no
+    device and is ignored, and so is a small jitter. A click, a key press, or a real move (more than MOVE counts within
+    1 s; a wheel notch counts 60) counts. Runs on its own thread with a hidden message-only window; Raw Input is
+    delivered as messages, so it never slows the laptop's own mouse."""
+    MOVE = 150
+
+    def __init__(self):
+        self.seen, self.moves, self.failed, self.ignored = None, [], False, 0
+        self.ready = threading.Event()
+        threading.Thread(target=self._run, daemon=True, name="chutku-local-input").start()
+        self.ready.wait(3)
+
+    def note(self, injected, *, click=False, key=False, move=0, now=None):
+        """One Raw Input event (also what the tests feed in)."""
+        if injected:   # counted, so a check can see Raw Input is arriving
+            self.ignored += 1
+            return
+        now = time.monotonic() if now is None else now
+        if click or key:
+            self.seen = now
+            return
+        if move:
+            self.moves = [(t, m) for t, m in self.moves if now - t < 1.0] + [(now, move)]
+            if sum(m for _, m in self.moves) > self.MOVE:
+                self.seen = now
+
+    def _run(self):
+        try:
+            self._listen()
+        except Exception:   # Raw Input unavailable: person_seen falls back to Windows' last-input time
+            self.failed = True
+            self.ready.set()
+
+    def _listen(self):
+        user32, kernel32 = ctypes.WinDLL("user32", use_last_error=True), ctypes.windll.kernel32
+        LRESULT = ctypes.c_ssize_t
+        WNDPROC = ctypes.WINFUNCTYPE(LRESULT, w.HWND, w.UINT, w.WPARAM, w.LPARAM)
+        user32.DefWindowProcW.restype, user32.DefWindowProcW.argtypes = LRESULT, [w.HWND, w.UINT, w.WPARAM, w.LPARAM]
+        user32.CreateWindowExW.restype = w.HWND
+        user32.CreateWindowExW.argtypes = [w.DWORD, w.LPCWSTR, w.LPCWSTR, w.DWORD, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                                           ctypes.c_int, w.HWND, w.HMENU, w.HINSTANCE, w.LPVOID]
+        user32.GetRawInputData.argtypes = [w.HANDLE, w.UINT, ctypes.c_void_p, ctypes.POINTER(w.UINT), w.UINT]
+
+        class WNDCLASS(ctypes.Structure):
+            _fields_ = [("style", w.UINT), ("lpfnWndProc", WNDPROC), ("cbClsExtra", ctypes.c_int), ("cbWndExtra", ctypes.c_int),
+                        ("hInstance", w.HINSTANCE), ("hIcon", w.HICON), ("hCursor", w.HANDLE), ("hbrBackground", w.HBRUSH),
+                        ("lpszMenuName", w.LPCWSTR), ("lpszClassName", w.LPCWSTR)]
+
+        class DEVICE(ctypes.Structure):
+            _fields_ = [("usUsagePage", w.USHORT), ("usUsage", w.USHORT), ("dwFlags", w.DWORD), ("hwndTarget", w.HWND)]
+
+        header = 8 + 2 * ctypes.sizeof(ctypes.c_void_p)   # RAWINPUTHEADER: type, size, hDevice, wParam
+        buffer = (ctypes.c_ubyte * 256)()
+
+        def procedure(hwnd, message, wparam, lparam):
+            if message == 0x00FF:   # WM_INPUT
+                size = w.UINT(ctypes.sizeof(buffer))
+                if user32.GetRawInputData(w.HANDLE(lparam), 0x10000003, buffer, ctypes.byref(size), header) != 0xFFFFFFFF:
+                    raw = bytes(buffer[:size.value])
+                    kind = int.from_bytes(raw[0:4], "little")
+                    injected = int.from_bytes(raw[8:8 + ctypes.sizeof(ctypes.c_void_p)], "little") == 0
+                    if kind == 0 and len(raw) >= header + 24:      # mouse
+                        flags = int.from_bytes(raw[header:header + 2], "little")
+                        buttons = int.from_bytes(raw[header + 4:header + 6], "little")
+                        dx = int.from_bytes(raw[header + 12:header + 16], "little", signed=True)
+                        dy = int.from_bytes(raw[header + 16:header + 20], "little", signed=True)
+                        click = bool(buttons & 0x0155)                   # any button pressed down
+                        move = (0 if flags & 1 else abs(dx) + abs(dy)) + (60 if buttons & 0x0C00 else 0)   # absolute: no
+                        self.note(injected, click=click, move=move)
+                    elif kind == 1 and len(raw) >= header + 4:     # keyboard
+                        self.note(injected, key=not int.from_bytes(raw[header + 2:header + 4], "little") & 1)
+            return user32.DefWindowProcW(hwnd, message, wparam, lparam)
+
+        self._procedure = WNDPROC(procedure)   # kept alive for the window's lifetime
+        instance = kernel32.GetModuleHandleW(None)
+        name = "ChutkuLocalInput"
+        user32.RegisterClassW(ctypes.byref(WNDCLASS(0, self._procedure, 0, 0, instance, None, None, None, None, name)))
+        hwnd = user32.CreateWindowExW(0, name, name, 0, 0, 0, 0, 0, w.HWND(-3), None, instance, None)   # HWND_MESSAGE
+        if not hwnd:
+            raise ctypes.WinError(ctypes.get_last_error())
+        devices = (DEVICE * 2)(DEVICE(1, 2, 0x100, hwnd), DEVICE(1, 6, 0x100, hwnd))   # mouse, keyboard; RIDEV_INPUTSINK
+        if not user32.RegisterRawInputDevices(devices, 2, ctypes.sizeof(DEVICE)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        self.ready.set()
+        message = w.MSG()
+        while user32.GetMessageW(ctypes.byref(message), None, 0, 0) > 0:
+            user32.TranslateMessage(ctypes.byref(message))
+            user32.DispatchMessageW(ctypes.byref(message))
 
 
-def tick_now():
-    return ctypes.windll.kernel32.GetTickCount() & 0xFFFFFFFF
+_watcher, _watcher_lock = None, threading.Lock()
+
+
+def person_seen():
+    """When a person last used the laptop's own mouse, touchpad or keyboard (time.monotonic), or None."""
+    global _watcher
+    with _watcher_lock:
+        if _watcher is None:
+            _watcher = LocalInput()
+    if not _watcher.failed:
+        return _watcher.seen
+    tick = last_input_tick()   # Raw Input could not start: Windows' last input (it can't tell our own from a person's)
+    if tick is None:
+        return None
+    return time.monotonic() - ((ctypes.windll.kernel32.GetTickCount() - tick) & 0xFFFFFFFF) / 1000
 
 
 def session_locked():
@@ -103,7 +202,7 @@ class ControlSession:
     """One live phone control session. Injectors are patchable for tests (no real input)."""
 
     def __init__(self, base, *, clock=time.monotonic, inject=None, log=None, locked=None, window=None,
-                 local_tick=None, now_tick=None, cursor=None, snap=None, windows=None, front=None, rect=None):
+                 local_seen=None, cursor=None, snap=None, windows=None, front=None, rect=None):
         import sys
         module = sys.modules[__name__]    # looked up now, so tests can patch the module's functions
         self.base, self.clock = base, clock
@@ -116,8 +215,7 @@ class ControlSession:
         self.inject = inject or module.Injector()
         self.log = log or _action_log(base)
         self.locked, self.window = locked or module.session_locked, window or module.foreground
-        self.local_tick, self.now_tick = local_tick or module.last_input_tick, now_tick or module.tick_now
-        self.our_ticks = []               # GetTickCount values when WE injected (local input = any other)
+        self.local_seen = local_seen or module.person_seen   # monotonic time a person last used the laptop, or None
         self.paused_until = 0.0
         self.ended = threading.Event()
 
@@ -136,19 +234,13 @@ class ControlSession:
             raise ControlRefused("The control session ended (30 min max, 10 min idle). Start it again with your PIN.")
         if self.locked():
             raise ControlRefused("The laptop is locked: control stops (the Windows password is never typed remotely).")
-        tick = self.local_tick()
-        if tick is not None and not any(abs(_tick_gap(tick, t)) < 250 for t in self.our_ticks[-50:]):
-            # the newest input on the laptop was not ours: someone is at the laptop
-            if (self.now_tick() - tick) & 0xFFFFFFFF < LOCAL_WINS_SECONDS * 1000:
-                self.paused_until = self.clock() + LOCAL_WINS_SECONDS
+        seen = self.local_seen()
+        if seen is not None and self.clock() - seen < LOCAL_WINS_SECONDS:   # a person at the laptop: they win
+            self.paused_until = max(self.paused_until, seen + LOCAL_WINS_SECONDS)
         if self.clock() < self.paused_until:
             wait = math.ceil(self.paused_until - self.clock())
             raise ControlRefused(f"Someone is using the laptop: phone control resumes in {wait} s.")
         self.last_used = self.clock()
-
-    def _mark(self):
-        self.our_ticks.append(self.now_tick())
-        self.our_ticks = self.our_ticks[-200:]
 
     def _log(self, kind, details):
         try:
@@ -188,7 +280,6 @@ class ControlSession:
                         x, y = on_monitor(monitor, snapped[0], snapped[1])
                         hit = snapped[2]
                 self.inject.pointer(kind, x, y, int(event.get("dx" if kind == "hscroll" else "dy", 0)))
-            self._mark()
             done += 1
             if kind not in ("move", "nudge"):
                 self._log(kind, {"x": x, "y": y, "app": window.get("executable"), "title": window.get("title"),
@@ -207,7 +298,6 @@ class ControlSession:
             if match is None:
                 raise ControlRefused("That window is not open any more.")
             self.front(window_id)
-            self._mark()                  # focusing taps Alt once: that input is ours
             self._log("window", {"app": match["app"], "title": match["title"]})
             time.sleep(0.15)              # a restored window settles before it is measured
             return {"window": {**match, "minimized": False, "rect": self.rect(window_id, monitor)}}
@@ -223,7 +313,6 @@ class ControlSession:
         self.inject.text(text)
         if enter:
             self.inject.keys(["enter"])
-        self._mark()
         self._log("text", {"characters": len(text), "script": script_of(text), "enter": bool(enter),
                            "app": window.get("executable")})
         return {"typed": len(text)}
@@ -240,7 +329,6 @@ class ControlSession:
         if dangerous(window) and ("enter" in parts or combo == "ctrl+v") and not pin_ok:
             raise ControlRefused(f"{window.get('executable') or 'This window'} can run commands: this needs your PIN.")
         self.inject.keys(parts)
-        self._mark()
         self._log("keys", {"combo": combo, "app": window.get("executable")})
         return {"sent": combo}
 

@@ -154,11 +154,10 @@ class FakeInjector:
 class ControlTests(unittest.TestCase):
     def session(self, window=None, locked=False, local=None):
         self.injector, self.logged = FakeInjector(), []
-        ticks = {"now": 100000}
         return control.ControlSession(
             "base", inject=self.injector, log=self.logged.append, locked=lambda: locked,
             window=lambda: window or {"executable": "notepad.exe", "title": "Untitled - Notepad"},
-            local_tick=lambda: local, now_tick=lambda: ticks["now"])
+            local_seen=lambda: local)
 
     def test_points_map_to_the_monitor_and_are_logged(self):
         session = self.session()
@@ -194,25 +193,36 @@ class ControlTests(unittest.TestCase):
             self.session(locked=True).text("password")
 
     def test_the_laptop_always_wins(self):
-        session = self.session(local=100000 - 2000)                     # someone touched the laptop 2 s ago
+        session = self.session(local=time.monotonic() - 2)              # someone touched the laptop 2 s ago
         with self.assertRaises(control.ControlRefused) as caught:
             session.pointer([{"kind": "tap", "x": 0.1, "y": 0.1}], (0, 0, 100, 100))
         self.assertIn("using the laptop", str(caught.exception))
 
-    def test_our_own_input_stamped_a_tick_early_is_not_someone_at_the_laptop(self):
-        # owner 2026-11-08, "it just shows someone is using the laptop": Windows can stamp our injected click one 16 ms
-        # tick BEFORE we note it; the unsigned difference made that ~4.29 billion ms, so our own click paused control
-        ticks, local = {"now": 100000}, {"tick": None}
+    def test_only_a_real_click_key_or_big_move_is_someone_at_the_laptop(self):
+        # owner 2026-11-08: "someone is using comes out of nowhere; until a click is registered from the PC or the mouse
+        # moves too much, don't". Raw Input: injected input (the phone, Chutku) has no device and never counts.
+        watcher = object.__new__(control.LocalInput)
+        watcher.seen, watcher.moves, watcher.failed, watcher.ignored = None, [], False, 0
+        watcher.note(True, click=True, now=10.0)                                       # injected click: not a person
+        watcher.note(True, move=900, now=10.1)
+        watcher.note(False, move=40, now=10.2)                                          # touchpad / mouse jitter
+        watcher.note(False, move=40, now=10.6)
+        watcher.note(False, move=40, now=11.5)                                          # 120 in 1.3 s: still jitter
+        self.assertIsNone(watcher.seen)
+        self.assertEqual(watcher.ignored, 2)
+        watcher.note(False, move=120, now=11.7)                                         # 40 + 120 within 1 s: a real move
+        self.assertEqual(watcher.seen, 11.7)
+        watcher.note(False, click=True, now=20.0)
+        watcher.note(False, key=True, now=21.0)
+        self.assertEqual(watcher.seen, 21.0)
+        clock = Clock()
         session = control.ControlSession("b", inject=FakeInjector(), log=lambda r: None, locked=lambda: False,
-                                         window=lambda: {"executable": "notepad.exe", "title": "x"},
-                                         local_tick=lambda: local["tick"], now_tick=lambda: ticks["now"])
-        session.pointer([{"kind": "tap", "x": 0.5, "y": 0.5}], (0, 0, 100, 100))      # noted at 100000
-        local["tick"], ticks["now"] = 100000 - 16, 100500
-        session.pointer([{"kind": "tap", "x": 0.6, "y": 0.6}], (0, 0, 100, 100))      # ours: no pause
-        local["tick"] = 100000 - 3000                                                   # 3 s before: not ours
-        with self.assertRaises(control.ControlRefused) as caught:
-            session.pointer([{"kind": "tap", "x": 0.7, "y": 0.7}], (0, 0, 100, 100))
-        self.assertIn("10 s", str(caught.exception))
+                                         window=lambda: {}, local_seen=lambda: 995.0, clock=clock)
+        with self.assertRaises(control.ControlRefused) as caught:                       # seen 5 s ago: 5 s left
+            session.pointer([{"kind": "tap", "x": 0.5, "y": 0.5}], (0, 0, 100, 100))
+        self.assertIn("resumes in 5 s", str(caught.exception))
+        clock.now += 5
+        session.pointer([{"kind": "tap", "x": 0.5, "y": 0.5}], (0, 0, 100, 100))      # 10 s after: the phone again
 
     def test_smart_tap_lands_on_the_target_it_meant(self):
         asked = []
@@ -223,7 +233,7 @@ class ControlTests(unittest.TestCase):
         self.injector, logged = FakeInjector(), []
         session = control.ControlSession("b", inject=self.injector, log=logged.append, locked=lambda: False,
                                          window=lambda: {"executable": "notepad.exe", "title": "x"},
-                                         local_tick=lambda: None, now_tick=lambda: 0, snap=snap)
+                                         local_seen=lambda: None, snap=snap)
         answer = session.pointer([{"kind": "tap", "x": 0.4, "y": 0.2, "snap": 0.1}], (0, 0, 100, 100))
         self.assertEqual(self.injector.calls[-1], ("pointer", "tap", 60, 40))           # clicked the button's middle
         self.assertEqual(answer["target"], {"kind": "button", "name": "OK", "rect": [0.5, 0.3, 0.2, 0.2]})
@@ -248,7 +258,7 @@ class ControlTests(unittest.TestCase):
         injector = FakeInjector()
         injector.pointer = lambda kind, x, y, dy=0: position.update(x=x)
         session = control.ControlSession("b", inject=injector, log=lambda r: None, locked=lambda: False,
-                                         window=lambda: {}, local_tick=lambda: None, now_tick=lambda: 0, cursor=cursor)
+                                         window=lambda: {}, local_seen=lambda: None, cursor=cursor)
         threads = [threading.Thread(target=session.pointer, args=([{"kind": "nudge", "dx": 1, "dy": 0}] * 20,
                                                                    (0, 0, 1000, 100))) for _ in range(3)]
         for thread in threads:
@@ -308,7 +318,7 @@ class ControlTests(unittest.TestCase):
     def test_switching_windows_needs_a_listed_window(self):
         fronted, logged = [], []
         session = control.ControlSession("b", inject=FakeInjector(), log=logged.append, locked=lambda: False,
-                                         window=lambda: {}, local_tick=lambda: None, now_tick=lambda: 0,
+                                         window=lambda: {}, local_seen=lambda: None,
                                          windows=lambda monitor: [{"id": 7, "title": "Notes", "app": "notepad.exe",
                                                                    "minimized": True, "rect": None}],
                                          front=fronted.append, rect=lambda hwnd, monitor: [0.1, 0.2, 0.5, 0.5])
@@ -333,8 +343,7 @@ class ControlTests(unittest.TestCase):
     def test_a_session_ends_after_its_time(self):
         clock = Clock()
         session = control.ControlSession("b", inject=FakeInjector(), log=lambda r: None, clock=clock,
-                                         locked=lambda: False, window=lambda: {}, local_tick=lambda: None,
-                                         now_tick=lambda: 0)
+                                         locked=lambda: False, window=lambda: {}, local_seen=lambda: None)
         clock.now += control.IDLE_MAX + 1
         with self.assertRaises(control.ControlRefused):
             session.keys("tab")
@@ -537,16 +546,20 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(headers["X-Encoder"], {name for name, _ in remote_server.H264_ENCODERS})
         decoder, frames, packets, offset = av.CodecContext.create("h264", "r"), [], [], 0
-        while offset < len(body):
-            length, key = struct.unpack(">IB", body[offset:offset + 5])
-            packets.append((key, body[offset + 5:offset + 5 + length]))
-            offset += 5 + length
+        stamps = []
+        while offset < len(body):   # [length][keyframe][capture ms, the shared clock][H.264]
+            length, key, stamp = struct.unpack(">IBI", body[offset:offset + 9])
+            packets.append((key, body[offset + 9:offset + 9 + length]))
+            stamps.append(stamp)
+            offset += 9 + length
         self.assertEqual(offset, len(body))                                             # nothing left over
         self.assertTrue(packets[0][0])                                                  # starts with a keyframe
         for _, data in packets:
             frames += decoder.decode(av.Packet(data))
         self.assertGreaterEqual(len(frames), 5)                                         # every change was sent
         self.assertEqual((frames[0].width, frames[0].height), (640, 360))
+        self.assertTrue(all(0 <= b - a < 500 for a, b in zip(stamps, stamps[1:])))     # capture times, in order
+        self.assertLess(abs(stamps[-1] - remote_server._clock_ms(time.monotonic())), 2000)
         time.sleep(0.2)
         self.assertTrue(count.get("closed"))                                            # the capturer let go of GDI
         self.assertNotEqual(remote_server._changed(np.zeros((4, 4, 3), np.uint8)),
@@ -587,7 +600,13 @@ class ServerTests(unittest.TestCase):
                 self.server.screen["until"] = time.monotonic() + 0.3
                 status, body, _ = self.request("/api/screen/audio")
             self.assertEqual(status, 200)
-            self.assertEqual(body, (struct.pack(">I", 11) + b"opus-packet") * 3)                # length-prefixed
+            parts, offset = [], 0
+            while offset < len(body):   # [length][capture ms][Opus]
+                length, stamp = struct.unpack(">II", body[offset:offset + 8])
+                parts.append((body[offset + 8:offset + 8 + length], stamp))
+                offset += 8 + length
+            self.assertEqual([data for data, _ in parts], [b"opus-packet"] * 3)
+            self.assertLess(abs(parts[-1][1] - remote_server._clock_ms(time.monotonic())), 2000)
             self.server.screen["until"] = time.monotonic() + 60
             with patch("chutku.remote.audio.Loopback", side_effect=OSError("no device")):
                 self.assertEqual(self.request("/api/screen/audio")[0], 409)
@@ -672,7 +691,7 @@ class ServerTests(unittest.TestCase):
         with patch.object(control, "Injector", lambda: injector), \
                 patch.object(control, "session_locked", lambda: False), \
                 patch.object(control, "foreground", lambda: {"executable": "notepad.exe", "title": "x"}), \
-                patch.object(control, "last_input_tick", lambda: None), \
+                patch.object(control, "person_seen", lambda: None), \
                 patch.object(control, "_action_log", lambda base: (lambda record: None)):
             self.assertEqual(self.request("/api/control/start", {"pin": "1111"})[0], 403)
             self.assertEqual(self.request("/api/control/start", {"pin": "4321"})[0], 200)
