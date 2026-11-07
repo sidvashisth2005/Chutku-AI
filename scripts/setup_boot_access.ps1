@@ -53,11 +53,11 @@ if (-not (Test-Path $rustdesk)) { Fail "RustDesk did not install." }
 & $rustdesk --option direct-server Y | Out-Null            # connect by the laptop's Tailscale address
 & $rustdesk --option whitelist "100.64.0.0/10" | Out-Null   # only devices on your Tailscale network
 Write-Host "Choose RustDesk's permanent password (you will type it in the RustDesk app on the phone)."
-$first = Read-Host "RustDesk password (8+ characters)" -AsSecureString
+$first = Read-Host "RustDesk password (6+ characters)" -AsSecureString
 $again = Read-Host "Again" -AsSecureString
 $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($first))
 $check = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($again))
-if ($plain -ne $check -or $plain.Length -lt 8) { Fail "the passwords differ or are shorter than 8 characters." }
+if ($plain -ne $check -or $plain.Length -lt 6) { Fail "the passwords differ or are shorter than 6 characters." }
 & $rustdesk --password $plain | Out-Null
 $plain = $null; $check = $null
 
