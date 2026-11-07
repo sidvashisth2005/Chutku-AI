@@ -1084,3 +1084,6 @@ cryptography==50.0.2 \
 # owner 2026-11-08: in-process Windows UI Automation for the phone remote (smart tap, magnetic pointer)
 comtypes==1.4.17 \
     --hash=sha256:4e0a221dde2c589b82977bed802efd71cd5eb67a380347b732e02735e597f586
+# owner 2026-11-08: the phone video's screen capture through Windows Desktop Duplication (GPU), CPython 3.13
+dxcam==0.3.0 \
+    --hash=sha256:d3de4d64e6d85a4c3c5b869dd35eba82d4784e5b6c4b1703e0cb09da14be9575

@@ -257,6 +257,43 @@ class ControlTests(unittest.TestCase):
             thread.join()
         self.assertEqual(position["x"], 560)
 
+    def test_gpu_capture_reuses_an_unchanged_frame_and_gives_up_to_gdi_when_lost(self):
+        import sys
+        from chutku import vision
+        frames, released = [np.ones((4, 6, 4), np.uint8), None, RuntimeError("duplication lost")], []
+
+        class Camera:
+            width, height = 6, 4
+
+            def grab(self):
+                frame = frames.pop(0)
+                if isinstance(frame, Exception):
+                    raise frame
+                return frame
+
+            def release(self):
+                released.append(True)
+        with patch.dict(sys.modules, {"dxcam": SimpleNamespace(create=lambda output_color: Camera())}), \
+                patch.object(vision, "_GPU", None):
+            capturer = vision.Capturer()
+            first = capturer._from_gpu(6, 4)
+            self.assertTrue(first.window["gpu"])                                         # no checksum needed
+            self.assertIs(capturer._from_gpu(6, 4), first)                               # nothing new: the same Shot
+            self.assertIsNone(capturer._from_gpu(6, 4))                                  # lost: GDI takes over
+            self.assertEqual(released, [True])
+            self.assertGreater(capturer.gpu_retry, time.monotonic() + 4)                 # the GPU again in 5 s
+
+    def test_phone_clicks_are_quick_and_exact(self):
+        sent, slept = [], []
+        with patch("chutku.vision._send", side_effect=lambda *events: sent.append(events)), \
+                patch("chutku.vision.dpi_aware"), patch.object(control.time, "sleep", side_effect=slept.append):
+            injector = control.Injector()
+            injector.pointer("tap", 10, 10)
+            injector.pointer("double", 10, 10)
+            injector.pointer("right", 10, 10)
+        self.assertEqual(sent, [((2, 0), (4, 0)), ((2, 0), (4, 0)), ((2, 0), (4, 0)), ((8, 0), (16, 0))])
+        self.assertLessEqual(sum(slept), 0.1)                                            # was 0.11 s for one click
+
     def test_spoken_clicks_and_names(self):
         from chutku.remote import targets
         for said, name in (("Save pe click karo.", "save"), ("click on the Save button", "save"), ("OK dabao", "ok"),

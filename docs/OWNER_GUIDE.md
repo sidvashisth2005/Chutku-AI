@@ -227,6 +227,11 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 - **🪟 Windows:** the laptop's open windows. Tap one: it comes to the front and the view fits it.
 - **Read aloud:** in Tap-here mode, long-press on text and the phone reads that paragraph. Touch to stop. A long press
   anywhere else is still a right click.
+- **Faster (2026-11-08):**
+  - The screen is captured by the GPU, up to 30 frames a second.
+  - Clicks land in ~17 ms instead of ~110.
+  - The video measures your connection once a session and never asks for more than it carries (smaller and lighter on
+    a slow link, so it doesn't build up lag).
 - **Speed test:** ⋯ More → Connection speed. It shows laptop → phone Mbit/s and the round trip, and Watch uses ~70% of
   it. Through Tailscale's relay (no direct path, as now) expect a few Mbit/s; a direct connection is much faster.
 - **Messages:** shown whole over the screen. "Someone is using the laptop: phone control resumes in 7 s" counts down

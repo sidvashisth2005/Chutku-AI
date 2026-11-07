@@ -145,6 +145,9 @@ def capture():
     return Shot(np.ascontiguousarray(bgra[:, :, 2::-1]), left, top, width, height, window)
 
 
+_GPU, _GPU_LOCK = None, threading.Lock()
+
+
 class Capturer:
     """Repeated screen captures for the phone's video (owner 2026-11-08, "faster frames"). Keeps the GDI objects between
     frames and returns BGRA as captured: measured BitBlt 18.5 ms + GetDIBits 0.8 ms of 1080p, where capture() also
@@ -164,18 +167,65 @@ class Capturer:
         gdi.DeleteObject.argtypes = [w.HGDIOBJ]
         gdi.DeleteDC.argtypes = [w.HDC]
         self.size = self.screen = self.memory = self.bitmap = self.old = None
+        self.gpu, self.gpu_retry, self.last = None, 0.0, None
 
     def grab(self):
-        """A Shot whose pixels are BGRA (height, width, 4)."""
+        """A Shot whose pixels are BGRA (height, width, 4). The very same Shot object again means "nothing changed".
+        The primary monitor comes from the GPU (DXGI Desktop Duplication through dxcam, owner 2026-11-08: 72 new
+        frames/s and ~0.05 ms a grab on a changing screen, where GDI gave ~22); anything else, or when that fails
+        (locked, a secure desktop, duplication lost), from GDI, and the GPU is tried again 5 s later."""
+        with dpi_aware() as user32:
+            monitor = user32.MonitorFromWindow(user32.GetForegroundWindow(), 2)
+            info = _MonitorInfo()
+            info.cbSize = ctypes.sizeof(_MonitorInfo)
+            if not monitor or not user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+                raise OSError("Could not find the monitor to capture.")
+        rect = info.rcMonitor
+        left, top, width, height = rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top
+        if (left, top) == (0, 0) and time.monotonic() >= self.gpu_retry:
+            shot = self._from_gpu(width, height)
+            if shot is not None:
+                return shot
+        self.last = self._from_gdi(left, top, width, height)
+        return self.last
+
+    def _from_gpu(self, width, height):
+        global _GPU
+        try:
+            if self.gpu is None:
+                with _GPU_LOCK:   # dxcam keeps one camera per output for the whole process: made once, kept
+                    if _GPU is None:
+                        import dxcam
+                        _GPU = dxcam.create(output_color="BGRA")
+                    self.gpu = _GPU
+            if (self.gpu.width, self.gpu.height) != (width, height):
+                raise OSError("The GPU output is another size.")
+            pixels = self.gpu.grab()
+        except Exception:   # no dxcam, a locked or secure desktop, or the duplication was lost: GDI for 5 s
+            self._release_gpu(broken=True)
+            self.gpu_retry = time.monotonic() + 5
+            return None
+        if pixels is None:   # no new frame since the last grab
+            return self.last if self.last is not None and (self.last.width, self.last.height) == (width, height) else None
+        self.last = Shot(pixels, 0, 0, width, height, {"gpu": True})   # a new GPU frame is a changed screen
+        return self.last
+
+    def _release_gpu(self, broken=False):
+        """Let go of the shared camera; a broken one is released for good, so the next try makes a fresh one."""
+        global _GPU
+        if broken:
+            with _GPU_LOCK:
+                if _GPU is not None and _GPU is self.gpu:
+                    try:
+                        _GPU.release()
+                    except Exception:
+                        pass
+                    _GPU = None
+        self.gpu = None
+
+    def _from_gdi(self, left, top, width, height):
         try:
             with dpi_aware() as user32:
-                monitor = user32.MonitorFromWindow(user32.GetForegroundWindow(), 2)
-                info = _MonitorInfo()
-                info.cbSize = ctypes.sizeof(_MonitorInfo)
-                if not monitor or not user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
-                    raise OSError("Could not find the monitor to capture.")
-                rect = info.rcMonitor
-                left, top, width, height = rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top
                 if self.size != (width, height):
                     self.close()
                     self.screen = user32.GetDC(None)
@@ -196,6 +246,7 @@ class Capturer:
         return Shot(pixels, left, top, width, height, {})
 
     def close(self):
+        self._release_gpu()
         if self.memory:
             self.gdi.SelectObject(self.memory, self.old)
             self.gdi.DeleteObject(self.bitmap)

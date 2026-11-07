@@ -211,7 +211,7 @@ async function startScreen() {
     const r = await withPin("PIN to see the laptop screen", pin => api("/api/screen/start", pin ? { pin } : {}));
     if (r && r.monitor) monitorPx = [r.monitor[2], r.monitor[3]];
     viewing = true; note(lastHash || streaming ? "" : "Getting the first picture…");
-    if (!relay && streamFails < 3) attachStream(); else frames();   // the relay can't carry a stream: frame by frame
+    if (!relay && streamFails < 3) { attachStream(); measureLink(); } else frames();   // the relay can't carry a stream: frame by frame
   } catch (e) { note(e.message === "Cancelled" ? "Tap ⋯ More → Resume the screen" : e.message); }
 }
 // Owner 2026-11-07, "frames are still laggy": on the tailnet the screen is one continuous MJPEG stream (~18 frames/s),
@@ -281,7 +281,7 @@ function avcCodec(data) {   // "avc1.PPCCLL" from the keyframe's SPS (profile, c
   return "avc1.42e01f";
 }
 async function readVideo(signal, shown) {   // packets: [4-byte length][1 byte: 1 = keyframe][H.264 Annex B]
-  const quality = watching ? "w=1920&kbps=" + watchKbps() : "w=1280";   // Watch: sharper, as fast as the link allows
+  const quality = usedQuality = watching ? "w=1920&kbps=" + watchKbps() : normalQuality();   // never more than the link carries
   const response = await fetch("/api/screen/h264?" + quality + "&t=" + Date.now(), { credentials: "same-origin", signal });
   if (!response.ok || !response.body) throw new Error("no video");
   const canvas = $("video"), paint = canvas.getContext("2d"), reader = response.body.getReader();
@@ -659,6 +659,21 @@ $("sound").addEventListener("click", () => setSound(!sound.on));
 // stream, no buttons. The ✕ brings everything back as it was.
 let watching = false, soundBeforeWatch = false, measuredKbps = +kept("chutku-kbps") || 0;
 const watchKbps = () => Math.round(Math.min(8000, Math.max(1500, measuredKbps ? measuredKbps * 0.7 : 2500)));
+// Owner 2026-11-08, "faster": the video never asks for more than the link carries (over Tailscale's relay a full
+// buffer is seconds of lag). The link is measured once a session in the background (1 MB, kept 15 min) or by the
+// speed test; the everyday view uses half of it (0.5-3 Mbit/s), 960 px wide below 1.5 Mbit/s.
+let measuredAt = +kept("chutku-kbps-at") || 0, usedQuality = "";
+const normalQuality = () => { const link = measuredKbps || 4000;
+  return `w=${link < 1500 ? 960 : 1280}&kbps=${Math.round(Math.min(3000, Math.max(500, link * 0.5)))}`; };
+function setLink(kbps) { measuredKbps = kbps; measuredAt = Date.now(); keep("chutku-kbps", String(Math.round(kbps))); keep("chutku-kbps-at", String(measuredAt)); }
+async function measureLink() {
+  if (relay || Date.now() - measuredAt < 15 * 60000) return;
+  try {
+    const t = performance.now(), r = await fetch("/api/speedtest?mb=1&t=" + Date.now(), { credentials: "same-origin" });
+    if (r.ok) setLink((await r.arrayBuffer()).byteLength * 8 / ((performance.now() - t) / 1000) / 1000);
+  } catch {}
+  if (streaming && !watching && videoWorks && usedQuality && usedQuality !== normalQuality()) attachStream();   // the right size now
+}
 function setWatch(on) {
   if (on === watching) return;
   watching = on; document.body.classList.toggle("watch", on); $("watch").classList.toggle("on", on);
@@ -762,7 +777,7 @@ $("speed-go").addEventListener("click", async () => {
     const t = performance.now(), r = await fetch("/api/speedtest?mb=4&t=" + Date.now(), { credentials: "same-origin" });
     if (!r.ok) throw new Error("The speed test was refused (" + r.status + ").");
     const bytes = (await r.arrayBuffer()).byteLength, mbps = bytes * 8 / ((performance.now() - t) / 1000) / 1e6;
-    measuredKbps = mbps * 1000; keep("chutku-kbps", String(Math.round(measuredKbps)));
+    setLink(mbps * 1000);
     out.textContent = `${mbps.toFixed(1)} Mbit/s laptop → phone, round trip ${Math.round(Math.min(...pings))} ms. Watch will use ${(watchKbps() / 1000).toFixed(1)} Mbit/s.`;
   } catch (e) { out.textContent = e.message; }
 });

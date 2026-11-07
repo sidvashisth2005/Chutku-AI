@@ -1112,7 +1112,12 @@ class _Grabber(threading.Thread):
                 except OSError:   # locked or a secure screen for a moment
                     time.sleep(1.0)
                     continue
-                self.latest = (shot, _changed(shot.pixels))
+                last = self.latest
+                same = last is not None and shot is last[0]   # the GPU said nothing changed: no checksum needed
+                if same:
+                    self.latest = last
+                else:   # a GPU frame is new only when the screen changed: no checksum (it held the GIL ~3 ms)
+                    self.latest = (shot, id(shot) if shot.window.get("gpu") else _changed(shot.pixels))
                 self.fresh.set()
                 time.sleep(max(0.0, VIDEO_FRAME - (time.monotonic() - started)))
         finally:

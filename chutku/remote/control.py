@@ -24,6 +24,7 @@ import time
 SESSION_MAX = 30 * 60
 IDLE_MAX = 10 * 60
 LOCAL_WINS_SECONDS = 10.0
+CLICK_SETTLE = 0.015   # the pointer is there 15 ms before the phone's click (was 50 ms + 60 ms after)
 DANGEROUS_APPS = frozenset({"cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe", "windowsterminal.exe",
                             "wt.exe", "conhost.exe", "openconsole.exe", "regedit.exe", "mmc.exe", "gpedit.msc",
                             "diskmgmt.msc", "securityhealthsystray.exe", "secHealthUI.exe".casefold(),
@@ -344,12 +345,15 @@ class Injector:
         from chutku import vision
         with vision.dpi_aware() as user32:
             user32.SetCursorPos(int(x), int(y))
-        if kind == "tap":
-            vision.click_at(x, y)
-        elif kind == "double":
-            vision.click_at(x, y, double=True)
-        elif kind == "right":
-            vision.click_at(x, y, button="right")
+        if kind in ("tap", "double", "right"):
+            # owner 2026-11-08, "faster": vision.click_at waits 50 ms before and 60 ms after each click (for Chutku's
+            # own automation); a finger needs only the app to see the pointer arrive first (hover), then the click
+            down, up = (0x0008, 0x0010) if kind == "right" else (0x0002, 0x0004)
+            time.sleep(CLICK_SETTLE)
+            vision._send((down, 0), (up, 0))
+            if kind == "double":
+                time.sleep(0.03)
+                vision._send((down, 0), (up, 0))
         elif kind == "down":
             vision._send((0x0002, 0))
         elif kind == "up":

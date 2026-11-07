@@ -16,6 +16,54 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (3): Phone remote faster: GPU capture, 17 ms clicks, video sized to the link
+- **Owner:** "can we make it even faster?", then "continue". That approved installing `dxcam`, which the permission
+  check had blocked.
+- **Path checked first:** still Tailscale DERP "bom", 83–85 ms, no direct connection. That is the largest remaining
+  cost and is not code. A shared Wi-Fi gives a direct path; otherwise a Peer Relay.
+- **GPU capture** (`vision.Capturer`, `dxcam==0.3.0`, MIT; added to `pyproject.toml` and the hash-locked
+  `requirements.lock`):
+  - The primary monitor comes from DXGI Desktop Duplication: 72 new frames/s and ~0.05 ms per grab on a changing
+    screen, where GDI gave ~22 frames/s at ~36 ms. The picture matches GDI (mean difference 0.0002).
+  - "Nothing changed" returns the same Shot object: no checksum, no encode.
+  - Another monitor, or a failure (locked, secure desktop, duplication lost), falls back to GDI and the GPU is tried
+    again 5 s later.
+  - dxcam keeps one camera per output for the process, so it is kept in `vision._GPU`; a broken one is released.
+- **The two threads competed for the GIL:**
+
+  | Measured | Frames/s |
+  |---|---|
+  | Capture alone | 59 |
+  | Grabber alone | 58 |
+  | Encode alone | 46 → 55 |
+  | Together, before | 24 |
+  | Together, after | 27.5 (cap 30) |
+
+  GPU frames now skip the 3 ms checksum (`id(shot)` is the change token). Animated-window test, same run: one after the
+  other 19.5 → pipelined 27.5 frames/s.
+- **Clicks** (`control.Injector`): the phone's tap, double tap and right click wait `CLICK_SETTLE` 15 ms for the
+  pointer to arrive, then click. `vision.click_at` (50 ms before, 60 ms after) is unchanged for Chutku's own
+  automation.
+  - Live on WinForms: the button Click fired; one double event gives MouseClick + MouseDoubleClick; right click gives
+    MouseClick Right; the phone's double tap (two taps 165 ms apart) gives a double click.
+  - 17–18 ms per click, was ~110 ms (104 ms only on the very first call).
+- **Video sized to the link** (`phone.js` `measureLink`, `normalQuality`):
+  - The link is measured once a session in the background (1 MB `/api/speedtest`, kept 15 min) or by the speed test.
+  - The everyday view asks for half of it (0.5–3 Mbit/s), at 960 px below 1.5 Mbit/s, and restarts the stream when the
+    size should change, so the relay's buffer doesn't fill with seconds of lag.
+  - Watch keeps 70% (1.5–8 Mbit/s).
+- **Verified:**
+  - `tests/test_phone_remote_w6.py` 43 OK. New tests:
+    - GPU capture: an unchanged frame is the same Shot, a lost camera is released, GDI for 5 s;
+    - quick, exact clicks: the right SendInput pairs, ≤0.1 s of waits.
+  - Playwright against a fake 1.26 Mbit/s link: the video started at `w=1280&kbps=2000`, measured 1260 kbit/s, and
+    restarted at `w=960&kbps=630`.
+  - End-to-end scripts rerun: new features 15/15, gestures 11/11, features 15/15, H.264 + fallback PASS.
+  - Live, the real server code on the real screen: GPU capture used (`vision._GPU` set), NVENC, 70 packets → 70 decoded
+    1280×720 frames in 3.1 s, ~1 KB each after a 61 KB keyframe.
+  - Full suite: 1648 OK.
+  - **Not yet tried on the owner's real phone.**
+
 ### 2026-11-08 (2): Phone remote: gestures, laptop sound, Watch, window switcher, voice click/typing, read aloud, speed test, faster capture
 - **Owner request:** double-tap and gestures; sound with the video; a Watch button (only video and sound, full screen);
   ~29 frames/s; voice click; window switcher; read aloud; voice typing; how much bandwidth Tailscale gives.
