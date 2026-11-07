@@ -16,6 +16,16 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: RustDesk removed (owner: Chutku only, no other remote-desktop software)
+- `scripts/setup_boot_access.ps1` no longer installs RustDesk. It now uninstalls it if an earlier run did (MSI
+  product code, quiet).
+- The boot notice now says the laptop is on, that Chutku starts once someone signs in, and gives the phone link.
+- Kept: Tailscale unattended (the laptop joins the tailnet at boot) and the LOCAL SERVICE Telegram notice.
+- Chutku does not type on the Windows login or lock screen. That secure desktop is reachable only by system-level
+  software, and Chutku stays a normal, non-admin program. After a restart, someone signs in at the laptop once;
+  everything else then works from the phone.
+- Both scripts parse. The uninstall on this PC runs with the owner's one UAC click (`Setup-Boot-Access.cmd`).
+
 ### 2026-11-07: Telegram bot live (@chutkuai_bot) with the phone link; boot access via RustDesk + Tailscale (setup ready)
 - **The owner's BotFather token** is stored in Credential Manager. It went through stdin, never on a command line.
   `getMe` returns @chutkuai_bot. The token also appeared in the chat, so rotating it with BotFather `/revoke` is

@@ -2,8 +2,7 @@
 .SYNOPSIS
     One-time setup (run as administrator, owner 2026-11-07): reach the laptop from the phone right after it boots.
       1. Tailscale unattended: the laptop joins your tailnet at boot, before anyone signs in.
-      2. RustDesk 1.5.1 (official MSI, SHA-256 checked): its service shows the Windows login screen, so you can type
-         your password from the phone. It accepts only Tailscale addresses (100.64.0.0/10); you set its password here.
+      2. RustDesk is removed if an earlier version of this setup installed it (owner 2026-11-07: Chutku only).
       3. A startup task (LOCAL SERVICE) sends "Laptop is on" with the unlock steps to your paired Telegram chat.
     Chutku itself never runs elevated: after you sign in it starts as before.
 .EXAMPLE
@@ -37,29 +36,21 @@ $ip = (& $tailscale ip -4 | Select-Object -First 1).Trim()
 $dns = ((& $tailscale status --json | ConvertFrom-Json).Self.DNSName).TrimEnd(".")
 Write-Host "Laptop on Tailscale: $ip ($dns)"
 
-# --- 2. RustDesk for the login screen ---------------------------------------------------------------------------
-Step "RustDesk: unlock the laptop from the phone"
-$rustdesk = Join-Path $env:ProgramFiles "RustDesk\rustdesk.exe"
-if (-not (Test-Path $rustdesk)) {
-    $msi = Join-Path $env:TEMP "rustdesk-1.5.1-x86_64.msi"
-    Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.5.1/rustdesk-1.5.1-x86_64.msi" -OutFile $msi
-    $hash = (Get-FileHash $msi -Algorithm SHA256).Hash.ToLower()
-    if ($hash -ne "71069183cbc6124273138684ab4032d2211e83efa035886f9c774fe1d3eba3f0") { Remove-Item $msi; Fail "the RustDesk download did not match its published SHA-256." }
-    Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/qn", "/norestart" -Wait
-    Remove-Item $msi
-    Start-Sleep -Seconds 5
+# --- 2. RustDesk removed (owner 2026-11-07: no other remote-desktop software; Chutku only) -----------------------
+Step "Removing RustDesk (no longer used)"
+$entries = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*", `
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
+    Where-Object { $_.DisplayName -like "RustDesk*" }
+foreach ($entry in $entries) {
+    if ($entry.PSChildName -match "^\{[0-9A-Fa-f-]+\}$") {
+        Start-Process msiexec.exe -ArgumentList "/x", $entry.PSChildName, "/qn", "/norestart" -Wait
+    } elseif ($entry.UninstallString) {
+        Start-Process cmd.exe -ArgumentList "/c", "`"$($entry.UninstallString)`" --silent-uninstall" -Wait
+    }
 }
-if (-not (Test-Path $rustdesk)) { Fail "RustDesk did not install." }
-& $rustdesk --option direct-server Y | Out-Null            # connect by the laptop's Tailscale address
-& $rustdesk --option whitelist "100.64.0.0/10" | Out-Null   # only devices on your Tailscale network
-Write-Host "Choose RustDesk's permanent password (you will type it in the RustDesk app on the phone)."
-$first = Read-Host "RustDesk password (6+ characters)" -AsSecureString
-$again = Read-Host "Again" -AsSecureString
-$plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($first))
-$check = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($again))
-if ($plain -ne $check -or $plain.Length -lt 6) { Fail "the passwords differ or are shorter than 6 characters." }
-& $rustdesk --password $plain | Out-Null
-$plain = $null; $check = $null
+Stop-Service RustDesk -ErrorAction SilentlyContinue
+if (Get-Service RustDesk -ErrorAction SilentlyContinue) { Write-Host "RustDesk's service is still there: remove it in Settings > Apps." -ForegroundColor Yellow }
+else { Write-Host "RustDesk is not installed." }
 
 # --- 3. the boot notice -----------------------------------------------------------------------------------------
 Step "Telegram: 'Laptop is on' at every boot"
@@ -85,5 +76,5 @@ Register-ScheduledTask -TaskName "ChutkuBootNotice" -Action $action -Trigger (Ne
     -Principal $principal -Settings $settings -Force | Out-Null
 Start-ScheduledTask -TaskName "ChutkuBootNotice"
 Write-Host "`nDone. A test 'Laptop is ON' message is on its way to your Telegram." -ForegroundColor Green
-Write-Host "On the phone: install RustDesk (Play Store), connect to $ip with the password you just set."
+Write-Host "After a restart, sign in at the laptop once; Chutku then sends the phone link on Telegram."
 Read-Host "Press Enter to close"
