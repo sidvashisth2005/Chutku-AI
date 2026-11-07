@@ -39,7 +39,35 @@ INBOX = Path(user_folder("ChutkuInbox"))
 BLOCKED_SUFFIXES = {".exe", ".msi", ".bat", ".cmd", ".ps1", ".vbs", ".js", ".scr", ".lnk", ".com", ".hta", ".jar"}
 # Steps that may never be approved from the phone, whatever the PIN: they wait for the laptop's own card.
 LAPTOP_ONLY_PREFIXES = ("never.", "remote.", "power.", "filesystem.delete_permanent", "process.terminate",
-                        "network.")
+                        "network.", "telegram.")
+
+
+def laptop_only(approval, runs_code):
+    """True when this pending step may be approved only on the laptop (phone app and Telegram, H16): the
+    laptop-only tools, R4, an unknown recipient, and anything that runs code. `runs_code(tool)` answers True for an
+    unknown tool, so the laptop decides."""
+    tool = str(approval.get("tool") or "")
+    if tool.startswith(LAPTOP_ONLY_PREFIXES):
+        return True
+    risk = approval.get("risk")
+    if isinstance(risk, (int, float)) and risk >= 4:
+        return True
+    reason = str(approval.get("reason") or "").casefold()
+    if "not in memory" in reason or "new recipient" in reason or "unknown" in reason:
+        return True
+    return bool(runs_code(tool))
+
+
+def runs_code_at(base):
+    """runs_code(tool) for the real registry of this Chutku (True for an unknown tool)."""
+    def runs_code(tool):
+        try:
+            from chutku.app import create_runtime
+            with create_runtime(base) as runtime:
+                return bool(getattr(runtime.registry.get(tool), "runs_code", False))
+        except (KeyError, ValueError, OSError):
+            return True
+    return runs_code
 
 
 class RemoteServer(ThreadingHTTPServer):
@@ -314,21 +342,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
         return view
 
     def _laptop_only(self, approval):
-        tool = str(approval.get("tool") or "")
-        if tool.startswith(LAPTOP_ONLY_PREFIXES):
-            return True
-        risk = approval.get("risk")
-        if isinstance(risk, (int, float)) and risk >= 4:
-            return True
-        reason = str(approval.get("reason") or "").casefold()
-        if "not in memory" in reason or "new recipient" in reason or "unknown" in reason:
-            return True
-        try:
-            from chutku.app import create_runtime
-            with create_runtime(self.server.core.base) as runtime:
-                return bool(getattr(runtime.registry.get(tool), "runs_code", False))
-        except (KeyError, ValueError, OSError):
-            return True     # unknown tool: the laptop decides
+        return laptop_only(approval, runs_code_at(self.server.core.base))
 
     def _post_chat(self, record, data):
         message = str(data.get("message") or "").strip()

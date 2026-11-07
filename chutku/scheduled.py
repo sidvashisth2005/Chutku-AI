@@ -222,6 +222,8 @@ def watch(server, stop, tick=TICK_SECONDS):
                     shown = finished(server.base, job_id, snapshot)
                     if shown:
                         _notify(*shown)
+                        from chutku.gateway import telegram   # H16: also on the phone while handed off
+                        telegram.deliver(server.base, "\n".join(str(part) for part in shown), kind="scheduled")
             from chutku import pause
             if ActionControl(server.base).paused or pause.engaged(server.base):
                 continue   # paused by the owner: due tasks wait (one-off tasks run when resumed, if not too late)

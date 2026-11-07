@@ -48,3 +48,31 @@ def autonomy_for(goal, mode):
     if mode != "review" and (PRE_APPROVAL.search(text) or DONT_ASK.search(text)):
         return "trusted"
     return mode
+
+
+# H9: the owner picks the brain for this one request ("local se karo: aaj kya date hai", "gemini se pucho ...").
+_LOCAL = r"(?:local|offline|laptop|bina\s+internet(?:\s+ke)?)"
+_CLOUD = r"(?:gemini|cloud|online|groq)"
+_DO = r"(?:se|model\s+se|brain\s+se)\s+(?:karo|kar\s+do|batao|bata\s+do|pucho|poocho|jawab\s+do|socho)"
+_PREFIX = re.compile(rf"^\s*(?:(?P<local>{_LOCAL})|(?P<cloud>{_CLOUD}))\s+{_DO}\b[\s:,-]*|"
+                     rf"^\s*(?:use\s+(?:the\s+)?(?:(?P<local2>local|offline)|(?P<cloud2>gemini|cloud))"
+                     rf"(?:\s+(?:model|brain))?|ask\s+(?P<cloud3>gemini|the\s+cloud))\b[\s:,-]*", re.I)
+_SUFFIX = re.compile(rf"[\s,]*\b(?:(?P<local>{_LOCAL})|(?P<cloud>{_CLOUD}))\s+{_DO}\s*[.!?]?\s*$", re.I)
+
+
+def brain_choice(goal):
+    """("local" | "cloud" | None, the request without the brain words). The words must come first or last, so
+    "gemini se kya fark hai" (a question about Gemini) is not a choice."""
+    from chutku.translit import roman
+    text = " ".join(roman(goal or "").split())
+    for pattern in (_PREFIX, _SUFFIX):
+        match = pattern.search(text)
+        if match is None:
+            continue
+        rest = (text[:match.start()] + " " + text[match.end():]).strip(" ,:-")
+        if not rest:   # "local se karo" alone names no request
+            return None, text
+        groups = match.groupdict()
+        local = any(groups.get(key) for key in ("local", "local2"))
+        return ("local" if local else "cloud"), rest
+    return None, text

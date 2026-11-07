@@ -1,6 +1,6 @@
 # Chutku Implementation Status
 
-**Last updated:** 2026-11-05
+**Last updated:** 2026-11-07
 **Source of truth for scope:** [docs/DESIGN.md](docs/DESIGN.md)
 
 This file is the implementation ledger. Update it in the same change as every code, configuration, benchmark, or documentation change. A checked item means it exists and has been verified to the stated degree; it does not imply a broader roadmap phase is complete.
@@ -15,6 +15,118 @@ Stage 5 still needs the owner's consented live microphone run and 200 human tria
 Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
+
+### 2026-11-07: The cloud session's H9/H14/H15/H18/H23/H26 merged and verified on the PC (H16 waits for a token)
+Full details are in `docs/HANDOFF.md` section 5.
+
+**Windows-only bugs fixed**
+- `doctor._sqlite_ok` left connections open, so moving a damaged file aside failed.
+- 4 tests imported `agent_fakes` as a top-level module.
+
+**Live bugs fixed**
+- **H14:** the planner prompts forbade moving many files at once, and the menu never offered `steps.for_each`.
+- **H15:** the research child got only the topic and stopped after one search.
+
+**After the fixes, live**
+
+| Feature | Request | Result |
+|---|---|---|
+| H14 | Move 12 PDFs | One card, 14.0 s; `os.listdir` checked (12 moved, the .txt stayed) |
+| H15 | Research | 3 pages read, 25 s |
+| H18 | Steer | 0.06 s |
+| H9 | Local only | 13.7 s, correct |
+| H23 | Briefing scheduled | 0.61 s |
+| H26 | Checkup | 0.74 s |
+
+`check_phrases` is 159/159. The full suite was run before committing.
+
+### 2026-11-07: cloud session: H9, H14, H15, H16, H18, H23, H26 (code + Linux tests; Windows and live checks pending)
+
+Written in a Linux cloud container with no Windows, models, microphone or apps; the owner's PC session runs the
+Windows suite and the live paths. Full description and the to-do for the PC: `docs/HANDOFF.md`. **None of these boxes
+is ticked in `MASTER_PLAN.md`: the AGENTS.md live gate has not been met on the PC.**
+
+**What each slice does**
+- **H14 for-each** (`chutku/for_each.py`, `agent_loop._expand`): one planned step repeats a low-risk tool for each
+  item of an earlier step's list. Each item still runs through `Runtime.run`. There is one card; S15 content makes
+  every item ask again.
+- **H18 busy mode** (`chutku/busy.py`, `dashboard.begin_session`):
+  - steer → `CONTEXT.owner_said_now`;
+  - "baad mein karna" waits in line;
+  - "pehle ye karo" goes to the front.
+- **H9 (rest)** (`brain_errors.py`, `tone.brain_choice`, `dashboard.planners(choice)`):
+  - "local se karo" / "gemini se pucho" pick the brain for one request;
+  - offline mode plus a cloud request is refused;
+  - when every brain fails, the reply names why.
+- **H26** (`doctor.repair`, `chutku.cli doctor --fix`, `system.self_repair`, "khud ko theek karo"). Reversible fixes
+  only; damaged files are kept as `*.broken-<time>`.
+- **H23** (`blueprints.py`, `quick_intents._shortcut/_shortcut_save`): 6 automations that become `task.schedule`
+  steps, plus spoken shortcuts saved as checked routines.
+- **H15** (`board.py`, `research.py`): a SQLite board and a dispatcher:
+  - max 2 workers, stall 90 s, 2 retries;
+  - breaker 3/hour, pause-aware, recovery at start;
+  - research children use only the public web (`AllowlistRuntime`).
+- **H16** (`gateway/telegram.py`):
+  - outbound long poll, pairing with lockout, one chat, silent ignore;
+  - single-use bound approval nonces, `laptop_only` shared with the phone app;
+  - rate limit, handoff, results delivery;
+  - `chutku.cli telegram ...` and `/api/telegram`.
+
+**Bugs fixed**
+- `history_index.sync` re-indexed H29-forgotten turns as visible. The new test fails on the old code (2 failures)
+  and passes now.
+- "daal/daalo/dalo/rakho/bhejo" were missing from the planner's action words.
+- Found by this session's own review before commit:
+  - "pehle meri file dhundo, phir …" was routed to web research;
+  - "main wapas aa gaya" without Telegram gave an error instead of a greeting;
+  - a `board_add` regex alternation without a group captured "DB";
+  - the repair summary said "fine" while model files were missing;
+  - CRLF line endings were rewritten as LF (restored).
+
+**Evidence (Linux, Python 3.13, 2026-11-07)**
+- Baseline before any change: `scripts/ci_tests.py` ran 1,412 tests; 583 fail on Linux (Windows-only: drive grants,
+  `ctypes.windll`, PowerShell).
+- After: 1,490 tests (+78 new). The failing set is identical to the baseline (`comm` of the sorted failure IDs: no
+  new failure).
+- New tests, all OK:
+
+  | File | Tests |
+  |---|---|
+  | `test_for_each` | 14 |
+  | `test_busy` | 7 |
+  | `test_brain_choice_h9` | 8 |
+  | `test_doctor_fix` | 8 |
+  | `test_blueprints` | 8 |
+  | `test_board` | 16 (3 consecutive runs) |
+  | `test_telegram_gateway` | 17 |
+- Negative cases that fail closed:
+  - a bulk `message.send` for-each is refused and nothing is sent;
+  - a mid-way DENY stops the rest;
+  - a steer saying "approval mat lena" still asks;
+  - offline mode refuses "gemini se …";
+  - a research child proposing `files.find` is DENIED;
+  - an unpaired Telegram chat gets no reply;
+  - wrong codes lock pairing, and a replayed or expired nonce is refused;
+  - R4 and code steps get no buttons;
+  - the owner's pause is never lifted;
+  - the read-only doctor changes no byte of `data/` (SHA-256 before and after).
+- `scripts/check_phrases.py`: 153/159. The 6 misses are identical on unmodified `main` in this container; all 14
+  new phrases are instant.
+- All 17 new phrase plans pass the real `validate_proposal` against the real schemas.
+- Real CLI paths:
+  - `python -m chutku.cli doctor --fix` gives a repair report: 0 fixed, 0 broken, model files reported missing in
+    this container;
+  - `python -m chutku.cli telegram status` gives `{"token_stored": false, "paired": false, "handoff": false}`.
+- `docs/SECURITY.md` counts are by arithmetic (+10 tools: 3 R0, 7 R1, none runs code): `test_docs_truth` must
+  confirm them on Windows.
+
+**Not done / limits**
+- Windows suite and every live path (list in `docs/HANDOFF.md` §2).
+- Telegram voice notes were never run (PyAV decode + Whisper).
+- The H9 key pool is not built.
+- The H23 habit suggestions and the Automations tab are not built.
+- The H15 Board tab UI is not built (the API is there).
+- A14/A15/A16 need lab-verified GUI actions on the PC (`docs/HANDOFF.md` §3).
 
 ### 2026-11-07: Learning with the owner's OK: procedures (H11), lessons (H10), inbox (H12), curator (H13), "ye seekh lo" (H27), journey (H28)
 

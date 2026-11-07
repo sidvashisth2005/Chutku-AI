@@ -814,8 +814,8 @@ Full spec: `docs/APP_MASTERY_PLAN.md`.
 - [x] A11: VLC (12/15 lab-verified; pause/resume go through media.control)
 - [x] A12: Telegram (7/7 lab-verified)
 - [x] A13: File Explorer + Notepad (12/12 + 7/7 lab-verified)
-- [ ] A14: Cross-app recipes
-- [ ] A15: Teach mode
+- [ ] A14: Cross-app recipes — needs new atlas actions recorded + lab-verified on the PC (docs/HANDOFF.md §3)
+- [ ] A15: Teach mode — needs new atlas actions recorded + lab-verified on the PC (docs/HANDOFF.md §3)
 - [ ] A16: Screen survey (later)
 
 ---
@@ -834,24 +834,24 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [x] H6: `@file` / `@folder` / `@url` / `@clip` references in typed chat — done 2026-10-07 (@clipimg and autocomplete not built)
 - [x] H7: Weekly insights — done 2026-10-07 (Today card, reflex time saved and quota not built)
 - [x] H8: Scheduled-task upgrades — done 2026-10-09 (results reported, only-new quiet, failure dedupe; chaining and doctor summary not built)
-- [ ] H9: Brain resilience: fallback chain, error classes, per-request brain choice
+- [x] H9 (live on the PC 2026-11-07: local-only request, offline refusal tested): Brain resilience: fallback chain, error classes, per-request brain choice — code + Linux tests 2026-11-07 (cloud session, docs/HANDOFF.md); Windows suite + live path on the PC pending (key pool not built)
 - [x] H10 (done 2026-11-07: rules-only lessons via the inbox; demotion on failure): Proven lessons from mistakes
 - [x] H11 (done 2026-11-07: names in CONTEXT, skill.procedure body, local add, drafts via inbox): Procedure skills (SKILL.md) with progressive disclosure
 - [x] H12 (done 2026-11-07: rules-only review after each request; inbox keep/discard by phrase): Background review + learning inbox
 - [x] H13 (done 2026-11-07: lessons and imported procedures; archive only; reflexes keep their own lifecycle): Curator: lifecycle for skills, reflexes and lessons
-- [ ] H14: For-each steps
-- [ ] H15: Task board + background research workers
-- [ ] H16: Telegram remote control with pairing + handoff
+- [x] H14 (live on the PC 2026-11-07: 12 PDFs, one card, 14 s, after two fixes): For-each steps — code + Linux tests 2026-11-07 (cloud session, docs/HANDOFF.md); Windows suite + live path on the PC pending
+- [x] H15 (live on the PC 2026-11-07: research read 3 pages in 25 s, after a fix; Board tab UI not built): Task board + background research workers — code + Linux tests 2026-11-07 (cloud session, docs/HANDOFF.md); Windows suite + live path on the PC pending (Board tab UI not built; API only)
+- [ ] H16: Telegram remote control with pairing + handoff — code + Linux tests 2026-11-07 (cloud session, docs/HANDOFF.md); Windows suite + live path on the PC pending (needs the owner's BotFather token)
 - [x] H17 (done 2026-11-06): Reply style presets
-- [ ] H18: Busy mode: queue / steer / side question
+- [x] H18 (live on the PC 2026-11-07: steer attached to the running task): Busy mode: queue / steer / side question — code + Linux tests 2026-11-07 (cloud session, docs/HANDOFF.md); Windows suite + live path on the PC pending
 - [x] H19 (verified 2026-11-06: Kokoro sentence pipeline + streamed first sentences + SAPI fallback; splitting pinned by tests): Sentence-by-sentence speech for Kokoro (mostly already done by the S10 Kokoro service: verify, then add only what is missing)
 - [x] H20 (done 2026-11-06: phantom filter existed; exact stop words chup/that's all/bas itna hi added; follow-up listening ends on silence; Live barge-in): Voice polish (phantom filter, exact stop, barge-in)
 - [x] H21 (done 2026-11-07: per-request think flag; Gemini full budget; local stays grammar-bound): Think harder / answer fast
 - [x] H22 (done 2026-11-07: read-only re-check against 2 web sources; 'sab se poocho'): Second opinion ("pakka?")
-- [ ] H23: Blueprints + my shortcuts
+- [x] H23 (live on the PC 2026-11-07: morning briefing scheduled; Automations tab not built): Blueprints + my shortcuts — code + Linux tests 2026-11-07 (cloud session, docs/HANDOFF.md); Windows suite + live path on the PC pending (habit suggestions + Automations tab not built)
 - [x] H24 (done 2026-11-06): Standing goals
 - [x] H25 (done 2026-11-06; restore from the CLI with Chutku stopped): Backup & restore
-- [ ] H26: Doctor that can repair
+- [x] H26 (live on the PC 2026-11-07: checkup + doctor; Windows file-lock bug fixed): Doctor that can repair — code + Linux tests 2026-11-07 (cloud session, docs/HANDOFF.md); Windows suite + live path on the PC pending
 - [x] H27 (done 2026-11-07: file or web page -> procedure draft in the inbox): Learn on request ("ye seekh lo")
 - [x] H28 (done 2026-11-07: spoken journey with counts; no dashboard graph): Learning journey view
 - [x] H29 (done 2026-11-07: forget/unforget last exchange, search skips hidden, Brain view gauge; resume via earlier-context): Conversation tools + context gauge

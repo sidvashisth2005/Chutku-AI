@@ -2,6 +2,10 @@
 
 This log says what was done, what is finished, and what remains of the plan, so the next session can start at once.
 
+> **2026-11-07, cloud session:** H9 (rest), H14, H15, H16, H18, H23 and H26 written with 78 Linux tests on branch
+> `claude/youthful-faraday-av41ls`. The Windows suite and the live checks are still to run on the PC:
+> [`docs/HANDOFF.md`](HANDOFF.md).
+
 - Evidence for every item is in `IMPLEMENTATION_STATUS.md` (newest first).
 - The plan with tick boxes is in `docs/MASTER_PLAN.md`, Phases 5, 6, 7 and 8.
 - Every helper-agent prompt is in `docs/AGENT_PROMPTS.md` (#12–#21).

@@ -48,4 +48,14 @@ def create_runtime(base: Path = PROJECT_ROOT, grant_id: str = "sandbox") -> Runt
     register_goal_tools(registry, base)
     from chutku.backup import register_backup_tools   # H25: memory backups (restore only from the CLI, Chutku stopped)
     register_backup_tools(registry, base)
+    from chutku.for_each import register_for_each_tool   # H14: one step repeats a tool for a list's items
+    register_for_each_tool(registry)
+    from chutku.doctor import register_doctor_tools   # H26: 'khud ko theek karo'
+    register_doctor_tools(registry, base)
+    from chutku.blueprints import register_blueprint_tools   # H23: ready-made automations
+    register_blueprint_tools(registry)
+    from chutku.board import register_board_tools   # H15: task board + background research
+    register_board_tools(registry, base)
+    from chutku.gateway.telegram import register_telegram_tools   # H16: handoff to Telegram
+    register_telegram_tools(registry, base)
     return runtime

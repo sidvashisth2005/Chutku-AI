@@ -161,6 +161,23 @@ class QuickIntentTests(unittest.TestCase):
         samples["goals.done"] = {"summary": "2. viva: pura!"}
         samples["backup.list"] = {"backups": [{"name": "chutku-20261107-0100.zip", "bytes": 4096}], "folder": "D:\\B"}
         samples["backup.create"] = {"path": "D:\\B\\chutku-20261107-0100.zip", "files": 119, "bytes": 1742023}
+        # H15, H16, H23, H26: the real reply builders, on real data
+        from tempfile import TemporaryDirectory as _Temp
+        from chutku import blueprints, board, doctor
+        with _Temp() as temp:
+            board.add(temp, "DBMS notes banana")
+            board.add(temp, "best free pdf editor", kind="research")
+            board_text = board.summary(temp)
+            repaired = doctor.summary(doctor.repair(temp, fix=False))
+        samples["board.list"] = {"summary": board_text}
+        samples["board.add"] = {"summary": "Board pe daal diya: 1. DBMS notes banana."}
+        samples["board.done"] = {"summary": "1. DBMS notes banana: ho gaya."}
+        samples["board.again"] = {"summary": "Theek hai, dobara research karti hoon."}
+        samples["task.delegate"] = {"summary": "Research shuru: 'best free pdf editor'. Ho jaane pe bata dungi."}
+        samples["blueprint.list"] = {"summary": blueprints._list({}, None).output["summary"]}
+        samples["system.self_repair"] = {"summary": repaired}
+        samples["telegram.handoff"] = {"summary": "Theek hai, agle 4 ghante results aur approvals Telegram pe bhi "
+                                                  "bhejungi."}
         samples_empty = {"apps.installed": {"query": "Steam", "apps": [], "count": 0, "truncated": False}}
         samples_empty["mind.who"] = {"name": "mammi", "known": False}
         samples_empty["mind.show"] = {"part": "all", "people": [], "facts": {}, "lists": {}}

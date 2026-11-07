@@ -493,6 +493,26 @@ Give the order once. Chutku saves it, keeps talking and working normally, does t
 - **Notifications:** a Windows notification "Chutku: scheduled task" shows when one starts.
 - **Typing into another app on a timer** (for example "continue" into the Claude chat in VS Code) is **not reliable yet**. Chutku has to find the window and the right box each time, and if the focus is wrong the text lands somewhere else. For Claude specifically, use Claude Code's own `/loop 15m continue`.
 
+### New in the 2026-11-07 cloud session (written and unit-tested; check them live on your PC first)
+
+| Say | What happens |
+|---|---|
+| "Downloads ki saari PDFs Study folder mein daal do" | the planner finds them, then moves all of them in one step; one card lists every file (H14) |
+| While a task runs: "aur haan, list bhi dikhana" / "nahi, D drive wala folder" / "also …" | added to the running task; it reads it before its next step. It never removes an approval (H18) |
+| While a task runs: "spotify kholo baad mein karna" / "pehle ye karo: volume 30" | waits until the current task ends / goes first in the line (H18) |
+| "local se karo: aaj kya date hai" / "gemini se pucho best laptop under 50000" | this one request uses only the local model / the cloud. With offline mode on, a cloud request is refused (H9) |
+| "khud ko theek karo" / "apna checkup karo" | repairs what is safe (the watchdog's pause, a damaged history index or cache, the local model) / only checks. Your own pause is never lifted (H26). Also `chutku.cli doctor --fix` |
+| "research karke batao best free PDF editor" / "pehle X pata karo, phir Y" | researches on the public web in the background (it can't see your files); a notification when done, the full text in `data/research/` (H15) |
+| "ye kaam board pe daal do: DBMS notes banana" / "board dikhao" / "kya kya pending hai" / "board task 3 ho gaya" / "research 2 dobara karo" | your to-do board: Chutku tracks your own tasks but never does them (H15) |
+| "subah ka briefing set karo 8 baje" / "weekly backup" / "har roz cricket ki news batana" / "kaun si automations hain" / "automation weekly-insights day=sun time=20:00" | ready-made automations; they become normal scheduled tasks (cancel them like any scheduled task) (H23) |
+| "jab main 'padhai time' bolun to volume 30 karo aur lock the pc" → later just "padhai time" | your own shortcut: up to 4 instant commands, checked when saved (H23) |
+| "main bahar ja raha hoon, phone pe batana" / "main wapas aa gaya" | for 4 hours results and approvals also go to your Telegram (H16) |
+
+**Telegram (H16), once:** create a bot with @BotFather, then `chutku.cli telegram set-token`, restart Chutku, run
+`chutku.cli telegram pair` and send `/pair CODE` to your bot within an hour. Only that chat is answered. From
+Telegram, very risky steps, code and unknown recipients never get buttons: they wait for the PC. Unpair with
+`chutku.cli telegram unpair`.
+
 ---
 
 ## 4. Routines (one phrase, several actions)

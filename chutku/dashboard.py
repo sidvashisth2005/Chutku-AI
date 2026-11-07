@@ -184,6 +184,9 @@ class DashboardServer(ThreadingHTTPServer):
         self.queue_lock = threading.Lock()
         self.batch = []                # sessions of the current back-to-back run, for the summary
         self.parallel_running = 0      # side-by-side tasks now running (Y3, at most MAX_PARALLEL)
+        self.main_session = None       # the order holding the action lock (H18 steer target)
+        self.board = None              # H15 research dispatcher (chutku/board.py), real install only
+        self.telegram = None           # H16 Telegram gateway (chutku/gateway/telegram.py), when a token is stored
         self.enroll_clips = []         # Owner Voice Lock enrollment in progress (memory only)
         super().__init__(("127.0.0.1", port), DashboardHandler)
         self.origin = f"http://127.0.0.1:{self.server_port}"
@@ -261,14 +264,19 @@ class DashboardServer(ThreadingHTTPServer):
         return thread
 
     # -- agent sessions ---------------------------------------------------------
-    def planners(self):
+    def planners(self, choice=None):
+        """(lead planner, fallback). H9 choice for one request: "local" = only the local models (4B, then 8B);
+        "cloud" = the free cloud models lead even when the owner's default is local (never in offline mode)."""
         if self.planner_factory is not None:
             return self.planner_factory()
-        from chutku.brain_service import shared_service
-        from chutku.cloud_planner import cloud_first_planner, fallback_planner
+        from chutku.brain_service import shared_service, strong_service
+        from chutku.cloud_planner import BackupPlanner, cloud_first_planner, fallback_planner
         local = LocalAgentPlanner(shared_service(self.base))
         prefs = self.preferences.load()
-        if prefs.get("brain") == "cloud_first" and not prefs.get("offline_mode"):
+        if choice == "local":
+            strong = strong_service(self.base)
+            return local, (BackupPlanner(None, strong) if strong is not None else None)
+        if (prefs.get("brain") == "cloud_first" or choice == "cloud") and not prefs.get("offline_mode"):
             # W2 (owner, 2026-10-29: "free cloud first"): Groq/Cerebras/Gemini plan; the local model takes over
             # only when they fail, and never leads while the cloud is up (cheap_second_opinion False).
             cloud = cloud_first_planner(self.base)
@@ -291,20 +299,24 @@ class DashboardServer(ThreadingHTTPServer):
                 _log().warning("warming the local model failed", exc_info=True)  # the first request retries
         threading.Thread(target=work, name="chutku-brain-prime", daemon=True).start()
 
-    def start_agent_work(self, session, action, *, queue=True):
+    def start_agent_work(self, session, action, *, queue=True, placement=None):
         """Run agent work on a worker thread that owns the server action lock. While another order runs, a new
-        one waits in line (status "queued") and starts by itself: give several orders and walk away."""
+        one waits in line (status "queued") and starts by itself: give several orders and walk away.
+        H18 placement: "later" always waits in line (never a side slot); "first" waits at the front of the line."""
         if self.action_lock.acquire(blocking=False):
             self._run_work(session, action)
             return
-        if queue and self._parallel(session, action):
+        if queue and placement is None and self._parallel(session, action):
             return
         if not queue:
             raise ExecutionBusy("Another action is running. Wait for it to finish.")
         with self.queue_lock:
             if len(self.work_queue) >= MAX_QUEUED:
                 raise ExecutionBusy(f"{MAX_QUEUED} orders are already waiting. Let some finish first.")
-            self.work_queue.append((session, action))
+            if placement == "first":
+                self.work_queue.insert(0, (session, action))
+            else:
+                self.work_queue.append((session, action))
         with session.lock:
             session.status = "queued"
         self._next_work()  # the running order may have finished in the meantime
@@ -365,6 +377,7 @@ class DashboardServer(ThreadingHTTPServer):
         A side task (side=True, see _parallel) holds a parallel slot instead and leaves the guard's timer alone."""
         if not side:
             self.action_started = time.monotonic()
+            self.main_session = session   # H18: "aur haan, ..." steers this one
         with self.queue_lock:
             self.batch.append(session)
         with session.lock:
@@ -411,10 +424,39 @@ class DashboardServer(ThreadingHTTPServer):
                 else:
                     record_last_task(self.base, session.goal, session.status)
                     self.action_started = None
+                    self.main_session = None
                     self.action_lock.release()
                     self._next_work()
 
         threading.Thread(target=work, name="chutku-side-task" if side else "chutku-agent", daemon=True).start()
+
+    def board_view(self, include_done=False):
+        """H15: the board for the dashboard (open tasks; with include_done also finished ones) and running workers."""
+        from chutku import board
+        try:
+            rows = board.tasks(self.base)
+        except (OSError, ValueError) as error:
+            return {"tasks": [], "running": [], "error": str(error)}
+        if not include_done:
+            rows = [t for t in rows if t["status"] != "done"]
+        running = sorted(self.board.running) if self.board is not None else []
+        return {"tasks": rows[-30:], "running": running}
+
+    def start_board(self):
+        """H15: run research tasks beside normal work; respects the owner's pause (H2)."""
+        from chutku import board, pause, research
+        from chutku.health import notify
+
+        def paused():
+            return ActionControl(self.base).paused or pause.engaged(self.base)
+
+        def tell(title, message):
+            notify(title, message)
+            from chutku.gateway import telegram
+            telegram.deliver(self.base, f"{title}\n{message}", kind="research")   # H16: only if paired and handed off
+        self.board = board.Dispatcher(self.base, research.dashboard_worker(self), notify=tell, paused=paused)
+        self.board.start(self.closing)
+        return self.board
 
     def stop_session(self, session_id):
         session = self.agent_sessions.get(session_id)
@@ -447,7 +489,7 @@ class DashboardServer(ThreadingHTTPServer):
         if type(approve) is not bool:
             raise ValueError("Provide an explicit approve true/false decision.")
         session = self.agent_sessions.get(session_id)
-        planner, fallback = self.planners()
+        planner, fallback = self.planners(getattr(session, "brain", None))
 
         def resolve(router, beat):
             from chutku import recall
@@ -1271,6 +1313,24 @@ class DashboardServer(ThreadingHTTPServer):
                                                                  "ya dashboard ya tray mein Resume dabao.")
             ActionControl(self.base).resume()
             return self._control_session(goal, mode, origin, "Chalu ho gayi. Ab bolo, kya karna hai?")
+        placement = None
+        if busy and control is None:   # H18: "aur haan, ..." steers the running task; "baad mein karna" / "pehle ye karo"
+            from chutku import busy as busy_mode
+            kind, rest = busy_mode.route(goal)
+            running = self.main_session
+            if kind == "steer" and running is not None and busy_mode.add_note(running, rest):
+                return self._control_session(goal, mode, origin, f"Theek hai, chal rahe kaam mein ye bhi jod diya: "
+                                                                 f"\"{rest[:80]}\".", silent=silent)
+            if kind in ("later", "first"):
+                goal, placement = rest, kind
+        from chutku.intents.tone import brain_choice
+        brain, rest = brain_choice(goal)   # H9 "local se karo: ..." / "gemini se pucho ..."
+        if brain is not None:
+            goal = rest
+            if brain == "cloud" and self.preferences.load().get("offline_mode"):   # fail closed: nothing leaves
+                return self._control_session(goal, mode, origin, "Offline mode on hai, isliye main cloud ya Gemini "
+                                             "se nahi poochungi. Pehle 'offline mode band karo' bolo.",
+                                             status="clarify", silent=silent)
         from chutku import second_opinion
         recheck = second_opinion.rewrite(goal, self.base, origin)   # H22 "pakka?": a read-only re-check
         if recheck:
@@ -1335,8 +1395,15 @@ class DashboardServer(ThreadingHTTPServer):
             from chutku.reflex import ReflexPlanner
             session.quick = QuickPlanner()
             session.reflex = ReflexPlanner(self.base)
-        planner, fallback = self.planners()
+        session.brain = brain
+        planner, fallback = self.planners(brain)
         self.latest_session_id = session.id
+        if brain == "cloud" and self.planner_factory is None and not str(getattr(planner, "name", "")).startswith(
+                ("cloud", "gemini")):   # asked for the cloud, none is reachable: say so instead of planning locally
+            with session.lock:
+                session._finish("clarify", "Abhi koi cloud brain nahi mil raha (key nahi hai ya internet nahi hai). "
+                                           "Bina 'gemini se' ke bolo to local model se kar dungi.")
+            return session
 
         speech = SpeechQueue(self.base, goal) if origin == "voice" and not silent else None
         if speech is not None:
@@ -1361,7 +1428,7 @@ class DashboardServer(ThreadingHTTPServer):
                 speak_result(session, router)
             finally:
                 recall.log_session(session.snapshot(), base=self.base)   # remembered for later conversations
-        self.start_agent_work(session, run)
+        self.start_agent_work(session, run, placement=placement)
         return session
 
     @property
@@ -1523,8 +1590,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     except (OSError, ValueError, KeyError):
                         today["suggestions"] = []
                     response = (200, today | {
+                        "board": self.server.board_view(),   # H15: research results and the owner's to-dos
                         "interrupted": interrupted_task(self.server.base),
                         "paused_reason": paused_explanation(self.server.base, short=True) if today["actions_paused"] else None})
+                elif parts.path == "/api/board":
+                    response = (200, self.server.board_view(include_done=True))
                 elif parts.path == "/api/reliability":
                     response = (200, {"rows": runtime.ledger.table()})
                 elif parts.path == "/api/reflexes":
@@ -1648,7 +1718,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         path = urlsplit(self.path).path
         if path in {"/api/chat", "/api/agent/confirm", "/api/agent/stop", "/api/voice/ask", "/api/preferences",
-                    "/api/suggestions", "/api/reflexes", "/api/voice/enroll", "/api/nightshift"}:
+                    "/api/suggestions", "/api/reflexes", "/api/voice/enroll", "/api/nightshift", "/api/board/stop",
+                    "/api/telegram"}:
             self._reply(*self._agent_post(path, data))
             return
         if not self.server.action_lock.acquire(blocking=False):
@@ -1846,6 +1917,22 @@ def _agent_post(self, path, data):
                 return 200, {"kind": "direct", "result": result, "message": present(result)}
             session = server.begin_session(data["message"].strip(), mode, origin)
             return 200, {"kind": "agent", "session": session.snapshot()}
+        if path == "/api/telegram":   # H16: pairing happens only here (the loopback dashboard) or in the CLI
+            from chutku.gateway import telegram
+            if set(data) != {"action"} or data["action"] not in {"status", "pair", "unpair"}:
+                raise ValueError("Give action: status, pair or unpair.")
+            gateway = telegram.Gateway(server.base, server)
+            if data["action"] == "pair":
+                return 200, {"code": gateway.new_code(), "send_to_bot": "/pair <code>", "valid_minutes": 60}
+            if data["action"] == "unpair":
+                gateway.unpair()
+            return 200, {"token_stored": bool(telegram.token()), "paired": telegram.paired(server.base) is not None,
+                         "handoff": gateway.handed_off(), "running": server.telegram is not None}
+        if path == "/api/board/stop":   # H15: the running-workers strip's Stop button
+            if set(data) != {"id"} or type(data["id"]) is not int:
+                raise ValueError("Give the board task id.")
+            stopped = server.board is not None and server.board.stop_task(data["id"])
+            return 200, {"stopped": stopped, "board": server.board_view(include_done=True)}
         if path == "/api/suggestions":
             from chutku import suggest
             if set(data) != {"id", "action"}:
@@ -2091,6 +2178,9 @@ def serve(port: int = 8765, open_browser: bool = False, *, base=PROJECT_ROOT, he
             from chutku import scheduled
             threading.Thread(target=scheduled.watch, args=(server, threading.Event()), name="chutku-scheduled",
                              daemon=True).start()   # "30 min baad ...", "har 15 min ...": runs beside normal work
+            server.start_board()   # H15: "research karke batao ..." runs in the background
+            from chutku.gateway import telegram
+            server.telegram = telegram.start(server)   # H16: only when a bot token is stored
             server.start_tray()
         server.heal_when_healthy()
         server.start_remote()

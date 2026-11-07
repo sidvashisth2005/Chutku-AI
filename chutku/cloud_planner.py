@@ -122,6 +122,8 @@ def cloud_view(session, runtime):
     if session.context.get("about_you"):   # owner decision 2026-10-04: topic-related memory only, small
         from chutku.recall import _fit
         context["about_you"] = _fit(json.loads(json.dumps(session.context["about_you"])), 800)
+    if getattr(session, "owner_notes", None):   # H18: what the owner added while the task ran (their own words)
+        context["owner_said_now"] = list(session.owner_notes)
     context["note"] = "Private results (file contents, clipboard, screen text) are withheld."
     view = {"GOAL": session.goal, "CONTEXT": context, "STEPS": steps}
     if session.feedback:

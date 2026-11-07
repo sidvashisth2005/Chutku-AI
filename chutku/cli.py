@@ -185,7 +185,8 @@ def main() -> None:
                         help="Runtime-owned resource grant ID for filesystem tools (default: sandbox).")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("tools")
-    subparsers.add_parser("doctor", help="Check foundation health without opening apps, microphone or model")
+    doctor = subparsers.add_parser("doctor", help="Check foundation health without opening apps, microphone or model")
+    doctor.add_argument("--fix", action="store_true", help="H26: also repair what is safe (reversible, logged)")
     plan = subparsers.add_parser("plan", help="Inspect deterministic understanding without executing anything")
     plan.add_argument("message", nargs="+")
     sequence = subparsers.add_parser("sequence", help="Review up to six explicit commands; add --execute to run")
@@ -235,6 +236,9 @@ def main() -> None:
     cloud = subparsers.add_parser("cloud", help="Free cloud brain (Groq, Cerebras): store a key, see status, test")
     cloud.add_argument("cloud_action", choices=("status", "set-key", "test"))
     cloud.add_argument("provider", nargs="?", choices=("groq", "cerebras"), default=None)
+    telegram = subparsers.add_parser("telegram", help="H16 Telegram remote: store the BotFather token, get a pairing "
+                                                      "code, unpair, or see status")
+    telegram.add_argument("telegram_action", choices=("status", "set-token", "pair", "unpair"))
     email = subparsers.add_parser("email", help="Email sending (X8): store a Gmail address + app password, or see status")
     email.add_argument("email_action", choices=("status", "set-account"))
     subparsers.add_parser("open", help="Open the running Chutku dashboard in your browser")
@@ -359,6 +363,22 @@ def main() -> None:
                           "sending_needs": "python -m chutku.cli authority grant email.send",
                           "every_send": "asks on screen first"}, indent=2))
         return
+    if namespace.command == "telegram":
+        from chutku.app import PROJECT_ROOT
+        from chutku.gateway import telegram as tg
+        if namespace.telegram_action == "set-token":
+            import getpass
+            tg.store_token(getpass.getpass("BotFather token (input hidden): "))
+            print("Stored in Windows Credential Manager as", tg.CREDENTIAL, "- restart Chutku to connect.")
+        elif namespace.telegram_action == "pair":
+            print(f"Send this to your bot within an hour:  /pair {tg.Gateway(PROJECT_ROOT).new_code()}")
+        elif namespace.telegram_action == "unpair":
+            tg.Gateway(PROJECT_ROOT).unpair()
+            print("Unpaired: the bot ignores every chat until you pair again.")
+        else:
+            print(json.dumps({"token_stored": bool(tg.token()), "paired": tg.paired(PROJECT_ROOT) is not None,
+                              "handoff": tg.Gateway(PROJECT_ROOT).handed_off()}, indent=2))
+        return
     if namespace.command == "cloud":
         from chutku import providers
         if namespace.cloud_action == "set-key":
@@ -396,6 +416,10 @@ def main() -> None:
         from chutku.app import PROJECT_ROOT
         from chutku.doctor import inspect_foundation
         report = inspect_foundation(PROJECT_ROOT)
+        if namespace.fix:   # H26: repairs run with Chutku stopped or running; the local model is the dashboard's
+            from chutku.doctor import repair, summary
+            report["repair"] = repair(PROJECT_ROOT, fix=True)
+            report["repair"]["summary"] = summary(report["repair"])
         print(json.dumps(report, indent=2))
         if not report["ready"]:
             raise SystemExit(1)

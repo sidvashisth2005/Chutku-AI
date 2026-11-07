@@ -210,6 +210,13 @@ def quick_proposal(goal, apps=None):
     """A deterministic proposal for an unambiguous everyday request, with the owner's tab choice applied."""
     from chutku.translit import roman
     goal = roman(goal)
+    shortcut = _shortcut(goal) or _shortcut_save(goal)
+    if shortcut is not None:   # H23: one of the owner's own shortcut names, or a new shortcut
+        return shortcut
+    from chutku import blueprints
+    automation = blueprints.parse(goal)
+    if automation is not None:   # H23: "subah ka briefing set karo 8 baje" -> task.schedule steps
+        return automation
     whole = _app_action(" ".join(goal.split()))
     if whole is not None:   # "new tab kholo" is itself an app action, not a tab choice for another request (Z3)
         return whole
@@ -224,6 +231,40 @@ def quick_proposal(goal, apps=None):
             if step["tool"] in BROWSER_TOOLS:
                 step["arguments"]["tab"] = tab
     return proposal
+
+
+def _shortcut(goal):
+    """H23 "my shortcuts": the whole request is the name of a saved routine ("padhai time")."""
+    from chutku import routines
+    name = routines.clean_name(goal.strip(" .!?'\"“”"))
+    if not routines.NAME.match(name) or name not in routines.load():
+        return None
+    steps = routines.steps_for(name)
+    if not steps:
+        return None
+    return {"status": "continue", "reply": f"{name} shuru.", "declared_plan": [f"Run the {name} routine"],
+            "next_steps": steps, "finish": True}
+
+
+_SHORTCUT_SAVE = re.compile(
+    r"^(?:jab\s+(?:main|mai|me|mein)\s+|when\s+i\s+say\s+)(?:['\"“‘](?P<q>[a-z][a-z0-9 -]{0,29})['\"”’]|"
+    r"(?P<name>[a-z][a-z0-9 -]{0,29}?))\s*(?:bolu|bolun|boloon|bolunga|bolungi|kahu|kahun)?\s*"
+    r"(?:,\s*(?:then\s+|to\s+|toh\s+)?|\s+(?:to|toh|tab|then)\s+)(?P<commands>.+?)\s*[.!]?$", re.I)
+
+
+def _shortcut_save(goal):
+    """H23: "jab main 'padhai time' bolun to focus mode on karo aur music band karo" -> routine.save (each command is
+    checked when saved: only instant, deterministic commands, at most 4 steps)."""
+    match = _SHORTCUT_SAVE.match(" ".join(goal.split()))
+    if match is None:
+        return None
+    name = " ".join((match["q"] or match["name"]).split()).casefold()
+    commands = [c.strip(" '\".") for c in re.split(r"\s*(?:,|;|\baur\b|\band\b|\bphir\b|\bthen\b)\s*",
+                                               match["commands"]) if c.strip(" '\".")]
+    if not commands:
+        return None
+    return _proposal("routine.save", {"name": name, "commands": commands[:6]}, f"Save the shortcut {name}",
+                     f"Shortcut saved: jab tum '{name}' bologe, main ye karungi: {', '.join(commands[:6])}.")
 
 
 def _quick_proposal(goal, apps=None):
@@ -1822,7 +1863,13 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "learning.keep": lambda out: out["summary"], "learning.discard": lambda out: out["summary"],
                  "learning.learn": lambda out: out["summary"], "learning.journey": lambda out: out["summary"],
                  "goals.list": lambda out: out["summary"], "goals.add": lambda out: "Goal set. " + out["progress"],
-                 "goals.done": lambda out: out["summary"], "backup.list": _say_backups, "backup.create": _say_backup}
+                 "goals.done": lambda out: out["summary"], "backup.list": _say_backups, "backup.create": _say_backup,
+                 "blueprint.list": lambda out: out["summary"],
+                 "task.delegate": lambda out: out["summary"], "board.add": lambda out: out["summary"],
+                 "board.list": lambda out: out["summary"], "board.done": lambda out: out["summary"],
+                 "board.again": lambda out: out["summary"],
+                 "telegram.handoff": lambda out: out["summary"],
+                 "system.self_repair": lambda out: out["summary"]}
 
 
 def quick_answer(session):

@@ -69,6 +69,31 @@ _PATTERNS = [
     ("goal_done", re.compile(_P + r"goal\s+(?P<n>\d{1,4})\s+(?:ho\s+gaya|pura\s+(?:ho\s+gaya|hua)|done|complete)" + _T, re.I)),
     ("goal_remove", re.compile(_P + r"goal\s+(?P<n>\d{1,4})\s+(?:hatao|hata\s+do|remove\s+karo|delete\s+karo)|"
                                r"remove\s+goal\s+(?P<n2>\d{1,4})" + _T, re.I)),
+    # H15: the task board and background research.
+    ("research_chain", re.compile(_P + r"pehle\s+(?P<a>.{3,200}?)\s+(?:pata\s+karo|research\s+karo),?\s+"
+                                  r"(?:phir|uske\s+baad|fir)\s+(?P<b>.{3,200}?)" + _T, re.I)),
+    ("research", re.compile(_P + r"(?:research\s+karke\s+batao\s*[:,-]?\s*(?P<a>.{3,300}?)|research\s*[:\-]\s*"
+                            r"(?P<b>.{3,300}?)|(?P<c>.{3,300}?)\s+ke\s+baare\s+mein\s+(?:research\s+karke|pata\s+karke)"
+                            r"\s+batao(?:\s*,?\s*main\s+kaam\s+kar\s+raha\s+(?:hoon|hu))?|research\s+(?:about|on)\s+"
+                            r"(?P<d>.{3,300}?)\s+in\s+the\s+background)" + _T, re.I)),
+    ("board_add", re.compile(_P + r"(?:(?:(?:ye|yeh)\s+kaam\s+)?board\s+(?:pe|par|mein)\s+(?:daal|dal|likh)\s*(?:do|dena|lo)?"
+                             r"\s*[:\-]\s*(?P<t>.{2,200}?)|add\s+to\s+(?:my\s+)?board\s*[:\-]\s*(?P<t2>.{2,200}?))"
+                             + _T, re.I)),
+    ("board_list", re.compile(_P + r"(?:board\s+(?:dikhao|batao|kholo)|(?:show|open)\s+(?:my\s+|the\s+)?board|"
+                              r"kya\s+kya\s+pending\s+hai|(?P<r>research\s+kahan\s+tak\s+(?:pahuncha|pahunchi|hui)|"
+                              r"research\s+status))" + _T, re.I)),
+    ("board_done", re.compile(_P + r"(?:board\s+(?:task\s+)?(?P<n>\d{1,5})\s+(?:ho\s+gaya|done|theek\s+hai)|"
+                              r"board\s*[:\-]\s*(?P<t>.{2,120}?)\s+ho\s+gaya)" + _T, re.I)),
+    ("board_again", re.compile(_P + r"(?:board\s+(?:task\s+)?(?P<n>\d{1,5})\s+dobara\s+karo|research\s+(?P<n2>\d{1,5})\s+"
+                               r"(?:dobara|phir\s+se)\s+karo)" + _T, re.I)),
+    # H16: handoff to Telegram while the owner is away.
+    ("handoff", re.compile(_P + r"(?:(?P<on>main\s+bahar\s+ja\s+(?:raha|rahi)\s+(?:hoon|hu|hun)(?:\s*,?\s*phone\s+pe\s+"
+                           r"(?:batana|bhejna))?|phone\s+pe\s+(?:shift\s+karo|batana)|hand\s*off\s+to\s+telegram)|"
+                           r"(?P<off>main\s+wapas\s+aa\s+(?:gaya|gayi)|i'?m\s+back(?:\s+at\s+the\s+pc)?))" + _T, re.I)),
+    # H26: "khud ko theek karo" repairs what is safe; "apna checkup karo" only looks.
+    ("repair", re.compile(_P + r"(?:(?P<fix>khud\s+ko\s+(?:theek|thik|fix)\s+(?:karo|kar\s+lo|kar\s+do)|"
+                          r"(?:fix|repair)\s+yourself|self[\s-]?repair)|(?P<check>apna\s+(?:checkup|health\s+check)\s+"
+                          r"(?:karo|kar\s+lo)|check\s+yourself|self[\s-]?check))" + _T, re.I)),
     # H25: memory backups. Restoring is never by voice: it needs Chutku stopped (chutku.cli backup restore).
     ("backup", re.compile(_P + r"(?P<b>(?:ek\s+)?backup\s+(?:bana\s+lo|banao|bana\s+do|le\s+lo|lo|karo|kar\s+do)|"
                           r"(?:take|make)\s+a\s+backup|back\s+up\s+(?:your|chutku'?s?)\s+memory)|(?P<l>backups?\s+"
@@ -169,6 +194,25 @@ def parse_daily(goal, now=None):
         if kind == "goal_remove":
             number = int(g.get("n") or g.get("n2"))
             return "goals.remove", {"id": number}, f"Remove goal {number}", f"Goal {number} hata diya.", True
+        if kind == "research_chain":
+            return "task.delegate", {"goal": g["a"].strip(), "then": g["b"].strip()}, "Research in the background", \
+                "", False
+        if kind == "research":
+            topic = next(g[k] for k in "abcd" if g.get(k)).strip(" ?.")
+            return "task.delegate", {"goal": topic}, "Research in the background", "", False
+        if kind == "board_add":
+            return "board.add", {"title": (g.get("t") or g.get("t2")).strip()}, "Put it on the board", "", False
+        if kind == "board_list":
+            return "board.list", {"kind": "research"} if g.get("r") else {}, "Show the board", "", False
+        if kind == "board_done":
+            arguments = {"id": int(g["n"])} if g.get("n") else {"title": g["t"].strip()}
+            return "board.done", arguments, "Mark it done", "", False
+        if kind == "board_again":
+            return "board.again", {"id": int(g.get("n") or g.get("n2"))}, "Research again", "", False
+        if kind == "handoff":
+            return "telegram.handoff", {"on": bool(g.get("on"))}, "Telegram handoff", "", False
+        if kind == "repair":
+            return "system.self_repair", {"fix": bool(g.get("fix"))}, "Check and repair Chutku", "", False
         if kind == "backup":
             if g.get("r"):
                 return "", {}, "", ("Restore sirf laptop pe hota hai, Chutku band karke: Stop-Chutku.cmd, phir "

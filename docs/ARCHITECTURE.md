@@ -75,6 +75,18 @@ risk or confirmation field cannot grant permission.
 | `core/log.py`, `core/launch.py`, `core/jsonstore.py`, `core/hashcache.py` | Redacted rotating log, owner-app launches outside the guard job, atomic JSON stores, hash cache |
 | `voice/live.py`, `voice/handsfree.py`, `voice/heard.py` | Gemini Live conversation, offline wake listener, local heard log |
 
+### Added 2026-11-07 (Phase 3b H9, H14, H15, H16, H18, H23, H26; see docs/HANDOFF.md)
+
+| Module | Responsibility |
+|---|---|
+| `for_each.py` | `steps.for_each`: JSONPath-subset list selection and expansion into ordinary steps (risk ≤ 2, no messages/deletes/code) |
+| `busy.py` | Busy-mode routing while a task runs: steer (owner notes), later, first |
+| `brain_errors.py` | One failure class for every brain error (rate_limited, auth, network, local_down...) |
+| `board.py`, `research.py` | Task board (SQLite) + dispatcher; research child sessions on a public-web-only runtime |
+| `blueprints.py` | Ready-made automations that expand into `task.schedule` steps |
+| `gateway/telegram.py` | Outbound-only Telegram long poll: pairing, intake, single-use approval buttons, handoff |
+| `doctor.py` (`repair`) | Reversible self-repair (`doctor --fix`, "khud ko theek karo") |
+
 ## Foundation acceptance scope
 
 - Python 3.11+ and Windows; launch independent of the current shell directory.

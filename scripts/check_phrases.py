@@ -16,6 +16,16 @@ APPS = [{"name": "Spotify", "app_id": "Spotify.App"}, {"name": "WhatsApp", "app_
         {"name": "Visual Studio Code", "app_id": "Microsoft.VSCode"}, {"name": "Calculator", "app_id": "Calc"}]
 
 CASES = [
+    # H15 board + research, H16 handoff, H23 automations + shortcuts, H26 repair (2026-11-06)
+    ("research karke batao best free PDF editor for Windows", "task.delegate"),
+    ("pehle python 3.14 ki release date pata karo, phir uske naye features", "task.delegate"),
+    ("ye kaam board pe daal do: DBMS notes banana", "board.add"), ("board dikhao", "board.list"),
+    ("kya kya pending hai", "board.list"), ("board task 3 ho gaya", "board.done"),
+    ("main bahar ja raha hoon, phone pe batana", "telegram.handoff"), ("main wapas aa gaya", "telegram.handoff"),
+    ("subah ka briefing set karo 8 baje", "task.schedule"), ("weekly backup", "task.schedule"),
+    ("kaun si automations hain", "blueprint.list"),
+    ("jab main 'padhai time' bolun to volume 30 karo aur lock the pc", "routine.save"),
+    ("khud ko theek karo", "system.self_repair"), ("apna checkup karo", "system.self_repair"),
     # messages (typed, Hinglish, and the live voice rewrites from 2026-10-03)
     ("send hi to AK on whatsapp", "message.send"),
     ('send "hi" to AK on whatsapp', "message.send"),

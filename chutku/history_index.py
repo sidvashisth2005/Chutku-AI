@@ -66,8 +66,9 @@ def _meta(db, key, default=None):
 
 def sync(base) -> int:
     """Index new lines of conversations.jsonl; returns how many turns were added."""
-    from chutku.recall import conversations_path
+    from chutku.recall import conversations_path, hidden_turns
     source = conversations_path(base)
+    hidden = hidden_turns(base)   # H29: a re-index (rotation, repair) must keep forgotten turns hidden
     with _LOCK, _Db(base) as db:
         try:
             size = source.stat().st_size
@@ -93,7 +94,7 @@ def sync(base) -> int:
                     continue
                 db.execute("INSERT INTO turns VALUES (?,?,?,?,?,?,?)",
                            (said, reply, roman(said), roman(reply), float(row.get("at") or 0),
-                            str(row.get("origin") or ""), 1 if row.get("hidden") else 0))
+                            str(row.get("origin") or ""), 1 if row.get("hidden") or row.get("at") in hidden else 0))
                 added += 1
         db.execute("INSERT OR REPLACE INTO meta VALUES ('offset', ?)", (str(offset),))
         return added

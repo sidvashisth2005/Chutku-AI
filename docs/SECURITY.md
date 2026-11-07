@@ -26,17 +26,32 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (221 registered, plus 144 app actions)
+### Risk levels and tools (231 registered, plus 144 app actions)
 
 | Level | Count | Meaning |
 |---|---|---|
-| R0 observation | 84 | reads only |
-| R1 reversible | 69 | easily undone (open apps or pages, window and media control) |
+| R0 observation | 87 | reads only |
+| R1 reversible | 76 | easily undone (open apps or pages, window and media control) |
 | R2 data modification | 30 | changes data, with runtime undo where available |
 | R3 external side effect | 31 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, email.send, evolve.approve, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, settings.theme_restore, settings.theme_set, skill.approve, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close, windows.close_this |
 | R4 destructive / privileged | 7 | filesystem.delete_permanent, network.adapter_restore, network.adapter_set, power.cancel, power.schedule, process.terminate, system.powershell |
 
 **Self-written skills** (X15/X16, `chutku/skills.py`): `skill.create` has the coder write `skill.json`, `SKILL.md`, `tool.py` and `test_tool.py` into `data/skills/_pending/<name>`, runs the tests and repairs at most 3 times (a failing assertion cannot be edited away). Pending skills are never tools. `skill.approve` is `user_only` (typed, then a click): only if the tests pass again does it activate the skill and record the SHA-256 of its files; a skill whose files changed since is not registered or run. `skill.<name>` runs `python -I` in a child process (60 s, 8 KB JSON result, untrusted output) and always asks first. It runs with the owner's Windows rights: the click is the boundary, not a sandbox, and the manifest's `network` / `writes_files` flags are declarations, not enforced.
+
+**For-each, research, Telegram** (H14/H15/H16, 2026-11-07; see `docs/HANDOFF.md`):
+- `steps.for_each` never runs itself: it expands into ordinary steps that each pass `Runtime.run`. Only tools up to R2
+  that are not messages, emails, deletes, code runners or owner-only; at most 50 items; a list taken from outside
+  content taints every item. One card lists all items and covers only them, and only until read content tries to
+  give instructions (S15): then every item asks again.
+- Research workers run on `research.AllowlistRuntime`: the menu and the runtime allow only `web.results`, `web.read`,
+  `web.news`, `web.weather`. Any other proposal is DENIED inside the child, so private data has no path to the web.
+  No grandchildren, 10 steps, 5 minutes, 90 s stall check.
+- Telegram is outbound-only (long poll, no listening port). One paired chat; others get no reply. Pairing: 8-character
+  code, 1 hour, at most 3 pending, 5 wrong codes lock pairing for 1 hour. Buttons carry single-use nonces bound to
+  the session and step (10 minutes). `remote.server.laptop_only` (shared with the phone app) keeps R4, code, unknown
+  recipients and never/remote/telegram tools on the laptop. The token lives in Credential Manager and is not in any
+  log or state file (errors carry no URL).
+- `task.delegate`, `board.*` and `telegram.*` are taint-sensitive R1: after outside content they ask first.
 
 **Evolve** (Y2, `chutku/evolve.py`, `chutku/evolve_apply.py`): the nightly review only reads local logs and writes at most 3 proposals a day to `data/evolve/proposals/`; a cloud model sees only a short redacted summary of a code idea. Nothing is applied until the owner types `evolve approve <id>` (`user_only`, `runs_code`: then a click; never the agent, never voice); the approval is bound to the SHA-256 of the plan. Phrase, routine and preference ideas write through the existing data paths (reflex checks, routine checks, an allowlist of four non-safety preferences). Code ideas run in a separate process: a git worktree and branch `evolve/<id>`, the full unit suite and `scripts/check_phrases.py` before and after the change, and `git merge --ff-only` into main only if nothing that passed before fails now. Before writing and again on the committed diff, `evolve_apply.check` refuses any change that touches `chutku/policy/`, `chutku/core/`, `chutku/router/`, `chutku/remote/`, `chutku/relay/`, `android/`, `chutku/runtime.py`, `guard.py`, `tools/registry.py`, `skills.py`, `skill_runner.py`, `app.py`, `agent_loop.py`, `agent_execution.py`, `cloud_planner.py`, `dashboard.py`, `coder.py`, `tools/builder.py`, `chutku/evolve*.py`, AGENTS.md, this file, `.github/`, `.claude/`, `requirements.lock`, `pyproject.toml`, the safety tests (`test_docs_truth`, `test_trusted_task`, `test_autonomy_policy`, `test_protected_zones`, `test_taint*`, `test_elevation`, `test_injection*`, `test_failclosed*`, `test_evolve*` and 15 more listed in the code); any changed line with a safety word (risk, approval, provenance, grants, process, network or code-running calls); any edit or removal of an existing test line or `check_phrases.py` line; test skips; more than 400 lines or 8 files. A failed or refused change deletes the worktree and branch; main is untouched. Pushing to GitHub is off unless the owner types `evolve push on`. The tests a change adds run with the owner's rights: the approval click is the boundary, as for skills.
 

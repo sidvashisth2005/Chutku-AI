@@ -111,3 +111,156 @@ def inspect_foundation(base):
             "ready": all(c["ready"] for c in checks if c["required"]), "checks": checks,
             "actions_paused": (base / "data/actions.paused").exists(),
             "scope": "Read-only prerequisite and storage check. Does not prove microphone, foreground focus or model correctness."}
+
+
+# -- H26: a doctor that can repair ("khud ko theek karo", `chutku.cli doctor --fix`) --------------------------------
+# Each fix is harmless or reversible and logged in the report: a damaged file is moved aside (never deleted) and its
+# index is rebuilt from the source of truth. Everything else is reported, not fixed. The execution and guard locks
+# are OS locks that Windows releases when their process dies, so there is never a stale lock file to remove.
+
+def _sqlite_ok(path):
+    from contextlib import closing
+    try:   # closed explicitly: on Windows an open connection stops the damaged file from being moved aside
+        with closing(sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)) as db:
+            return db.execute("PRAGMA quick_check").fetchone() == ("ok",)
+    except sqlite3.Error:
+        return False
+
+
+def _move_aside(path):
+    """Keep a damaged file next to the original as <name>.broken-<time> (with its -wal/-shm). Returns the new name."""
+    import time
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    target = path.with_name(f"{path.name}.broken-{stamp}")
+    path.replace(target)
+    for suffix in ("-wal", "-shm"):
+        extra = path.with_name(path.name + suffix)
+        if extra.exists():
+            extra.replace(target.with_name(target.name + suffix))
+    return target.name
+
+
+def repair(base, *, fix=False, brain=None):
+    """The H26 report: [{"name", "state": ok|fixed|broken|report, "detail"}]. With fix=False nothing is changed.
+    `brain` is the running dashboard's local model service (None from the CLI: the dashboard owns that process)."""
+    base = Path(base).resolve()
+    data = base / "data"
+    rows = []
+
+    def row(name, state, detail):
+        rows.append({"name": name, "state": state, "detail": detail})
+
+    # 1. A pause the watchdog made by itself (never the owner's pause).
+    from chutku.core.action_control import ActionControl, SELF_HEALING
+    control = ActionControl(base)
+    info = control.info()
+    if not info:
+        row("Pause", "ok", "Not paused")
+    elif info.get("source") in SELF_HEALING:
+        if fix:
+            try:
+                lifted = control.heal()
+                row("Pause", "fixed" if lifted else "ok", "Lifted the watchdog's own pause" if lifted
+                    else "Already lifted")
+            except Exception as error:   # ExecutionBusy: an action is running right now
+                row("Pause", "broken", f"Could not lift it yet: {error}")
+        else:
+            row("Pause", "broken", "The watchdog paused Chutku after a hang; --fix lifts it")
+    else:
+        row("Pause", "report", "Paused by the owner: only the owner resumes (Resume button or 'resume')")
+
+    # 2. The chat-history search index (rebuilt from data/conversations.jsonl, which stays untouched).
+    from chutku import history_index
+    path = history_index.db_path(base)
+    if not path.exists() or _sqlite_ok(path):
+        row("History index", "ok", "Healthy" if path.exists() else "Not built yet; built on first search")
+    elif fix:
+        try:
+            kept = _move_aside(path)
+            history_index.sync(base)
+            row("History index", "fixed", f"Rebuilt from the conversation log; the damaged copy is data/{kept}")
+        except (OSError, sqlite3.Error) as error:
+            row("History index", "broken", f"Rebuild failed: {error}")
+    else:
+        row("History index", "broken", "SQLite check failed; --fix rebuilds it from the conversation log")
+
+    # 3. The embeddings cache (only a cache: vectors are computed again when needed).
+    cache = data / "embeddings.sqlite"
+    if not cache.exists() or _sqlite_ok(cache):
+        row("Embeddings cache", "ok", "Healthy" if cache.exists() else "Empty; filled on use")
+    elif fix:
+        try:
+            row("Embeddings cache", "fixed", f"Moved aside to data/{_move_aside(cache)}; it refills on use")
+        except OSError as error:
+            row("Embeddings cache", "broken", f"Could not move it: {error}")
+    else:
+        row("Embeddings cache", "broken", "SQLite check failed; --fix moves it aside (it is only a cache)")
+
+    # 4. The local model server (only inside the running dashboard).
+    if brain is None:
+        row("Local model", "report", "Checked only inside the running Chutku (say 'khud ko theek karo')")
+    elif brain.status().get("running"):
+        row("Local model", "ok", f"Running ({brain.status().get('backend')})")
+    elif fix:
+        try:
+            brain.ensure_started()
+            row("Local model", "fixed", f"Started again ({brain.status().get('backend')})")
+        except OSError as error:
+            row("Local model", "broken", f"Could not start: {str(error)[:200]}")
+    else:
+        row("Local model", "report", "Not running (it starts on the next request, or --fix starts it now)")
+
+    # 5. Model files: presence against the manifest; hashes are checked by scripts/setup_all.py (never re-downloaded).
+    try:
+        manifest = json.loads((base / "models/manifest.json").read_text(encoding="utf-8"))
+        missing = [key for key, entry in manifest.items() if isinstance(entry, dict) and entry.get("path")
+                   and not (base / str(entry["path"]).replace("\\", "/")).exists()]
+        row("Model files", "report" if missing else "ok",
+            ("Missing: " + ", ".join(missing) + " (run scripts/setup_all.py)") if missing else "All listed files present")
+    except (OSError, ValueError, AttributeError):
+        row("Model files", "report", "models/manifest.json is missing or unreadable")
+
+    # 6. Telegram long poll (H16): reported, re-paired by the owner only.
+    from chutku.gateway import telegram
+    if telegram.paired(base) is not None:
+        row("Telegram", "report", "Paired; the long poll reconnects by itself (with backoff) while Chutku runs")
+    return {"fix": fix, "checks": rows, "fixed": sum(r["state"] == "fixed" for r in rows),
+            "broken": sum(r["state"] == "broken" for r in rows)}
+
+
+def summary(report):
+    """One spoken line for the report."""
+    broken = [r["name"] for r in report["checks"] if r["state"] == "broken"]
+    fixed = [r["name"] for r in report["checks"] if r["state"] == "fixed"]
+    noted = [f"{r['name']} ({r['detail']})" for r in report["checks"]
+             if r["state"] == "report" and r["name"] != "Local model"]   # things only the owner can change
+    parts = [] if broken or fixed else ["Kuch theek karne ki zaroorat nahi thi."]
+    if fixed:
+        parts.append("Theek kar diya: " + ", ".join(fixed) + ".")
+    if broken:
+        parts.append("Abhi bhi kharab: " + ", ".join(broken) + " (details dashboard pe).")
+    if noted:
+        parts.append("Dhyan do: " + "; ".join(noted) + ".")
+    return " ".join(parts)
+
+
+def register_doctor_tools(registry, base):
+    from chutku.tools.registry import Risk, Tool, ToolResult, Verification
+
+    def run(arguments, _context):
+        brain = None
+        try:   # the local model server of THIS process (the dashboard); it never loads a model just to look
+            from chutku.brain_service import shared_service
+            brain = shared_service(base)
+        except Exception:
+            brain = None
+        report = repair(base, fix=bool(arguments.get("fix")), brain=brain)
+        report["summary"] = summary(report)
+        return ToolResult(report, Verification.PASS)   # the check itself ran; "broken" rows are its findings
+
+    registry.register(Tool(
+        "system.self_repair", "Check Chutku's own health and, with fix=true, repair what is safe: lift the watchdog's "
+        "own pause (never the owner's), rebuild a damaged history index or embeddings cache (the damaged copy is "
+        "kept), start the local model. Everything else is only reported. 'khud ko theek karo', 'fix yourself'.",
+        Risk.REVERSIBLE, run, argument_schema={"type": "object", "properties": {"fix": {"type": "boolean"}},
+                                               "additionalProperties": False}))

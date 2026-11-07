@@ -1,5 +1,9 @@
 # Chutku Delivery Gate
 
+> **Handoff (2026-11-07), done:** the cloud session's H9, H14, H15, H16, H18, H23 and H26 were merged into `main` and
+> verified on the owner's PC (Windows suite + live paths; H16 waits for the owner's Telegram token). Open items are
+> in [`docs/HANDOFF.md`](docs/HANDOFF.md) section 5.
+
 This repository uses a verification-first delivery rule.
 
 Before reporting any implementation change as delivered, an agent must:
