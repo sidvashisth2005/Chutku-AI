@@ -613,6 +613,7 @@ Rules:
 | Hands-free level | Dashboard, Hands-free row, then Hands-free level. |
 | Wake phrase | Dashboard, Hands-free row, then the "Oye Chutku" checkbox. |
 | Free cloud brain (fastest) | Free key from https://console.groq.com/keys, then `python -m chutku.cli cloud set-key groq`. Check with `cloud status` and `cloud test`. |
+| Sign in from the phone after a boot or while locked | Double-click `Setup-Boot-Access.cmd` once (one admin click; needs Telegram paired and Tailscale signed in). At every boot Telegram gets "Laptop is ON" with a sign-in link (`https://<laptop>:8443/#k=…`, tailnet only, valid until the next restart). Open it: you see the Windows lock screen. Tap the picture to click, type your password or PIN in the box, then press **Sign in**. After sign-in the page stops showing anything and Chutku sends the normal phone link. It cannot see or touch your desktop or answer a UAC prompt. Fast Startup is turned off so switching on is a real boot. Undo: delete the `ChutkuUnlock` and `ChutkuBootNotice` tasks in Task Scheduler, then run `tailscale serve --https=8443 off`. |
 
 ---
 

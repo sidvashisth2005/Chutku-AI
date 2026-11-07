@@ -16,6 +16,40 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: Sign in from the phone on the lock screen (built, refusals verified; live sign-in waits for the owner's admin setup)
+- Owner request: at boot, Telegram gets a link. The phone shows the Windows lock screen and can click, type the
+  password and press Enter, only there. Chutku stays non-admin. This replaces the line in the RustDesk entry below
+  ("Chutku does not type on the Windows login or lock screen").
+- **`scripts/boot_access/ChutkuUnlock.cs`** is a small C# program. The setup compiles it with Windows' own
+  .NET Framework `csc` into `C:\ProgramData\ChutkuBoot`, which only administrators can change. Nothing runs from
+  Chutku's user-writable folder or venv as SYSTEM.
+  - `watch` (SYSTEM startup task `ChutkuUnlock`) makes a fresh 256-bit key each boot (`key.txt`; administrators,
+    SYSTEM and LOCAL SERVICE can read it, Chutku cannot). It keeps one `screen` helper on `winsta0\winlogon` of the
+    console session.
+  - `screen` serves a small page on 127.0.0.1:8767, which `tailscale serve --https=8443` publishes on the tailnet
+    only. Every call needs Host == `<laptop>.ts.net:8443`, Tailscale-User-Login == the owner (Funnel requests have
+    none) and this boot's key (the URL fragment from Telegram, sent as a header).
+  - **The boundary fails closed.** Pictures and input happen only while the input desktop is Winlogon, LogonUI.exe
+    runs in that session and no consent.exe (UAC) is open. So the helper can never answer a UAC prompt or see or touch
+    the signed-in desktop. Typed text is never logged.
+- **Telegram** (`notify.ps1`, LOCAL SERVICE) waits up to 3 minutes for this boot's key, then sends "Laptop is ON"
+  with the sign-in link and the phone-remote link.
+- **Setup also turns off Fast Startup** (`HiberbootEnabled=0`). With it on, "switch on" resumes from hibernation
+  and startup tasks don't run. Undo steps are in the owner guide §7.
+- **Verified here (normal user, unlocked PC):**
+  - `ChutkuUnlock.cs` compiles with the in-box csc.
+  - `ChutkuUnlock.exe gate` prints `{"desktop":"Default","logonui":false,"consent":false,"open":false}`.
+  - `tests/test_boot_unlock.py` (4 tests, 0.9 s) passes. It compiles and runs the real helper, and checks:
+    - wrong Host, missing port, other login and empty login (Funnel) each get 403;
+    - a missing or wrong key gets 401;
+    - with the right everything but the laptop unlocked, frame, click, text and Enter all get 409 "unlocked", the
+      pointer is not moved, and the typed text is not in the log.
+  - Both PowerShell scripts parse. Full suite: 1637 tests OK in 297 s.
+- **Not verified yet:** the SYSTEM path. That covers the helper spawned on the Winlogon desktop, a real lock-screen
+  picture, clicks and typing reaching LogonUI, and the boot message with the key. It needs the owner's one UAC click
+  (`Setup-Boot-Access.cmd`), then Win+L, opening the Telegram link on the phone and signing in, then a full restart.
+  If something fails, `C:\ProgramData\ChutkuBoot\unlock.log` says where.
+
 ### 2026-11-07: RustDesk removed (owner: Chutku only, no other remote-desktop software)
 - `scripts/setup_boot_access.ps1` no longer installs RustDesk. It now uninstalls it if an earlier run did (MSI
   product code, quiet).

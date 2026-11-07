@@ -3,7 +3,11 @@
     One-time setup (run as administrator, owner 2026-11-07): reach the laptop from the phone right after it boots.
       1. Tailscale unattended: the laptop joins your tailnet at boot, before anyone signs in.
       2. RustDesk is removed if an earlier version of this setup installed it (owner 2026-11-07: Chutku only).
-      3. A startup task (LOCAL SERVICE) sends "Laptop is on" with the unlock steps to your paired Telegram chat.
+      3. The lock-screen helper (boot_access\ChutkuUnlock.cs, owner 2026-11-07): a SYSTEM startup task shows the
+         Windows sign-in screen on your phone (https://<laptop>:8443, tailnet only) so you can tap, type the password
+         and press Enter. It works only while the sign-in/lock screen is up; never on your desktop or a UAC prompt.
+         Fast Startup is turned off so that switching the laptop on is a real boot (startup tasks run).
+      4. A startup task (LOCAL SERVICE) sends "Laptop is ON" with that link to your paired Telegram chat.
     Chutku itself never runs elevated: after you sign in it starts as before.
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File scripts\setup_boot_access.ps1
@@ -33,8 +37,11 @@ $tailscale = Join-Path $env:ProgramFiles "Tailscale\tailscale.exe"
 if (-not (Test-Path $tailscale)) { Fail "Tailscale is not installed." }
 & $tailscale set --unattended=true
 $ip = (& $tailscale ip -4 | Select-Object -First 1).Trim()
-$dns = ((& $tailscale status --json | ConvertFrom-Json).Self.DNSName).TrimEnd(".")
-Write-Host "Laptop on Tailscale: $ip ($dns)"
+$ts = & $tailscale status --json | ConvertFrom-Json
+$dns = $ts.Self.DNSName.TrimEnd(".")
+$login = $ts.User."$($ts.Self.UserID)".LoginName
+if (-not $login) { Fail "Tailscale is not signed in." }
+Write-Host "Laptop on Tailscale: $ip ($dns), owner $login"
 
 # --- 2. RustDesk removed (owner 2026-11-07: no other remote-desktop software; Chutku only) -----------------------
 Step "Removing RustDesk (no longer used)"
@@ -52,8 +59,8 @@ Stop-Service RustDesk -ErrorAction SilentlyContinue
 if (Get-Service RustDesk -ErrorAction SilentlyContinue) { Write-Host "RustDesk's service is still there: remove it in Settings > Apps." -ForegroundColor Yellow }
 else { Write-Host "RustDesk is not installed." }
 
-# --- 3. the boot notice -----------------------------------------------------------------------------------------
-Step "Telegram: 'Laptop is on' at every boot"
+# --- 3. the lock-screen helper and the boot notice -------------------------------------------------------------
+Step "Lock-screen helper and Telegram 'Laptop is ON' at every boot"
 $boot = Join-Path $env:ProgramData "ChutkuBoot"
 New-Item -ItemType Directory -Force $boot | Out-Null
 $acl = New-Object Security.AccessControl.DirectorySecurity
@@ -64,10 +71,29 @@ foreach ($who in "BUILTIN\Administrators", "NT AUTHORITY\SYSTEM") {
 $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule("NT AUTHORITY\LOCAL SERVICE", "ReadAndExecute", "ContainerInherit,ObjectInherit", "None", "Allow")))
 Set-Acl $boot $acl
 Copy-Item (Join-Path $PSScriptRoot "boot_access\notify.ps1") (Join-Path $boot "notify.ps1") -Force
+try { Stop-ScheduledTask -TaskName "ChutkuUnlock" -ErrorAction Stop } catch { }   # a re-run replaces the helper
+Get-Process ChutkuUnlock -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 1
+$csc = Join-Path $env:SystemRoot "Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+& $csc -nologo -optimize "-out:$boot\ChutkuUnlock.exe" -r:System.Drawing.dll -r:System.Web.Extensions.dll `
+    (Join-Path $PSScriptRoot "boot_access\ChutkuUnlock.cs")
+if ($LASTEXITCODE -ne 0) { Fail "the lock-screen helper did not compile (see above)." }
 Add-Type -AssemblyName System.Security
 $sealed = [Security.Cryptography.ProtectedData]::Protect([Text.Encoding]::UTF8.GetBytes($info.token), $null, "LocalMachine")
 [IO.File]::WriteAllBytes((Join-Path $boot "token.bin"), $sealed)
-@{ chat_id = $info.chat; ip = $ip; phone_url = "https://$dns/" } | ConvertTo-Json | Set-Content (Join-Path $boot "config.json") -Encoding UTF8
+@{ chat_id = $info.chat; ip = $ip; phone_url = "https://$dns/"; host = $dns; login = $login; unlock_port = 8767
+   unlock_https_port = 8443; unlock_url = "https://${dns}:8443/" } | ConvertTo-Json | Set-Content (Join-Path $boot "config.json") -Encoding UTF8
+& $tailscale serve --bg --https=8443 http://127.0.0.1:8767   # tailnet only, like the phone remote on 443
+if ($LASTEXITCODE -ne 0) { Fail "tailscale serve on 8443 failed." }
+# Fast Startup makes "shut down" a hibernation: startup tasks would not run when the laptop is switched on.
+Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name HiberbootEnabled -Value 0
+Write-Host "Fast Startup is off (Control Panel > Power Options > 'Choose what the power buttons do' turns it back on)."
+$always = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+Register-ScheduledTask -TaskName "ChutkuUnlock" -Action (New-ScheduledTaskAction -Execute "$boot\ChutkuUnlock.exe" -Argument "watch") `
+    -Trigger (New-ScheduledTaskTrigger -AtStartup) -Settings $always -Force `
+    -Principal (New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest) | Out-Null
+Start-ScheduledTask -TaskName "ChutkuUnlock"
 $action = New-ScheduledTaskAction -Execute (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe") `
     -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$boot\notify.ps1`""
 $principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\LOCAL SERVICE" -LogonType ServiceAccount
@@ -75,6 +101,6 @@ $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit
 Register-ScheduledTask -TaskName "ChutkuBootNotice" -Action $action -Trigger (New-ScheduledTaskTrigger -AtStartup) `
     -Principal $principal -Settings $settings -Force | Out-Null
 Start-ScheduledTask -TaskName "ChutkuBootNotice"
-Write-Host "`nDone. A test 'Laptop is ON' message is on its way to your Telegram." -ForegroundColor Green
-Write-Host "After a restart, sign in at the laptop once; Chutku then sends the phone link on Telegram."
+Write-Host "`nDone. A test 'Laptop is ON' message with the sign-in link is on its way to your Telegram." -ForegroundColor Green
+Write-Host "Try it: lock the laptop (Win+L), open the link on your phone, tap the picture, type your password, Sign in."
 Read-Host "Press Enter to close"
