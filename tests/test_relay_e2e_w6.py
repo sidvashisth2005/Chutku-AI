@@ -78,6 +78,7 @@ class RelayTests(unittest.TestCase):
             return real_ask(account, request, min(timeout, 3))   # a refused request times out in 3 s here
         self.relay.mailbox.ask = recording_ask
         threading.Thread(target=self.relay.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
+        self.addCleanup(self.relay.accounts.db.close)   # Windows cannot delete an open SQLite file
         self.addCleanup(self.relay.server_close)
         self.addCleanup(self.relay.shutdown)
         self.url = f"http://127.0.0.1:{self.relay.server_port}"
