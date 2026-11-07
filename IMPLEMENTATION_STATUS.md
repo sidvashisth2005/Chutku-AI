@@ -82,6 +82,17 @@ Owner decisions are in `docs/DESIGN.md` §51.
   - Edge with the real encoder (NVENC): colours shown in order, 22–65 ms from send to on-screen pixels. With H.264
     refused (409), the page fell back to JPEG by itself, also in order.
   - Pinch and pointer checks rerun: unchanged.
+  - Full suite: 1643 OK.
+  - **Live, the real server code on the real screen** (its own port, temporary store; the owner's paired phones
+    untouched):
+    - `/api/screen/h264` used NVENC: 53 packets → 53 decoded 1280×720 frames in 3.1 s (~17 frames/s), a 59 KB
+      keyframe, then ~1 KB each, 133 KB total;
+    - one JPEG of the same screen is 50 KB.
+  - Chutku was restarted (`control stop` → `control resume` → guard). Ports 8765 and 8766 are back, and the tailnet
+    serves the new `phone.js`.
+  - **Not yet seen on the owner's real phone.**
+  - Frame-rate limit: capture (34 ms) and encode (15 ms) run in turn. Running them side by side would give ~29
+    frames/s.
 
 ### 2026-11-07: Phone remote: the pointer moves on the phone instantly; frames show the moment they arrive
 - Owner: "the cursor still lags sometimes", and "see how similar apps do it".
