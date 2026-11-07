@@ -248,14 +248,15 @@ async function frames() {
   } finally { looping = false; }
 }
 function frameRect() { return $("frame").getBoundingClientRect(); }
-function drawCursor() {
+function drawCursor(follow) {
   if (!cursorAt || !$("frame").naturalWidth) { $("cursor").hidden = true; return; }
   const img = frameRect(), canvas = $("canvas").getBoundingClientRect();
   $("cursor").style.left = (img.left - canvas.left + cursorAt[0] * img.width) + "px";
   $("cursor").style.top = (img.top - canvas.top + cursorAt[1] * img.height) + "px";
   $("cursor").hidden = false;
-  if ($("stage").classList.contains("zoomed")) {   // keep the pointer in view while zoomed in
-    const stage = $("stage"), x = cursorAt[0] * img.width, y = cursorAt[1] * img.height;
+  // keep the pointer in view while zoomed in, when YOU move it (new frames alone never pull the view off what you zoomed into)
+  if (follow === true && $("stage").classList.contains("zoomed")) {
+    const stage = $("stage"), x = img.left - canvas.left + cursorAt[0] * img.width, y = img.top - canvas.top + cursorAt[1] * img.height;
     if (x < stage.scrollLeft + 40 || x > stage.scrollLeft + stage.clientWidth - 40) stage.scrollLeft = x - stage.clientWidth / 2;
     if (y < stage.scrollTop + 40 || y > stage.scrollTop + stage.clientHeight - 40) stage.scrollTop = y - stage.clientHeight / 2;
   }
@@ -327,7 +328,7 @@ function moveBy(dx, dy) {
   pending.dx += dx; pending.dy += dy; pump();
   if (cursorAt && monitorPx) {   // the pointer moves on the phone at once; the next frames correct it
     cursorAt = [Math.min(1, Math.max(0, cursorAt[0] + dx / monitorPx[0])), Math.min(1, Math.max(0, cursorAt[1] + dy / monitorPx[1]))];
-    localMoveAt = Date.now(); drawCursor();
+    localMoveAt = Date.now(); drawCursor(true);
   }
 }
 
@@ -340,7 +341,9 @@ function setDragging(on) { dragging = on; $("stage").classList.toggle("dragging"
 $("stage").addEventListener("pointerdown", async e => {
   $("stage").setPointerCapture(e.pointerId); touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (touches.size === 1) {
-    gesture = { at: Date.now(), travel: 0, fingers: 1, x: e.clientX, y: e.clientY, ready: mode() === "ask" || await ensureControl() };
+    const g = gesture = { at: Date.now(), travel: 0, fingers: 1, x: e.clientX, y: e.clientY, ready: false };   // zoom works before control
+    g.ready = mode() === "ask" || await ensureControl();
+    if (gesture !== g) return;
     clearTimeout(pressTimer);
     pressTimer = setTimeout(() => {   // a still long-press: trackpad = drag, direct = right click
       if (!gesture || !gesture.ready || gesture.travel > 10 || touches.size !== 1) return;
@@ -353,8 +356,21 @@ $("stage").addEventListener("pointermove", e => {
   const last = touches.get(e.pointerId); if (!last || !gesture) return;
   const dx = e.clientX - last.x, dy = e.clientY - last.y; touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
   gesture.travel += Math.abs(dx) + Math.abs(dy);
+  if (touches.size >= 2) {   // two fingers: a pinch zooms the view here on the phone; moving together scrolls the laptop
+    const [a, b] = [...touches.values()], dist = Math.hypot(a.x - b.x, a.y - b.y), mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const two = gesture.two = gesture.two || { dist, mid, kind: null };
+    if (!two.kind) two.kind = Math.abs(dist - two.dist) > 24 ? "pinch" : Math.abs(mid.y - two.mid.y) > 22 ? "scroll" : null;
+    if (two.kind === "pinch") {
+      gesture.used = true;
+      $("stage").scrollLeft += two.mid.x - mid.x; $("stage").scrollTop += two.mid.y - mid.y;   // the fingers also pan
+      setZoom(zoom * dist / two.dist, mid.x, mid.y); two.dist = dist; two.mid = mid;
+      return;
+    }
+    if (two.kind !== "scroll") return;
+  } else if (gesture.used && gesture.two) return;   // one finger left after a pinch: not a trackpad move
+  else if (zoom > 1 && mode() !== "pad") { $("stage").scrollLeft -= dx; $("stage").scrollTop -= dy; return; }   // pan the zoomed view
   if (!gesture.ready || mode() === "ask") return;
-  if (touches.size >= 2) {   // two fingers: scroll
+  if (touches.size >= 2) {   // two fingers moving together: scroll
     gesture.scroll = (gesture.scroll || 0) + dy;
     if (Math.abs(gesture.scroll) > 22) { send([mode() === "direct" ? { kind: "scroll", ...point(e.clientX, e.clientY), dy: gesture.scroll > 0 ? 2 : -2 } : { kind: "scroll", at: "cursor", dy: gesture.scroll > 0 ? 2 : -2 }]); gesture.scroll = 0; }
     return;
@@ -381,9 +397,24 @@ $("mode").addEventListener("click", () => {
   $("mode-name").textContent = { pad: "Trackpad", direct: "Tap here", ask: "Ask" }[next];
 });
 $("tap-mode").addEventListener("change", () => { $("mode-name").textContent = { pad: "Trackpad", direct: "Tap here", ask: "Ask" }[mode()]; });
-$("zoom").addEventListener("click", () => {
-  const on = $("stage").classList.toggle("zoomed"); $("zoom-name").textContent = on ? "2x" : "Fit";
-  $("zoom").classList.toggle("on", on); if (!on) { $("stage").scrollLeft = 0; $("stage").scrollTop = 0; } setTimeout(drawCursor, 50);
+// ---- zoom (owner 2026-11-07): pinch into one part of the screen to see small text or close buttons, then tap there ----
+let zoom = 1, fitWidth = 0;
+function setZoom(z, cx, cy) {   // (cx, cy): the spot on the phone that stays under your fingers
+  const stage = $("stage"), before = frameRect();
+  if (zoom === 1) fitWidth = before.width;
+  z = Math.min(6, Math.max(1, z)); if (z < 1.05) z = 1;
+  const fx = (cx - before.left) / before.width, fy = (cy - before.top) / before.height;
+  // zoomed: half a screen of black around the picture, so any spot (even a corner) can come under your fingers
+  const padX = stage.clientWidth / 2, padY = stage.clientHeight / 2;
+  zoom = z; stage.classList.toggle("zoomed", z > 1);
+  Object.assign($("canvas").style, z > 1 ? { width: fitWidth * z + 2 * padX + "px", padding: `${padY}px ${padX}px` } : { width: "", padding: "" });
+  if (z > 1) { const after = frameRect(); stage.scrollLeft += after.left + fx * after.width - cx; stage.scrollTop += after.top + fy * after.height - cy; }
+  else { stage.scrollLeft = 0; stage.scrollTop = 0; }
+  $("zoom-name").textContent = z > 1 ? z.toFixed(1) + "x" : "Fit"; $("zoom").classList.toggle("on", z > 1);
+  drawCursor();
+}
+$("zoom").addEventListener("click", () => {   // zoomed: back to Fit; at Fit: 2x on the middle of the screen
+  const r = frameRect(); setZoom(zoom > 1 ? 1 : 2, r.left + r.width / 2, r.top + r.height / 2);
 });
 
 // ---- keyboard: the phone keyboard types live on the laptop; the key row sends single keys ----------------------------

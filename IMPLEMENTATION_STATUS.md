@@ -16,6 +16,27 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: Phone remote: pinch to zoom into one part of the laptop screen, then tap there
+- Owner request: zoom in to see small text or tap buttons that are close together.
+- `phone.js` `setZoom`: a pinch (fingers spreading or closing more than 24 px) zooms the view on the phone, 1–6x,
+  around the spot under the fingers. Moving the fingers during the pinch pans. It needs no laptop control and sends
+  nothing to the laptop.
+- Two fingers moving together still scroll the laptop. While zoomed, one finger pans the view in Tap-here/Ask mode;
+  in Trackpad mode the view follows the pointer as you move it (new frames no longer pull the view back to the
+  pointer). The zoom button goes back to Fit, or to 2x when at Fit, and shows the zoom level.
+- While zoomed the picture has half a screen of black around it, so any spot, even a corner, can come under your
+  fingers.
+- **Verified:** Playwright touch events (CDP) on the real page, portrait 412×915 and landscape 915×412:
+  - the pinch reached 4.8x and sent nothing to the laptop;
+  - the spot under the fingers stayed put (0.75, 0.60 → 0.759, 0.598; it was 0.644 before the black margin);
+  - a Tap-here tap on the zoomed view sent exactly that spot of the laptop screen (spot 0.768, 0.587 → sent 0.768,
+    0.587);
+  - a one-finger drag panned and sent nothing;
+  - two fingers moving together sent `scroll` and did not change the zoom;
+  - the zoom button returned to Fit.
+  - Phone tests: 51 OK.
+  - Not yet seen on the owner's real phone.
+
 ### 2026-11-07: Phone remote sideways: full screen, large screen on the left, trackpad and buttons on the right
 - Owner request: in landscape the laptop screen was small and centred, with trackpad on both sides, and the header
   and Chrome's bar took up height.

@@ -24,7 +24,7 @@ body:has(#app:not([hidden])){height:100dvh;overflow:hidden}
 .stage.zoomed{overflow:auto}
 .canvas{position:relative;width:100%}
 .stage:not(.zoomed) .canvas{height:100%;display:flex;align-items:center}
-.stage.zoomed .canvas{width:220%}
+/* .stage.zoomed .canvas: width and padding are set by the pinch (phone.js setZoom) */
 #frame{width:100%;display:block;pointer-events:none;-webkit-touch-callout:none}
 .stage:not(.zoomed) #frame{max-height:100%;object-fit:contain}
 .cursor{position:absolute;width:14px;height:14px;margin:-2px 0 0 -2px;border-left:3px solid #fff;border-top:3px solid #fff;
