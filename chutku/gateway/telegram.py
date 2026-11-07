@@ -214,6 +214,9 @@ class Gateway:
             from chutku.core.log import get_logger
             get_logger("telegram").info("ignored an update from an unpaired chat")   # no content, no chat id
             return "ignored"
+        if text.casefold() in {"/link", "link", "/start", "phone link", "/phone"}:
+            self.send(phone_link_text(self.base))   # owner 2026-11-07: "if I lose the link, no problem"
+            return "link"
         with _LOCK:
             data = self._state()
             if len(data["rate"]) >= RATE_PER_HOUR:
@@ -514,4 +517,27 @@ def start(core):
     gateway = Gateway(core.base, core, transcribe=whisper_transcriber(core.base))
     _ACTIVE["gateway"] = gateway
     threading.Thread(target=gateway.run, args=(core.closing,), name="chutku-telegram", daemon=True).start()
+    # owner 2026-11-07: when the laptop is up and Chutku runs, the phone link arrives on Telegram by itself
+    threading.Thread(target=lambda: _quietly(gateway.send, phone_link_text(core.base)), name="chutku-telegram-hello",
+                     daemon=True).start()
     return gateway
+
+
+def phone_link_text(base):
+    """The live link to the phone remote (and what to do if phone access is off)."""
+    try:
+        from chutku.remote.auth import RemoteStore
+        settings = RemoteStore(base).settings()
+    except Exception:
+        settings = {}
+    if settings.get("enabled") and settings.get("host"):
+        return (f"Chutku is running on the laptop.\nPhone remote (screen, mouse, keyboard, files): "
+                f"https://{settings['host']}/\nSend /link any time to get this again.")
+    return "Chutku is running on the laptop. Phone access is off: say \"phone connect karo\" on the laptop to turn it on."
+
+
+def _quietly(call, *args):
+    try:
+        call(*args)
+    except Exception:   # Telegram unreachable at start-up: the owner can send /link later
+        pass

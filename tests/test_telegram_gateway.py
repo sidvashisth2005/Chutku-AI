@@ -95,6 +95,21 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(self.api.sent, [])
         self.assertEqual(self.core.goals, [])
 
+    def test_link_gives_the_phone_remote_link_to_the_owner_only(self):
+        # owner 2026-11-07: the live link comes on Telegram, and "/link" brings it back if it is lost
+        from chutku.remote.auth import RemoteStore
+        RemoteStore(self.base).configure(host="laptop.tail1.ts.net", login="me@example.com", enabled=True)
+        self.assertEqual(self.gateway.handle(message(STRANGER, "/link")), "ignored")
+        self.assertEqual(self.api.texts(), [])
+        self.pair()
+        self.api.sent.clear()
+        self.assertEqual(self.gateway.handle(message(OWNER, "/link")), "link")
+        self.assertIn("https://laptop.tail1.ts.net/", self.api.texts()[-1])
+        self.assertEqual(self.core.goals, [])                                      # not a task for the planner
+        RemoteStore(self.base).configure(enabled=False)
+        self.gateway.handle(message(OWNER, "link"))
+        self.assertIn("phone connect karo", self.api.texts()[-1])
+
     def test_wrong_codes_lock_pairing(self):
         self.gateway.new_code()
         for _ in range(telegram.MAX_WRONG):

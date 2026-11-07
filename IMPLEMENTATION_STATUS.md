@@ -16,6 +16,29 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: Telegram bot live (@chutkuai_bot) with the phone link; boot access via RustDesk + Tailscale (setup ready)
+- **The owner's BotFather token** is stored in Credential Manager. It went through stdin, never on a command line.
+  `getMe` returns @chutkuai_bot. The token also appeared in the chat, so rotating it with BotFather `/revoke` is
+  advised.
+- **The phone link on Telegram:**
+  - when Chutku starts (paired chat only), "Chutku is running…" arrives with `https://<laptop>.ts.net/`;
+  - `/link` (or "link", "/start") sends it again, for the owner's chat only, and it never becomes a planner task.
+  - Test: `test_link_gives_the_phone_remote_link_to_the_owner_only`.
+- **Boot access** (owner: control from boot and type the Windows password from the phone): the login screen is
+  Windows' secure desktop, which only SYSTEM software can see or type on. Chutku never runs elevated (a core safety
+  rule), so the owner chose RustDesk.
+  - `scripts/setup_boot_access.ps1` is run once as administrator. It:
+    - turns on Tailscale `--unattended` (the laptop joins the tailnet at boot);
+    - installs RustDesk 1.5.1 from the official MSI, checked against the SHA-256 GitHub publishes;
+    - sets RustDesk to direct-IP access, with a whitelist of **100.64.0.0/10** (Tailscale only), and a permanent
+      password the owner types there;
+    - registers the startup task `ChutkuBootNotice`.
+  - `ChutkuBootNotice` runs as LOCAL SERVICE from `C:\ProgramData\ChutkuBoot`, an administrators-only ACL. Its
+    token is encrypted with DPAPI LocalMachine. It sends "Laptop is ON" with the RustDesk address and the phone
+    link. No user-writable code runs elevated.
+  - Both scripts parse.
+  - **Not run yet:** it needs the owner's `/pair` in Telegram first, then one UAC click and the RustDesk password.
+
 ### 2026-11-07: Phone screen as a live stream (3 -> 18 frames/s); laptop videos play on the phone's own player
 - **"Frames are still laggy":** the laptop alone managed only 3.4 frames/s. Profile: capture 31 ms, but
   `vision.scaled` (numpy) took 225 ms per frame.
