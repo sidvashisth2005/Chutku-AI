@@ -143,3 +143,30 @@ Still open: H16 live (token), A14/A15/A16, Z6, the Gemini key pool, the Board/Au
 - **Linux baseline:** 583 tests fail on Linux because they are Windows-only.
 - **Pre-existing oddity:** "har roz 8 baje" alone (no goal) schedules the goal "har roz" through the old scheduler
   parse. It was not changed.
+
+### PC session results (2026-11-07, after merging the branch)
+
+| Check | Result on the owner's PC |
+|---|---|
+| CI on `7be6c25` | tests and package green |
+| Full Windows suite | 1,614 tests. The 6 relay errors had one cause: `cryptography` (new in the lock) was not installed in the PC's venv. After `pip install --require-hashes -r requirements.lock`, all pass. |
+| `check_phrases.py` | **163/163** (on Linux 157/163) |
+| A16 survey | "screen survey karo" -> `desktop.survey`, 19.5 s; it listed the open windows, the fixture included |
+| A14 `desktop.do` / act | "ChutkuFormFixture window mein Dark mode checkbox toggle karo" -> 10.2 s; the box is checked (read independently) |
+| A15 teach | "sikho notedemo ChutkuFormFixture mein" (0.6 s) -> the owner's two changes -> "ho gaya" recorded `type "taught by owner" into "Note"` and `toggle "Dark mode"`. After a reset, "notedemo" replayed both with `desktop.do` x2 in 2.2 s; the window matched again. Cursor unchanged throughout. |
+| Help | `/help` serves `docs/USER_GUIDE.md` (11 KB). It is plain Markdown text, not a styled page: a polish item. |
+| Real install | `ChutkuSetup.exe` from the CI artifact: `/VERYSILENT /PACKAGE=…` installed in 18 s to `%LOCALAPPDATA%\Programs\Chutku` with a Start-menu shortcut. Chutku's own code ships as 195 `.pyc` and 0 `.py`. |
+| Start-menu launch | The session came up in 4 s with no console. `/api/setup` shows `done: false` and the default mode `auto_safe`. A text command took 0.18 s; a bad token got 403. Data went to `%LOCALAPPDATA%\Chutku`; the app folder had 10,775 files before and after (nothing written). |
+| **Found and fixed** | The launch opened the dashboard as a **tab in the default browser** (Edge), not an app window. `dashboard.open_app_window`: an installed Chutku opens Edge in app mode with its own profile in the data folder, so the window titled "Chutku" has no tabs or address bar; a checkout keeps the browser tab. Checked live against the installed app; test `tests/test_app_window.py`. |
+| Uninstall | Silent, 4 s: the app folder, shortcut and Run entry are gone; the user's data is kept by default. |
+
+Still for the owner (not done here):
+- the phone through the real relay (end-to-end encryption);
+- a second Groq key at a real quota;
+- a real pack download in the installed app, and the mic level meter;
+- `RELEASES_TOKEN` and the public repo;
+- `chutku.cli browser login` and `chutku.cli authority grant browser.input`;
+- Telegram;
+- the voice and wake word.
+
+Then tag `v1.0.0`.

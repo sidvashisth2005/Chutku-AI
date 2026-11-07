@@ -1225,7 +1225,6 @@ class DashboardServer(ThreadingHTTPServer):
 
     def start_tray(self):
         """Tray icon with the same controls as the dashboard header buttons."""
-        import webbrowser
         from chutku.tray import Tray
         control = ActionControl(self.base)
 
@@ -1235,7 +1234,7 @@ class DashboardServer(ThreadingHTTPServer):
         def stop():   # "Quit Chutku": every process ends, cleanly (no pause on the next start), 2026-11-01
             if self.heartbeat is not None:
                 control.quit()
-        self.tray = Tray(open_dashboard=lambda: webbrowser.open(self.url), toggle_pause=toggle, stop=stop,
+        self.tray = Tray(open_dashboard=lambda: open_app_window(self.url), toggle_pause=toggle, stop=stop,
                          is_paused=lambda: control.paused, guard_active=lambda: self.heartbeat is not None,
                          show_window=self.show_window)
         self.tray.start()
@@ -2246,10 +2245,27 @@ def _write_session_link(base, url):
     os.replace(temporary, path)
 
 
+def open_app_window(url):
+    """Open the dashboard. An installed Chutku opens it as its own app window (Edge's app mode: no tabs or address
+    bar, a separate profile in Chutku's data folder), not as a tab in the user's browser (PC check 2026-11-07: the
+    Start-menu launch opened an Edge tab). A git checkout keeps the browser tab the owner is used to."""
+    import os
+    import subprocess
+    import webbrowser
+    from chutku.core.paths import data_dir, is_checkout
+    edges = [Path(os.environ.get(var, "")) / "Microsoft/Edge/Application/msedge.exe"
+             for var in ("ProgramFiles(x86)", "ProgramFiles")]
+    edge = next((e for e in edges if e.is_file()), None)
+    if is_checkout() or edge is None:
+        webbrowser.open(url)
+        return
+    subprocess.Popen([str(edge), f"--app={url}", "--window-size=1280,860", "--no-first-run",
+                      f"--user-data-dir={data_dir() / 'app-window'}"], close_fds=True)
+
+
 def open_running_dashboard(base=PROJECT_ROOT, opener=None):
     """Open the live dashboard if one is running; otherwise say how to start it."""
     import urllib.request
-    import webbrowser
     try:
         url = json.loads(_session_file(base).read_text(encoding="utf-8"))["url"]
     except (OSError, ValueError, KeyError):
@@ -2259,7 +2275,7 @@ def open_running_dashboard(base=PROJECT_ROOT, opener=None):
         urllib.request.urlopen(origin, timeout=3).close()  # only the static page; the token stays in the fragment
     except OSError:
         return "Chutku is not running. Start it with Start-Chutku.cmd."
-    (opener or webbrowser.open)(url)
+    (opener or open_app_window)(url)
     return "Opened the Chutku dashboard."
 
 
@@ -2313,8 +2329,7 @@ def serve(port: int = 8765, open_browser: bool = False, *, base=PROJECT_ROOT, he
               "data/dashboard-session.json).", flush=True)
         print("Keep this terminal running. Press Ctrl+C to stop. Planning is local; Gemini is used only if you granted cloud.gemini.", flush=True)
         if open_browser:
-            import webbrowser
-            webbrowser.open(server.url)
+            open_app_window(server.url)
         try:
             server.serve_forever(poll_interval=0.2)
         except KeyboardInterrupt:
