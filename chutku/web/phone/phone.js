@@ -197,10 +197,25 @@ async function rawGet(path) {   // GET that keeps the status and headers (frames
 }
 async function startScreen() {
   try {
-    await withPin("PIN to see the laptop screen", pin => api("/api/screen/start", pin ? { pin } : {}));
-    viewing = true; note(lastHash ? "" : "Getting the first picture…"); frames();
+    const r = await withPin("PIN to see the laptop screen", pin => api("/api/screen/start", pin ? { pin } : {}));
+    if (r && r.monitor) monitorPx = [r.monitor[2], r.monitor[3]];
+    viewing = true; note(lastHash || streaming ? "" : "Getting the first picture…");
+    if (!relay && streamFails < 3) attachStream(); else frames();   // the relay can't carry a stream: frame by frame
   } catch (e) { note(e.message === "Cancelled" ? "Tap ⋯ More → Resume the screen" : e.message); }
 }
+// Owner 2026-11-07, "frames are still laggy": on the tailnet the screen is one continuous MJPEG stream (~18 frames/s,
+// the cursor drawn in), not a request per picture. Three failed streams in a row fall back to frame by frame.
+let streamFails = 0, streaming = false, resumeStream = false;
+function attachStream() {
+  streaming = true; cursorAt = null; $("cursor").hidden = true;
+  $("frame").onerror = () => {
+    if (!streaming) return; streaming = false; streamFails++; note("Reconnecting the screen…");
+    setTimeout(() => { if (!document.hidden && !$("app").hidden) startScreen(); }, 1000);
+  };
+  $("frame").onload = () => { streamFails = 0; note(""); };
+  $("frame").src = "/api/screen/stream?w=1280&t=" + Date.now();
+}
+function detachStream() { streaming = false; $("frame").onerror = null; $("frame").removeAttribute("src"); }
 async function frames() {
   if (looping) return; looping = true;
   try {
@@ -248,8 +263,11 @@ function drawCursor() {
 $("frame").addEventListener("load", drawCursor);
 window.addEventListener("resize", drawCursor);
 $("screen-go").addEventListener("click", () => { closeSheets(); startScreen(); });
-$("screen-stop").addEventListener("click", () => { viewing = false; note("Screen paused. Tap ⋯ More → Resume the screen."); api("/api/screen/stop", {}).catch(() => {}); closeSheets(); });
-document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("app").hidden && !viewing && lastHash) startScreen(); });
+$("screen-stop").addEventListener("click", () => { viewing = false; detachStream(); note("Screen paused. Tap ⋯ More → Resume the screen."); api("/api/screen/stop", {}).catch(() => {}); closeSheets(); });
+document.addEventListener("visibilitychange", () => {   // a hidden page stops the stream (data, battery); back = resume
+  if (document.hidden) { if (streaming) { detachStream(); resumeStream = true; } }
+  else if (!$("app").hidden && (resumeStream || (!viewing && lastHash))) { resumeStream = false; startScreen(); }
+});
 
 // ---- control: starts by itself on the first touch, when the laptop allows it ------------------------------------------
 function showControl() {
@@ -453,9 +471,13 @@ function fileRow(f) {
   top.append(el("span", "file-icon", ICON[f.kind] || ICON.other), el("span", "file-name", f.name), el("span", "file-meta", size(f.size) + " · " + f.modified));
   const actions = el("div", "row file-actions"); actions.hidden = true;
   const get = el("button", "primary", "⬇ Download"), share = el("button", "", "↗ Share"), view = el("button", "", "👁 View");
+  const stream = "/api/files/stream?path=" + encodeURIComponent(f.path);
+  const play = el("button", "primary", f.kind === "pdf" ? "📖 Open" : "▶ Play");
+  play.addEventListener("click", () => openMedia(f, stream));
   get.addEventListener("click", () => fetchFile(f).then(blob => { const a = el("a"); a.href = URL.createObjectURL(blob); a.download = f.name; a.click(); status("Downloaded " + f.name); }).catch(e => status(e.message)));
   share.addEventListener("click", () => fetchFile(f).then(blob => navigator.share({ files: [new File([blob], f.name, { type: blob.type })] })).catch(e => status(e.message)));
-  view.addEventListener("click", () => fetchFile(f).then(blob => { $("file-view-img").src = URL.createObjectURL(blob); $("file-view").hidden = false; }).catch(e => status(e.message)));
+  view.addEventListener("click", () => relay ? fetchFile(f).then(blob => showMedia("photo", URL.createObjectURL(blob))).catch(e => status(e.message)) : openMedia(f, stream));
+  if (!relay && ["video", "audio", "pdf"].includes(f.kind)) actions.append(play);
   actions.append(get); if (navigator.canShare) actions.append(share); if (f.kind === "photo") actions.append(view);
   top.addEventListener("click", () => { actions.hidden = !actions.hidden; });
   row.append(top, actions); return row;
@@ -471,7 +493,24 @@ $("file-search").addEventListener("submit", e => { e.preventDefault(); const q =
 document.querySelectorAll("#file-kinds button").forEach(b => b.addEventListener("click", () => {
   fileKind = b.dataset.kind; document.querySelectorAll("#file-kinds button").forEach(x => x.classList.toggle("on", x === b)); loadFiles();
 }));
-$("file-view-close").addEventListener("click", () => { $("file-view").hidden = true; URL.revokeObjectURL($("file-view-img").src); });
+// Owner 2026-11-07: "an anime episode on my laptop": the file plays in the phone's own player (smooth, with sound,
+// seekable through HTTP Range), not as a copy of the laptop screen.
+async function openMedia(f, stream) {
+  try { await filesCall("/api/files/places", {}); } catch (e) { status(e.message); return; }   // the PIN session first
+  if (f.kind === "pdf") { window.open(stream, "_blank"); return; }
+  showMedia(f.kind, stream);
+}
+function showMedia(kind, src) {
+  const video = $("file-video"), img = $("file-view-img");
+  img.hidden = kind !== "photo"; video.hidden = kind === "photo";
+  if (kind === "photo") img.src = src; else { video.src = src; video.play().catch(() => {}); }
+  $("file-view").hidden = false;
+}
+$("file-video").addEventListener("error", () => status("The phone can't play this file's format. Use Download instead."));
+$("file-view-close").addEventListener("click", () => {
+  $("file-view").hidden = true; $("file-video").pause(); $("file-video").removeAttribute("src"); $("file-video").load();
+  if ($("file-view-img").src.startsWith("blob:")) URL.revokeObjectURL($("file-view-img").src); $("file-view-img").removeAttribute("src");
+});
 document.querySelector('[data-sheet="files"]').addEventListener("click", () => { if (!$("sheet-files").hidden) { loadPlaces(); loadFiles(); } });
 
 // ---- entering the app: everything starts by itself ---------------------------------------------------------------------

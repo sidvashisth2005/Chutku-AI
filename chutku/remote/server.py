@@ -17,6 +17,7 @@ import hashlib
 import hmac
 import io
 import json
+import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import secrets
@@ -37,8 +38,9 @@ MAX_UPLOAD = 200 * 1024 * 1024             # P8 phone -> laptop files
 SCREEN_MAX = 30 * 60
 SCREEN_BEAT = 45.0   # one slow round trip (relay, mobile data) must not end the view
 PIN_SESSION = 30 * 60   # owner 2026-11-07: the PIN once per session, renewed while the phone is used
-MONITOR_SECONDS = 2.0   # trackpad input reuses the monitor rectangle instead of a capture per move
-KINDS = {"/api/screen/frame": "frame", "/api/session": "poll", "/api/presence": "poll", "/api/say": "poll",
+MONITOR_SECONDS = 2.0
+STREAM_FRAME = 1 / 20   # the stream's fastest pace (capture ~30 ms + scale/encode ~30 ms in practice)   # trackpad input reuses the monitor rectangle instead of a capture per move
+KINDS = {"/api/screen/frame": "frame", "/api/screen/stream": "frame", "/api/files/stream": "frame", "/api/session": "poll", "/api/presence": "poll", "/api/say": "poll",
          "/api/whoami": "poll", "/api/files/list": "poll", "/api/files/search": "poll", "/api/files/recent": "poll",
          "/api/files/places": "poll", "/api/control/input": "input", "/api/control/text": "input", "/api/control/keys": "input"}
 INBOX = Path(user_folder("ChutkuInbox"))
@@ -294,6 +296,10 @@ class PhoneHandler(BaseHTTPRequestHandler):
                 self._reply(200, self.server.core.presence_state())
             elif path == "/api/screen/frame":
                 self._frame(record, query.get("h", [""])[0])
+            elif path == "/api/screen/stream":
+                self._stream(record, query)
+            elif path == "/api/files/stream":
+                self._file_stream(record, query.get("path", [""])[0])
             elif path == "/api/say":
                 self._say(query.get("id", [""])[0])
             else:
@@ -473,7 +479,11 @@ class PhoneHandler(BaseHTTPRequestHandler):
         now = time.monotonic()
         self.server.screen = {"device": record["device"], "until": now + SCREEN_MAX, "beat": now, "hash": None}
         _keep_awake(True)
-        return {"viewing": True, "minutes": SCREEN_MAX // 60}
+        try:
+            monitor = list(self._monitor())   # the phone moves its own pointer at once in these pixels
+        except OSError:
+            monitor = None
+        return {"viewing": True, "minutes": SCREEN_MAX // 60, "monitor": monitor}
 
     def _post_screen_stop(self, record, data):
         self.server.screen = None
@@ -492,18 +502,105 @@ class PhoneHandler(BaseHTTPRequestHandler):
         from chutku.remote.control import cursor_pos
         shot = vision.capture()
         controlling = self.server.controlling()
-        pixels = vision.scaled(shot.pixels, 1280)
         x, y = cursor_pos()
         cursor = json.dumps([round((x - shot.left) / max(shot.width, 1), 4), round((y - shot.top) / max(shot.height, 1), 4)])
-        digest = hashlib.sha1(pixels[::8, ::8].tobytes() + cursor.encode()).hexdigest()
+        digest = hashlib.sha1(shot.pixels[::16, ::16].tobytes() + cursor.encode()).hexdigest()
         headers = {"X-Frame-Hash": digest, "X-Cursor": cursor}
         if digest == last_hash:
             self._reply(204, b"", "text/plain", headers=headers)
             return
         self.server.monitor_seen = (time.monotonic(), (shot.left, shot.top, shot.width, shot.height))
-        body, mime = _jpeg(pixels, 7 if controlling else 8)   # lighter frames while the owner drives
+        body, mime = _jpeg(shot.pixels, 7 if controlling else 8, width=1280)   # lighter frames while the owner drives
         self._reply(200, body, mime,
                     headers={**headers, "X-Monitor": json.dumps([shot.left, shot.top, shot.width, shot.height])})
+
+    def _file_stream(self, record, raw_path):
+        """GET /api/files/stream?path=: a laptop video, audio file, photo or PDF played by the phone's own player, with
+        seeking (HTTP Range). Owner 2026-11-07: "an anime episode on my laptop" plays smoothly with sound this way;
+        copying the screen could never be smooth. Same refusals as a download; inside the PIN session; read-only."""
+        self._pin(record, None)
+        path = Path(str(raw_path or "")).expanduser()
+        reason = file_refusal(path, max_size=None)
+        if reason:
+            raise RemoteDenied(reason)
+        size = path.stat().st_size
+        start, end = 0, size - 1
+        ranged = re.fullmatch(r"bytes=(\d*)-(\d*)", (self.headers.get("Range") or "").strip())
+        if ranged and (ranged[1] or ranged[2]):
+            if ranged[1]:
+                start, end = int(ranged[1]), int(ranged[2]) if ranged[2] else size - 1
+            else:   # the last N bytes
+                start = max(0, size - int(ranged[2]))
+            end = min(end, size - 1)
+            if start > end:
+                self.send_response(416)
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.end_headers()
+                return
+        self.send_response(206 if ranged else 200)
+        self.send_header("Content-Type", STREAM_TYPES.get(path.suffix.casefold(), "application/octet-stream"))
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(end - start + 1))
+        if ranged:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        if start == 0:
+            _log(self.server.core.base, "file_streamed_to_phone", {"path": str(path), "bytes": size})
+        try:
+            with path.open("rb") as handle:
+                handle.seek(start)
+                left = end - start + 1
+                while left > 0:
+                    chunk = handle.read(min(1 << 20, left))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+        except (BrokenPipeError, ConnectionError):
+            pass   # the player seeks by closing this request and asking for another range
+
+    def _stream(self, record, query):
+        """GET /api/screen/stream: the screen as one continuous MJPEG stream (multipart/x-mixed-replace), shown by a
+        plain <img>. No round trip per frame (owner 2026-11-07: "frames are still laggy"); the cursor is drawn in.
+        Ends when the phone goes away, the view is stopped or replaced, or after SCREEN_MAX."""
+        screen = self.server.screen
+        if not screen or screen["device"] != record["device"] or time.monotonic() > screen["until"]:
+            raise RemoteDenied("Start screen view with your PIN.", 403)
+        from chutku import vision
+        from chutku.remote.control import cursor_pos
+        width = max(640, min(1920, int((query.get("w") or ["1280"])[0])))
+        screen["stream"] = token = secrets.token_hex(4)   # a newer stream from this phone replaces this one
+        self.send_response(200)
+        self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=chutkuframe")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        last, sent_at = None, 0.0
+        try:
+            while self.server.screen is screen and screen.get("stream") == token and time.monotonic() < screen["until"] \
+                    and not self.server.stopped.is_set():
+                started = time.monotonic()
+                screen["beat"] = started
+                try:
+                    shot = vision.capture()
+                    pixels = _with_cursor(shot, cursor_pos())
+                except OSError:   # locked or a secure desktop: try again shortly, keep the stream open
+                    time.sleep(1.0)
+                    continue
+                digest = hashlib.sha1(pixels[::16, ::16].tobytes()).digest()
+                if digest != last or started - sent_at > 2.0:   # unchanged screens cost nothing (a keep-alive every 2 s)
+                    self.server.monitor_seen = (started, (shot.left, shot.top, shot.width, shot.height))
+                    body, mime = _jpeg(pixels, 8 if self.server.controlling() else 9, width=width)
+                    self.wfile.write(b"--chutkuframe\r\nContent-Type: " + mime.encode() + b"\r\nContent-Length: "
+                                     + str(len(body)).encode() + b"\r\n\r\n" + body + b"\r\n")
+                    self.wfile.flush()
+                    last, sent_at = digest, started
+                time.sleep(max(0.0, STREAM_FRAME - (time.monotonic() - started)))
+        except (BrokenPipeError, ConnectionError, OSError):
+            pass   # the phone closed the stream
 
     # -- P5/P6: direct control ---------------------------------------------------------------------------------------
     def _post_control_start(self, record, data):
@@ -681,8 +778,16 @@ def _free_name(path):
     raise RemoteDenied("Too many files with that name today.", 409)
 
 
-def file_refusal(path):
-    """Why a laptop file may not go to the phone (None = allowed)."""
+STREAM_TYPES = {".mp4": "video/mp4", ".m4v": "video/mp4", ".mkv": "video/webm", ".webm": "video/webm",
+                ".mov": "video/mp4", ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".aac": "audio/aac", ".wav": "audio/wav",
+                ".ogg": "audio/ogg", ".opus": "audio/ogg", ".flac": "audio/flac", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp", ".pdf": "application/pdf"}
+# shortcut: .mkv is announced as video/webm (Matroska) so Chrome's player tries it; HEVC/AC3 episodes may still not
+# play on the phone (codec support, not Chutku); then Download works.
+
+
+def file_refusal(path, max_size=MAX_UPLOAD):
+    """Why a laptop file may not go to the phone (None = allowed). max_size None: no cap (streamed, not loaded)."""
     from chutku.core.paths import protected_zones
     from chutku.references import secret_reason
     try:
@@ -697,7 +802,7 @@ def file_refusal(path):
     reason = secret_reason(str(resolved))
     if reason:
         return reason
-    if resolved.stat().st_size > MAX_UPLOAD:
+    if max_size is not None and resolved.stat().st_size > max_size:
         return "Files up to 200 MB."
     return None
 
@@ -751,19 +856,43 @@ def wav(text):
             rate * 2, 2, 16) + b"data" + struct.pack("<I", len(audio)) + audio)
 
 
-def _jpeg(rgb, quality):
-    """JPEG through PyAV's MJPEG encoder (already installed for speech), else PNG. quality: 2 (best) .. 31."""
+def _jpeg(rgb, quality, width=None):
+    """JPEG through PyAV's MJPEG encoder (already installed for speech), scaled to `width` by PyAV's scaler (9 ms for
+    1080p, against 225 ms for vision.scaled), else PNG. quality: 2 (best) .. 31."""
     try:
         import av
         import numpy as np
-        height, width = rgb.shape[0] - rgb.shape[0] % 2, rgb.shape[1] - rgb.shape[1] % 2
+        height, full = rgb.shape[0], rgb.shape[1]
+        out_w = min(width or full, full)
+        out_w, out_h = out_w - out_w % 2, round(height * out_w / full / 2) * 2
         codec = av.CodecContext.create("mjpeg", "w")
-        codec.width, codec.height, codec.pix_fmt = width, height, "yuvj420p"
+        codec.width, codec.height, codec.pix_fmt = out_w, out_h, "yuvj420p"
         codec.qmin = codec.qmax = quality
-        frame = av.VideoFrame.from_ndarray(np.ascontiguousarray(rgb[:height, :width]), format="rgb24")
-        return b"".join(bytes(packet) for packet in codec.encode(frame.reformat(format="yuvj420p"))), "image/jpeg"
+        frame = av.VideoFrame.from_ndarray(np.ascontiguousarray(rgb), format="rgb24")
+        frame = frame.reformat(width=out_w, height=out_h, format="yuvj420p", interpolation="AREA")
+        return b"".join(bytes(packet) for packet in codec.encode(frame)), "image/jpeg"
     except Exception:   # no PyAV or no MJPEG encoder: the lossless frame still works
-        return _png(rgb, level=1), "image/png"
+        from chutku import vision
+        return _png(vision.scaled(rgb, width or rgb.shape[1]), level=1), "image/png"
+
+
+def _with_cursor(shot, point):
+    """The screen with a small arrow where the mouse is (the stream has no headers per frame to carry it)."""
+    pixels = shot.pixels
+    x, y = point[0] - shot.left, point[1] - shot.top
+    height, width = pixels.shape[:2]
+    if not (0 <= x < width and 0 <= y < height):
+        return pixels
+    pixels = pixels.copy()
+    size = max(14, width // 90)   # still visible after scaling to the phone
+    for row in range(size):
+        if y + row >= height:
+            break
+        span = row // 2 + 1
+        left, right = x, min(width, x + span + 2)
+        pixels[y + row, left:right] = (0, 0, 0)
+        pixels[y + row, left + 1:min(width, x + span)] = (255, 255, 255)
+    return pixels
 
 
 def _png(rgb, level=1):

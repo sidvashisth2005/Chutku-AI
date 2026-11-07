@@ -343,6 +343,35 @@ class ServerTests(unittest.TestCase):
             handler._pin(record, None, strict=True)
         handler._pin(record, "4321", strict=True)
 
+    def test_a_laptop_video_streams_with_seeking_and_protected_files_do_not(self):
+        # owner 2026-11-07: "an anime episode on my laptop" plays in the phone's own player (HTTP Range)
+        self.pair_and_login()
+        movie = self.base / "episode.mp4"
+        movie.write_bytes(bytes(range(256)) * 40)
+        with patch("chutku.core.paths.protected_zones", return_value=[]):
+            status, body, headers = self.request("/api/files/stream?path=" + str(movie), extra={"Range": "bytes=10-19"})
+            self.assertEqual(status, 206)
+            self.assertEqual(body, bytes(range(10, 20)))
+            self.assertEqual(headers["Content-Range"], "bytes 10-19/10240")
+            self.assertEqual(headers["Content-Type"], "video/mp4")
+            status, body, _ = self.request("/api/files/stream?path=" + str(movie))
+            self.assertEqual((status, len(body)), (200, 10240))
+            self.assertEqual(self.request("/api/files/stream?path=" + str(movie), extra={"Range": "bytes=99999-"})[0], 416)
+        with patch("chutku.core.paths.protected_zones", return_value=[str(self.base.resolve()).casefold()]):
+            self.assertEqual(self.request("/api/files/stream?path=" + str(movie))[0], 403)
+
+    def test_the_stream_needs_a_screen_view_and_draws_the_cursor(self):
+        self.pair_and_login()
+        self.assertEqual(self.request("/api/screen/stream")[0], 403)                    # no view started
+        from chutku.vision import Shot
+        shot = Shot(np.zeros((400, 800, 3), np.uint8), 0, 0, 800, 400, {})
+        drawn = remote_server._with_cursor(shot, (100, 100))
+        self.assertTrue((drawn[104:110, 101] == 255).all())                           # a white arrow below the tip
+        self.assertFalse(shot.pixels.any())                                            # the capture itself untouched
+        body, mime = remote_server._jpeg(drawn, 8, width=400)
+        if mime == "image/jpeg":
+            self.assertEqual(body[:3], b"\xff\xd8\xff")
+
     def test_screen_view_needs_the_pin_and_sends_only_changes(self):
         self.pair_and_login()
         self.assertEqual(self.request("/api/screen/frame")[0], 403)

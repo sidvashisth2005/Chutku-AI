@@ -16,6 +16,28 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: Phone screen as a live stream (3 -> 18 frames/s); laptop videos play on the phone's own player
+- **"Frames are still laggy":** the laptop alone managed only 3.4 frames/s. Profile: capture 31 ms, but
+  `vision.scaled` (numpy) took 225 ms per frame.
+  - Frames are now scaled by PyAV's swscale (9 ms) and JPEG-encoded (~20 ms): 17.8 frames/s at 1280 px, ~53 KB a
+    frame.
+  - On the tailnet, the screen is one continuous MJPEG stream (`GET /api/screen/stream`, multipart/x-mixed-replace,
+    the cursor drawn into the frame) instead of one request per picture.
+  - Unchanged screens are not resent (a keep-alive every 2 s).
+  - The relay path, or 3 failed streams, falls back to frame by frame.
+- **"An anime episode on my laptop":** `GET /api/files/stream?path=` serves the file to the phone's own player with
+  HTTP Range (seekable, with sound): ▶ Play for video and audio, 📖 Open for PDFs, and photos straight from the
+  stream. It uses the same refusals as a download, inside the PIN session.
+  - shortcut: .mkv is announced as video/webm; HEVC or AC3 episodes may not play on the phone (Download still
+    works).
+- **Live through Tailscale HTTPS (test device, removed after):**
+  - the stream's first frame after 0.09 s; Chromium at phone size shows it at 1280 px;
+  - a 1 MB range of a Downloads video (206, `video/mp4`) in 0.11 s;
+  - `C:\Windows\win.ini` refused (403).
+- **Tests:** range, 416 and refusal; the stream needs a view; the cursor is drawn; the scaled JPEG. Full suite OK.
+- **Next, for even smoother motion:** H.264 on the GPU (`h264_nvenc`, ~19 ms and ~3.5 KB a frame measured) streamed
+  to WebCodecs on the phone.
+
 ### 2026-11-07: Phone remote: faster mouse; browse the laptop's files with filters (no paths to type)
 - **Mouse lag:** the server costs 0.15 ms per move, so the lag was on the phone. It queued every 30 ms move behind the
   previous ~100 ms Tailscale round trip, and the queue grew.
