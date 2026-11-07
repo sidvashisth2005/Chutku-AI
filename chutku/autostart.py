@@ -38,11 +38,21 @@ def status():
                     "'Oye Chutku' / 'Chutku sun'. Open Start-Chutku.cmd for the chat page."}
 
 
+def launch_command():
+    """(program, arguments, working folder) for the sign-in task. W3: an installed package starts Chutku.exe (which
+    sets CHUTKU_HOME and allows one instance); a git checkout starts its own pythonw, as before."""
+    from chutku.core.paths import CODE_ROOT, is_checkout
+    launcher = CODE_ROOT / "Chutku.exe"
+    if not is_checkout() and launcher.is_file():
+        return launcher, "--background", CODE_ROOT
+    return Path(sys.executable).with_name("pythonw.exe"), "-m chutku.guard", PROJECT_ROOT
+
+
 def enable():
-    pythonw = Path(sys.executable).with_name("pythonw.exe")
+    program, arguments, folder = launch_command()
     script = (
-        f"$a = New-ScheduledTaskAction -Execute {_quote(pythonw)} -Argument '-m chutku.guard' "
-        f"-WorkingDirectory {_quote(PROJECT_ROOT)}; "
+        f"$a = New-ScheduledTaskAction -Execute {_quote(program)} -Argument {_quote(arguments)} "
+        f"-WorkingDirectory {_quote(folder)}; "
         "$t = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME; "
         "$s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries "
         "-ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew; "

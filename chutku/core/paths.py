@@ -157,7 +157,11 @@ def protected_zones() -> list[str]:
 def protection_reason(target: Path) -> str | None:
     """Return why a resolved target is in a protected system zone, else None."""
     resolved = _norm(Path(target).resolve())
-    exempt = [_norm((home() / "sandbox").resolve()), _norm(Path(tempfile.gettempdir()).resolve())]
+    state, sandbox = _norm(home().resolve()), _norm((home() / "sandbox").resolve())
+    if _within(resolved, state) and not _within(resolved, sandbox):
+        # W2: Chutku's own data stays protected wherever home() is, even inside TEMP (a CHUTKU_HOME there)
+        return "This location is a protected system or Chutku runtime area; Chutku will not modify it."
+    exempt = [sandbox, _norm(Path(tempfile.gettempdir()).resolve())]
     if any(_within(resolved, item) for item in exempt):
         return None
     parts = PureWindowsPath(resolved).parts

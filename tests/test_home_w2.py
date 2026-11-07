@@ -132,7 +132,13 @@ WRITERS = textwrap.dedent("""
 
 class NothingUnderTheCodeFolderTests(unittest.TestCase):
     def run_child(self, script, temp):
-        env = dict(os.environ, CHUTKU_HOME=temp, PYTHONDONTWRITEBYTECODE="1")
+        from chutku.core import elevation
+        # scripts/ci_tests.py patches the elevation check in this process (CI runners are Administrator); the child
+        # must see the same answer, or Chutku rightly refuses to act there.
+        mirror = "" if elevation.is_elevated() else "1"
+        script = ("import os\nif os.environ.get('CHUTKU_TEST_NOT_ELEVATED'):\n"
+                  "    from chutku.core import elevation; elevation._query_token = lambda: False\n") + script
+        env = dict(os.environ, CHUTKU_HOME=temp, PYTHONDONTWRITEBYTECODE="1", CHUTKU_TEST_NOT_ELEVATED=mirror)
         return subprocess.run([sys.executable, "-c", script], cwd=str(CODE), env=env, capture_output=True, text=True,
                               timeout=300)
 

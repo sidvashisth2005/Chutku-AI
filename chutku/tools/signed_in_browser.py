@@ -79,6 +79,7 @@ _refs = {"at": 0.0, "map": {}}    # the latest snapshot's refs: {"e3": {"name", 
 def binary():
     for candidate in (os.environ.get("CHUTKU_AGENT_BROWSER"),
                       ROOT / "tools/node_modules/agent-browser/bin/agent-browser-win32-x64.exe",
+                      ROOT / "bin" / "agent-browser-win32-x64.exe",   # W3: the installed package
                       shutil.which("agent-browser")):
         if candidate and Path(candidate).is_file():
             return str(candidate)

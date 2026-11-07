@@ -65,6 +65,7 @@ def binary():
     arch = "arm64" if os.environ.get("PROCESSOR_ARCHITECTURE", "").upper() == "ARM64" else "x64"
     for candidate in (os.environ.get("CHUTKU_AGENT_DESKTOP"),
                       ROOT / f"tools/node_modules/agent-desktop/bin/agent-desktop-win32-{arch}.exe",
+                      ROOT / "bin" / f"agent-desktop-win32-{arch}.exe",   # W3: the installed package
                       shutil.which("agent-desktop")):
         if candidate and Path(candidate).is_file():
             return str(candidate)

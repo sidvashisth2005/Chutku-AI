@@ -1,0 +1,38 @@
+name: package
+
+# W3: build the app package on a clean Windows runner and prove it starts, answers, passes doctor, stops, and
+# never writes into its own folder.
+on:
+  push:
+    branches: [main, "claude/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Native helpers (agent-desktop, agent-browser), pinned by tools/package-lock.json
+        run: npm ci --prefix tools --ignore-scripts --no-audit --no-fund
+      - name: The newest CPython 3.13 embeddable pin (for models/manifest.json)
+        run: python scripts/build_release.py --print-python-pin
+      - name: Build the package
+        run: python scripts/build_release.py --out dist
+      - name: Start, answer, doctor, stop, app folder untouched
+        shell: pwsh
+        run: ./installer/ci_package_check.ps1 -Zip (Get-ChildItem dist/Chutku-*-win64.zip).FullName
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chutku-package
+          path: dist/
+          retention-days: 7
