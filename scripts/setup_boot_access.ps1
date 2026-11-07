@@ -18,8 +18,13 @@ $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 if (-not $admin) { Fail "run this as administrator (it asks Windows once)." }
 
 # --- 0. what the boot notice needs from Chutku (the paired chat, the token) --------------------------------------
+# An elevated window starts in C:\Windows\System32: run Chutku's Python from its own folder (PC check 2026-11-07).
+Set-Location $root
+$env:PYTHONPATH = $root
 $python = Join-Path $root ".venv\Scripts\python.exe"
-$info = & $python -c "import json; from chutku.app import PROJECT_ROOT; from chutku.gateway import telegram as tg; print(json.dumps({'token': tg.token() or '', 'chat': tg.paired(PROJECT_ROOT)}))" | ConvertFrom-Json
+$raw = & $python -c "import json; from chutku.app import PROJECT_ROOT; from chutku.gateway import telegram as tg; print(json.dumps({'token': tg.token() or '', 'chat': tg.paired(PROJECT_ROOT)}))"
+if ($LASTEXITCODE -ne 0 -or -not $raw) { Fail "could not read Chutku's Telegram settings (see the error above)." }
+$info = $raw | ConvertFrom-Json
 if (-not $info.token) { Fail "no Telegram bot token yet: run chutku.cli telegram set-token first." }
 if (-not $info.chat) { Fail "the bot is not paired yet: send /pair CODE to your bot (chutku.cli telegram pair) first." }
 
