@@ -27,7 +27,8 @@ apply: no Co-Authored-By line, CRLF kept, tests never touch real devices, never 
   - Headless phone-size check through Tailscale: the first picture 1.4 s after pairing, the cursor drawn.
 
 ## R4 tasks (in order; each through the delivery gate, with a ledger entry)
-1. **Emergency file fetch** (owner: "the laptop is at home and I need a file"):
+1. **Emergency file fetch: DONE on the PC 2026-11-07** (browser, filters, search, recent; see the ledger). Still to do here: the chat download card for "send me X".
+   Original task: (owner: "the laptop is at home and I need a file"):
    - **The Files sheet:**
      - quick folders: Recent (from `files.recent`), Desktop, Documents, Downloads, and folders the owner pins;
      - browse with breadcrumbs; search by name (reuse `files.find` / `chutku/drive_index.py`);

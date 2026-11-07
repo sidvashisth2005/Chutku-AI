@@ -39,7 +39,8 @@ SCREEN_BEAT = 45.0   # one slow round trip (relay, mobile data) must not end the
 PIN_SESSION = 30 * 60   # owner 2026-11-07: the PIN once per session, renewed while the phone is used
 MONITOR_SECONDS = 2.0   # trackpad input reuses the monitor rectangle instead of a capture per move
 KINDS = {"/api/screen/frame": "frame", "/api/session": "poll", "/api/presence": "poll", "/api/say": "poll",
-         "/api/whoami": "poll", "/api/control/input": "input", "/api/control/text": "input", "/api/control/keys": "input"}
+         "/api/whoami": "poll", "/api/files/list": "poll", "/api/files/search": "poll", "/api/files/recent": "poll",
+         "/api/files/places": "poll", "/api/control/input": "input", "/api/control/text": "input", "/api/control/keys": "input"}
 INBOX = Path(user_folder("ChutkuInbox"))
 BLOCKED_SUFFIXES = {".exe", ".msi", ".bat", ".cmd", ".ps1", ".vbs", ".js", ".scr", ".lnk", ".com", ".hta", ".jar"}
 # Steps that may never be approved from the phone, whatever the PIN: they wait for the laptop's own card.
@@ -500,7 +501,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
             self._reply(204, b"", "text/plain", headers=headers)
             return
         self.server.monitor_seen = (time.monotonic(), (shot.left, shot.top, shot.width, shot.height))
-        body, mime = _jpeg(pixels, 5 if controlling else 8)
+        body, mime = _jpeg(pixels, 7 if controlling else 8)   # lighter frames while the owner drives
         self._reply(200, body, mime,
                     headers={**headers, "X-Monitor": json.dumps([shot.left, shot.top, shot.width, shot.height])})
 
@@ -607,6 +608,30 @@ class PhoneHandler(BaseHTTPRequestHandler):
         _log(self.server.core.base, "file_from_phone", {"path": str(target), "bytes": length,
                                                         "sha256": digest.hexdigest()})
         self._reply(200, {"saved": str(target), "bytes": length, "sha256": digest.hexdigest()})
+
+    # Owner 2026-11-07: browse instead of typing a path. Read-only, inside the PIN session, the same refusals as a fetch.
+    def _post_files_places(self, record, data):
+        self._pin(record, data.get("pin"))
+        from chutku.remote import files_browse
+        return files_browse.places()
+
+    def _post_files_list(self, record, data):
+        self._pin(record, data.get("pin"))
+        from chutku.remote import files_browse
+        try:
+            return files_browse.listing(data.get("path"), str(data.get("kind") or "all"))
+        except PermissionError as error:
+            raise RemoteDenied(str(error)) from None
+
+    def _post_files_search(self, record, data):
+        self._pin(record, data.get("pin"))
+        from chutku.remote import files_browse
+        return files_browse.search(data.get("q"), str(data.get("kind") or "all"))
+
+    def _post_files_recent(self, record, data):
+        self._pin(record, data.get("pin"))
+        from chutku.remote import files_browse
+        return files_browse.recent(str(data.get("kind") or "all"))
 
     def _post_files_get(self, record, data):
         self._pin(record, data.get("pin"))

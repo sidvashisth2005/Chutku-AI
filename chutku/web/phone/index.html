@@ -70,8 +70,12 @@
 
   <section id="sheet-files" class="sheet" hidden>
     <div class="sheet-head"><strong>Files</strong><button class="text" data-close>Close ✕</button></div>
-    <div class="card"><h2>Laptop → phone</h2><p class="muted small">Or just ask Chutku: "Downloads se resume.pdf bhejo".</p>
-      <input id="get-path" placeholder="D:\Folder\file.pdf"><button id="get-go" class="primary">Get file</button><p id="get-out" class="small"></p></div>
+    <form id="file-search" class="files-bar"><input id="file-q" type="search" placeholder="Search all laptop files…" autocomplete="off"><button class="primary">🔍</button></form>
+    <div class="chips" id="file-kinds"><button data-kind="all" class="on">All</button><button data-kind="photo">📷 Photos</button><button data-kind="pdf">📕 PDF</button><button data-kind="doc">📄 Docs</button><button data-kind="video">🎬 Videos</button><button data-kind="audio">🎵 Audio</button><button data-kind="archive">🗜 Zip</button></div>
+    <div class="chips" id="file-places"></div>
+    <div id="file-crumb" class="crumb"></div>
+    <div id="file-list" class="file-list"><p class="muted small">Loading…</p></div>
+    <div id="file-view" class="file-view" hidden><button class="text" id="file-view-close">Close ✕</button><img id="file-view-img" alt=""></div>
     <div class="card"><h2>Phone → laptop</h2><p class="muted small">Lands in the ChutkuInbox folder, never overwrites. Programs are stored as .blocked.</p>
       <input type="file" id="upload-file"><button id="upload-go">Send to laptop</button><p id="upload-out" class="small"></p></div>
   </section>

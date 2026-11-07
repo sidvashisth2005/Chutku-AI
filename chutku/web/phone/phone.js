@@ -210,7 +210,9 @@ async function frames() {
       try { response = await rawGet("/api/screen/frame?h=" + lastHash); }
       catch { note("Can't reach the laptop. Retrying…"); await sleep(2000); continue; }
       const cursor = response.headers.get("X-Cursor");
-      if (cursor) { try { cursorAt = JSON.parse(cursor); } catch {} }
+      if (cursor && Date.now() - localMoveAt > 350) { try { cursorAt = JSON.parse(cursor); } catch {} }   // our own move wins briefly
+      const monitor = response.headers.get("X-Monitor");
+      if (monitor) { try { const m = JSON.parse(monitor); monitorPx = [m[2], m[3]]; } catch {} }
       if (response.status === 200) {
         lastHash = response.headers.get("X-Frame-Hash") || "";
         const url = URL.createObjectURL(await response.blob()), old = $("frame").src;
@@ -226,7 +228,7 @@ async function frames() {
         await sleep(response.status === 429 ? 1000 : 3000); continue;
       }
       drawCursor();
-      await sleep(controlling ? 130 : 250);
+      await sleep(controlling ? 50 : 250);
     }
   } finally { looping = false; }
 }
@@ -271,19 +273,37 @@ function queued(path, data) {   // in order, one at a time; a session that timed
   });
   return inputs;
 }
-const send = events => queued("/api/control/input", { events });
+// Mouse input: ONE request in flight; whatever moved meanwhile rides along in the next one (PC check 2026-11-07: queued
+// moves piled up behind ~100 ms Tailscale round trips, so the more you moved the further the pointer fell behind).
+let pending = { dx: 0, dy: 0, events: [] }, inFlight = false, monitorPx = null, localMoveAt = 0;
+function pump() {
+  if (inFlight) return;
+  const events = [];
+  let dx = Math.round(pending.dx), dy = Math.round(pending.dy); pending.dx -= dx; pending.dy -= dy;
+  while (dx || dy) { const sx = Math.max(-400, Math.min(400, dx)), sy = Math.max(-400, Math.min(400, dy)); events.push({ kind: "nudge", dx: sx, dy: sy }); dx -= sx; dy -= sy; }
+  events.push(...pending.events.splice(0));
+  if (!events.length) return;
+  inFlight = true;
+  api("/api/control/input", { events }).catch(async e => {
+    if (/Start control/.test(e.message)) { controlling = false; showControl(); if (await ensureControl()) return api("/api/control/input", { events }).catch(x => status(x.message)); }
+    else status(e.message);
+  }).finally(() => { inFlight = false; if (pending.events.length || Math.abs(pending.dx) >= 1 || Math.abs(pending.dy) >= 1) pump(); });
+}
+const send = events => { pending.events.push(...events); pump(); };
 const here = kind => send([{ kind, at: "cursor" }]);
+function moveBy(dx, dy) {
+  pending.dx += dx; pending.dy += dy; pump();
+  if (cursorAt && monitorPx) {   // the pointer moves on the phone at once; the next frames correct it
+    cursorAt = [Math.min(1, Math.max(0, cursorAt[0] + dx / monitorPx[0])), Math.min(1, Math.max(0, cursorAt[1] + dy / monitorPx[1]))];
+    localMoveAt = Date.now(); drawCursor();
+  }
+}
 
 // ---- touch on the screen: trackpad (default), tap where I touch, or ask about a spot ----------------------------------
-const SPEED = 1.6, touches = new Map();
-let moved = { dx: 0, dy: 0 }, flushing = null, gesture = null, pressTimer = null, dragging = false;
+const SPEED = 1.8, touches = new Map();
+let gesture = null, pressTimer = null, dragging = false;
 const mode = () => $("tap-mode").value;
 function point(x, y) { const r = frameRect(); return { x: Math.min(1, Math.max(0, (x - r.left) / r.width)), y: Math.min(1, Math.max(0, (y - r.top) / r.height)) }; }
-function flush() {
-  flushing = null; const dx = Math.round(moved.dx), dy = Math.round(moved.dy); if (!dx && !dy) return;
-  moved = { dx: 0, dy: 0 };
-  send([{ kind: "nudge", dx: Math.max(-400, Math.min(400, dx)), dy: Math.max(-400, Math.min(400, dy)) }]);
-}
 function setDragging(on) { dragging = on; $("stage").classList.toggle("dragging", on); if (on && navigator.vibrate) navigator.vibrate(25); }
 $("stage").addEventListener("pointerdown", async e => {
   $("stage").setPointerCapture(e.pointerId); touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -309,13 +329,12 @@ $("stage").addEventListener("pointermove", e => {
   }
   if (mode() !== "pad") return;
   const accel = 1 + Math.min(Math.hypot(dx, dy) / 10, 2);   // slow = precise, fast = far
-  moved.dx += dx * SPEED * accel; moved.dy += dy * SPEED * accel;
-  if (!flushing) flushing = setTimeout(flush, 30);
+  moveBy(dx * SPEED * accel, dy * SPEED * accel);
 });
 for (const ev of ["pointerup", "pointercancel"]) $("stage").addEventListener(ev, async e => {
   touches.delete(e.pointerId); if (touches.size || !gesture) return;
   clearTimeout(pressTimer); const g = gesture; gesture = null;
-  if (dragging) { if (flushing) { clearTimeout(flushing); flush(); } here("up"); setDragging(false); return; }
+  if (dragging) { here("up"); setDragging(false); return; }
   if (!g.ready || g.used || ev === "pointercancel") return;
   const tap = Date.now() - g.at < 300 && g.travel < 14; if (!tap) return;
   if (mode() === "ask") {
@@ -395,12 +414,65 @@ $("upload-go").addEventListener("click", async () => {
   const file = $("upload-file").files[0]; if (!file) return;
   try { const r = await api("/api/files/upload?name=" + encodeURIComponent(file.name), file, true); $("upload-out").textContent = "Saved: " + r.saved; } catch (e) { $("upload-out").textContent = e.message; }
 });
-$("get-go").addEventListener("click", async () => {
+// Owner 2026-11-07: browse the laptop's files (no paths to remember), filtered by kind; download, share or view.
+const ICON = { photo: "🖼", video: "🎬", pdf: "📕", doc: "📄", audio: "🎵", archive: "🗜", other: "📎" };
+const MIME = { photo: "image/*", pdf: "application/pdf", video: "video/*" };
+let fileKind = "all", fileView = { type: "recent" }, placesLoaded = false;
+const size = n => n > 1e9 ? (n / 1e9).toFixed(1) + " GB" : n > 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB";
+async function filesCall(path, body) { return withPin("PIN to see the laptop's files", pin => api(path, pin ? { ...body, pin } : body)); }
+async function loadPlaces() {
+  if (placesLoaded) return; placesLoaded = true;
+  $("file-places").addEventListener("click", e => { if (e.target.tagName === "BUTTON") for (const b of $("file-places").children) b.classList.toggle("on", b === e.target); });
   try {
-    const path = $("get-path").value; const response = await withPin("PIN to fetch a laptop file", pin => api("/api/files/get", pin ? { path, pin } : { path }));
-    const blob = await response.blob(); const a = el("a"); a.href = URL.createObjectURL(blob); a.download = path.split(/[\\/]/).pop(); a.click(); $("get-out").textContent = "Downloaded " + blob.size + " bytes";
-  } catch (e) { $("get-out").textContent = e.message; }
-});
+    const r = await filesCall("/api/files/places", {});
+    const recent = el("button", "on", "🕘 Recent"); recent.addEventListener("click", () => loadFiles({ type: "recent" })); $("file-places").append(recent);
+    for (const p of [...r.places, ...r.drives]) { const b = el("button", "", (r.drives.includes(p) ? "💽 " : "📁 ") + p.name); b.addEventListener("click", () => loadFiles({ type: "list", path: p.path })); $("file-places").append(b); }
+  } catch (e) { placesLoaded = false; $("file-list").replaceChildren(el("p", "small", e.message)); }
+}
+async function loadFiles(view) {
+  fileView = view || fileView; $("file-list").replaceChildren(el("p", "muted small", "Loading…"));
+  try {
+    const kind = fileKind;
+    const r = fileView.type === "list" ? await filesCall("/api/files/list", { path: fileView.path, kind })
+      : fileView.type === "search" ? await filesCall("/api/files/search", { q: fileView.q, kind })
+      : await filesCall("/api/files/recent", { kind });
+    $("file-crumb").replaceChildren();
+    if (fileView.type === "list") {
+      if (r.parent) { const up = el("button", "", "⬆ Up"); up.addEventListener("click", () => loadFiles({ type: "list", path: r.parent })); $("file-crumb").append(up); }
+      $("file-crumb").append(el("span", "small", r.path));
+    } else $("file-crumb").append(el("span", "small", fileView.type === "search" ? `Results for "${fileView.q}"` : "Newest files on the laptop"));
+    const rows = [];
+    for (const f of r.folders || []) { const row = el("button", "file folder", "📁 " + f.name); row.addEventListener("click", () => loadFiles({ type: "list", path: f.path })); rows.push(row); }
+    for (const f of r.files || []) rows.push(fileRow(f));
+    if (!rows.length) rows.push(el("p", "muted small", "Nothing here" + (fileKind === "all" ? "." : " of this kind.")));
+    $("file-list").replaceChildren(...rows);
+  } catch (e) { $("file-list").replaceChildren(el("p", "small", e.message)); }
+}
+function fileRow(f) {
+  const row = el("div", "file"), top = el("button", "file-main");
+  top.append(el("span", "file-icon", ICON[f.kind] || ICON.other), el("span", "file-name", f.name), el("span", "file-meta", size(f.size) + " · " + f.modified));
+  const actions = el("div", "row file-actions"); actions.hidden = true;
+  const get = el("button", "primary", "⬇ Download"), share = el("button", "", "↗ Share"), view = el("button", "", "👁 View");
+  get.addEventListener("click", () => fetchFile(f).then(blob => { const a = el("a"); a.href = URL.createObjectURL(blob); a.download = f.name; a.click(); status("Downloaded " + f.name); }).catch(e => status(e.message)));
+  share.addEventListener("click", () => fetchFile(f).then(blob => navigator.share({ files: [new File([blob], f.name, { type: blob.type })] })).catch(e => status(e.message)));
+  view.addEventListener("click", () => fetchFile(f).then(blob => { $("file-view-img").src = URL.createObjectURL(blob); $("file-view").hidden = false; }).catch(e => status(e.message)));
+  actions.append(get); if (navigator.canShare) actions.append(share); if (f.kind === "photo") actions.append(view);
+  top.addEventListener("click", () => { actions.hidden = !actions.hidden; });
+  row.append(top, actions); return row;
+}
+async function fetchFile(f) {
+  if (f.size > 200e6) throw new Error("Files up to 200 MB.");
+  status("Getting " + f.name + "…");
+  const response = await withPin("PIN to fetch a laptop file", pin => api("/api/files/get", pin ? { path: f.path, pin } : { path: f.path }));
+  const blob = await response.blob(); status("");
+  return MIME[f.kind] && !MIME[f.kind].endsWith("*") ? new Blob([blob], { type: MIME[f.kind] }) : f.kind === "photo" ? new Blob([blob], { type: "image/" + (f.name.split(".").pop().toLowerCase().replace("jpg", "jpeg")) }) : blob;
+}
+$("file-search").addEventListener("submit", e => { e.preventDefault(); const q = $("file-q").value.trim(); if (q) loadFiles({ type: "search", q }); });
+document.querySelectorAll("#file-kinds button").forEach(b => b.addEventListener("click", () => {
+  fileKind = b.dataset.kind; document.querySelectorAll("#file-kinds button").forEach(x => x.classList.toggle("on", x === b)); loadFiles();
+}));
+$("file-view-close").addEventListener("click", () => { $("file-view").hidden = true; URL.revokeObjectURL($("file-view-img").src); });
+document.querySelector('[data-sheet="files"]').addEventListener("click", () => { if (!$("sheet-files").hidden) { loadPlaces(); loadFiles(); } });
 
 // ---- entering the app: everything starts by itself ---------------------------------------------------------------------
 async function enterApp() { show("app"); await refresh(); startScreen(); }

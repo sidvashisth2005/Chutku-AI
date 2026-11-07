@@ -16,6 +16,32 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: Phone remote: faster mouse; browse the laptop's files with filters (no paths to type)
+- **Mouse lag:** the server costs 0.15 ms per move, so the lag was on the phone. It queued every 30 ms move behind the
+  previous ~100 ms Tailscale round trip, and the queue grew.
+  - Now one input request is in flight at a time, and whatever moved meanwhile is merged into the next one.
+  - The pointer moves on the phone at once (from `X-Monitor` pixels) and frames correct it.
+  - While controlling, frames are polled after 50 ms and are lighter JPEG.
+- **File browser** (owner: "I won't remember paths"): `chutku/remote/files_browse.py`, with `/api/files/places`,
+  `list`, `search` and `recent`.
+  - Read-only and inside the PIN session; the same refusals as a fetch (protected areas and secret files never
+    listed; hidden entries skipped).
+  - Places come from Windows known folders (OneDrive Desktop, Documents and Pictures found) plus the fixed drives.
+  - Search and recent use the drive index (~20 ms).
+  - Kind filters: photos, PDF, docs, videos, audio, zip.
+  - Each file has Download, Share and (photos) View.
+- **Live over Tailscale (phone viewport, test device removed after):**
+
+  | View | Load time |
+  |---|---|
+  | Recent | 0.19 s |
+  | Recent PDFs | 0.23 s |
+  | Search "resume" (PDF) | 0.2 s (the owner's resume PDFs) |
+  | Downloads | 0.2 s (folders, then files with size and date) |
+
+  The places list matched the owner's folders and drives. A C:\Windows listing is refused.
+- **Tests:** `tests/test_phone_files.py`. Full suite OK.
+
 ### 2026-11-07: Phone remote 2.0 (R1-R3): the screen shows, touch is the trackpad, PIN once, laptop stays awake
 - **Setup on the PC:** Tailscale 1.104.5 installed (winget). The laptop `buddy.tail473865.ts.net` and the owner's
   Redmi Note 12 Pro are on one tailnet; HTTPS certificates are on; "phone connect karo" gives a 200 with a valid
