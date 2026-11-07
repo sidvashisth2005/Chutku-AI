@@ -118,4 +118,18 @@ def identity_line(values=None) -> str:
     values = values or load()
     shown = "Chutku (छुटकू, said \"Chhutku\")" if values["ASSISTANT_NAME"] == "Chutku" else values["ASSISTANT_NAME"]
     kind = {"female": "female ", "male": "male ", "neutral": ""}[values["ASSISTANT_GENDER"]]
+    if values["ASSISTANT_LANGUAGE"] == "english":   # owner 2026-11-07: "English mein hi bole, Hindi bekar bolta hai"
+        return f"You are {shown}, the owner's {kind}AI companion. {ENGLISH_ONLY}"
     return f"You are {shown}, the owner's {kind}AI companion. {SELF_FORMS[values['ASSISTANT_GENDER']]}"
+
+
+ENGLISH_ONLY = ("Always speak and reply in clear, simple English, even when the owner speaks Hindi or Hinglish: "
+                "understand them, answer in English. Keep names and quoted message texts exactly as given.")
+
+
+def reply_language(values=None) -> str:
+    """How the reply prompts name the reply language."""
+    values = values or load()
+    if values["ASSISTANT_LANGUAGE"] == "english":
+        return "English (always, even when they speak Hindi or Hinglish)"
+    return "the language they used (English or Hinglish)"

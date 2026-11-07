@@ -16,7 +16,8 @@ _KINDS = [
              r"rehne do|chhodo|chodo|band karo sab|sab band karo|stop karo|cancel karo|"
              r"chup|chup karo|chup ho jao|bas itna hi|that'?s all|that is all)"),   # H20: exact stop words
     ("pause", r"(?:pause (?:all )?actions|pause everything|pause chutku|freeze|sab rok do|actions rok do)"),
-    ("resume", r"(?:resume|resume (?:actions|everything|chutku)|unpause|chalu ho jao|chalu ho ja|wapas chalu (?:ho jao|karo)|"
+    ("resume", r"(?:resume|resume (?:actions|everything|chutku)|resume (?:karo|kar do|kardo|ho jao)|unpause|"
+               r"chalu ho jao|chalu ho ja|wapas chalu (?:ho jao|karo)|"
                r"kaam chalu karo|actions chalu karo)"),
     ("undo", r"(?:undo|undo (?:that|it|this|the last (?:thing|change|action)|last|last change)|revert (?:that|it)|"
              r"wapas karo|wapas kar do|vapas karo|pichla wapas karo|ulta karo)"),
@@ -37,6 +38,21 @@ HELP_TEXT = ("Just tell me, in English or Hinglish: open or close apps, play mus
              "Control me with \"stop\", \"undo that\", \"do it again\". Give several orders at once; they run one "
              "by one.")
 assert len(HELP_TEXT) <= 600
+
+
+# After Ctrl+Alt+Space while paused (a key pressed at this PC, so the owner), the one thing listened for is
+# "resume". Owner 2026-11-07: the local model never caught it. Tested with Kokoro voices through the local Whisper:
+# "resume karo" was heard perfectly but the pattern refused "karo"; "chalu ho jao" came out "Charlu ho jao" and
+# "resume chutku" as "Resume chat khol". So here the FIRST word decides: anything resume-like, chalu or shuru.
+_RESUME_HEARD = re.compile(
+    r"^\W*(?:(?:ok|okay|haan|han|ha|chutku|bhai|please|acha|achha)\W+)*"
+    r"(?:re[\s-]?[sz]+(?:y|i)?[ou]+m+e?|ri[sz]+(?:y|i)?[ou]+m+e?|re-?zoom|re-?sume|unpause|cha+r?lu|shuru"
+    r"|र[िे][जस]़?्?य?ू?म|चालू|चालु|शुरू|शुरु)(?:\W|$)", re.I)   # Devanagari resume, chalu, shuru
+
+
+def heard_resume(text: str) -> bool:
+    """Does what was heard right after the hotkey (while paused) mean "resume"? Lenient on purpose; only used there."""
+    return bool(_RESUME_HEARD.search(str(text or ""))) or kind(text) == "resume"
 
 
 def kind(goal: str):

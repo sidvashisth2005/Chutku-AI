@@ -892,7 +892,7 @@ class DashboardServer(ThreadingHTTPServer):
             chime("listen")
             self._hud_set("listening", message="Paused. Say \"resume\" to switch actions back on.")
             heard = self._listen_paused()
-        if heard and control_intent.kind(heard) == "resume":
+        if heard and control_intent.heard_resume(heard):
             try:
                 ActionControl(self.base).resume()
             except ExecutionBusy:
@@ -925,7 +925,8 @@ class DashboardServer(ThreadingHTTPServer):
             if wake is not None and not getattr(wake, "handling", False):
                 wake.busy.clear()
         text = heard.get("text", "") if isinstance(heard.get("text"), str) else ""
-        return text.strip() if heard.get("confidence", 0) >= 0.35 else ""
+        # One short word scores lower than a sentence; only "resume" is acted on here, so a lower bar is safe.
+        return text.strip() if heard.get("confidence", 0) >= 0.2 else ""
 
     END_CONVERSATION = re.compile(r"\W*(?:bas|bas karo|bye|ok bye|bye bye|thank you|thanks|that'?s all|ho gaya|"
                                   r"band karo|stop|rehne do|kuch nahi|nothing|no thanks)\W*", re.I)

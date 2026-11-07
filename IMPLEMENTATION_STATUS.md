@@ -16,6 +16,28 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: Owner fixes: spoken "resume" while paused, English-only replies, Pita Shri's number
+- **Resume:** the owner said the local model never caught their spoken "resume".
+  - Kokoro voices through the local Whisper showed why: "Resume karo." was heard at confidence 0.95 but refused
+    (the pattern did not allow "karo"); "Charlu ho jao" and "Resume chat khol" were refused too. 11/20 were accepted.
+  - Fix: after Ctrl+Alt+Space while paused (the owner at the PC), `control_intent.heard_resume` lets the first word
+    decide (resume-like in Roman or Devanagari, chalu, shuru), and the confidence bar for that short word is 0.2.
+    Typed "resume karo" is also a resume command now.
+  - Same probe after the fix: 20/20. Test: `tests/test_resume_heard.py`, where stop/open/assume/presume do not
+    resume.
+- **The pause itself:** a test restart in this session left Chutku paused (logged as the owner's emergency stop).
+  Resumed.
+- **English only** (owner: the Hindi sounds bad): `ASSISTANT_LANGUAGE=english` in `.env`.
+  - `identity_line` (local and cloud planners, reply writer), the cloud prompt's reply language and the Gemini Live
+    persona now say "always English, even when the owner speaks Hindi or Hinglish". Live keeps the "छुटकू, said
+    Chhutku" name hint.
+  - Live through the running Chutku: "kaise ho chutku, aaj mood kaisa hai tumhara?" -> "I am fine, thank you! How
+    are you today?"; "ek line mein batao Python kya hai" -> an English line.
+  - Fixed canned lines (for example "Chalu ho gayi") are still Hinglish.
+- **Memory:** `contact_pita_shri` held a wrong number (+919012345678, saved 2026-10-06), so "Pita Shri" messages went
+  there. It is now +919425618575 (the owner's own words), and `mind.json` has Pita Shri (father; aliases papa,
+  पिताश्री) with that WhatsApp number. `resolve_contact` checked for Pita Shri, pita shri, papa and पिताश्री.
+
 ### 2026-11-07: Chutku 1.0 branch merged; PC checks of W1–W8
 See the full table in `docs/HANDOFF.md` section 6, "PC session results".
 | Check | Result on the owner's PC |

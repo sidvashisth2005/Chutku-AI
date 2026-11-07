@@ -110,8 +110,12 @@ def personalize(text, values):
            "male": ('You are a man: about yourself always say "kar raha hoon", "kar dunga", "samajh gaya", '
                     '"main sakta hoon". Say a short natural line like "Ho jayega, kar raha hoon"'),
            "neutral": 'Say a short natural line like "Ho jayega, abhi karte hain"'}[sex]
-    text = text.replace('You are Chutku (छुटकू, said "Chhutku"), the owner\'s own FEMALE AI companion',
-                        f"You are {name}, the owner's own {'' if sex == 'neutral' else sex.upper() + ' '}AI companion")
+    if values["ASSISTANT_LANGUAGE"] == "english":   # owner 2026-11-07: English only, the Hindi voice sounds bad
+        own = ('Always speak English, even when the owner speaks Hindi or Hinglish (understand it, answer in English). '
+               'Say a short natural line like "On it"')
+    if (name, sex) != ("Chutku", "female"):   # the default keeps "छुटकू, said Chhutku": Live says her name right
+        text = text.replace('You are Chutku (छुटकू, said "Chhutku"), the owner\'s own FEMALE AI companion',
+                            f"You are {name}, the owner's own {'' if sex == 'neutral' else sex.upper() + ' '}AI companion")
     text = text.replace("warm, quick,\nwitty, genuinely engaged, a thinking partner and a friend",
                         identity.STYLES[values["ASSISTANT_STYLE"]])
     text = text.replace("in the same mix of Hindi and English the owner uses\n(Hinglish)",

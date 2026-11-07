@@ -46,8 +46,12 @@ class IdentityTests(unittest.TestCase):
         text = live.personalize(live._BASE_PERSONA, values)
         self.assertNotIn("Chutku", text)
         self.assertIn("You are Jarvis, the owner's own MALE AI companion", text)
-        self.assertIn('"kar raha hoon"', text)
         self.assertIn("clear, simple English", text)
+        # Owner 2026-11-07: English means English only, no Hindi self-forms ("kar raha hoon") in the persona.
+        self.assertIn("Always speak English", text)
+        self.assertNotIn('"kar raha hoon"', text)
+        hinglish = live.personalize(live._BASE_PERSONA, dict(values, ASSISTANT_LANGUAGE="hinglish"))
+        self.assertIn('"kar raha hoon"', hinglish)   # a male Hinglish assistant keeps its own words
         with patch.object(identity, "name", lambda: "Jarvis"):
             self.assertEqual(handsfree.split_wake("Hey Jarvis, open notepad"), (True, "open notepad"))
             self.assertEqual(handsfree.split_wake("Oye Chutku youtube kholo"), (False, ""))   # the old name no longer

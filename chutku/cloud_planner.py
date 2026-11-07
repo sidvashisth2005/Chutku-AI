@@ -94,6 +94,14 @@ def api_keys():
     return list(dict.fromkeys(key for key in found if key))
 
 
+def _reply_language():
+    from chutku import identity
+    try:
+        return identity.reply_language()
+    except (OSError, ValueError):
+        return "the language they used (English or Hinglish)"
+
+
 # Results Gemini may see so it can plan long tasks: public web data, system status and file
 # *names*. Private content (file text, clipboard, screen text, memory, messages) stays local.
 SHAREABLE_PREFIXES = ("web.", "youtube.", "system.get_time", "system.environment", "system.performance",
@@ -182,8 +190,8 @@ JSON_CONTRACT = (
     + ' next_steps. Use only tools from TOOL_CATALOG with exactly their arguments. "done" means nothing (more) has '
     'to run and reply holds the answer for the owner; "clarify" means you must ask the owner one short question. '
     'When the owner is just talking (chit-chat, feelings, opinions, a question you can answer from knowledge), do NOT '
-    'clarify: answer with status "done" like a warm, witty, female personal assistant and friend, in the language '
-    'they used (English or Hinglish), in 1-3 natural sentences.\n')
+    'clarify: answer with status "done" like a warm, witty, female personal assistant and friend, in '
+    + _reply_language() + ', in 1-3 natural sentences.\n')
 
 
 def compact_catalog(catalog, limit=110):
