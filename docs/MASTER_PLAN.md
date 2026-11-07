@@ -1000,7 +1000,7 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [x] W5 (P5, 2026-11-07, Linux tests + windows-latest): first-run setup page
 - [x] W6 (P6, 2026-11-07, Linux tests + windows-latest; A14-A16, E2E phone and key pool need the Windows live check): Board/Automations tabs, habit suggestions, key pool, relay E2E, A14-A16
 - [x] W7 (P7, 2026-11-07, Linux tests): READMEs and docs (public README, developer README, USER_GUIDE as in-app Help, licences)
-- [ ] W8 (P8): release gate
+- [ ] W8 (P8): release gate — cloud part done 2026-11-07 (scan, reviews, checklist); ticks after the PC live checks, then the tag
 
 # Parked (needs a later owner decision)
 - **Hermes features not taken** (2026-10-07; reasons in `docs/HERMES_PLAN.md` section 3): smart/LLM approvals, yolo and "approve always", container backends (D5), execute_code, MCP client, plugins and hooks, Skills Hub installs, local API server/ACP, extra chat gateways, FAL image generation, external memory providers, mascot/skins, multi-profile agents, bot-to-bot peer, coding-agent tools (worktree, LSP, /init, /plan).

@@ -25,7 +25,10 @@ Owner decisions are in `docs/DESIGN.md` §51.
     pip's temp dir, which holds `Users\<name>` on Windows.
 - `chutku/backup.py`: the security-state classifier compares names the way NTFS does. This fixes a `/security-review`
   finding: a crafted backup could restore `Skills/approved.json` and a skill, `Never_Rules.json` or grants.
+- The code review found 2 bugs, both fixed: the teach/survey instant replies had no formatter, and the "ho gaya" reply was
+  dropped. Test: `InstantReplyTests`, plus the false-claim guard samples.
 - `docs/RELEASE_CHECKLIST.md` § "W8 release gate" lists the checks, the findings and the size/time table.
+- Final Linux run: 1,594 tests, no new failures against the baseline; `check_phrases` 157/163.
 
 **Evidence**
 - **Linux:**

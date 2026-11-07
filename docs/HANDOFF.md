@@ -123,12 +123,11 @@ Still open: H16 live (token), A14/A15/A16, Z6, the Gemini key pool, the Board/Au
 | W5 | First-run Settings page (`/api/setup`), packs with resume and hash refusal | Linux tests, Chromium render | A real pack download and the mic level |
 | W6 | Board/Automations tabs, habit→automation card, key pool, relay E2E, `desktop.do`, routines with app steps (A14), teach mode (A15), `desktop.survey` (A16) | Linux tests on fakes; windows-latest suite | **Live:** desktop.do/teach/survey on real apps, phone E2E through the real relay, a second Groq key at a real quota |
 | W7 | Public README, developer README, `docs/USER_GUIDE.md` as `/help`, licences | Linux tests | The Help link in the installed app |
-| W8 | Zip scan inside the build; no build or temp paths in `.pyc`; restore case fix | Linux real build: 223.5 MB, scan clean; tests | `/code-review` (high) is not done yet (see below) |
+| W8 | Zip scan inside the build; no build or temp paths in `.pyc`; restore case fix; security + code review (3 findings, all fixed) | Linux real build: 223.5 MB, scan clean; full suite 1,594, no new failures; check_phrases 157/163 | The live checks below |
 
 **W8 still to do, in order:**
 1. Read windows-latest CI for the last commit (tests + package; the package job now runs the zip scan).
-2. Run `/code-review` at high over `git diff 01e6881..HEAD`. Fix the valid findings with tests and record them in
-   `docs/RELEASE_CHECKLIST.md`.
+2. Optional: a second `/code-review` on the PC. The cloud review found and fixed 3 issues (`docs/RELEASE_CHECKLIST.md`).
 3. Do the PC live checks in the table, then the Phase 9 W8 tick in `docs/MASTER_PLAN.md`.
 4. Only then do the owner steps and tag `v1.0.0` (never before the live checks):
    - `RELEASES_TOKEN` and creating `Chutku-releases` (`installer/RELEASES_REPO.md`);

@@ -178,6 +178,11 @@ class QuickIntentTests(unittest.TestCase):
         samples["system.self_repair"] = {"summary": repaired}
         samples["telegram.handoff"] = {"summary": "Theek hai, agle 4 ghante results aur approvals Telegram pe bhi "
                                                   "bhejungi."}
+        samples["teach.start"] = {"summary": "Dekh rahi hoon: notepad mein ek baar karke dikhao, phir 'ho gaya' bolo. "
+                                             "Password/PIN wale fields main record nahi karti."}
+        samples["teach.stop"] = {"summary": "Seekh liya, 'notes': type \"hello\" into \"Note\" in notepad. Bolo 'notes' "
+                                            "to main dobara karungi (pehli baar saath mein dekhna)."}
+        samples["desktop.survey"] = {"summary": "Open windows: Notepad.exe: notes.txt (14 items); Spotify.exe: Spotify (52 items)"}
         samples_empty = {"apps.installed": {"query": "Steam", "apps": [], "count": 0, "truncated": False}}
         samples_empty["mind.who"] = {"name": "mammi", "known": False}
         samples_empty["mind.show"] = {"part": "all", "people": [], "facts": {}, "lists": {}}

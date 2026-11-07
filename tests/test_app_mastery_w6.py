@@ -136,6 +136,21 @@ class TeachTests(Base):
         self.assertFalse(teach.teaching())
 
 
+class InstantReplyTests(unittest.TestCase):
+    def test_teach_and_survey_answer_without_the_model(self):
+        import json
+        from types import SimpleNamespace
+        from chutku.quick_intents import quick_answer
+        for goal, tool in (("ho gaya", "teach.stop"), ("screen survey karo", "desktop.survey"),
+                           ("sikho dark setup settings mein", "teach.start")):
+            session = SimpleNamespace(goal=goal, steps=[{"tool": tool, "state": "COMPLETED", "purpose": "p",
+                                                          "observation": json.dumps({"summary": "S " + tool})}])
+            self.assertEqual(quick_answer(session), "S " + tool)   # "ho gaya": teaching already ended, still answered
+        failed = SimpleNamespace(goal="ho gaya", steps=[{"tool": "teach.stop", "state": "FAILED", "purpose": "p",
+                                                         "observation": "{}"}])
+        self.assertIsNone(quick_answer(failed))
+
+
 class SurveyTests(Base):
     def test_survey_summarizes_visible_windows_from_skeletons(self):
         result = self.run_tool("desktop.survey", {})

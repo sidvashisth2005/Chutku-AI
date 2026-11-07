@@ -1897,7 +1897,9 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "board.list": lambda out: out["summary"], "board.done": lambda out: out["summary"],
                  "board.again": lambda out: out["summary"],
                  "telegram.handoff": lambda out: out["summary"],
-                 "system.self_repair": lambda out: out["summary"]}
+                 "system.self_repair": lambda out: out["summary"],
+                 "teach.start": lambda out: out["summary"], "teach.stop": lambda out: out["summary"],
+                 "desktop.survey": lambda out: out["summary"]}
 
 
 def quick_answer(session):
@@ -1908,9 +1910,9 @@ def quick_answer(session):
     if any(step["state"] != "COMPLETED" for step in session.steps):
         return None
     proposal = quick_proposal(session.goal)
-    if proposal is None:
-        return None
-    routine = proposal["declared_plan"][:1] and proposal["declared_plan"][0].startswith("Run the ")
+    if proposal is None and [step["tool"] for step in session.steps] != ["teach.stop"]:
+        return None   # ("ho gaya" matches only while teaching, and teach.stop just ended that)
+    routine = bool(proposal) and proposal["declared_plan"][:1] and proposal["declared_plan"][0].startswith("Run the ")
     if len(session.steps) > 1 and not routine and not all(step["tool"] in QUICK_ANSWERS for step in session.steps):
         return None
     parts = []
