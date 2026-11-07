@@ -325,14 +325,30 @@ def build(out, *, python_local=None, ver=None):
     return {"zip": str(target), "sha256": digest, "size": target.stat().st_size, "version": ver, "notes": notes}
 
 
+RELEASES = "https://github.com/sidvashisth2005/Chutku-releases/releases/download"
+
+
+def latest_json(zip_path, tag):
+    """dist/latest.json for the setup: {version, url, sha256, size} of the package published under `tag`."""
+    zip_path = Path(zip_path)
+    info = {"version": tag.removeprefix("v"), "url": f"{RELEASES}/{tag}/{zip_path.name}", "sha256": sha256(zip_path),
+            "size": zip_path.stat().st_size}
+    (zip_path.parent / "latest.json").write_text(json.dumps(info, indent=1), encoding="utf-8")
+    return info
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--out", default=str(ROOT / "dist"))
     parser.add_argument("--python-zip", help="a local embeddable zip (checked against the pin)")
     parser.add_argument("--version", help="override pyproject's version")
     parser.add_argument("--print-python-pin", action="store_true", help="print the newest 3.13 embeddable pin")
+    parser.add_argument("--latest-json", nargs=2, metavar=("ZIP", "TAG"), help="write latest.json next to ZIP")
     args = parser.parse_args(argv)
     try:
+        if args.latest_json:
+            print(json.dumps(latest_json(*args.latest_json), indent=1))
+            return 0
         if args.print_python_pin:
             name, url = newest_embed()
             with tempfile.TemporaryDirectory() as temp:

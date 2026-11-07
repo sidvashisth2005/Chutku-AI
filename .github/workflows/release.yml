@@ -1,0 +1,71 @@
+name: release
+
+# W4: on a tag v*, test, build the package and ChutkuSetup.exe, prove them on a clean Windows runner, then publish
+# ChutkuSetup.exe, the package zip and latest.json to the PUBLIC repo sidvashisth2005/Chutku-releases.
+# The code repository stays private. Publishing needs the secret RELEASES_TOKEN (a fine-grained token with
+# "Contents: read and write" on Chutku-releases only); see installer/RELEASES_REPO.md.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned packages
+        run: python -m pip install --disable-pip-version-check --require-hashes -r requirements.lock
+      - name: Tests
+        run: python scripts/ci_tests.py
+      - name: Instant phrase routing
+        run: python scripts/check_phrases.py
+      - name: Native helpers
+        run: npm ci --prefix tools --ignore-scripts --no-audit --no-fund
+      - name: Build the package
+        run: python scripts/build_release.py --out dist --version $("${{ github.ref_name }}".TrimStart("v"))
+      - name: Package check (start, answer, doctor, stop, app folder untouched)
+        shell: pwsh
+        run: ./installer/ci_package_check.ps1 -Zip (Get-ChildItem dist/Chutku-*-win64.zip).FullName
+      - name: Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Build ChutkuSetup.exe
+        shell: pwsh
+        run: |
+          python -c "import sys; sys.path.insert(0, '.'); from chutku.icon import icon_bytes; open('installer/chutku.ico', 'wb').write(icon_bytes())"
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp "/DAppVersion=$('${{ github.ref_name }}'.TrimStart('v'))" installer\chutku.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
+      - name: Sign (skipped without a certificate)
+        shell: pwsh
+        env:
+          CHUTKU_SIGN_PFX_BASE64: ${{ secrets.CHUTKU_SIGN_PFX_BASE64 }}
+          CHUTKU_SIGN_PASSWORD: ${{ secrets.CHUTKU_SIGN_PASSWORD }}
+        run: ./installer/sign.ps1 -Files dist\ChutkuSetup.exe
+      - name: Clean-machine install test
+        shell: pwsh
+        run: ./installer/ci_install_check.ps1 -Setup dist\ChutkuSetup.exe -Zip (Get-ChildItem dist/Chutku-*-win64.zip).FullName
+      - name: latest.json
+        shell: pwsh
+        run: python scripts/build_release.py --latest-json (Get-ChildItem dist/Chutku-*-win64.zip).FullName "${{ github.ref_name }}"
+      - name: Publish to sidvashisth2005/Chutku-releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          if (-not $env:GH_TOKEN) {
+            throw "RELEASES_TOKEN is not set: add it under Settings > Secrets and variables > Actions (installer/RELEASES_REPO.md). Nothing was published."
+          }
+          $zip = (Get-ChildItem dist/Chutku-*-win64.zip).FullName
+          gh release create "${{ github.ref_name }}" --repo sidvashisth2005/Chutku-releases --title "Chutku ${{ github.ref_name }}" `
+            --notes "Download ChutkuSetup.exe and run it. SHA-256 of the app package: $((Get-Content "$zip.sha256").Split(' ')[0])" `
+            dist/ChutkuSetup.exe $zip "$zip.sha256" dist/latest.json
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }

@@ -27,3 +27,5 @@ android/local.properties
 dist/
 # Pinned helper CLIs (tools/package.json); installed by npm ci
 tools/node_modules/
+# Generated at build time from chutku/icon.py
+installer/chutku.ico

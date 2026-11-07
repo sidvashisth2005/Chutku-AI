@@ -1,4 +1,11 @@
 {
+  "python": {
+    "version": "3.13.17",
+    "source": "https://www.python.org/ftp/python/3.13.17/python-3.13.17-embed-amd64.zip",
+    "sha256": "9e35319bffedab8b36ad44d8f377cb4f1733bcec257a0b6d04d94f01486ddb38",
+    "license": "PSF-2.0",
+    "note": "W3: the embedded runtime of the app package; SHA-256 computed on windows-latest from python.org (2026-11-07)"
+  },
   "runtime": {
     "source": "https://github.com/ggml-org/llama.cpp/releases/download/b11181/llama-b11181-bin-win-cpu-x64.zip",
     "sha256": "d0d65ea389d16bf1cf29116589056f97b913102e6845c65664bf04e012e0bada",
