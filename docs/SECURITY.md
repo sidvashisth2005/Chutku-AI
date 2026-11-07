@@ -26,14 +26,14 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (231 registered, plus 144 app actions)
+### Risk levels and tools (238 registered, plus 144 app actions)
 
 | Level | Count | Meaning |
 |---|---|---|
-| R0 observation | 87 | reads only |
-| R1 reversible | 76 | easily undone (open apps or pages, window and media control) |
+| R0 observation | 89 | reads only |
+| R1 reversible | 79 | easily undone (open apps or pages, window and media control) |
 | R2 data modification | 30 | changes data, with runtime undo where available |
-| R3 external side effect | 31 | apps.close, apps.quit, browser.workflow, code.build_project, code.run_python, email.send, evolve.approve, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, settings.theme_restore, settings.theme_set, skill.approve, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close, windows.close_this |
+| R3 external side effect | 33 | apps.close, apps.quit, browser.act_risky, browser.workflow, code.build_project, code.run_python, desktop.act_risky, email.send, evolve.approve, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, settings.theme_restore, settings.theme_set, skill.approve, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close, windows.close_this |
 | R4 destructive / privileged | 7 | filesystem.delete_permanent, network.adapter_restore, network.adapter_set, power.cancel, power.schedule, process.terminate, system.powershell |
 
 **Self-written skills** (X15/X16, `chutku/skills.py`): `skill.create` has the coder write `skill.json`, `SKILL.md`, `tool.py` and `test_tool.py` into `data/skills/_pending/<name>`, runs the tests and repairs at most 3 times (a failing assertion cannot be edited away). Pending skills are never tools. `skill.approve` is `user_only` (typed, then a click): only if the tests pass again does it activate the skill and record the SHA-256 of its files; a skill whose files changed since is not registered or run. `skill.<name>` runs `python -I` in a child process (60 s, 8 KB JSON result, untrusted output) and always asks first. It runs with the owner's Windows rights: the click is the boundary, not a sandbox, and the manifest's `network` / `writes_files` flags are declarations, not enforced.
@@ -55,6 +55,21 @@ Every tool call goes through `Runtime.run`:
 
 **Evolve** (Y2, `chutku/evolve.py`, `chutku/evolve_apply.py`): the nightly review only reads local logs and writes at most 3 proposals a day to `data/evolve/proposals/`; a cloud model sees only a short redacted summary of a code idea. Nothing is applied until the owner types `evolve approve <id>` (`user_only`, `runs_code`: then a click; never the agent, never voice); the approval is bound to the SHA-256 of the plan. Phrase, routine and preference ideas write through the existing data paths (reflex checks, routine checks, an allowlist of four non-safety preferences). Code ideas run in a separate process: a git worktree and branch `evolve/<id>`, the full unit suite and `scripts/check_phrases.py` before and after the change, and `git merge --ff-only` into main only if nothing that passed before fails now. Before writing and again on the committed diff, `evolve_apply.check` refuses any change that touches `chutku/policy/`, `chutku/core/`, `chutku/router/`, `chutku/remote/`, `chutku/relay/`, `android/`, `chutku/runtime.py`, `guard.py`, `tools/registry.py`, `skills.py`, `skill_runner.py`, `app.py`, `agent_loop.py`, `agent_execution.py`, `cloud_planner.py`, `dashboard.py`, `coder.py`, `tools/builder.py`, `chutku/evolve*.py`, AGENTS.md, this file, `.github/`, `.claude/`, `requirements.lock`, `pyproject.toml`, the safety tests (`test_docs_truth`, `test_trusted_task`, `test_autonomy_policy`, `test_protected_zones`, `test_taint*`, `test_elevation`, `test_injection*`, `test_failclosed*`, `test_evolve*` and 15 more listed in the code); any changed line with a safety word (risk, approval, provenance, grants, process, network or code-running calls); any edit or removal of an existing test line or `check_phrases.py` line; test skips; more than 400 lines or 8 files. A failed or refused change deletes the worktree and branch; main is untouched. Pushing to GitHub is off unless the owner types `evolve push on`. The tests a change adds run with the owner's rights: the approval click is the boundary, as for skills.
 
+**Background app control and the signed-in browser** (D1/Z6, 2026-11-07; `chutku/tools/desktop.py`,
+`chutku/tools/signed_in_browser.py`): two pinned CLIs from vercel-labs (Apache-2.0), installed by `npm ci --prefix
+tools` from `tools/package-lock.json` (npm integrity hashes), run as separate processes.
+- `desktop.look` / `desktop.act` (agent-desktop) read an app window's UI Automation tree and act on one element
+  through UI Automation patterns only (strict headless: never `--headed`, no mouse, no keystrokes, no focus
+  stealing by Chutku). A ref is accepted only if a look in the last 3 minutes returned it. Typed text goes to the CLI
+  on stdin, never on its command line. Window text is untrusted (TAINTING) and private (PRIVATE).
+- `browser.look` / `browser.act` / `browser.type` (agent-browser) drive a dedicated Brave/Edge profile
+  (`data/browser-profile`), headless. The owner signs in once with `chutku.cli browser login`, which opens that
+  profile as a plain browser with no automation attached; the everyday profile is never touched. Page text is
+  untrusted (TAINTING). Clicks on what the page offers are not network egress; `browser.look url=` and
+  `browser.type` (fill, Enter) are, so after private data was read in the task they ask. Local and private
+  addresses ask first; `file://` access is off. Commands go through `batch` with JSON on stdin. The daemon stops
+  after 10 idle minutes. `browser.act`/`browser.type` need the `browser.input` capability (not granted by default).
+
 **App actions** (`app.<app>.<action>`, App Mastery, `chutku/apps/atlas/*.json`) take their risk from the atlas class: safe → R1, changes → R2, consequential → R3, destructive → R4 with `deletes` (always asks). The atlas validator refuses URI schemes and programs that are not the app's own and unknown step verbs; keys and typing are sent only while the app's own window is in front; every action ends with its own check, and the kernel, never-rules, taint rules, ledger and action log apply as to any tool. Instant routing by phrase (`chutku/apps/phrases.py`) only picks actions the Action Lab has verified on this PC, or (Z3, 2026-11-06) a safe parameter-free action that only focuses its app and presses a documented shortcut, unless its latest lab run failed; anything that changes something still needs the lab; anything else goes to the planner, which is offered an app's actions only when the request names that app. `apps.howto` (R0) reads only the checked-in feature maps (`docs/apps/*.md`), not web text.
 
 ### Autonomy modes (per request)
@@ -70,6 +85,9 @@ Every tool call goes through `Runtime.run`:
 - Running code or a program with arguments (`Tool.runs_code`: `code.run_python`, `process.launch`, `system.powershell`, `skill.create`, `skill.approve`, `evolve.approve`, `skill.import` and every `skill.<name>`). `system.powershell` is also R4, so its approval is never reused by a later request (a scheduled task or a re-sent task asks again).
 - Typing into a command window, opening the Run box, or launching a command-line app.
 - Changing a saved contact's phone or WhatsApp name.
+- Pressing a send / delete / pay / submit-like element in an app or on a web page (`desktop.act_risky`,
+  `browser.act_risky`). The card names the element as the latest look saw it; a label that is not that element is
+  refused before any card, and the name is checked again when the step runs.
 - Sending an email (`email.send`, which also needs the `email.send` capability, not granted by default). `email.draft` only opens a draft in the mail app; the owner presses Send there.
 - Agent browser steps on local or private addresses.
 - Keys or clicks that would save, delete, move files, or click an "approve"-like button.

@@ -25,3 +25,5 @@ android/build/
 android/app/build/
 android/local.properties
 dist/
+# Pinned helper CLIs (tools/package.json); installed by npm ci
+tools/node_modules/

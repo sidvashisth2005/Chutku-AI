@@ -197,7 +197,7 @@ class Runtime:
         contact = self._contact_change(tool, arguments)
         if contact:
             return contact
-        if tool.name in {"browser.inspect", "browser.workflow"} and arguments.get("url"):   # no url: validation refuses
+        if tool.name in {"browser.inspect", "browser.workflow", "browser.look"} and arguments.get("url"):   # no url: validation refuses
             from chutku.tools.internet import Blocked, check_public_url
             try:
                 check_public_url(str(arguments.get("url", "")))
@@ -212,6 +212,12 @@ class Runtime:
         if tool.name == "email.send":   # every email asks, in every mode (X8)
             from chutku.tools.mail import send_question
             return send_question(arguments)
+        if tool.name in {"desktop.act_risky", "browser.act_risky"}:   # send / delete / pay ...: asks in every mode
+            from importlib import import_module
+            describe = import_module("chutku.tools.desktop" if tool.name.startswith("desktop.")
+                                     else "chutku.tools.signed_in_browser").describe
+            return (f"Chutku wants to {arguments.get('action', 'click')} {describe(arguments)}. "
+                    "It can send, delete, pay or change something outside Chutku, so it asks first.")
         if tool.name != "message.send":
             return None
         from chutku.tools.apps_extra import known_recipient

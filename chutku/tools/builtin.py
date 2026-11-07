@@ -450,6 +450,10 @@ def register_builtin_tools(registry: ToolRegistry) -> None:
     register_health_tools(registry)
     from chutku.tools.screen_vision import register_screen_vision
     register_screen_vision(registry)
+    from chutku.tools.desktop import register_desktop_tools
+    register_desktop_tools(registry)
+    from chutku.tools.signed_in_browser import register_signed_in_browser_tools
+    register_signed_in_browser_tools(registry)
     from chutku.voice.recognition import register_recognition
     register_recognition(registry)
     registry.register(Tool("system.get_time", "Read the current local date and time (and UTC).", Risk.OBSERVATION, _get_time,

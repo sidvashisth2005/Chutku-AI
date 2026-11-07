@@ -16,6 +16,54 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-07: D1 background app control (agent-desktop) and Z6/D2 the signed-in browser (agent-browser)
+The owner pointed at vercel-labs' agent-desktop and asked to take everything useful from vercel-labs. Survey: of the
+org's popular repos, agent-desktop and agent-browser fit a Windows assistant; the rest are web, compiler, GPU or
+design tools (skills/agent-skills overlap Chutku's own SKILL.md procedures). Both CLIs are pinned in
+`tools/package.json` + lock (npm integrity), installed by `npm ci --prefix tools` (installer step 3b).
+
+**D1: `desktop.look` / `desktop.act` / `desktop.act_risky`** (`chutku/tools/desktop.py`, 13 tests)
+- Always strict headless (UI Automation patterns, never `--headed`); refs only from a look in the last 3 minutes; text
+  on stdin; a window over 120 lines comes back as a skeleton (Explorer: 171 lines whole, 17 as a skeleton).
+- Through the real runtime on a background WinForms window (opens without focus): look 0.36 s, click 0.49 s,
+  set_text (Hindi included) and toggle read back `delivered_verified`; cursor and foreground unchanged on every step.
+- Live through the running Chutku (independent read by agent-desktop):
+  - "Seven do baar dabao" -> look, act, act, 12.0 s, the display went from 77 to 7777.
+  - The Note box plus Dark mode -> 35.6 s; the Note reads "kal meeting 5 baje" and Dark mode is checked.
+  - "Send dabao" -> stopped at an approval card; cancelled, and the display did not change.
+- Fixed live:
+  - `desktop.act_risky` ran without asking in owner mode; it now asks in every mode (`runtime.step_question`).
+  - The planner paired label "Send" with the Note field's ref; that is now refused at validation, before any card.
+  - Interactive-only reads hid text such as the display; reads now include text.
+- Negative: an invented, expired or other-element ref is refused; `--headed` is never passed.
+
+**Z6/D2: `browser.look` / `browser.act` / `browser.type` / `browser.act_risky`** (`chutku/tools/signed_in_browser.py`, 12 tests)
+- A dedicated Brave profile (`data/browser-profile`), headless; `chutku.cli browser login` opens it as a plain browser
+  for the one-time sign-in.
+- Found and fixed while building:
+  - The CLI's daemon inherited a stdout pipe, so calls never returned; output now goes to a file.
+  - Daemon options are fixed when it starts; they are now passed as environment variables on every call.
+  - A load wait on a page that did not navigate costs 25 s; it now waits for the address to change, up to a deadline.
+  - The first live run asked on every step: the browser tools were PRIVATE and egress. Now only typing and opening a
+    URL are egress; page text is TAINTING only.
+  - The planner chose `web.open` (a visible window); the prompt now says `web.open` only shows a page.
+- Module timings:
+  - example.com: open 0.43 s.
+  - Wikipedia: open 2.0 s, find 0.9 s, link click 0.85 s (the URL changed), back 1.66 s.
+  - Foreground unchanged.
+- Live through the running Chutku: "mere signed-in browser mein .../Guido_van_Rossum kholo aur batao Guido kis saal
+  paida hue the" -> `browser.look` only, 7.2 s, answer "31 January 1956"; the page read independently says
+  "Born 31 January 1956". Cursor and foreground unchanged.
+- Not live yet: clicks and typing through Chutku need `browser.input`, which only the owner can grant (a grant from
+  this session was refused by the PC's safety check), and Gmail needs the owner's one-time sign-in.
+- Negative: `file:`, `javascript:` and credential URLs are refused; local addresses ask; Send/Delete links are refused
+  by `browser.act`, and a label that is not the ref is refused before any card.
+
+Docs: `docs/SECURITY.md` (238 tools; new section), `THIRD_PARTY_LICENSES.md` (Apache-2.0 entries),
+`docs/OWNER_GUIDE.md`, `docs/MASTER_PLAN.md` (Z6, D1, D2).
+
+Full suite 1,535 tests OK (353 s); `check_phrases.py` 159/159.
+
 ### 2026-11-07: The cloud session's H9/H14/H15/H18/H23/H26 merged and verified on the PC (H16 waits for a token)
 Full details are in `docs/HANDOFF.md` section 5.
 

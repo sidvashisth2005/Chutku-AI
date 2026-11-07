@@ -248,6 +248,9 @@ def main() -> None:
     backup.add_argument("backup_action", nargs="?", default="create", choices=("create", "list", "restore"))
     backup.add_argument("zip", nargs="?", help="the backup zip to restore")
     backup.add_argument("--voice", action="store_true", help="also include voice clips and the voiceprint")
+    browser = subparsers.add_parser("browser", help="The signed-in browser Chutku automates: login opens it to sign in once")
+    browser.add_argument("browser_action", choices=("login",))
+    browser.add_argument("url", nargs="?", default="https://accounts.google.com")
     account = subparsers.add_parser("account", help="Phone app account: status, login, logout, change ID/password, PIN")
     account.add_argument("account_action", choices=("status", "login", "logout", "change", "pin"))
     night = subparsers.add_parser("nightshift", help="Night Shift: nightly self-improvement jobs (run, install, report)")
@@ -284,6 +287,15 @@ def main() -> None:
             setup(root)
         except (EOFError, KeyboardInterrupt):
             print("Setup stopped; run it again any time.")
+        return
+    if namespace.command == "browser":
+        from chutku.tools import signed_in_browser
+        try:
+            profile = signed_in_browser.login(namespace.url)
+        except OSError as error:
+            parser.exit(1, f"Not done: {error}\n")
+        print(f"Opened Chutku's own browser profile ({profile}). Sign in to the sites Chutku should use "
+              "(Google, YouTube, shopping ...), then close that window. Your everyday browser is not touched.")
         return
     if namespace.command == "backup":
         from chutku import backup

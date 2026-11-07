@@ -987,7 +987,9 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [x] Z7 (done 2026-11-06): The assistant is named at install (.env: name, gender, language, style); prompts and wake word follow it; default = Chutku unchanged
 - [x] Z8 (done 2026-11-06; deploy on the owner's server is the owner's step): Accounts: one ID/password at install (existing ID refused, change on the laptop), relay forwards the phone app to its own laptop, devices stay signed in until logout
 - [x] Z9 (done 2026-11-06; real phone install by the owner): Phone app APK (WebView on the relay), tested end to end on an Android 15 emulator
-- [ ] Z6: Web autopilot in the owner's signed-in Brave profile (Gmail etc.), with the existing outside-content and send rules (X14 rest)
+- [x] Z6 (done 2026-11-07 with agent-browser; the owner signs in once with `chutku.cli browser login` and grants `browser.input`): Web autopilot in the owner's signed-in Brave profile (Gmail etc.), with the existing outside-content and send rules (X14 rest)
+- [x] D1 (done 2026-11-07, vercel-labs agent-desktop): background app control. `desktop.look` lists any app window's buttons, fields and text with refs; `desktop.act` clicks, types, toggles, selects through UI Automation without the mouse or keyboard; send/delete/pay-like elements go through `desktop.act_risky`, which asks in every mode
+- [x] D2 (done 2026-11-07, vercel-labs agent-browser): `browser.look` / `browser.act` / `browser.type` / `browser.act_risky` on the dedicated signed-in profile, headless; `tools/package.json` pins both CLIs and the installer runs `npm ci --prefix tools`
 
 ---
 # Parked (needs a later owner decision)

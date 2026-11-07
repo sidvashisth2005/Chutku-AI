@@ -493,6 +493,20 @@ Give the order once. Chutku saves it, keeps talking and working normally, does t
 - **Notifications:** a Windows notification "Chutku: scheduled task" shows when one starts.
 - **Typing into another app on a timer** (for example "continue" into the Claude chat in VS Code) is **not reliable yet**. Chutku has to find the window and the right box each time, and if the focus is wrong the text lands somewhere else. For Claude specifically, use Claude Code's own `/loop 15m continue`.
 
+### Chutku works in the background, without your mouse (since 2026-11-07)
+
+Chutku now reads an app's buttons, fields and text straight from Windows (UI Automation), so it can click and type in one window while you keep using another. Your mouse pointer and keyboard are never used.
+
+| Say | What happens |
+|---|---|
+| "Calculator mein 7 dabao" / "Settings mein Bluetooth on kar do" / "Notepad mein ye likh do" | `desktop.look` reads the window (about 0.3 s), `desktop.act` presses or types there, then reads it again to check |
+| "... Send dabao" / "... Delete karo" | a card always asks first and names the exact button |
+| "mere signed-in browser mein Gmail kholo aur batao kiske mail aaye" / "YouTube pe meri history dikhao" | Chutku's own browser profile, signed in to your accounts, opens the page in the background (no window) and reads it (`browser.look`), then clicks or types (`browser.act`, `browser.type`) |
+
+**Once:** run `chutku.cli browser login` (it opens Chutku's own Brave profile as a normal window; your everyday Brave is not touched). Sign in to Google and any site Chutku should use, then close that window. Then allow clicking and typing in it: `chutku.cli authority grant browser.input` (`chutku.cli authority revoke browser.input` takes it back). Sending, deleting or paying on a page always asks.
+
+A minimized window can't be read: Chutku asks to restore it. Apps that draw their own UI without Windows accessibility (games, video, some web views such as WhatsApp's chat list) still go through the screen view (`screen.understand`) or their app actions.
+
 ### New in the 2026-11-07 cloud session (written and unit-tested; check them live on your PC first)
 
 | Say | What happens |

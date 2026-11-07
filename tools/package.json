@@ -1,0 +1,10 @@
+{
+  "name": "chutku-tools",
+  "private": true,
+  "description": "Pinned helper CLIs Chutku calls (installed by scripts/install.ps1 with npm ci).",
+  "license": "MIT",
+  "dependencies": {
+    "agent-browser": "0.27.0",
+    "agent-desktop": "1.2.0"
+  }
+}

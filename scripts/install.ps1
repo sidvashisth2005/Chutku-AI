@@ -59,6 +59,16 @@ Step "Installing pinned packages (requirements.lock)"
 & $venvPython -m pip install --disable-pip-version-check --no-cache-dir -r requirements.lock
 if ($LASTEXITCODE -ne 0) { Fail "a package failed to install (see the lines above)" }
 
+# 3b. The pinned helper CLIs (tools/package-lock.json, integrity-checked by npm): agent-desktop for background app
+#     control, agent-browser for the signed-in browser. Optional: without Node.js those two features say so.
+Step "Installing helper tools (tools/package-lock.json)"
+if (Get-Command npm -ErrorAction SilentlyContinue) {
+    & npm ci --prefix tools --no-audit --no-fund
+    if ($LASTEXITCODE -ne 0) { Fail "the helper tools failed to install (see the lines above)" }
+} else {
+    Write-Host "Node.js (npm) not found: background app control and the signed-in browser stay off. Install Node.js LTS and run this again to add them." -ForegroundColor Yellow
+}
+
 # 4. Local models: checked always, downloaded only with -Models (each file must match its pinned SHA-256).
 Step "Checking local models (models/manifest.json)"
 if ($Models) { & $venvPython scripts\setup_all.py --download } else { & $venvPython scripts\setup_all.py }

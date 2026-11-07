@@ -42,6 +42,7 @@ QWEN_CORE = frozenset({
     "filesystem.largest", "file.extract_text", "filesystem.write_text", "filesystem.create_directory",
     "filesystem.copy", "filesystem.move", "filesystem.recycle", "web.search", "web.open", "web.results", "web.read",
     "web.news", "web.weather", "screen.understand", "screen.click", "screen.scroll", "keyboard.type_text",
+    "desktop.look", "desktop.act",
     "keyboard.press_enter", "keyboard.shortcut", "keyboard.keys", "mouse.click", "system.get_time",
     "system.environment", "system.disk_space", "system.volume_status", "settings.theme_status", "screen.displays",
     "net.check", "audio.volume", "display.brightness", "media.control", "reminder.set", "message.send",
@@ -93,6 +94,7 @@ TOOL_NOTES = {
     "filesystem.recycle": "Delete = filesystem.recycle (recoverable), one item at a time.",
     "code.build_project": "Build/make/code an app, site or game: ONE code.build_project step with path = "
                           "CONTEXT.projects_folder + a short lowercase name (it writes, opens, tests and fixes).",
+    "desktop.look": "An open app's buttons, fields and menus: desktop.look app=<name>, then desktop.act ref=<eN> action=click/set_text (background, no mouse); its result shows the new state.",
     "screen.understand": "To see the screen: screen.understand (when='hotkey_moment' for 'this/ye/yahan', else "
                          "'now'), act with screen.click (ids from the latest look) or keyboard tools, then look again.",
     "keyboard.edit": "Save a new file: keyboard.edit action=save, keyboard.type_text the full path, "
