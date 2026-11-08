@@ -113,6 +113,13 @@ Owner decisions are in `docs/DESIGN.md` §51.
   - installed from the built-in package in 23.0 s;
   - doctor ok, a text command answered, uninstalled.
   - The phone app's pair and unlock cards also carry the credit.
+- **Published v1.1.0** (release run 42471436829, green):
+  - The latest release holds one file, `Chutku-Setup-for-Windows.exe`: 238,362,875 bytes, digest `sha256:a2f26aac…`.
+  - `updates.check` against the live GitHub API offers 1.1.0 to a 1.0.0 copy.
+  - `updates._download` fetched the real file in 36.3 s and checked its size and digest. The first try got a GitHub
+    503 and a retry worked.
+  - Windows file properties: Chutku 1.1.0, Siddhant Vashisth, "Chutku setup for Windows".
+  - The public README was updated (Chutku-releases commit 2b9bb2b).
 - **Not run here:**
   - A real **Update now** needs a published 1.1.x release.
 
