@@ -16,6 +16,24 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (15): Chutku 1.2, PC shift 1 (part): the practice area and the "before" baseline
+- **Shift rules** (owner): work while the owner is away; stop only on a real mouse click (movement is ignored, via
+  the `GetAsyncKeyState` watcher). Sleep on charger is "never" during the shift and is restored to 3 h after
+  (`powercfg standby-timeout-ac`).
+- **Practice area** (`scripts/make_practice_area.py`):
+  - `D:\ChutkuPractice` holds 30 deterministic dummy files in Downloads (duplicates, screenshots, PDFs, zip, csv),
+    Documents, Pictures, Music, Projects and Desktop, with ages from 0 to 100 days.
+  - `--reset` rebuilds it, and only a folder marked `.chutku-practice` is ever reset. Verified: build, reset, and
+    the refusal on an unmarked folder (the negative case).
+- **Baseline before 1.2** (`scripts/replay_real_goals.py --all`): 210 distinct real requests. 142 are instant with
+  the same tool, 11 changed tool, and 57 go to the model.
+- **Web branch:** `claude/chutku-1.2` has web Claude's launch-review fixes merged in (be9e939). The WA tasks are not
+  there yet, so nothing is merged.
+- **Paused at 18:54** (the owner clicked). **Resume point:**
+  1. `eval_planner` baseline (it needs the GPU: stop the running Chutku's local model first);
+  2. look at the 11 changed and 57 model-bound replays;
+  3. when WA6/WA1/WA2 land on the branch, Shift 1 merge plus live checks.
+
 ### 2026-11-08 (14): chutku.localhost opens the dashboard from any browser
 - **Owner:** "how does someone open the Chutku dashboard; is there an app? Make typing chutku in the browser's address
   bar open it."
