@@ -24,6 +24,7 @@ word like "chutku" is treated as a web search by every browser, so the address n
 | Emergency stop | **Ctrl+Alt+F12**. Everything stops at once and actions stay paused until you click **Resume actions**. |
 | Pause / resume | The **Pause** button at the top of the window, or say "pause" / "resume". |
 | Quit | Right-click the tray icon, then **Quit Chutku (close everything)**. |
+| Restart | Say "chutku restart karo", or the tray icon → **Restart Chutku**, or Settings → About → **Restart Chutku**. She comes back in about 10 seconds, not paused. (Only the emergency stop leaves her paused.) |
 
 If Chutku hangs or crashes, she restarts by herself (up to 3 times in half an hour).
 

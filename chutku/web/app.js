@@ -742,6 +742,7 @@ function aboutCard(){
   text.append(version,by);row.append(logo,text);card.append(row);
   const status=node("p","muted","");
   card.append(node("div","row-buttons"));
+  card.lastChild.append(button("Restart Chutku",async()=>{const r=await api("/api/control",{action:"restart"});status.textContent=r.message;}));   // WA6
   card.lastChild.append(button("Check for updates",async()=>{status.textContent="Checking…";const u=await api("/api/update",{action:"check"});
     version.textContent="Chutku "+u.current;
     if(u.developer_copy)status.textContent="This is a developer copy: update it with git pull.";

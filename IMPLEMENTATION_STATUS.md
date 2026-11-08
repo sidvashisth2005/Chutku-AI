@@ -16,6 +16,33 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08: WA6 (cloud session, Chutku 1.2): a clean restart that does not leave Chutku paused
+
+**What changed:**
+- `chutku.cli control quit` writes "quit" to the guard's stop marker (`owner_quit`, never paused).
+- `control restart`, the tray's **Restart Chutku**, Settings → About → **Restart Chutku**, `POST /api/control
+  {action: restart}` and the phrase "chutku restart karo" all do the same three steps:
+  1. start a helper outside the guard's job (`chutku/restart.py`);
+  2. quit;
+  3. the helper waits for `data/guard.running` to go, then starts Chutku the way the sign-in task does.
+- `control stop` stays the emergency stop and still pauses; its help text says so.
+- A bare "restart karo" is not taken as Chutku (it may mean the PC).
+
+**Evidence (Linux):** `tests/test_restart_wa6.py`, 5 tests (1 is Windows-only):
+- quit leaves `actions_paused` false;
+- **negative:** the emergency stop still pauses;
+- the helper starts once, and never while the old guard still runs;
+- the phrases, including that "restart the pc" is not Chutku;
+- the dashboard refuses (409) without the guard.
+
+The full suite has no new failures against `main`'s Linux baseline.
+
+**Needs the Windows check:**
+- `tests/test_guard.py::test_a_quit_ends_cleanly_without_pausing` (real guard and Job Object);
+- the tray item;
+- a real restart from the dashboard comes back unpaused in about 10 s.
+
+
 ### 2026-11-08 (14): chutku.localhost opens the dashboard from any browser
 - **Owner:** "how does someone open the Chutku dashboard; is there an app? Make typing chutku in the browser's address
   bar open it."

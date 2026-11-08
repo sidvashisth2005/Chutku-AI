@@ -1249,7 +1249,12 @@ class DashboardServer(ThreadingHTTPServer):
         def stop():   # "Quit Chutku": every process ends, cleanly (no pause on the next start), 2026-11-01
             if self.heartbeat is not None:
                 control.quit()
+        def restart():   # WA6: quit cleanly and start again (never leaves actions paused)
+            if self.heartbeat is not None:
+                from chutku import restart as restarting
+                restarting.request(self.base)
         self.tray = Tray(open_dashboard=lambda: open_app_window(self.url), toggle_pause=toggle, stop=stop,
+                         restart=restart,
                          is_paused=lambda: control.paused, guard_active=lambda: self.heartbeat is not None,
                          show_window=self.show_window)
         self.tray.start()
@@ -1423,6 +1428,12 @@ class DashboardServer(ThreadingHTTPServer):
             count = self.stop_everything()
             return self._control_session(goal, mode, origin, f"Stopped ({count} task{'s' if count != 1 else ''}). "
                                                              "Completed steps stay; say \"undo that\" to reverse the last change.")
+        if control == "restart":   # WA6: quit cleanly and come back (not paused)
+            if self.heartbeat is None:
+                return self._control_session(goal, mode, origin, "Main abhi restart nahi kar sakti: Chutku ka guard nahi "
+                                                                 "chal raha. Chutku band karke Start menu se kholo.")
+            from chutku import restart as restarting
+            return self._control_session(goal, mode, origin, restarting.request(self.base))
         if control == "pause":
             ActionControl(self.base).pause("owner", "asked")
             self.stop_everything()
@@ -1821,8 +1832,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         # Pause remains reachable while an action owns the normal request lock.
         if urlsplit(self.path).path == "/api/control":
-            if set(data) != {"action"} or data["action"] not in ("pause", "resume", "stop"):
-                self._reply(400, {"error": "Choose pause, resume or stop."})
+            if set(data) != {"action"} or data["action"] not in ("pause", "resume", "stop", "restart"):
+                self._reply(400, {"error": "Choose pause, resume, stop or restart."})
+                return
+            if data["action"] == "restart":   # WA6: Settings > About "Restart Chutku" (never leaves it paused)
+                if self.server.heartbeat is None:
+                    self._reply(409, {"error": "Restart needs Chutku's guard, which is not running. Close Chutku and "
+                                               "open it again from the Start menu."})
+                    return
+                from chutku import restart as restarting
+                self._reply(200, {"restarting": True, "message": restarting.request(self.server.base)})
                 return
             control = ActionControl(self.server.base)
             try:

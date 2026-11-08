@@ -39,6 +39,14 @@ def request_stop(connection, base, port, open_browser):
     time.sleep(60)
 
 
+def request_quit(connection, base, port, open_browser):
+    """WA6: what "Restart Chutku" / control quit does: the stop marker says "quit"."""
+    connection.recv()
+    from chutku.core.action_control import ActionControl
+    ActionControl(base).quit()
+    time.sleep(60)
+
+
 def beating_through_an_action(connection, base, port, open_browser):
     """A healthy core mid-action: heartbeats every 50 ms for 3 s, then asks for a stop."""
     connection.recv()
@@ -140,6 +148,16 @@ class GuardTests(unittest.TestCase):
             result = supervise(Path(temp), child_target=request_stop, hotkey=False)
             self.assertEqual(result["reason"], "emergency_stop")
             self.assertTrue(result["core_stopped"])
+
+    def test_a_quit_ends_cleanly_without_pausing(self):
+        # WA6: every restart came back paused (2026-11-08): a quit is owner_quit, and only the emergency stop pauses
+        from chutku.core.action_control import ActionControl
+        with TemporaryDirectory() as temp:
+            result = supervise(Path(temp), child_target=request_quit, hotkey=False)
+            self.assertEqual(result["reason"], "owner_quit")
+            self.assertTrue(result["core_stopped"])
+            self.assertFalse(ActionControl(Path(temp)).paused)
+            self.assertFalse((Path(temp) / "data" / "guard.running").exists())   # the restart helper waits for this
 
     def test_unclean_guard_restart_pauses_before_child_work(self):
         with TemporaryDirectory() as temp:

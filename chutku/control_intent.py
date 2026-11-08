@@ -16,6 +16,8 @@ _KINDS = [
              r"rehne do|chhodo|chodo|band karo sab|sab band karo|stop karo|cancel karo|"
              r"chup|chup karo|chup ho jao|bas itna hi|that'?s all|that is all)"),   # H20: exact stop words
     ("pause", r"(?:pause (?:all )?actions|pause everything|pause chutku|freeze|sab rok do|actions rok do)"),
+    ("restart", r"(?:restart chutku|restart yourself|chutku restart (?:karo|kar do|ho jao)|(?:apne aap ko|khud ko) "
+                r"restart (?:karo|kar lo|ho jao)|chutku ko restart karo)"),   # a bare "restart karo" may mean the PC   # WA6: clean, never paused
     ("resume", r"(?:resume|resume (?:actions|everything|chutku)|resume (?:karo|kar do|kardo|ho jao)|unpause|"
                r"chalu ho jao|chalu ho ja|wapas chalu (?:ho jao|karo)|"
                r"kaam chalu karo|actions chalu karo)"),
