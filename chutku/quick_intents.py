@@ -31,6 +31,7 @@ _IN_APP = re.compile(r"\b(?:in|on|inside)\s+(?:my\s+|the\s+)?(?:whats\s?app|tele
                      r"brave|chrome|edge|firefox|outlook|teams|slack|vs ?code|file explorer|explorer)\b", re.I)
 _ORDERING = re.compile(r"\b(?:newest|latest|oldest|biggest|largest|smallest|recent|last)\b", re.I)
 PATTERNS = [
+    ("timeline_switch", re.compile(rf"^{_POLITE}timeline\s+(?P<state>on|off|chalu karo|chalu|band karo|band){_TAIL}", re.I)),
     ("build", re.compile(rf"^{_POLITE}(?:can you |could you |i want you to |i want to )?(?:build|make|create|code|develop|write|generate)\s+(?:me\s+|us\s+)?(?:a\s+|an\s+|the\s+|my\s+)?(?P<what>(?:(?!\b(?:folder|file|note|document|reminder|timer|playlist)s?\b).)*?\b{_BUILDABLE}\b.*?){_TAIL}", re.I)),
     ("build", re.compile(rf"^{_POLITE}(?:(?:mere liye|mujhe|ek)\s+)*(?P<what>.*?\b{_BUILDABLE}\b.*?)\s+(?:banao|bana do|banado|bana ke do|bana kar do|build karo|build kar do|code karo|code kar do|develop karo){_TAIL}", re.I)),
     ("close", re.compile(rf"^{_POLITE}{_CLOSE}\s+(?:the\s+|my\s+)?(?P<name>.+?){_APP_WORDS}(?:\s+window)?{_TAIL}", re.I)),
@@ -166,6 +167,14 @@ PATTERNS = [
     ("routine_run", re.compile(rf"^{_POLITE}(?:start|begin|run|activate|turn on|switch to)\s+(?:my\s+|the\s+)?(?P<name>[a-z][a-z0-9 -]{{0,29}}?)\s+(?:mode|routine|setup){_TAIL}", re.I)),
     ("routine_run", re.compile(rf"^{_POLITE}(?P<name>[a-z][a-z0-9 -]{{0,29}}?)\s+(?:mode|routine)\s+(?:on|start|chalu|on karo|start karo|chalu karo|shuru karo){_TAIL}", re.I)),
     ("time", re.compile(rf"^{_POLITE}(?:what(?:'?s| is) the time|what time is it|what time it is|(?:abhi\s+)?(?:kitne|kite\s*ne|kitna)\s+baje(?:\s+(?:hai|hain|he))?|(?:abhi\s+)?time kya (?:hai|hua|ho gaya)(?: hai)?(?:\s+abhi)?|abhi (?:kya )?time (?:kya )?(?:hai|hua)|kya time (?:ho gaya|hua) hai|time batao){_TAIL}", re.I)),
+    # 1.2 training round (2026-11-08): everyday asks that the replay of real requests sent to the model
+    ("time", re.compile(rf"^{_POLITE}(?:(?:aaj\s+)?(?:kya|kaun\s*si|konsi)\s+date\s+(?:hai|he)(?:\s+aaj)?|aaj\s+ki\s+date(?:\s+kya\s+(?:hai|he))?|aaj\s+(?:kya|kaun\s*sa)\s+din\s+(?:hai|he)|what(?:'?s| is)\s+(?:the\s+|today'?s\s+)?(?:date|day)(?:\s+today)?|today'?s\s+date|which\s+day\s+is\s+(?:it|today))(?:\s+batao)?(?:\s*,?\s*sirf\s+\w+)?{_TAIL}", re.I)),
+    ("volume_status", re.compile(rf"^{_POLITE}(?:what(?:'?s| is)\s+(?:the\s+)?(?:current\s+)?(?:pc\s+|system\s+|laptop\s+)?volume(?:\s+(?:level|right now|now))?|(?:pc\s+ka\s+|system\s+ka\s+|abhi\s+)?volume\s+kitna\s+(?:hai|he)|current\s+volume){_TAIL}", re.I)),
+    ("app_installed", re.compile(rf"^{_POLITE}(?:tell me\s+)?(?:whether|if)\s+(?P<app>[a-z0-9][a-z0-9 .+&-]{{1,40}}?)\s+(?:exists|is installed|is there)(?:\s+on\s+(?:this|my|the)\s+(?:laptop|pc|computer))?{_TAIL}", re.I)),
+    ("app_installed", re.compile(rf"^{_POLITE}(?:kya\s+)?(?P<app>[a-z0-9][a-z0-9 .+&-]{{1,40}}?)\s+installed\s+(?:hai|he)(?:\s+kya)?{_TAIL}", re.I)),
+    ("largest", re.compile(rf"^{_POLITE}(?:what(?:'?s| is| are)\s+the\s+|show\s+(?:me\s+)?(?:the\s+)?|list\s+(?:the\s+)?)?(?:biggest|largest)\s+files?(?:\s+in\s+(?:my\s+|the\s+)?(?P<folder>downloads|desktop|documents|pictures|videos|music)(?:\s+folder)?)?{_TAIL}", re.I)),
+    ("largest", re.compile(rf"^{_POLITE}(?P<folder>downloads|desktop|documents|pictures|videos|music)(?:\s+folder)?\s+(?:mein|me)\s+(?:sabse\s+badi|sabse\s+bari)\s+files?(?:\s+(?:kaun\s*si|konsi)\s+(?:hai|he|hain))?{_TAIL}", re.I)),
+    ("never_list", re.compile(rf"^{_POLITE}(?:show\s+|list\s+)?(?:my\s+|mere\s+)?never[- ]?rules(?:\s+(?:dikhao|batao|dikha do))?{_TAIL}", re.I)),
     ("search", re.compile(rf"^{_POLITE}(?:search|look up|find)\s+(?:on\s+)?{_SITE}\s+(?:for\s+)?(?P<query>.+?){_TAIL}", re.I)),
     ("search", re.compile(rf"^{_POLITE}(?:search|look up|google)\s+(?:for\s+)?(?P<query>.+?)\s+(?:on|in)\s+{_SITE}{_TAIL}", re.I)),
     ("search", re.compile(rf"^{_POLITE}{_SITE}\s+(?:pe|par|mein|me)\s+(?P<query>.+?)\s+(?:search|dhundo|dhoondo|search karo){_TAIL}", re.I)),
@@ -224,8 +233,9 @@ def quick_proposal(goal, apps=None):
     if whole is not None:   # "new tab kholo" is itself an app action, not a tab choice for another request (Z3)
         return whole
     tab = None
+    closing = re.search(r"\b(?:close|band)\b", goal, re.I)   # "close current tab in brave" is about the tab itself
     for choice, pattern in (("new", _NEW_TAB), ("same", _SAME_TAB)):
-        if pattern.search(goal):
+        if not closing and pattern.search(goal):
             tab, goal = choice, " ".join(pattern.sub(" ", goal).split())
             break
     proposal = _quick_proposal(goal, apps)
@@ -1005,6 +1015,8 @@ def _single(goal, apps=None):
                 return _proposal("media.control", {"action": "pause"}, "Media: pause", "Paused the media.")
             if name in {"tab", "this tab", "the tab", "current tab"}:
                 return _proposal("keyboard.edit", {"action": "close_tab"}, "Close the tab", "Closed the tab.")
+            if re.search(r"\btabs?\b", name):   # "close current tab in brave" quit all of Brave (replay 2026-11-08)
+                return None                        # a tab in a named app: the app's own close-tab action, or the model
             if name in {"it", "this", "that", "window", "this window", "all", "everything", "computer", "pc", "laptop",
                         "sab", "sabhi", "saare", "sab kuch", "sabko", "all apps", "everything open", "all windows"}:
                 return None  # unclear target, or a power request: let the model ask
@@ -1084,6 +1096,24 @@ def _single(goal, apps=None):
             return _proposal("web.news", {"topic": topic} if topic else {}, "Get the latest headlines", "", finish=False)
         if kind == "time":
             return _proposal("system.get_time", {}, "Read the clock", "", finish=False)
+        if kind == "volume_status":
+            return _proposal("system.volume_status", {}, "Read the volume", "", finish=False)
+        if kind == "app_installed":
+            return _proposal("apps.installed", {"query": match.group("app").strip()[:80]},
+                             f"Check whether {match.group('app').strip()} is installed", "", finish=False)
+        if kind == "largest":
+            import os
+            folder, home = (match.groupdict().get("folder") or "downloads").capitalize(), os.environ.get("USERPROFILE")
+            if not home:
+                return None
+            return _proposal("filesystem.largest", {"path": os.path.join(home, folder), "count": 5},
+                             f"Find the biggest files in {folder}", "", finish=False)
+        if kind == "never_list":
+            return _proposal("never.list", {}, "Show your never-rules", "", finish=False)
+        if kind == "timeline_switch":
+            on = match.group("state").casefold() in {"on", "chalu", "chalu karo"}
+            return _proposal("settings.timeline", {"on": on}, f"Turn the timeline {'on' if on else 'off'}", "",
+                             finish=False)
         if kind == "routine_save":
             commands = [c.strip(" '\".") for c in re.split(r"\s*[,;]\s*", match.group("commands")) if c.strip()]
             name = " ".join(match.group("name").split())

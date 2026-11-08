@@ -401,5 +401,32 @@ class QuickIntentTests(unittest.TestCase):
             self.assertEqual(snap["steps"][0]["state"], "DENIED")
 
 
+
+class TrainingRound1Tests(unittest.TestCase):
+    """1.2 training round 1 (2026-11-08): everyday asks from the replay of real requests are instant, and a tab is
+    never mistaken for its app."""
+
+    def tools(self, text):
+        proposal = quick_proposal(text)
+        return [(s["tool"], s["arguments"]) for s in proposal["next_steps"]] if proposal else None
+
+    def test_everyday_asks_are_instant(self):
+        self.assertEqual(self.tools("aaj kya date hai"), [("system.get_time", {})])
+        self.assertEqual(self.tools("aaj kya date hai batao, sirf nayi"), [("system.get_time", {})])
+        self.assertEqual(self.tools("volume kitna hai"), [("system.volume_status", {})])
+        self.assertEqual(self.tools("tell me whether Steam exists on this laptop"), [("apps.installed", {"query": "Steam"})])
+        self.assertEqual(self.tools("mere never rules dikhao"), [("never.list", {})])
+        self.assertEqual(self.tools("timeline band karo"), [("settings.timeline", {"on": False})])
+        tool, arguments = self.tools("downloads mein sabse badi file kaunsi hai")[0]
+        self.assertEqual((tool, Path(arguments["path"]).name), ("filesystem.largest", "Downloads"))
+
+    def test_a_tab_is_never_its_app(self):
+        # replay 2026-11-08: "close current tab in brave" quit all of Brave (every open tab lost)
+        self.assertIsNone(self.tools("close current tab in brave"))
+        self.assertEqual(self.tools("close tab"), [("keyboard.edit", {"action": "close_tab"})])
+        self.assertEqual(self.tools("close spotify"), [("apps.quit", {"name": "spotify"})])          # apps still close
+        self.assertEqual(self.tools("spotify band karo"), [("apps.quit", {"name": "spotify"})])
+        self.assertEqual(self.tools("open github in a new tab")[0][1]["tab"], "new")            # tab choice kept
+
 if __name__ == "__main__":
     unittest.main()

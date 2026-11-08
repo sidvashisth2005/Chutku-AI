@@ -16,6 +16,13 @@ APPS = [{"name": "Spotify", "app_id": "Spotify.App"}, {"name": "WhatsApp", "app_
         {"name": "Visual Studio Code", "app_id": "Microsoft.VSCode"}, {"name": "Calculator", "app_id": "Calc"}]
 
 CASES = [
+    # 1.2 training round 1 (2026-11-08): real requests the replay showed going to the model
+    ("aaj kya date hai", "system.get_time"), ("aaj kya date hai batao, sirf nayi", "system.get_time"),
+    ("what is today's date", "system.get_time"), ("what is the current pc volume", "system.volume_status"),
+    ("volume kitna hai", "system.volume_status"), ("tell me whether Steam exists on this laptop", "apps.installed"),
+    ("spotify installed hai kya", "apps.installed"), ("what is the biggest file in my Downloads folder", "filesystem.largest"),
+    ("downloads mein sabse badi file kaunsi hai", "filesystem.largest"), ("mere never rules dikhao", "never.list"),
+    ("timeline on", "settings.timeline"), ("timeline band karo", "settings.timeline"),
     # H15 board + research, H16 handoff, H23 automations + shortcuts, H26 repair (2026-11-06)
     ("research karke batao best free PDF editor for Windows", "task.delegate"),
     ("pehle python 3.14 ki release date pata karo, phir uske naye features", "task.delegate"),

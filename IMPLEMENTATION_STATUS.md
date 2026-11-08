@@ -29,7 +29,21 @@ Owner decisions are in `docs/DESIGN.md` §51.
   the same tool, 11 changed tool, and 57 go to the model.
 - **Web branch:** `claude/chutku-1.2` has web Claude's launch-review fixes merged in (be9e939). The WA tasks are not
   there yet, so nothing is merged.
-- **Paused at 18:54** (the owner clicked). **Resume point:**
+- **Training round 1 on the instant router** (`chutku/quick_intents.py`), from the replay:
+  - Routes added: date questions ("aaj kya date hai", "today's date"), volume level, "is X installed /
+    X installed hai kya", the biggest files in a user folder, "never rules dikhao", and "timeline on/off/band
+    karo" (it used to close an app called "timeline").
+  - **Bug fixed:** "close current tab in brave" quit all of Brave. The tab-choice step stripped "current tab"
+    first. Close requests now skip that step, and any "tab" request goes to the app's own close-tab action or the
+    model.
+  - The edit had briefly put literal backspace characters into the file (the shell mangled `\b`). They were
+    replaced, and no file has any now.
+  - **Result:**
+    - real requests instant with the same tool: 142 to **152** of 210;
+    - sent to the model: 57 to 48;
+    - `check_phrases`: **175/175** (12 new cases).
+  - Router suites: 60 OK, plus `TrainingRound1Tests` (2).
+- **Paused at 18:54** (the owner's click was by mistake; resumed). **Resume point:**
   1. `eval_planner` baseline (it needs the GPU: stop the running Chutku's local model first);
   2. look at the 11 changed and 57 model-bound replays;
   3. when WA6/WA1/WA2 land on the branch, Shift 1 merge plus live checks.
