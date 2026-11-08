@@ -172,5 +172,46 @@ class CliStillWorksTests(unittest.TestCase):
             self.assertTrue(setup_wizard.state(temp)["done"])
 
 
+class PermissionTests(unittest.TestCase):
+    """2026-11-08 launch review: a new install had no PC permissions, so "open notepad" was refused."""
+
+    def granted(self, base):
+        return {p["capability"] for p in setup_wizard.permissions(base) if p["on"]}
+
+    def test_an_installed_app_gets_the_everyday_set_once_and_a_checkout_nothing(self):
+        from chutku.core import paths
+        with TemporaryDirectory() as temp:
+            with patch.object(paths, "is_checkout", return_value=True):
+                setup_wizard.finish(temp)
+            self.assertEqual(self.granted(temp), set())                       # the owner's PC: untouched
+            setup_wizard._mark(temp, done=False)
+            with patch.object(paths, "is_checkout", return_value=False):
+                setup_wizard.finish(temp)
+                self.assertEqual(self.granted(temp), set(setup_wizard.EVERYDAY))
+                for risky in ("power.control", "process.terminate", "process.launch", "email.send", "network.modify",
+                              "browser.input"):
+                    self.assertNotIn(risky, self.granted(temp))               # never by default
+                setup_wizard.set_permission(temp, "apps.launch", False)       # the user turns one off ...
+                setup_wizard._mark(temp, done=False)
+                setup_wizard.finish(temp)                                     # ... "Run setup again" keeps it off
+                self.assertNotIn("apps.launch", self.granted(temp))
+
+    def test_the_settings_card_turns_one_on_and_refuses_anything_else(self):
+        with TemporaryDirectory() as temp:
+            web = Server(temp)
+            try:
+                status, view = web.call("POST", "/api/setup", {"action": "permission", "capability": "power.control",
+                                                               "on": True})
+                self.assertEqual(status, 200)
+                self.assertIn("power.control", {p["capability"] for p in view["permissions"] if p["on"]})
+                for bad in ({"capability": "cloud.gemini", "on": True}, {"capability": "*", "on": True},
+                            {"capability": "apps.launch", "on": "yes"}):
+                    self.assertEqual(web.call("POST", "/api/setup", {"action": "permission", **bad})[0], 400)
+                self.assertEqual(web.call("POST", "/api/setup", {"action": "permission", "capability": "apps.launch",
+                                                                 "on": True}, token="nope")[0], 403)
+            finally:
+                web.close()
+
+
 if __name__ == "__main__":
     unittest.main()
