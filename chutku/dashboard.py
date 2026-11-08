@@ -2410,6 +2410,14 @@ def serve(port: int = 8765, open_browser: bool = False, *, base=PROJECT_ROOT, he
             threading.Thread(target=_warm_app_list, name="chutku-apps-warm", daemon=True).start()
             from chutku.voice import tts
             threading.Thread(target=tts.warm_up, name="chutku-tts-warm", daemon=True).start()   # neural voice ready
+            def night_shift_on():   # owner 2026-11-08: practice and learning every night, on by default
+                try:
+                    from chutku import nightshift
+                    from chutku.core.paths import CODE_ROOT
+                    nightshift.ensure_installed(CODE_ROOT)
+                except Exception:
+                    _log().exception("could not install the Night Shift task")
+            threading.Thread(target=night_shift_on, name="chutku-nightshift-install", daemon=True).start()
             from chutku import timeline
             threading.Thread(target=timeline.watch, args=(base, threading.Event()), name="chutku-timeline",
                              daemon=True).start()   # opt-in ("timeline on"): window titles only, 14 days

@@ -11,6 +11,13 @@ Linux, Android or iPhone. Ignore the "Source code" links below; GitHub adds them
 
 Already using Chutku? It tells you about this update by itself: click **Update now** in the popup.
 
+## What's new in 1.2.1
+
+- **Chutku learns every night by herself.** While your PC is idle at night (on charger), she practises everyday
+  requests, works out the ones she got wrong, and remembers the right way. Nothing on your PC is changed while
+  practising. It is on automatically.
+- She reuses more of what worked for you before.
+
 ## What's new in 1.2
 
 - Chutku now does almost anything you ask on your PC: install and uninstall apps, change Windows settings, startup

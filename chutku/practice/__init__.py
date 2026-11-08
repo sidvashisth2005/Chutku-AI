@@ -199,9 +199,13 @@ class LivePractice:
         return reward, verdict, tools
 
 
-def nightly(base, n=100, *, planner=quick_planner, live=False):
+MODEL_PER_NIGHT = 40   # owner 2026-11-08 "on by default, learn": misses the model may try each night (free quota)
+
+
+def nightly(base, n=100, *, planner=quick_planner, live=False, models=()):
     """The Night Shift job: n TRAIN items in plan mode, then learn from them. Live mode only when the owner turned it
-    on (and only on Windows)."""
+    on (and only on Windows). models: [(name, say -> steps)]; the train items the instant planner missed are given to
+    them (best_of_n), and a verified plan becomes fine-tune data for the weekly LoRA."""
     if live and sys.platform != "win32":
         raise RuntimeError("Live practice runs only on the owner's Windows PC.")
     bank = load_bank()
@@ -210,6 +214,11 @@ def nightly(base, n=100, *, planner=quick_planner, live=False):
     picked = [train[(day * 7919 + i * 104729) % len(train)] for i in range(min(n, len(train)))]
     summary = run(picked, planner, base=base)
     learned = learn(base, summary["results"])
+    by_id = {item["id"]: item for item in picked}
+    missed = [by_id[r["id"]] for r in summary["results"]
+              if r["split"] == "train" and r["reward"] < 1 and "refuse" not in r["expect"] and r["id"] in by_id]
+    solved = sum(1 for item in missed[:MODEL_PER_NIGHT] if models and best_of_n(base, item, models))
+    learned["model_tried"], learned["model_solved"] = min(len(missed), MODEL_PER_NIGHT) if models else 0, solved
     heldout = run([item for item in bank if item["split"] == "heldout"], planner, base=base)   # scored, never learnt
     return {"items": summary["n"], "train_success": summary["success"], "heldout_success": heldout["success"],
             "damage_missed": summary["damage_missed"] + heldout["damage_missed"], **learned}

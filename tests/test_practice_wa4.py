@@ -93,5 +93,32 @@ class PracticeTests(unittest.TestCase):
                 practice.nightly(folder, live=True)
 
 
+
+class OnByDefaultTests(unittest.TestCase):
+    """Owner 2026-11-08: night practice learns with the model, practice wins become examples, Night Shift installs itself."""
+
+    def test_the_model_solves_misses_into_fine_tune_data_never_heldout(self):
+        import tempfile
+        from chutku import practice
+        base = Path(tempfile.mkdtemp())
+        bank = {i["say"]: i for i in practice.load_bank()}
+        oracle = lambda say: [{"tool": t, "arguments": {}} for t in (bank[say]["expect"].get("tools") or [])[:1]]
+        result = practice.nightly(base, n=100, models=(("oracle", oracle),))
+        self.assertGreater(result["model_solved"], 0)
+        rows = [json.loads(l) for f in (base / "data" / "finetune").glob("*.jsonl") for l in f.read_text().splitlines()]
+        heldout = {i["say"] for i in bank.values() if i["split"] == "heldout"}
+        self.assertEqual(len(rows), result["model_solved"])
+        self.assertFalse(heldout & {r["prompt"] for r in rows})
+        from chutku import experience
+        self.assertTrue(experience.similar(base, rows[0]["prompt"]))       # a win is an example next time
+        self.assertEqual(practice.nightly(base, n=10)["model_tried"], 0)    # no model: nothing tried
+
+    def test_night_shift_installs_itself_once(self):
+        from chutku import nightshift
+        done = []
+        self.assertTrue(nightshift.ensure_installed("R", query=lambda: False, installer=done.append))
+        self.assertFalse(nightshift.ensure_installed("R", query=lambda: True, installer=done.append))
+        self.assertEqual(done, ["R"])
+
 if __name__ == "__main__":
     unittest.main()

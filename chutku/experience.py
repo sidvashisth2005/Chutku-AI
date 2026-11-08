@@ -99,13 +99,31 @@ def update_rows(base, change):
             save_rows(base, rows)
 
 
-def similar(base, goal, k=3, minimum=0.34):
-    """Up to k past successful plans whose goal shares enough meaningful words with this one."""
+def _practice_wins(base):
+    """Night practice plans the model got right (verified by score, train split only): examples, never replayed."""
+    import json
+    rows = []
+    for path in sorted((Path(base) / "data" / "finetune").glob("*.jsonl"))[-14:]:   # the last two weeks
+        try:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                item = json.loads(line)
+                steps = [{"tool": s["tool"], "arguments": s.get("arguments") or {}, "purpose": s.get("purpose", "")}
+                         for s in item.get("plan") or [] if isinstance(s, dict) and s.get("tool")]
+                if steps:
+                    rows.append({"goal": item["prompt"], "steps": steps, "at": path.stat().st_mtime})
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    return rows
+
+
+def similar(base, goal, k=3, minimum=0.28):
+    """Up to k past successful plans whose goal shares enough meaningful words with this one (2026-11-08: also the
+    night practice's verified plans, and a lower bar, so more wins are reused)."""
     words = _words(goal)
     if not words:
         return []
     scored = []
-    for row in load(base):
+    for row in [*load(base), *_practice_wins(base)]:
         if row.get("rating") == "bad":
             continue  # the owner said this was wrong ("galat kiya"): never an example again
         other = _words(row["goal"])

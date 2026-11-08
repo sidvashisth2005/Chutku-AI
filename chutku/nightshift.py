@@ -232,7 +232,21 @@ def _run_jobs(base, report, model, deadline, create_runtime):
         from chutku import evolve
         _job(report, "evolve_review", lambda: _evolve(evolve.review(base, runtime.registry, compile_skills=False)))
         from chutku import practice   # WA4: plan-mode practice on the train split (live practice stays off)
-        _job(report, "practice", lambda: practice.nightly(base))
+        _job(report, "practice", lambda: practice.nightly(base, models=_practice_models(runtime, model, deadline)))
+
+
+def _practice_models(runtime, model, deadline):
+    """The model as a practice planner (owner 2026-11-08): review mode, so nothing runs; stops at the deadline."""
+    if model is None:
+        return ()
+    from chutku.agent_loop import AgentSession
+
+    def steps(goal):
+        if time.monotonic() > deadline:
+            return []
+        proposal, _meta = model.propose(AgentSession(goal, mode="review"), runtime)
+        return proposal.get("next_steps") or [] if proposal.get("status") == "continue" else []
+    return (("model", steps),)
 
 
 def _evolve(out):
@@ -370,6 +384,19 @@ def keep_awake(on):
     import ctypes
     ES_CONTINUOUS, ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
     ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | (ES_SYSTEM_REQUIRED if on else 0))
+
+
+def ensure_installed(root, *, query=None, installer=None):
+    """On by default (owner 2026-11-08): when Chutku starts and the per-user task is missing, install it (no admin).
+    True when it was installed now."""
+    import subprocess
+    if query is None:
+        query = lambda: subprocess.run(["schtasks", "/query", "/tn", r"\Chutku\NightShift"], capture_output=True,
+                                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).returncode == 0
+    if query():
+        return False
+    (installer or install)(root)
+    return True
 
 
 def install(root):

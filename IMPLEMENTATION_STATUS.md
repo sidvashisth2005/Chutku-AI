@@ -16,6 +16,25 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (18): Release 1.2.1: night learning on by default
+- **Owner:** switch on night practice, weekly self-training and learning from real use, on by default; spend few
+  tokens; release.
+- **Night Shift on by default:** `nightshift.ensure_installed`, called at start in the real install, adds the
+  per-user `\Chutku\NightShift` task when it is missing (04:00, on charger, after 30 idle minutes; no admin). An
+  existing task is left alone; the owner's was detected.
+- **Practice learns with the model:** `practice.nightly(models=...)`, with Night Shift passing its planner
+  (`_practice_models`, review mode, nothing runs, stops at the deadline). Up to 40 missed train items a night go to
+  `best_of_n`, and a verified plan becomes `data/finetune/*.jsonl`. Never held-out items.
+- **Learning from use, more aggressive:** `experience.similar` also offers the practice wins (the last two weeks) as
+  planner examples, and the bar is lowered from 0.34 to 0.28.
+- **Weekly LoRA:** the data is collected from tonight. **The GPU trainer itself is not built** (it needs new large
+  libraries) and stays on the FUTURE list.
+- **Verified:**
+  - Stand-in model: 16 misses tried, 16 solved, 16 fine-tune rows, none from held-out. A win is returned as an
+    example next time; nothing is tried without a model.
+  - `ensure_installed` installs only when missing, and the real PC's task was detected.
+  - `test_practice_wa4` and `test_nightshift` OK.
+
 ### 2026-11-08 (17): Release 1.2.0, and the FUTURE list (deferred by the owner to save tokens; remind him)
 - **Released as 1.2.0:** the merged 1.2 (WA1–WA6), the PC's training round and fixes, "Uninstall Chutku" in the
   Start menu, and the app's `chutku\` and `python\` folders hidden after install. The package already ships compiled
