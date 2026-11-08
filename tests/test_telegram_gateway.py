@@ -248,6 +248,34 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(self.gateway.poll_once(), ["ignored"])
         self.assertEqual(telegram.load(self.base)["offset"], 42)
 
+    def test_the_start_up_link_is_tried_again_until_telegram_answers(self):
+        # owner 2026-11-08: after a restart the hotspot's DNS was broken for minutes and the one try was lost
+        import threading
+        now, sent, tries = {"t": 0.0}, [], {"n": 0}
+
+        class Closing:
+            def wait(self, seconds):
+                now["t"] += seconds
+                return False
+
+        def send(text):
+            tries["n"] += 1
+            if tries["n"] < 4:
+                raise OSError("Telegram is not reachable")
+            sent.append(text)
+        self.assertTrue(telegram._until_sent(send, lambda: "link", Closing(), clock=lambda: now["t"]))
+        self.assertEqual((sent, tries["n"], now["t"]), (["link"], 4, 60.0))   # 3 failures, 20 s apart
+        never = {"n": 0}
+
+        def down(text):
+            never["n"] += 1
+            raise OSError("down")
+        now["t"] = 0.0
+        self.assertFalse(telegram._until_sent(down, lambda: "link", Closing(), clock=lambda: now["t"]))
+        self.assertLessEqual(now["t"], 900.0)                                    # gives up after 15 minutes
+        stop = threading.Event(); stop.set()
+        self.assertFalse(telegram._until_sent(down, lambda: "link", stop))       # Chutku closing: stops at once
+
 
 if __name__ == "__main__":
     unittest.main()

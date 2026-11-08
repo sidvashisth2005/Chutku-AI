@@ -70,6 +70,18 @@ foreach ($who in "BUILTIN\Administrators", "NT AUTHORITY\SYSTEM") {
 }
 $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule("NT AUTHORITY\LOCAL SERVICE", "ReadAndExecute", "ContainerInherit,ObjectInherit", "None", "Allow")))
 Set-Acl $boot $acl
+# status\: the boot notice's log (no token, no key), so "no message came" can be explained by anyone on the laptop.
+# LOCAL SERVICE writes it; only the notice writes there (SYSTEM's ChutkuUnlock never does: no link tricks into SYSTEM).
+$status = Join-Path $boot "status"
+New-Item -ItemType Directory -Force $status | Out-Null
+$sacl = New-Object Security.AccessControl.DirectorySecurity
+$sacl.SetAccessRuleProtection($true, $false)
+foreach ($who in "BUILTIN\Administrators", "NT AUTHORITY\SYSTEM") {
+    $sacl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($who, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")))
+}
+$sacl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule("NT AUTHORITY\LOCAL SERVICE", "Modify", "ContainerInherit,ObjectInherit", "None", "Allow")))
+$sacl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule("BUILTIN\Users", "ReadAndExecute", "ContainerInherit,ObjectInherit", "None", "Allow")))
+Set-Acl $status $sacl
 Copy-Item (Join-Path $PSScriptRoot "boot_access\notify.ps1") (Join-Path $boot "notify.ps1") -Force
 try { Stop-ScheduledTask -TaskName "ChutkuUnlock" -ErrorAction Stop } catch { }   # a re-run replaces the helper
 Get-Process ChutkuUnlock -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue

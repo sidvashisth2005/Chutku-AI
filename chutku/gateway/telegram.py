@@ -518,8 +518,8 @@ def start(core):
     _ACTIVE["gateway"] = gateway
     threading.Thread(target=gateway.run, args=(core.closing,), name="chutku-telegram", daemon=True).start()
     # owner 2026-11-07: when the laptop is up and Chutku runs, the phone link arrives on Telegram by itself
-    threading.Thread(target=lambda: _quietly(gateway.send, phone_link_text(core.base)), name="chutku-telegram-hello",
-                     daemon=True).start()
+    threading.Thread(target=_until_sent, args=(gateway.send, lambda: phone_link_text(core.base), core.closing),
+                     name="chutku-telegram-hello", daemon=True).start()
     return gateway
 
 
@@ -536,8 +536,14 @@ def phone_link_text(base):
     return "Chutku is running on the laptop. Phone access is off: say \"phone connect karo\" on the laptop to turn it on."
 
 
-def _quietly(call, *args):
-    try:
-        call(*args)
-    except Exception:   # Telegram unreachable at start-up: the owner can send /link later
-        pass
+def _until_sent(send, text, closing, *, every=20.0, give_up=900.0, clock=time.monotonic):
+    """Send the start-up message, trying again every 20 s for up to 15 min (owner 2026-11-08: after a restart the
+    laptop's internet, a phone hotspot, had broken DNS for a while and the one try was lost). True once sent."""
+    deadline = clock() + give_up
+    while True:
+        try:
+            send(text())
+            return True
+        except Exception:   # not reachable yet; /link always works later
+            if clock() + every > deadline or closing.wait(every):
+                return False

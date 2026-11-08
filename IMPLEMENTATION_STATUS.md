@@ -16,6 +16,49 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (6): No Telegram message after restarts, and "websites won't load": a broken hotspot DNS; messages now survive it
+- **Owner:** two restarts gave no Telegram message; after sign-in Tailscale showed "No internet access" and Brave showed
+  DNS_PROBE_POSSIBLE; the phone couldn't open ChatGPT until its DNS was set back to automatic and it was rebooted.
+  Also asked whether I put an "FPS | GPU | CPU | LAT" line on the screen.
+- **Diagnosis (read-only, this laptop):**
+  - The laptop's Wi-Fi is the phone's hotspot (SSID "Siddhant Vashisth", DNS 10.29.246.180). With the phone's custom
+    DNS broken, the laptop's lookups failed too. Now: google.com, chatgpt.com and buddy.tail473865.ts.net resolve,
+    and 1.1.1.1:443 is reachable.
+  - Tailscale: no exit node, `Use Tailscale DNS` on, no global resolvers ("system default will be used"), NRPT rules
+    only for `*.ts.net` and 100.64/10. Not the cause. "Tailscale: No internet access" is Windows describing the tunnel
+    adapter; it is always shown.
+  - The boot setup had run (`C:\ProgramData\ChutkuBoot`, Fast Startup 0). Boots at 08:50, 08:58 and 09:26; Wi-Fi up
+    at 08:54, 08:59 and 09:26.
+  - `ChutkuUnlock.exe` runs as the SYSTEM watcher in session 0 plus the screen helper in session 1 on 127.0.0.1:8767;
+    `tailscale serve` has :8443 → 8767.
+  - Chutku's log: "Telegram is not reachable (URLError)" from 09:28 to 09:45. `getMe` works now (668 ms).
+  - The boot notice tried for 10 minutes and Chutku's start-up link once, both while DNS was broken.
+  - The overlay is the NVIDIA App's statistics HUD (`NVIDIA Overlay.exe`, started by NVIDIA at boot, Alt+R toggles
+    it). Not Chutku; left as is.
+- **Fixes:**
+  - **`notify.ps1`:**
+    - It tries for 20 minutes, every 15 s.
+    - When the network's DNS fails, it looks up `api.telegram.org` at 1.1.1.1 / 8.8.8.8 and sends with
+      `curl.exe --resolve` (same certificate checks). The token is in a private config file in LOCAL SERVICE's temp
+      folder, never on a command line.
+    - Each step goes to `C:\ProgramData\ChutkuBoot\status\notify.log` (no token, no key).
+  - **`setup_boot_access.ps1`:** creates `status\` (administrators and SYSTEM full, LOCAL SERVICE modify, Users read).
+    SYSTEM's ChutkuUnlock never writes there, so no link trick reaches SYSTEM.
+  - **`telegram._until_sent`:** Chutku's start-up phone link is retried every 20 s for up to 15 minutes; it stops at
+    once if Chutku closes.
+  - **Test fix:** `test_w6_tabs_pool` had a fixed 2026-11-08 08:00 reminder that became "in the past" this morning; it
+    now uses the next 8:00.
+- **Verified:**
+  - notify.ps1's own `Send-PublicDns`, taken from the file, against Telegram `getMe`: "public DNS 1.1.1.1", 1443 ms,
+    no temp files left.
+  - Both scripts parse.
+  - New `test_the_start_up_link_is_tried_again_until_telegram_answers`: 3 failures 20 s apart then sent; gives up by
+    15 min; stops when closing.
+  - Telegram tests 19 OK; full suite 1650 OK.
+- **Owner step:** the boot notice runs from `C:\ProgramData\ChutkuBoot`, so the new `notify.ps1` and `status\` take
+  effect after one more run of `Setup-Boot-Access.cmd` (one admin click). The Chutku start-up retry is live after the
+  restart.
+
 ### 2026-11-08 (5): Fixed "Chutku can't play the laptop's sound" (the phone page's CSP refused the sound player)
 - **Owner, on the real phone:** "it said Chutku can't play laptop's sound".
 - **Cause:** every phone-server answer carries `Content-Security-Policy: script-src 'self'`. The new AudioWorklet

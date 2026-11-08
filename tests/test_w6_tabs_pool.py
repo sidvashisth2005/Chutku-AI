@@ -1,5 +1,5 @@
 """W6: the H9 key pool, the H23 habit-to-automation card and the daily blueprint, and the Board/Automations APIs."""
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -118,7 +118,9 @@ class DailyAndHabitTests(unittest.TestCase):
                      if c["kind"] == "automation"]
             self.assertEqual(len(cards), 1)
             self.assertEqual(cards[0]["command"], "har roz 8:00 baje weather batao")
-            scheduled.add(base, "weather batao", datetime(2026, 11, 8, 8), every_minutes=1440)
+            # the next 8:00 from today (a fixed 2026-11-08 08:00 became "in the past" that morning)
+            eight = (datetime.now() + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
+            scheduled.add(base, "weather batao", eight, every_minutes=1440)
             again = [c for c in suggest.candidates(base, now=datetime(2026, 11, 7, 15).timestamp(), free_c_gb=100)
                      if c["kind"] == "automation"]
             self.assertEqual(again, [])                  # already automated: no card
