@@ -1,5 +1,9 @@
 # Chutku Delivery Gate
 
+> **Chutku 1.2 (2026-11-08), open:** web Claude does [`docs/WEB_CLAUDE_TASKS_1_2.md`](docs/WEB_CLAUDE_TASKS_1_2.md) on branch
+> `claude/chutku-1.2` (never refuse except system damage, ask-once memory, system tools with UAC, task bank, rewarded
+> practice, toddler-easy UI, clean restart). The PC session merges it and runs the Windows live checks and training.
+>
 > **Handoff 2 (2026-11-07), open:** the second cloud session did Chutku 1.0 tasks W1–W8 on branch
 > `claude/youthful-faraday-av41ls` (not merged, no tag). Start at [`docs/HANDOFF.md`](docs/HANDOFF.md) section 6:
 > CI, `/code-review`, the PC live checks, then the owner steps.
