@@ -8,7 +8,7 @@ if(location.hash)history.replaceState(null,"",location.pathname);
 let sessionToken = tokenFromLink || "";
 try{sessionToken = sessionToken || sessionStorage.getItem("chutku-token") || "";}catch{}
 let state=null, busy=false;
-const labels={board:"Board",automations:"Automations",settings:"Settings",phone:"Phone",voicelock:"Voice lock",skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Home",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
+const labels={board:"Board",automations:"Automations",settings:"Settings",phone:"Phone",voicelock:"Voice lock",skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Home",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification",say:"What can I say?"};
 const MODE_HELP={
   review:"Review: every step waits for your click before it runs.",
   auto_safe:"Safe: looking, opening apps/files/sites and other easily reversible steps run by themselves. File changes and anything risky wait for your click.",
@@ -16,7 +16,13 @@ const MODE_HELP={
   owner:"Full: almost everything runs by itself, including messages to people she knows. Still asks before changing or deleting files, shutting down or ending programs, messages to someone new, and anything right after reading web pages or messages."};
 const TERMINAL=new Set(["done","clarify","failed","stopped","cancelled"]);
 
+// WA5: every error says what to do next, with one button
+function nextStep(message){
+  if(/not running/i.test(message))return ["Try again",()=>location.reload()];
+  if(/key|brain|settings|permission|allow|grant|microphone|voice/i.test(message))return ["Open Settings",()=>switchTab("settings")];
+  return ["Show me how",()=>window.open("/help","_blank","noopener")];}
 function error(message){$("error-banner").textContent=message;$("error-banner").hidden=!message;
+  const act=$("error-action");if(act){act.hidden=!message;if(message){const [text,go]=nextStep(message);act.textContent=text;act.onclick=()=>{error("");go();};}}
   const ob=$("onboarding");if(ob&&!ob.hidden&&message){let line=ob.querySelector(".err-line");if(!line){line=node("div","err-line");const acts=ob.querySelector(".onboarding-actions");if(acts)acts.before(line);else ob.append(line);}line.className="err-line";line.textContent=message;}}
 function setBusy(value){busy=value;$("run-status").textContent=value?"Working…":"Ready";$("run-status").classList.toggle("busy",value);$("send").disabled=value;$("mic").disabled=value;}
 async function api(path,data){
@@ -28,7 +34,7 @@ async function api(path,data){
   if(!response.ok)throw new Error(payload.error||"The request failed.");
   return payload;
 }
-function switchTab(id){error("");if(id==="board")loadBoard();if(id==="automations")loadAutomations();if(id==="settings")loadSetup();if(id==="phone")loadPhone();if(id==="mind")loadMind();if(id==="reliability")loadReliability();if(id==="skills")loadSkills();if(id==="voicelock")loadVoiceLock();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
+function switchTab(id){error("");if(id==="board")loadBoard();if(id==="automations")loadAutomations();if(id==="settings")loadSetup();if(id==="phone")loadPhone();if(id==="mind")loadMind();if(id==="reliability")loadReliability();if(id==="skills")loadSkills();if(id==="voicelock")loadVoiceLock();if(id==="say")loadSay();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
 document.querySelectorAll("[data-tab]").forEach(e=>e.addEventListener("click",()=>switchTab(e.dataset.tab)));
 
 // ---- autonomy selector (remembered per browser) ----
@@ -49,14 +55,21 @@ const STEP_ICON={COMPLETED:"✓",FAILED:"!",DENIED:"⛔",WAITING_CONFIRMATION:"?
 
 function approvalCard(approval,onDecide,canAlways){
   const card=node("div","approval");
-  card.append(node("strong","","Confirm this exact step"),node("p","",approval.consequence||approval.tool));
-  const facts=node("pre","",JSON.stringify({tool:approval.tool,risk:approval.risk_label||approval.risk,arguments:approval.arguments,why:approval.reason},null,2));
-  const row=node("div","approval-actions"),yes=node("button","primary","Approve"),no=node("button","text-button","Cancel");
+  card.append(node("strong","","Chutku wants to: "+(approval.consequence||approval.tool)),node("p","approval-undo",undoText(approval.reversibility)));
+  if(approval.reason)card.append(node("p","muted","Why it asks: "+approval.reason));
+  const facts=node("details","approval-facts");facts.append(node("summary","","Exact details"),node("pre","",JSON.stringify({tool:approval.tool,risk:approval.risk_label||approval.risk,arguments:approval.arguments},null,2)));
+  const row=node("div","approval-actions"),yes=node("button","primary","Yes"),no=node("button","text-button","No");
   const always=canAlways?node("button","","Yes, always"):null;   // WA1: remembered once it works; Settings can forget it
   if(always)always.title="Do exactly this again without asking (deletes, power and anything after reading a web page still ask)";
   for(const [button,value,keep] of [[yes,true,false],[no,false,false],...(always?[[always,true,true]]:[])])button.addEventListener("click",async()=>{yes.disabled=no.disabled=true;if(always)always.disabled=true;await onDecide(value,keep);});
   row.append(yes,...(always?[always]:[]),no);card.append(facts,row);return card;
 }
+
+function undoText(kind){   // WA5: plain words for the tool's reversibility
+  if(!kind||kind==="none"||kind==="not_applicable")return "";
+  if(/^irreversible/.test(kind))return "This cannot be undone.";
+  if(/compensatable|journaled|transient|close_button|creates_|cancel_before/.test(kind))return "You can undo this afterwards.";
+  return "Whether it can be undone depends on the app or site.";}
 
 function renderDirect(bubble,payload){
   const result=payload.result;bubble.replaceChildren();
@@ -96,6 +109,7 @@ function renderSession(bubble,s){
   if(s.pending){bubble.append(approvalCard({...s.pending.approval},async(approved,always)=>{
     try{const next=await api("/api/agent/confirm",{id:s.id,approve:approved,always:!!always});renderSession(bubble,next.session);follow(bubble,s.id);}catch(e){error(e.message);}
   },true));}
+  if(s.status==="failed"&&s.goal){const again=node("button","text-button","Try again");again.addEventListener("click",()=>ask(s.goal));bubble.append(again);}
   if(!TERMINAL.has(s.status)){const stop=node("button","text-button danger-text","Stop");stop.addEventListener("click",async()=>{try{const r=await api("/api/agent/stop",{id:s.id});renderSession(bubble,r.session);}catch(e){error(e.message);}});bubble.append(stop);}
   scrollChat();
 }
@@ -316,10 +330,10 @@ function renderVerification(report){const area=$("verification-results");area.re
 async function refresh(){
   state=await api("/api/state");$("connection").textContent="Local session connected";$("sandbox-path").textContent=state.sandbox;
   const roots=(state.resource_grants||[]).filter(g=>g.active&&g.access.includes("modify")&&g.grant_id!=="sandbox").map(g=>g.root);
-  $("grants-summary").textContent="Folders Chutku may change: "+(roots.join(", ")||"only her own sandbox folder (Settings → What Chutku may do)")+". Windows and program folders are never changed.";
+  $("grants-summary").textContent="Folders Chutku may change: "+(roots.join(", ")||"only her own sandbox folder (Settings → What Chutku may do)")+". Windows system folders are never changed; program folders ask you first.";
   const hf=state.handsfree||{};if(!savedMode&&hf.handsfree_mode)setMode(hf.handsfree_mode);
   $("brain-pill").textContent=hf.offline_mode||hf.brain==="local"?"Local brain":"Cloud brain";
-  renderPause(state.actions_paused);renderHistory();renderMemories();renderCapabilities();
+  renderPause(state.actions_paused);renderHistory();renderMemories();renderCapabilities();renderCoach();
   $("stop-core").hidden=!state.guard_active;$("guard-status").textContent=state.guard_active?"Ctrl+Alt+F12 or Stop Chutku stops everything at once":"The emergency stop (Ctrl+Alt+F12) is off: close Chutku and open it again from the Start menu";
   renderVerification(state.verification);renderHandsfree(state.handsfree);
   if(state.handsfree&&state.handsfree.latest_session)seenSessions.add(state.handsfree.latest_session);
@@ -789,4 +803,41 @@ function renderAutomations(a){
     row.append(button("Create",async()=>{const slots={};for(const [k,e] of Object.entries(inputs))if(e.value)slots[k]=e.value;renderAutomations(await api("/api/automations",{action:"create",name:item.name,slots}));},"primary"));
     box.append(row);
   }
+}
+
+// ---- WA5: Simple view, "What can I say?" and the first-week coach ----
+const SIMPLE_TABS=new Set(["home","history","phone","settings","say"]);
+document.querySelectorAll("nav .nav-label, nav [data-tab]").forEach(e=>{if(!SIMPLE_TABS.has(e.dataset.tab))e.classList.add("nav-advanced");});
+function applyView(full,save){document.body.classList.toggle("simple",!full);$("nav-more-text").textContent=full?"Less":"More";$("nav-more").setAttribute("aria-expanded",String(full));
+  if(save){try{localStorage.setItem("chutku-view",full?"full":"simple");}catch{}}}
+let fullView=false;try{fullView=localStorage.getItem("chutku-view")==="full";}catch{}
+applyView(fullView||(!!startTab&&!SIMPLE_TABS.has(startTab)&&!!labels[startTab]),false);
+$("nav-more").addEventListener("click",()=>applyView(document.body.classList.contains("simple"),true));
+
+const SAY_LABELS={apps:"Open and close apps",media:"Music and videos",settings:"Volume, brightness and Windows settings",web:"Search and news",files:"Find your files",messages:"Send a message",reminders:"Reminders",memory:"Remember people",installs:"Install or remove apps",chains:"Two things at once",vague:"Say it loosely"};
+let sayData=null;
+async function sayExamples(){if(!sayData){try{sayData=await (await fetch("/say.json")).json();}catch{sayData={};}}return sayData;}
+async function loadSay(){await sayExamples();renderSay();}
+function renderSay(){
+  const box=$("say-list"),terms=$("say-search").value.toLocaleLowerCase().split(/\s+/).filter(Boolean);box.replaceChildren();
+  for(const [category,entry] of Object.entries(sayData||{})){
+    const label=SAY_LABELS[category]||category,match=t=>terms.every(w=>(t+" "+label).toLocaleLowerCase().includes(w));
+    const lines=entry.say.filter(match);if(!lines.length)continue;
+    const card=node("article","say-card");card.append(node("h3","",label));
+    lines.forEach(t=>{const b=node("button","say-chip",t);b.type="button";b.addEventListener("click",()=>ask(t));card.append(b);});
+    box.append(card);}
+  if(!box.childNodes.length)box.append(node("p","empty-note",sayData&&Object.keys(sayData).length?"Nothing matches. Just say it in your own words; Chutku will try, and asks if it is unsure.":"The examples could not load. Just say what you need in your own words."));
+}
+$("say-search").addEventListener("input",renderSay);
+
+async function renderCoach(){
+  const tip=$("coach-tip");let first=Date.now();
+  try{first=Number(localStorage.getItem("chutku-first-seen"))||Date.now();localStorage.setItem("chutku-first-seen",String(first));}catch{}
+  if(Date.now()-first>7*86400e3){tip.hidden=true;return;}
+  const done=new Set((state.history||[]).filter(t=>t.state==="COMPLETED").map(t=>t.tool));
+  const open=Object.entries(await sayExamples()).filter(([c,e])=>c!=="chains"&&c!=="vague"&&!e.tools.some(t=>done.has(t)));
+  if(!open.length){tip.hidden=true;return;}
+  const day=Math.floor(Date.now()/86400e3),[category,entry]=open[day%open.length],text=entry.say[day%entry.say.length];
+  const go=node("button","text-button","Try it");go.type="button";go.addEventListener("click",()=>ask(text));
+  tip.replaceChildren(node("span","","Try saying “"+text+"”"),go);tip.dataset.category=category;tip.hidden=false;
 }

@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "tests" / "task_bank" / "generated.jsonl"
+SAY = ROOT / "chutku" / "web" / "say.json"   # WA5: the "What can I say?" page (train split only, no damage)
 
 APPS = ["Spotify", "Notepad", "Calculator", "VS Code", "WhatsApp", "Chrome", "Paint", "Telegram", "VLC", "Discord", "Edge", "Word", "Excel", "Outlook"]
 APPS_HI = {"Spotify": "स्पॉटिफाई", "Notepad": "नोटपैड", "Calculator": "कैलकुलेटर", "Chrome": "क्रोम",
@@ -130,10 +131,29 @@ def generate():
     return rows
 
 
+def examples(rows, per=10):
+    """{category: {"tools": [...], "say": [...]}} from the train split: plain phrasings (no "please/bhai"), taken
+    round-robin over (first tool, language) so every kind of request shows up."""
+    out = {}
+    for r in rows:
+        if r["split"] != "train" or r["category"] == "damage" or r["say"].startswith(("please ", "bhai ", "zara ", "can you ")):
+            continue
+        tools = r["expect"].get("tools") or r["expect"].get("plan_shape") or []
+        entry = out.setdefault(r["category"], {"tools": [], "groups": {}})
+        entry["groups"].setdefault((tools[0], r["lang"]), []).append(r["say"])
+        entry["tools"] += [tool for tool in tools if tool not in entry["tools"]]
+    for entry in out.values():
+        groups = list(entry.pop("groups").values())
+        mixed = [say for batch in itertools.zip_longest(*groups) for say in batch if say]
+        entry["say"] = mixed[:per]
+    return out
+
+
 def main():
     rows = generate()
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
+    SAY.write_text(json.dumps(examples(rows), ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     by = {}
     for r in rows:
         by[r["category"]] = by.get(r["category"], 0) + 1

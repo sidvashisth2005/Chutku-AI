@@ -81,6 +81,8 @@ button stays on screen.
 
 ## 4. Things you can say
 
+The **What can I say?** page in the Chutku window has many more examples you can tap to try.
+
 **Apps and windows**
 - "Spotify kholo" / "open notepad" / "VS Code band karo"
 - "minimize this" / "window left side pe karo" / "switch to Chrome"
@@ -155,6 +157,11 @@ Notes:
 
 ## 6. The Chutku window
 
+The menu starts simple: **Home**, **What can I say?**, **Activity**, **Phone** and **Settings**. Press **More** to see
+every page; Chutku remembers your choice. During your first week, Home shows one "Try saying…" tip. Every error
+message has one button for what to do next (**Try again**, **Open Settings** or **Show me how**).
+
+- **What can I say?:** examples you can tap to try, in English, Hinglish and Hindi, with a search box.
 - **Command center:** chat, the Today panel (clock, weather, drive space, reminders, to-dos, what Chutku did),
   suggestions with **Yes** and **Not now**, and health alerts (disk, battery, memory).
 - **Board:** your tasks and Chutku's research jobs, with **Done**, **Again** and **Archive**.

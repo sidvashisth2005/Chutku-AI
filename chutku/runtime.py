@@ -495,7 +495,8 @@ class Runtime:
                                      "origin": provenance, "resource": grant.public(),
                                      "capability": capability,
                                      "manifest_version": tool.manifest_version(),
-                                     "consequence": tool.description, "expires_in": self.approvals.ttl}}
+                                     "consequence": tool.description, "reversibility": tool.reversibility,
+                                     "expires_in": self.approvals.ttl}}
             self.action_control.check()
             self._transition(task, TaskState.EXECUTING)
             context = ExecutionContext(task.task_id, self.journal, self.granted_root, self.memory,

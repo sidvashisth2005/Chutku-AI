@@ -1697,6 +1697,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                   "/icon.png": ("icon.png", "image/png"),
                   "/logo.svg": ("logo.svg", "image/svg+xml"),
                   "/theme.css": ("theme.css", "text/css; charset=utf-8"),
+                  "/say.json": ("say.json", "application/json; charset=utf-8"),
                   "/presence": ("presence.html", "text/html; charset=utf-8"),
                   "/presence.js": ("presence.js", "text/javascript; charset=utf-8"),
                   "/presence.css": ("presence.css", "text/css; charset=utf-8"),

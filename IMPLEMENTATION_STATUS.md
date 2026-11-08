@@ -16,6 +16,57 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08: WA5 (cloud session, Chutku 1.2): the toddler-easy window
+
+**What changed (keeping the 1.1 Tiranga design):**
+- **Simple view (hardening 8).** The menu shows Home, What can I say?, Activity, Phone, Settings, More and Help.
+  **More** shows every page and Less hides them again. The choice is kept in `localStorage` under `chutku-view`,
+  wrapped in try/catch. A `#tab=` link to a page under More opens the full menu.
+- **"What can I say?" page** (`#say`):
+  - category cards with tap-to-try chips (a tap runs `ask(text)`, like the quick-action buttons), plus a search box;
+  - English, Hinglish and Hindi;
+  - the examples come from `chutku/web/say.json`, which `scripts/make_task_bank.py` writes from the train split (no
+    damage and no held-out items), served at `/say.json`.
+- **First-week coach:** Home shows one rotating "Try saying “…”" tip with **Try it**. The tip skips any kind of task
+  that already completed and is hidden after 7 days.
+- **Every error has one next step:** a button under the banner reads **Try again** (reload), **Open Settings**
+  (key, brain, permission or voice errors) or **Show me how** (/help). A failed agent session gets **Try again**.
+- **Approval cards in plain words:** "Chutku wants to: …", whether it can be undone (from the tool's
+  `reversibility`, now part of the approval), and "Why it asks". The JSON sits under "Exact details". The buttons
+  are **Yes** / **Yes, always** / **No**, and Yes-always feeds the WA1 ask-once memory.
+- **Empty states:** every tab already had one, and the new page has its own.
+- The Home grants line now says "Windows system folders are never changed; program folders ask you first" (the WA1
+  rule).
+
+**Ids:** no existing id changed. New ids: `say`, `nav-more`, `nav-more-text`, `say-search`, `say-list`,
+`coach-tip`, `error-action`. Changed button labels in approval cards: "Approve" → **Yes** and "Cancel" → **No**.
+In Simple view, the More-only nav items are hidden. A PC Playwright script that clicks them must press `#nav-more`
+first or set `localStorage["chutku-view"]="full"`.
+
+**Evidence (Linux):**
+- `tests/test_ui_wa5.py`, 3 tests:
+  - say.json equals the generator's output and holds only train, non-damage lines (negative case);
+  - `/say.json` is served without the session token;
+  - every old tab id and the new ids are present.
+- Full suite against the main baseline: no new failures (only the 2 renamed Windows-only `test_protected_zones`
+  ids).
+- A real Chromium run against `DashboardServer` (scratchpad `wa5_check.py` and `wa5_coach.py`):
+  - the Simple nav shows exactly the 7 items above; More gives 16, survives a reload, and Less returns to 7;
+  - 11 example cards; "whatsapp" finds 10 lines; a chip asks "send hi to Rahul on whatsapp"; a search with no match
+    shows the empty note;
+  - errors give Try again, Open Settings and Show me how, and the button clears the banner;
+  - an irreversible approval reads "Chutku wants to: … This cannot be undone. Why it asks: … Yes / Yes, always / No";
+  - the coach shows a settings tip; after a completed settings task it moves to reminders; a failed task does not
+    count; with all kinds done or after a week it is hidden;
+  - no page errors, and no sideways scroll at 390 px.
+  - On Linux `/api/state` is unavailable (the grant root must be a Windows drive), so the coach was checked with an
+    injected state.
+
+**Needs the Windows check:**
+- the PC's onboarding and every-button Playwright scripts (update them for the More button and the Yes/No labels);
+- the coach tip with real history;
+- a real approval card from a session.
+
 ### 2026-11-08: WA4 (cloud session, Chutku 1.2): rewarded practice, the training harness
 
 **What changed:**
