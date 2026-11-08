@@ -160,6 +160,19 @@ class ElevationBrokerTests(unittest.TestCase):
             elevate.run(["sc.exe", "stop", "Spooler"],
                         launch=lambda argv, **_: SimpleNamespace(returncode=1, stderr="The operation was canceled by the user."))
 
+    def test_the_output_file_is_closed_and_removed(self):   # CI on Windows: an open mkstemp handle blocked the delete
+        made = []
+        real = elevate.tempfile.mkstemp
+
+        def mkstemp(**kw):
+            made.append(real(**kw))
+            return made[-1]
+        with patch.object(elevate.tempfile, "mkstemp", mkstemp), \
+                patch.object(elevate.os, "close", wraps=elevate.os.close) as closed:
+            elevate.run(["sc.exe", "start", "Spooler"], launch=lambda *a, **k: SimpleNamespace(returncode=0, stderr=""))
+        closed.assert_called_once_with(made[0][0])
+        self.assertFalse(Path(made[0][1]).exists())
+
     def test_elevated_and_removing_steps_are_never_remembered(self):
         from chutku import approval_memory
         registry = ToolRegistry()

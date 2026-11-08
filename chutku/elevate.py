@@ -7,6 +7,7 @@ output comes back through a temp file. Raw system.powershell never comes here: i
 from __future__ import annotations
 
 import base64
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -41,7 +42,9 @@ def run(argv, *, launch=subprocess.run, timeout=TIMEOUT):
     reason = damage_in_text(" ".join(argv))
     if reason:
         raise ElevationRefused(reason)
-    out = Path(tempfile.mkstemp(prefix="chutku-elevated-", suffix=".txt")[1])
+    handle, name = tempfile.mkstemp(prefix="chutku-elevated-", suffix=".txt")
+    os.close(handle)   # the elevated PowerShell writes it; an open handle here also blocks the delete on Windows
+    out = Path(name)
     try:
         try:
             done = launch(command(argv, str(out)), capture_output=True, text=True, timeout=timeout,

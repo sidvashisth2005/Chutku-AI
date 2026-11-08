@@ -172,6 +172,10 @@ first or set `localStorage["chutku-view"]="full"`.
 `check_phrases` 175/181 (the 6 Linux-only `files.*`). The full suite has no new failures. The 2 "new" are the
 renamed Windows-only zone tests.
 
+**Fix after Windows CI (run 42485648203):** `elevate.run` left its `mkstemp` handle open, so Windows could not
+delete the output file ("used by another process"). The handle is now closed at once. A new test,
+`test_the_output_file_is_closed_and_removed`, fails without the fix and passes with it.
+
 **Needs the Windows check:** a real winget install and uninstall, `settings.set` read-back, the startup toggle seen
 in Task Manager, and `services.set` with Windows' UAC prompt (Yes and No).
 
