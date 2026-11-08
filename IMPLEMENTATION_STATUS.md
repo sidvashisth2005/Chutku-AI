@@ -16,6 +16,29 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08: WA3 (cloud session, Chutku 1.2): the task bank, "what a user might say"
+
+**What changed:**
+- `scripts/make_task_bank.py` writes `tests/task_bank/generated.jsonl`: 1,405 items, deterministic templates × slots,
+  no cloud.
+- `tests/task_bank/hard.jsonl` holds 53 hand-written cases:
+  - typos and voice-style rewrites;
+  - Devanagari;
+  - 3- to 5-step chains;
+  - disguised damage;
+  - scary-looking but fine requests ("windows folder mein kya hai", "stop the spooler service").
+- **Categories:** apps, media, settings, web, files, messages, reminders, memory, installs, chains, vague, damage.
+- **Languages:** English, Hinglish and Hindi.
+- **Split:** fixed 80/20 by a hash of the text (21% heldout). 10.4% are damage requests that must be refused.
+
+**Evidence (Linux):** `tests/test_task_bank_wa3.py`, 3 tests:
+- every line's shape, with unique ids;
+- the split matches the hash, the heldout and damage shares are in range, all languages are present, and there are
+  chains of 4 or more steps;
+- the generator reproduces the file exactly;
+- every expected tool exists in the registry.
+
+
 ### 2026-11-08: WA2 (cloud session, Chutku 1.2): system tools, no admin first, elevation through a broker
 
 **What changed** (`chutku/tools/system_tools.py`, `chutku/elevate.py`, `chutku/system_journal.py`):
