@@ -81,7 +81,7 @@ class RemoteStore:
     def settings(self) -> dict:
         data = self.load()
         return {"host": data.get("host"), "login": data.get("login"), "enabled": bool(data.get("enabled")),
-                "control_allowed": bool(data.get("control_allowed")),
+                "control_allowed": bool(data.get("control_allowed", True)),   # owner 2026-11-08: on unless turned off
                 "devices": [{k: d.get(k) for k in ("id", "name", "paired_at", "last_seen", "revoked")}
                             for d in data.get("devices", [])]}
 

@@ -237,6 +237,10 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
     is jumpy (sound ~0.1–0.5 s), so a late packet no longer cracks or jerks.
   - While you control the laptop the picture waits at most 0.08 s; in Watch it waits longer and stays in step with
     the sound.
+- **Phone control is on by default (2026-11-08)** and stays on through restarts. You still enter your PIN on the
+  phone. Turn it off at the laptop: Ctrl+Alt+Shift+P, the dashboard/tray switch, or say "remote band karo"; it then
+  stays off until you turn it on again there. If Tailscale Funnel ever exposes the phone page to the internet,
+  everything stops by itself.
 - **"Someone is using the laptop"** now appears only for a real click, a real key press, or a clear mouse/touchpad
   move at the laptop. A small jitter, or input from the phone or from Chutku itself, never triggers it.
 - **⌨ keyboard:** the page shrinks above the phone keyboard instead of sliding up. The laptop screen stays in view,

@@ -2,7 +2,8 @@
 any remote desktop, so the kernel cannot judge each input; these rules protect against a stolen or unlocked phone,
 someone else on the tailnet, a forgotten session and typing into dangerous places:
 
-1. Armed only at the laptop (dashboard or tray); never from the phone. Off by default.
+1. Switched on or off only at the laptop (dashboard, tray, "remote band karo", Ctrl+Alt+Shift+P), never from the
+   phone. On by default (owner 2026-11-08), and a restart keeps the owner's choice.
 2. A control session needs the PIN, lasts at most 30 minutes, and ends after 10 idle minutes.
 3. Visible on the laptop: a red border round the screen plus the presence badge while a session is live.
 4. The laptop always wins: real local mouse or keyboard input pauses remote input for 10 s; Ctrl+Alt+Shift+P ends

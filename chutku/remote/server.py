@@ -113,15 +113,25 @@ class RemoteServer(ThreadingHTTPServer):
         return bool(self.control and self.control.alive())
 
     def disarm(self, reason="disarmed at the laptop"):
-        """Ctrl+Alt+Shift+P, the tray, "remote band karo", Funnel: end control (and screen view) now."""
+        """Ctrl+Alt+Shift+P, the tray, "remote band karo", Funnel: end control now and keep it off until the owner
+        turns it on again at the laptop."""
+        self._end_control(reason)
+        self.store.configure(control_allowed=False)
+
+    def _end_control(self, reason):
         if self.control is not None:
             self.control.end(reason)
         self.control = None
         self._border(False)
-        self.store.configure(control_allowed=False)
 
-    def end_all(self, reason):
-        self.disarm(reason)
+    def end_all(self, reason, *, keep_allowed=False):
+        """End control, the screen view and every phone session. keep_allowed: a restart or shutdown (owner
+        2026-11-08: "phone control on by default; I'll stop it myself at the laptop") ends the live session but leaves
+        the owner's choice as it is; the next control session still needs the PIN."""
+        if keep_allowed:
+            self._end_control(reason)
+        else:
+            self.disarm(reason)
         self.screen = None
         self.store.sessions.clear()
         self.pin_ok.clear()
@@ -161,7 +171,7 @@ class RemoteServer(ThreadingHTTPServer):
 
     def server_close(self):
         self.stopped.set()
-        self.end_all("server stopped")
+        self.end_all("server stopped", keep_allowed=True)
         super().server_close()
 
 

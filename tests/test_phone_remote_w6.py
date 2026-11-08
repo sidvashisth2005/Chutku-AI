@@ -695,9 +695,12 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(status, 503)
             self.assertIn("locked", body["error"])
 
-    def test_control_needs_arming_at_the_laptop_then_the_pin(self):
+    def test_control_is_on_by_default_needs_the_pin_and_only_the_laptop_turns_it_off(self):
+        # owner 2026-11-08: "set phone control on by default; if I want to stop it I'll do that myself on the laptop"
         self.pair_and_login()
-        self.assertEqual(self.request("/api/control/start", {"pin": "4321"})[0], 409)      # not armed
+        self.assertTrue(self.store.settings()["control_allowed"])                      # never set: on
+        self.store.configure(control_allowed=False)
+        self.assertEqual(self.request("/api/control/start", {"pin": "4321"})[0], 409)      # turned off at the laptop
         self.store.configure(control_allowed=True)
         injector = FakeInjector()
         with patch.object(control, "Injector", lambda: injector), \
@@ -710,9 +713,16 @@ class ServerTests(unittest.TestCase):
             status, body, _ = self.request("/api/control/input", {"events": [{"kind": "tap", "x": 0.5, "y": 0.5}]})
             self.assertEqual((status, body), (200, {"done": 1}))
             self.assertEqual(injector.calls, [("pointer", "tap", 500, 250)])
+            self.server.end_all("server stopped", keep_allowed=True)                        # a restart or reboot
+            self.assertEqual(self.request("/api/control/input", {"events": [{"kind": "tap", "x": 0, "y": 0}]})[0], 401)
+            self.assertTrue(self.store.settings()["control_allowed"])                      # ...keeps it on
+            self.pair_and_login()
+            self.assertEqual(self.request("/api/control/start", {"pin": "4321"})[0], 200)   # the PIN again, then control
             self.server.disarm("Ctrl+Alt+Shift+P")                                          # the laptop kill hotkey
             self.assertEqual(self.request("/api/control/input", {"events": [{"kind": "tap", "x": 0, "y": 0}]})[0], 409)
             self.assertFalse(self.store.settings()["control_allowed"])
+            self.server.end_all("server stopped", keep_allowed=True)
+            self.assertFalse(self.store.settings()["control_allowed"])                     # off stays off after a restart
 
     def test_uploads_are_create_only_and_programs_blocked(self):
         self.pair_and_login()

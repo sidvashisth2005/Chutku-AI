@@ -16,6 +16,29 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (7): Phone control on by default, kept through restarts
+- **Owner:** "set phone control on by default; if I want to stop it I'll do that myself on the laptop". They had to
+  allow it at the laptop each time. Also asked what to do about DNS: keep the phone's DNS on Automatic (it works,
+  Tailscale included); nothing needs turning off.
+- **Cause:** `RemoteServer.server_close` → `end_all("server stopped")` → `disarm()` saved `control_allowed=False`, so
+  every Chutku restart or reboot switched control off. The setting read `False` before this change.
+- **Fix:**
+  - `end_all(..., keep_allowed=True)` on shutdown ends the live session and phone sessions but keeps the owner's
+    choice.
+  - `RemoteStore.settings()` defaults `control_allowed` to True when never set.
+  - Only the laptop turns it off: Ctrl+Alt+Shift+P, the dashboard/tray switch, "remote band karo", or disabling phone
+    access. Funnel exposure still stops everything.
+  - The PIN is still needed for each control session.
+- **Verified:** `test_control_is_on_by_default_needs_the_pin_and_only_the_laptop_turns_it_off` covers:
+  - on when never set;
+  - off → 409;
+  - on → PIN → control;
+  - a restart keeps it on and needs a new login;
+  - Ctrl+Alt+Shift+P → off;
+  - a restart keeps it off.
+
+  Phone tests 56 OK; full suite 1650 OK. The owner's stored setting was switched on after the restart (below).
+
 ### 2026-11-08 (6): No Telegram message after restarts, and "websites won't load": a broken hotspot DNS; messages now survive it
 - **Owner:** two restarts gave no Telegram message; after sign-in Tailscale showed "No internet access" and Brave showed
   DNS_PROBE_POSSIBLE; the phone couldn't open ChatGPT until its DNS was set back to automatic and it was rebooted.
