@@ -21,12 +21,17 @@ def _zones():
 class ProtectedZoneProperties(unittest.TestCase):
     @settings(max_examples=150, deadline=None)
     @given(zone=st.sampled_from(_zones()), parts=st.lists(PART, min_size=1, max_size=4))
-    def test_anything_inside_a_protected_zone_is_refused(self, zone, parts):
+    def test_nothing_inside_a_system_or_app_zone_is_silently_writable(self, zone, parts):
         target = Path(zone).joinpath(*parts)
         if any(target.resolve().as_posix().casefold().startswith(Path(e).resolve().as_posix().casefold())
                for e in (paths.home() / "sandbox", Path(__import__("tempfile").gettempdir()))):
             return   # Chutku's own scratch and %TEMP% (inside AppData) are the documented exceptions
-        self.assertIsNotNone(paths.protection_reason(target), str(target))
+        # WA1 (owner 2026-11-08): Windows' own folder is refused; an app's own files (Program Files, ProgramData,
+        # AppData) ask the first time. Either way, never a silent change.
+        if zone == os.environ.get("SystemRoot", r"C:\Windows"):
+            self.assertIsNotNone(paths.protection_reason(target), str(target))
+        else:
+            self.assertTrue(paths.protection_reason(target) or paths.sensitive_reason(target), str(target))
 
     @settings(max_examples=100, deadline=None)
     @given(parts=st.lists(PART, min_size=1, max_size=4))

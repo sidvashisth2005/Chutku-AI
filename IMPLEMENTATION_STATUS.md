@@ -16,6 +16,48 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08: WA1 (cloud session, Chutku 1.2): "never refuse except system damage", ask-once memory
+
+**What changed:**
+- **`paths.system_damage(path, op)` replaces the blanket protected zones.** Always refused:
+  - Windows' own folder, start-up and recovery, drive-root system files and the root itself, profile hives;
+  - deleting or moving under Program Files or ProgramData (uninstall instead);
+  - Chutku's own code and data folder, except `sandbox\`.
+- **`paths.damage_in_text`** refuses the following in `system.powershell` text and `code.run_python` scripts: format,
+  diskpart, bcdedit, deleting or taking over system paths, HKLM delete/add, Defender or firewall off, partition and
+  volume cmdlets.
+- **App folders ask the first time.** `paths.sensitive_reason` covers an app's own files (Program Files and
+  ProgramData writes, AppData). The kernel asks for them in every mode, including a typed command. TEMP and
+  Chutku's sandbox are exempt.
+- **Ask-once memory** (`chutku/approval_memory.py`):
+  - "Yes, always" on the laptop's approval card, then a verified run, remembers the exact step (tool plus
+    normalised arguments);
+  - the agent loop then approves that step without asking;
+  - limits: never after taint, never for deletes or R4 (except the owner's exact PowerShell or script), never for
+    laptop-only steps from the phone or Telegram, 90-day expiry;
+  - Settings → "Things you let Chutku do without asking", each with Forget.
+- **The planner ladder in the prompt:** a dedicated tool, then the app's UI, then one non-admin PowerShell command.
+  It says "can't" only for damage, and offers PowerShell for settings, registry, service and startup words.
+- **Docs and tests:** SECURITY.md, OWNER_GUIDE §6, USER_GUIDE §7 and the capabilities text updated. The old
+  zone tests now expect "asks" for app folders and "refused" for Windows.
+
+**Evidence (Linux):** `tests/test_policy_wa1.py`, 10 tests (1 Windows-only):
+- every damage case DENY, and the negatives: the user's own files, the sandbox, TEMP;
+- damaging command texts refused, ordinary ones pass;
+- the kernel asks first, then allows once confirmed;
+- the same key is allowed after "Yes, always", a different target asks;
+- taint, deletes, R4 and phone/Telegram for laptop-only steps all still ask;
+- expiry and Forget.
+
+The full suite has no new failures against `main`'s baseline. The only differences are the renamed Windows-only
+zone tests.
+
+**Needs the Windows check:**
+- `test_protected_zones`, `test_paths_property` and `test_policy_wa1` (the Windows-only case);
+- a real AppData settings write: asks once, then "Yes, always" skips the question;
+- bcdedit or `Remove-Item C:\Windows\...` in PowerShell is refused.
+
+
 ### 2026-11-08: WA6 (cloud session, Chutku 1.2): a clean restart that does not leave Chutku paused
 
 **What changed:**

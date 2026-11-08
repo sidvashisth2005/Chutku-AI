@@ -83,7 +83,9 @@ class PathTests(unittest.TestCase):
     def test_appdata_comes_from_the_shell(self):
         root = paths.appdata_root()
         self.assertTrue(root and root.casefold().endswith("appdata"))
-        self.assertIsNotNone(paths.protection_reason(Path(root) / "Roaming" / "x.txt"))
+        # WA1 (owner 2026-11-08): an app's settings in AppData are no longer refused; they ask the first time
+        self.assertIsNone(paths.protection_reason(Path(root) / "Roaming" / "x.txt"))
+        self.assertIsNotNone(paths.sensitive_reason(Path(root) / "Roaming" / "x.txt"))
 
 
 class OrganizeTests(unittest.TestCase):

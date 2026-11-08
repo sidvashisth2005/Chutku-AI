@@ -106,6 +106,8 @@ class PolicyKernel:
             return Authorization(Decision.DENY, risk, "This operation class is disabled.")
         if tool.runs_code and not confirmed_on_screen:
             return Authorization(Decision.CONFIRM, risk, RUNS_CODE_REASON)
+        if owner_question and not confirmed_on_screen:   # WA1: e.g. an installed app's own files, the first time
+            return Authorization(Decision.CONFIRM, risk, str(owner_question))
         if risk >= Risk.EXTERNAL_SIDE_EFFECT and not confirmed_on_screen:
             return Authorization(Decision.CONFIRM, risk, "On-screen confirmation is required for this risk level.")
         if tool.deletes and not confirmed_on_screen:

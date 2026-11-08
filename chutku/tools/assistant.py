@@ -13,10 +13,13 @@ from chutku.tools.registry import (EMPTY_ARGUMENT_SCHEMA, ExecutionContext, Risk
 # What Chutku cannot do, or does only with a click. Shown to the owner and the planner, so it must match the code
 # (tests/test_docs_truth.py checks the parts that can drift). Updated 2026-10-06.
 LIMITS = [
-    "System and program areas (Windows, Program Files, ProgramData, AppData, drive roots, Chutku's own folder) are "
-    "never changed, at any level and with any approval. Chutku never runs as administrator.",
+    "Only what could damage Windows is refused: Windows' own folder, start-up and boot files, drive roots, deleting or "
+    "moving installed programs file by file, HKLM/BCD/security policy, turning Defender or the firewall off, "
+    "formatting; and Chutku's own folder. An installed app's own files (Program Files, ProgramData, AppData) ask the "
+    "first time. Chutku never runs as administrator.",
     "Deleting always asks first and goes to the Recycle Bin; permanent delete happens only when the owner asks for it.",
-    "Running a script or a program with arguments, typing into a command window, or opening one always asks first.",
+    "Running a script or a program with arguments, typing into a command window, or opening one asks first; after "
+    "the owner's 'Yes, always' and a run that worked, the exact same command no longer asks (never from the phone).",
     "Changing files asks first in Owner mode; messages to people not in memory ask first; power, killing programs and "
     "turning the network off ask first.",
     "After reading outside content (web pages, chats, clipboard, screen text), changes, app/file opening and memory "

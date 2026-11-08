@@ -172,8 +172,12 @@ Notes:
 
 ## 7. Safety rules (fixed in the code)
 
-- **Chutku never runs as administrator**, and never changes Windows or program folders (Windows, Program Files,
-  ProgramData, AppData, drive roots), at any level, with any approval.
+- **Chutku never runs as administrator.** She refuses only what could damage Windows: its own folder, start-up files,
+  deleting programs file by file (say "uninstall" instead), turning Defender or the firewall off, formatting a drive.
+  An app's own files (Program Files, ProgramData, AppData) ask you the first time.
+- **"Yes, always"** on an approval card: once that exact step worked, she does it again without asking. Deletes,
+  power and anything right after reading a web page still ask. Settings → "Things you let Chutku do without asking"
+  lists them, each with Forget.
 - **Delete means the Recycle Bin**, and always asks. Permanent delete happens only when *you* ask for it.
 - **Every step is checked independently.** Answers end with a tally like `[Verified: 2 of 2 steps completed.]`, and
   she never claims a step that did not happen.

@@ -47,13 +47,15 @@ function assistantBubble(){const b=node("div","bubble assistant");log().append(b
 function badge(text,kind){return node("span","badge "+(kind||""),text);}
 const STEP_ICON={COMPLETED:"✓",FAILED:"!",DENIED:"⛔",WAITING_CONFIRMATION:"?",CLARIFYING:"?"};
 
-function approvalCard(approval,onDecide){
+function approvalCard(approval,onDecide,canAlways){
   const card=node("div","approval");
   card.append(node("strong","","Confirm this exact step"),node("p","",approval.consequence||approval.tool));
   const facts=node("pre","",JSON.stringify({tool:approval.tool,risk:approval.risk_label||approval.risk,arguments:approval.arguments,why:approval.reason},null,2));
   const row=node("div","approval-actions"),yes=node("button","primary","Approve"),no=node("button","text-button","Cancel");
-  for(const [button,value] of [[yes,true],[no,false]])button.addEventListener("click",async()=>{yes.disabled=no.disabled=true;await onDecide(value);});
-  row.append(yes,no);card.append(facts,row);return card;
+  const always=canAlways?node("button","","Yes, always"):null;   // WA1: remembered once it works; Settings can forget it
+  if(always)always.title="Do exactly this again without asking (deletes, power and anything after reading a web page still ask)";
+  for(const [button,value,keep] of [[yes,true,false],[no,false,false],...(always?[[always,true,true]]:[])])button.addEventListener("click",async()=>{yes.disabled=no.disabled=true;if(always)always.disabled=true;await onDecide(value,keep);});
+  row.append(yes,...(always?[always]:[]),no);card.append(facts,row);return card;
 }
 
 function renderDirect(bubble,payload){
@@ -91,9 +93,9 @@ function renderSession(bubble,s){
     const gauge=node("details","brain-view");gauge.append(node("summary","small-title","Brain view: "+total.toLocaleString()+" characters"));
     parts.forEach(([k,n])=>gauge.append(node("div","small",k+": "+n.toLocaleString()+" ("+Math.round(100*n/Math.max(total,1))+"%)")));
     bubble.append(gauge);}
-  if(s.pending){bubble.append(approvalCard({...s.pending.approval},async approved=>{
-    try{const next=await api("/api/agent/confirm",{id:s.id,approve:approved});renderSession(bubble,next.session);follow(bubble,s.id);}catch(e){error(e.message);}
-  }));}
+  if(s.pending){bubble.append(approvalCard({...s.pending.approval},async(approved,always)=>{
+    try{const next=await api("/api/agent/confirm",{id:s.id,approve:approved,always:!!always});renderSession(bubble,next.session);follow(bubble,s.id);}catch(e){error(e.message);}
+  },true));}
   if(!TERMINAL.has(s.status)){const stop=node("button","text-button danger-text","Stop");stop.addEventListener("click",async()=>{try{const r=await api("/api/agent/stop",{id:s.id});renderSession(bubble,r.session);}catch(e){error(e.message);}});bubble.append(stop);}
   scrollChat();
 }
@@ -536,6 +538,9 @@ function renderSetup(s){
   modes.forEach(([value,text])=>{const label=node("label","radio");const r=node("input");r.type="radio";r.name="setup-mode";r.value=value;r.checked=value===current;r.addEventListener("change",()=>{try{localStorage.removeItem("chutku-mode");}catch{}savedMode=null;setMode({safe:"auto_safe",edits:"auto_edits",full:"owner"}[value]);setupStep({action:"mode",mode:value}).catch(e=>error(e.message));});label.append(r," "+text);card.append(label);});
   // 4b. what it may touch at all (2026-11-08 review: a new install had none, so "open notepad" was refused)
   card=setupCard(`What ${name} may do on this PC`,"Ticked items are allowed. The level above still decides what asks you first.");
+  // WA1: the ask-once memory, each entry with Forget
+  const asked=setupCard("Things you let Chutku do without asking",(s.remembered||[]).length?"You pressed “Yes, always” for these, and each worked. Forget one to be asked again.":"None yet. When you press “Yes, always” on a step and it works, it is listed here.");
+  for(const r of s.remembered||[]){const row=node("div","row-buttons");row.append(node("span","",r.what+" ("+r.tool+")"),button("Forget",()=>setupStep({action:"forget_approval",id:r.id})));asked.append(row);}
   for(const p of s.permissions||[]){const label=node("label","radio");const c=node("input");c.type="checkbox";c.checked=p.on;c.addEventListener("change",()=>setupStep({action:"permission",capability:p.capability,on:c.checked}).catch(e=>{c.checked=!c.checked;error(e.message);}));label.append(c," "+p.label);card.append(label);}
   // 5. microphone
   card=setupCard("5. Microphone check (optional)"+done("microphone"),"Press the button and speak for one second. The sound is measured, never kept.");

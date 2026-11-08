@@ -434,7 +434,7 @@ class DashboardServer(ThreadingHTTPServer):
 
     # -- W5: first-run setup (the page in chutku/web; the same steps as `chutku.cli setup`) ----------------------
     SETUP_ACTIONS = {"assistant", "name", "key", "mic", "mode", "download", "phone", "browser_login", "finish",
-                     "reopen", "permission"}
+                     "reopen", "permission", "forget_approval"}
 
     def setup_view(self):
         """What the first-run page shows. Never a key, password or token: only whether one is stored."""
@@ -459,6 +459,7 @@ class DashboardServer(ThreadingHTTPServer):
                 "default_mode": start_defaults()["handsfree_mode"],
                 "phone_account": current.get("CHUTKU_ACCOUNT_ID") or None,
                 "permissions": setup_wizard.permissions(self.base),
+                "remembered": __import__("chutku.approval_memory", fromlist=["entries"]).entries(self.base),
                 "links": {"groq": "https://console.groq.com/keys", "gemini": "https://aistudio.google.com/apikey"}}
 
     def setup_action(self, data):
@@ -491,6 +492,9 @@ class DashboardServer(ThreadingHTTPServer):
             from chutku.tools import signed_in_browser
             signed_in_browser.login()
             setup_wizard._mark(self.base, "browser")
+        elif action == "forget_approval":   # WA1: Settings > "Things you let Chutku do without asking"
+            from chutku import approval_memory
+            approval_memory.forget(self.base, data.get("id"))
         elif action == "permission":   # Settings > "What Chutku may do"
             setup_wizard.set_permission(self.base, data.get("capability"), data.get("on"))
         elif action == "finish":   # owner 2026-11-08: no skipping past the AI key, or Chutku looks broken
@@ -602,8 +606,9 @@ class DashboardServer(ThreadingHTTPServer):
                 session.mode = AutonomyMode.TRUSTED.value
         return session.mode
 
-    def confirm_session(self, session_id, approve):
-        """The user's on-screen decision (web page or HUD button) for the one pending step."""
+    def confirm_session(self, session_id, approve, always=False):
+        """The user's on-screen decision (web page or HUD button) for the one pending step. always (WA1): remember
+        this exact step once it verifies, so it does not ask again (only from the laptop's own page)."""
         if type(approve) is not bool:
             raise ValueError("Provide an explicit approve true/false decision.")
         session = self.agent_sessions.get(session_id)
@@ -612,7 +617,7 @@ class DashboardServer(ThreadingHTTPServer):
         def resolve(router, beat):
             from chutku import recall
             try:
-                session.decide(router, approve=approve)
+                session.decide(router, approve=approve, always=always)
                 session.advance(router, planner, fallback=fallback, heartbeat=beat)
                 speak_result(session, router)
             finally:
@@ -2186,13 +2191,15 @@ def _agent_post(self, path, data):
             if "wake_word" in data:
                 server.apply_wake(values["wake_word"])
             return 200, {"handsfree": server.handsfree_status()}
-        if set(data) - {"id", "approve"} or not isinstance(data.get("id"), str):
+        if set(data) - {"id", "approve", "always"} or not isinstance(data.get("id"), str):
             raise ValueError("Provide the session id.")
         if path == "/api/agent/stop":
             return 200, {"session": server.stop_session(data["id"])}
-        if type(data.get("approve")) is not bool:
+        if type(data.get("approve")) is not bool or type(data.get("always", False)) is not bool:
             raise ValueError("Provide an explicit approve true/false decision.")
-        return 200, {"session": server.confirm_session(data["id"], data["approve"])}
+        # WA1 "Yes, always": only from this laptop page (the phone and Telegram call confirm_session without it)
+        return 200, {"session": server.confirm_session(data["id"], data["approve"],
+                                                       always=data.get("always") is True and data["approve"] is True)}
     except ExecutionBusy as error:
         return 409, {"error": str(error)}
     except (ValueError, KeyError) as error:

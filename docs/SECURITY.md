@@ -100,7 +100,7 @@ tools` from `tools/package-lock.json` (npm integrity hashes), run as separate pr
 | Auto-edits | R0–R2 with runtime undo | R3+, R2 without undo, R2 after untrusted content |
 | **Owner** (default, owner's standing order 2026-10-04) | everything else | changing files (create-only tools excepted), every deletion, R4, messages to people not in memory |
 
-**In every mode, these always ask:**
+**In every mode, these ask** (the first time: the owner's "Yes, always" plus a verified run lets the exact same step skip the question afterwards, within the ask-once limits above; deletes and R4 other than the owner's own PowerShell or script always ask):
 - Running code or a program with arguments (`Tool.runs_code`: `code.run_python`, `process.launch`, `system.powershell`, `skill.create`, `skill.approve`, `evolve.approve`, `skill.import` and every `skill.<name>`). `system.powershell` is also R4, so its approval is never reused by a later request (a scheduled task or a re-sent task asks again).
 - Typing into a command window, opening the Run box, or launching a command-line app.
 - Changing a saved contact's phone or WhatsApp name.
@@ -115,11 +115,22 @@ tools` from `tools/package-lock.json` (npm integrity hashes), run as separate pr
 
 ## 2. Hard boundaries (no approval overrides them)
 
-- **Protected zones are observe-only:**
-  - the folders: Windows, Program Files (all), ProgramData, Common Files;
-  - AppData (from the shell's known folder, not only `%USERPROFILE%`; if AppData is unknown, every change is refused);
-  - drive-root system folders and files, and user registry hives;
-  - Chutku's own folder (except `sandbox\`).
+- **The system-damage list is always refused** (WA1, owner 2026-11-08, `paths.system_damage`, `paths.damage_in_text`):
+  - Windows' own folder, start-up and recovery folders, drive-root system files and the drive root itself, user
+    registry hives;
+  - deleting or moving anything under Program Files or ProgramData (uninstall instead);
+  - Chutku's own code and data folder (except `sandbox\`), so it can never change its own grants or rules;
+  - in `system.powershell` text and `code.run_python` scripts: format/diskpart/bcdedit, deleting or taking over
+    system paths, `HKLM` deletes, turning Defender or the firewall off;
+  - if AppData is unknown, every change is refused.
+- **An installed app's own files ask the first time** (Program Files, ProgramData, AppData writes; `sensitive_reason`),
+  in every mode, including a typed command.
+- **Ask-once memory** (`chutku/approval_memory.py`, `data/approval_memory.json`):
+  - only the owner's "Yes, always" on the laptop, and only after that exact step verified;
+  - the key is the tool plus normalised arguments, so another target asks again;
+  - never after outside content, never for deletes or R4 (except the owner's exact PowerShell or script), and never
+    for laptop-only steps asked from the phone or Telegram;
+  - an entry expires after 90 days unused; Settings forgets each one.
 - **Paths fail closed:** UNC, `\\?\`, device names, alternate data streams, `..`, trailing dots or spaces, reparse points and hard links are refused.
 - **Never elevated.** `network.adapter_set` needs administrator rights, so it is `user_only` and usually fails by design.
 - **No silent overwrite:** file moves and organize never replace an existing file; undo refuses when the owner changed a file since.

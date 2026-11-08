@@ -635,7 +635,7 @@ Rules:
 
 ## 6. Safety rules (fixed in the code)
 
-- **System and program files are never changed.** This covers `C:\Windows`, Program Files, ProgramData, AppData, drive roots, boot files and Chutku's own folder (except `sandbox\`). It holds at any level, with any approval. **Uninstalling programs is blocked**, because it deletes program files.
+- **Only what could damage Windows is refused** (since 2026-11-08, WA1): `C:\Windows`, boot and recovery files, drive roots, deleting or moving installed programs file by file, HKLM/BCD/security policy, turning Defender or the firewall off, formatting, and Chutku's own folder (except `sandbox\`). An app's own files in Program Files, ProgramData or AppData ask the first time. **"Yes, always"** on an approval remembers that exact step once it worked (Settings → "Things you let Chutku do without asking" forgets it).
 - **Unclear locations are refused.** A path Chutku can't resolve safely (network shares, `\\?\` tricks, `CON`, `file:stream`, `..`) is refused, not guessed.
 - **Delete means the Recycle Bin.** You can restore from Chutku or from Explorer. Every delete asks first. Removable and network drives are refused, because they have no Recycle Bin.
 - **Permanent delete** happens only when *you* say "permanently delete …". The agent can never choose it, and it always asks.
