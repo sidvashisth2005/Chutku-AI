@@ -87,8 +87,8 @@ class CloudPlannerTests(unittest.TestCase):
             raise GeminiUnavailable("Gemini unavailable (quota exhausted); local planning only.")
         cloud = GeminiAgentPlanner("k" * 30, model="gemini-test", transport=down)
         snap = AgentSession("x", mode="auto_safe").advance(self.runtime, FailingPlanner(), fallback=cloud)
-        self.assertEqual(snap["status"], "clarify")
-        self.assertIn("quota", snap["reply"])
+        self.assertEqual(snap["status"], "failed")   # 2026-11-08 review: a brain outage is not "needs more detail"
+        self.assertIn("free AI limit is used up", snap["reply"])
 
     def test_disabled_without_capability_or_key(self):
         base = Path(self.temp.name)

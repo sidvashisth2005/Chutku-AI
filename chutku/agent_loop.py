@@ -1254,7 +1254,8 @@ class AgentSession:
         if reason:
             self.brain_down = True
             return None, f"I couldn't work on that: {reason}."
-        return None, "I could not produce a safe plan for that. Try saying it another way."
+        # no brain was down: the planners' reasons (a refused step, "you did not ask for ...") help the owner
+        return None, ("I could not produce a safe plan for that. " + "; ".join(errors))[:450]
 
     def _replay(self, runtime):
         """An exact repeat of a request whose one-round plan fully worked before: run that plan again without asking
