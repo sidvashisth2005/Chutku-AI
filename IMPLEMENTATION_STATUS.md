@@ -16,6 +16,27 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (14): chutku.localhost opens the dashboard from any browser
+- **Owner:** "how does someone open the Chutku dashboard; is there an app? Make typing chutku in the browser's address
+  bar open it."
+- **There is an app:** the installer makes Start-menu and desktop shortcuts. `Chutku.exe` opens the dashboard as its
+  own Edge app window (`open_app_window`).
+- **A bare "chutku" cannot work:** every browser searches a single word, and claiming that name needs the hosts file,
+  which needs admin. This installer never asks for admin.
+- **What was built:** browsers send `*.localhost` to this PC by themselves. `chutku/alias.py` serves 127.0.0.1:80
+  inside the real Chutku (not in demo homes). It answers only `chutku.localhost` and `chutku`, with a 302 to the
+  session link; every other host gets a 404.
+  - It binds the port exclusively, or not at all. Python's `SO_REUSEADDR` let a second bind succeed on Windows, as
+    the unit test found; it now uses `SO_EXCLUSIVEADDRUSE`.
+  - The token is only in the fragment, and the response is `no-store`.
+  - The celebration screen, the user guide and the public README mention it.
+- **Verified:**
+  - `tests/test_alias.py` (3): the redirect, five foreign hosts get 404, and a busy port starts nothing.
+  - Live: Edge `goto http://chutku.localhost/` landed on the running dashboard ("Local session connected").
+  - After a restart of the real Chutku, port 80 answers 302 for `chutku.localhost`.
+  - Dashboard, docs and onboarding suites OK.
+- **Restart:** `control stop` again left `actions_paused: true`, and it was resumed as before.
+
 ### 2026-11-08 (13): The "Tiranga" palette for the laptop and phone apps
 - **Owner** (screenshot of the dark home page): "no contrast, only text in black; brilliant tricolour palettes; design
   like an experienced Gen Z developer".

@@ -676,7 +676,8 @@ function obCelebrate(){
   card.append(check,node("h1","",`You're all set${who}!`),node("p","","Chutku is ready to help. Here's how to talk to her:"));
   const tips=node("div","tips");
   const t1=node("div");const k=node("kbd","","Ctrl");const k2=node("kbd","","Alt");const k3=node("kbd","","Space");t1.append("Press ",k," + ",k2," + ",k3," in any app and speak.");
-  tips.append(t1,node("div","","Or just say “Oye Chutku”."),node("div","","Or type in the box on the Home page."));card.append(tips);
+  const t4=node("div","","Open this window any time: Start menu → Chutku, or type ");t4.append(node("kbd","","chutku.localhost")," in your browser.");
+  tips.append(t1,node("div","","Or just say “Oye Chutku”."),node("div","","Or type in the box on the Home page."),t4);card.append(tips);
   const sig=node("div","signature","Designed and developed with care by");sig.append(node("strong","","Siddhant Vashisth"));card.append(sig);
   obActions(card,null,"Open Chutku",()=>{$("onboarding").hidden=true;$("onboarding").replaceChildren();document.body.classList.remove("onboarding-open");onboarding.shown=false;switchTab("home");if(typeof refresh==="function")refresh();checkForUpdate();});
   confetti();

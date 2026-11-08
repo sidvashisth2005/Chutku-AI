@@ -68,6 +68,9 @@ Then press **Ctrl+Alt+Space** in any app and talk, or type in the Chutku window.
 - "open notepad"
 - "aaj ki news"
 
+**Opening Chutku later:** Start menu → **Chutku** (or the desktop icon), or type **chutku.localhost** in your
+browser's address bar while Chutku is running.
+
 **Ctrl+Alt+F12** stops everything at once. The full guide is under **Help** in the Chutku window.
 
 ## Privacy and safety, in plain words

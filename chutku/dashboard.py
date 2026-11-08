@@ -2378,6 +2378,9 @@ def serve(port: int = 8765, open_browser: bool = False, *, base=PROJECT_ROOT, he
         server.heal_when_healthy()
         server.start_remote()
         _write_session_link(base, server.url)
+        if Path(base).resolve() == Path(PROJECT_ROOT).resolve():   # 2026-11-08: chutku.localhost opens this dashboard
+            from chutku import alias
+            alias.start(lambda: server.url)
         # The token stays out of stdout: the guard copies stdout into data/logs (release review 2026-11-07).
         print(f"Chutku is ready at {server.origin}/ (open it with `chutku.cli open`; the session link is in "
               "data/dashboard-session.json).", flush=True)

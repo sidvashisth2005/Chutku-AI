@@ -11,6 +11,10 @@ Chutku is designed and developed by **Siddhant Vashisth**.
 
 ## 1. Starting, opening and stopping
 
+**Opening Chutku:** Chutku is an app. Press the Windows key, type **Chutku** and press Enter, or double-click the
+desktop icon. While Chutku is running you can also type **chutku.localhost** in any browser's address bar. (A single
+word like "chutku" is treated as a web search by every browser, so the address needs the ".localhost" part.)
+
 | What | How |
 |---|---|
 | Start | The **Chutku** shortcut in the Start menu (or on the desktop). If you chose "start when I sign in" during setup, she is already running. |
