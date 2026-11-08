@@ -11,6 +11,10 @@ Linux, Android or iPhone. Ignore the "Source code" links below; GitHub adds them
 
 Already using Chutku? It tells you about this update by itself: click **Update now** in the popup.
 
+## What's new in 1.2.3
+
+- Setup now offers a free Gemini key first (Google AI Studio), with a Groq key as the other option.
+
 ## What's new in 1.2.2
 
 - Installing apps that need administrator rights now works: Windows asks once, you click Yes.

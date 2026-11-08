@@ -531,9 +531,9 @@ function renderSetup(s){
   // 1. the free brain key
   let card=setupCard("1. Free brain key"+(hasKey?" ✓":""),hasKey?"A key is stored: Chutku is ready. You can add another one here.":"Chutku needs one free key to think fast. It takes a minute:");
   if(!hasKey){const ol=node("ol","muted");["Press “Get a free key”: it opens Groq. Sign in with Google.","Press “Create API Key”, then copy the key.","Paste it below and press Save."].forEach(t=>ol.append(node("li","",t)));card.append(ol);}
-  const links=node("p","muted");const getKey=node("a","",hasKey?"Get another free key":"Get a free key");getKey.href=s.links.groq;getKey.target="_blank";getKey.rel="noopener noreferrer";
-  const other=node("a","","(or a Gemini key)");other.href=s.links.gemini;other.target="_blank";other.rel="noopener noreferrer";links.append(getKey," ",other);card.append(links);
-  const key=keep(input("password","","Paste the key (starts with gsk_ or AIza)",200),"key");key.autocomplete="off";
+  const links=node("p","muted");const getKey=node("a","",hasKey?"Get another free Gemini key":"Get a free Gemini key");getKey.href=s.links.gemini;getKey.target="_blank";getKey.rel="noopener noreferrer";
+  const other=node("a","","or a free Groq key");other.href=s.links.groq;other.target="_blank";other.rel="noopener noreferrer";links.append(getKey," · ",other);card.append(links);
+  const key=keep(input("password","","Paste the key (Gemini starts with AIza, Groq with gsk_)",200),"key");key.autocomplete="off";
   const r1=node("div","memory-form");r1.append(field("Key",key),button("Check and save",async()=>{const k=key.value.trim();if(!k)throw new Error("Paste the key first.");key.value="";try{await setupStep({action:"key",provider:providerOf(k),key:k});}catch(e){key.value=k;throw e;}},"primary"));card.append(r1);
   card.append(node("p","muted",`Keys saved: Groq ${s.keys_stored.groq?"✓":"not yet"} · Gemini ${s.keys_stored.gemini?"✓":"not yet"}. They are kept in Windows Credential Manager and never shown again.`));
   // 2. the owner's name
@@ -641,13 +641,16 @@ function obKey(){
   const s=onboarding.s,has=!!(s.keys_stored.groq||s.keys_stored.gemini),card=obCard("key");
   card.append(node("h1","","Add your free AI key"),
     node("p","","Chutku uses a free AI service to understand you. Getting a key takes about a minute and costs nothing."));
+  // owner 2026-11-09: Gemini (Google AI Studio) first, Groq below it; both links, either key works
+  const link=(text,href)=>{const a=node("a","",text);a.href=href;a.target="_blank";a.rel="noopener noreferrer";return a;};
   const ol=node("ol");
-  const first=node("li","","Click ");const get=node("a","","Get my free key");get.href=s.links.groq;get.target="_blank";get.rel="noopener noreferrer";first.append(get," and sign in with Google.");
-  ol.append(first,node("li","","Click “Create API Key”, give it any name, then copy the key."),node("li","","Paste it below and click “Check key”."));
+  const first=node("li","","Click ");first.append(link("Get a free Gemini key",s.links.gemini)," (Google AI Studio) and sign in with Google.");
+  ol.append(first,node("li","","Click “Create API key”, then copy the key."),node("li","","Paste it below and click “Check key”."));
   card.append(ol);
-  const f=node("div","field"),label=node("label","","Your key"),key=input("password","","Paste here (starts with gsk_)",200);key.id="ob-key";key.autocomplete="off";key.spellcheck=false;
+  const other=node("p","hint","Or use a free Groq key instead: ");other.append(link("Get a free Groq key",s.links.groq)," (sign in, “Create API Key”, copy). Either one works.");
+  card.append(other);
+  const f=node("div","field"),label=node("label","","Your key"),key=input("password","","Paste here (Gemini starts with AIza, Groq with gsk_)",200);key.id="ob-key";key.autocomplete="off";key.spellcheck=false;
   label.htmlFor="ob-key";f.append(label,key);
-  const alt=node("div","hint","Have a Google AI Studio key instead? That works too (it starts with AIza). ");const g=node("a","","Get one here");g.href=s.links.gemini;g.target="_blank";g.rel="noopener noreferrer";alt.append(g);f.append(alt);
   const status=node("div",has?"ok-line":"err-line",has?"✓ A working key is already saved. You can continue.":"");card.append(f,status);
   const check=async()=>{
     status.className="err-line";status.textContent="";
