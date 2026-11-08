@@ -231,6 +231,8 @@ def _run_jobs(base, report, model, deadline, create_runtime):
         _job(report, "curator", lambda: learning_inbox.curate(base))
         from chutku import evolve
         _job(report, "evolve_review", lambda: _evolve(evolve.review(base, runtime.registry, compile_skills=False)))
+        from chutku import practice   # WA4: plan-mode practice on the train split (live practice stays off)
+        _job(report, "practice", lambda: practice.nightly(base))
 
 
 def _evolve(out):

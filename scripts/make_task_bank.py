@@ -70,7 +70,7 @@ TEMPLATES = [
     ("messages", "hinglish", "{person} ko whatsapp pe {msg} bhejo", ["message.send"], 3, ["apps"]),
     ("reminders", "en", "remind me in {n} minutes to drink water", ["reminder.set"], 1, []),
     ("reminders", "hinglish", "{n} min baad pani peena yaad dilana", ["reminder.set"], 1, []),
-    ("memory", "en", "remember {person} is my friend", ["mind.person"], 1, []),
+    ("memory", "en", "remember {person} is my friend", ["mind.person", "memory.remember"], 1, []),
     ("installs", "en", "install {inst}", ["apps.install"], 3, []),
     ("installs", "hinglish", "{inst} install karo", ["apps.install"], 3, []),
     ("installs", "en", "uninstall {inst}", ["apps.uninstall"], 3, []),

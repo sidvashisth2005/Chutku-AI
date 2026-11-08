@@ -180,7 +180,7 @@ _MEDIA = {"pause": "pause", "stop": "pause", "roko": "pause", "rok do": "pause",
           "play": "play", "chalao": "play", "chalu karo": "play", "next": "next", "skip": "next", "agla": "next",
           "previous": "previous", "pichla": "previous"}
 _NOT_APPS = re.compile(r"\b(?:and|then|after|folder|file|files|document|pdf|window|windows|tabs?|settings? of|wi-?fi|"
-                       r"bluetooth|hotspot|internet|airplane mode|flight mode|data)\b|[\\/:]", re.I)
+                       r"bluetooth|hotspot|internet|airplane mode|flight mode|data|firewall|defender|antivirus|update service)\b|[\\/:]", re.I)
 
 _cache = {"at": 0.0, "apps": None}
 

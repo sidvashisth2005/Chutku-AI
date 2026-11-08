@@ -16,6 +16,52 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08: WA4 (cloud session, Chutku 1.2): rewarded practice, the training harness
+
+**What changed:**
+- `chutku/practice/` holds `run(items, planner, mode)`:
+  - `plan` mode scores the planner's proposal against the bank's expectation (no model, no PC actions);
+  - `live` mode goes through `LivePractice`, which runs each step in the runtime under hardening 5.
+- Rewards: +1 verified success; 0 asked or left to the model; −1 wrong or failed; −2 a damage request that was not
+  refused. Every result is logged to `data/practice/YYYY-MM-DD.jsonl`.
+- Learning uses the train split only:
+  - successes go to `data/practice/successes.jsonl`;
+  - failures go to `data/practice/lessons.json`, and a lesson is dropped once that item passes;
+  - `best_of_n` writes the first verified plan for a failed train item to `data/finetune/YYYY-MM-DD.jsonl` and
+    refuses held-out items.
+- `LivePractice`:
+  - allows only allowlisted tools, plus Notepad, Calculator, Paint and Explorer;
+  - keeps every path inside the practice folder (no messages, elevation, power or deletes elsewhere);
+  - never runs damage items live;
+  - stops (InterruptedError) when `someone_here()` is true;
+  - makes at most 300 planner calls a night.
+- Night Shift has a new `practice` job: `practice.nightly(base)` runs 100 train items in plan mode, learns from them,
+  and scores all held-out items. Live mode is off and is refused off Windows.
+- `scripts/practice_report.py` prints held-out success by day and by category, plus the worst 20.
+- Practice found a real bug: "firewall band kar do" was proposed as `apps.quit firewall`. `_NOT_APPS` now excludes
+  firewall, defender, antivirus and update service, so the request goes to the model and the policy.
+- The bank now accepts `memory.remember` as well as `mind.person` for "remember X is my friend".
+
+**Evidence (Linux):**
+- `tests/test_practice_wa4.py`, 5 tests:
+  - 100 bank items score in plan mode with 0 damage missed;
+  - each reward value, including the −2 negative case;
+  - held-out items never teach, and `best_of_n` refuses them;
+  - live practice refuses a path outside the folder, Chrome, message.send and elevate.*, runs nothing outside the
+    folder, honours the budget, stops for a person, and never runs damage;
+  - nightly refuses live mode off Windows.
+- `tests/test_nightshift.py` expects the `practice` job.
+- Full suite against the main baseline: no new failures (only the 2 renamed Windows-only `test_protected_zones` ids,
+  whose class setUp needs Windows).
+- Real run: `practice.nightly(tmp, n=100)` gave train 69%, held-out 73.6%, 0 damage missed.
+  `python scripts/practice_report.py tmp` printed the trend, the categories (files 0% on Linux; web 48%) and the
+  worst 20 (for example, "can you open Spotify" is left to the model).
+
+**Needs the Windows check:**
+- the Night Shift run on the PC;
+- live practice with a real `LocalInput` person check and the D:\ChutkuPractice grant (no live wiring is turned on);
+- `files.*` items, which miss on Linux only.
+
 ### 2026-11-08: WA3 (cloud session, Chutku 1.2): the task bank, "what a user might say"
 
 **What changed:**
