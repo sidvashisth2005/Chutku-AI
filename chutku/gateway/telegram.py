@@ -56,12 +56,32 @@ def token():
         return None
 
 
-def store_token(value):
+def _checked(value):
     import re
-    from chutku.cloud_planner import store_key
     if not isinstance(value, str) or not re.fullmatch(r"\d{5,15}:[A-Za-z0-9_-]{30,60}", value.strip()):
         raise ValueError("That does not look like a BotFather token (digits:letters).")
-    store_key(value.strip(), CREDENTIAL)
+    return value.strip()
+
+
+def store_token(value):
+    from chutku.cloud_planner import store_key
+    store_key(_checked(value), CREDENTIAL)
+
+
+def connect_token(base, value, *, transport=None):
+    """The dashboard's Telegram card (2026-11-08): ask Telegram who this token belongs to (getMe) and store it only
+    if Telegram knows it. Returns the bot's username, kept for the tap-to-pair link."""
+    value = _checked(value)
+    try:
+        me = (transport or _real_transport(value))("getMe", {}, 15) or {}
+    except TelegramError as error:   # its text never holds the token
+        raise ValueError(f"Telegram did not accept that token: {error}") from None
+    store_token(value)
+    with _LOCK:
+        data = load(base)
+        data["bot"] = me.get("username")
+        save(base, data)
+    return data["bot"]
 
 
 def state_path(base) -> Path:
@@ -171,6 +191,17 @@ class Gateway:
             save(self.base, data)
             return False
 
+    def bot_name(self):
+        """The bot's username (for the t.me pairing link): saved when the dashboard stored the token, else asked once."""
+        name = load(self.base).get("bot")
+        if not name:
+            name = (self._call("getMe", {}, 15) or {}).get("username")
+            with _LOCK:
+                data = load(self.base)
+                data["bot"] = name
+                save(self.base, data)
+        return name
+
     def unpair(self):
         with _LOCK:
             data = self._state()
@@ -207,14 +238,16 @@ class Gateway:
         text = str(message.get("text") or "").strip()
         if chat_id is None:
             return "ignored"
+        command, _, code = text.partition(" ")
         if chat_id != paired(self.base):
-            if text.startswith("/pair ") and self._pair(chat_id, text[6:]):
+            # "/start CODE" is what the dashboard's tap-to-pair link (t.me/<bot>?start=CODE) sends
+            if command in ("/pair", "/start") and code.strip() and self._pair(chat_id, code):
                 self.send("Jud gayi! Ab yahan se kaam bolo. Approve/Reject buttons yahin aayenge.")
                 return "paired"
             from chutku.core.log import get_logger
             get_logger("telegram").info("ignored an update from an unpaired chat")   # no content, no chat id
             return "ignored"
-        if text.casefold() in {"/link", "link", "/start", "phone link", "/phone"}:
+        if text.casefold() in {"/link", "link", "/start", "phone link", "/phone"} or command == "/start":
             self.send(phone_link_text(self.base))   # owner 2026-11-07: "if I lose the link, no problem"
             return "link"
         with _LOCK:

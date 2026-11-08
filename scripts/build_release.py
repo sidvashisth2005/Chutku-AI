@@ -12,10 +12,12 @@ The package holds:
   models/          manifest.json and the essential models present at build time (wake word, speaker, embed)
   vendor/          the pinned llama.cpp runtimes, when present at build time
   docs/apps/       the app feature maps (read by apps.howto); docs/USER_GUIDE.md, the in-app Help
+  boot_access/     "Reach this laptop after a restart" (Phone tab): setup/remove scripts, the lock-screen helper's
+                   source (compiled on the user's PC by the setup) and the boot notice
   Chutku.exe       the launcher (installer/launcher.cs), built with the .NET Framework csc.exe on Windows
   LICENSE, THIRD_PARTY_LICENSES.md, NOTICE, version.json, pyproject.toml, requirements.lock
 
-Never included: data/, .env, sandbox/, tests/, scripts/, .git, caches, the PortAudio ASIO DLL variant (W7).
+Never included: data/, .env, sandbox/, tests/, scripts/ (except the four boot_access/ files), .git, caches, the PortAudio ASIO DLL variant (W7).
 The .pyc files are compiled by this interpreter, so it must be CPython 3.13 like the embedded one.
 """
 from __future__ import annotations
@@ -42,6 +44,8 @@ PACKAGE_EXCLUDE = {"hypothesis", "sortedcontainers"}   # test-only pins in the l
 SOURCE_ONLY = {"proxy-tools"}
 EXCLUDED_FILES = re.compile(r"(?i)(^|/)(libportaudio\w*-asio\.dll|\.env|desktop\.ini)$")
 SKIP_PARTS = {"__pycache__", ".git", "data", "sandbox", "tests", ".hypothesis", "node_modules"}
+BOOT_ACCESS = ("scripts/setup_boot_access.ps1", "scripts/remove_boot_access.ps1",
+               "scripts/boot_access/ChutkuUnlock.cs", "scripts/boot_access/notify.ps1")
 ESSENTIAL_MODELS = ("wake", "speaker", "embed")        # small models every install needs (about 160 MB)
 NATIVE = {"agent-desktop": "agent-desktop/bin/agent-desktop-win32-x64.exe",
           "agent-browser": "agent-browser/bin/agent-browser-win32-x64.exe"}
@@ -233,6 +237,9 @@ def copy_bundles(stage, tools=None):
         notes.append("vendor/ (llama.cpp runtimes) was not present: the offline brain needs it")
     _copy_tree(ROOT / "docs" / "apps", stage / "docs" / "apps")
     shutil.copy2(ROOT / "docs" / "USER_GUIDE.md", stage / "docs" / "USER_GUIDE.md")   # W7: the app's Help page
+    (stage / "boot_access").mkdir(exist_ok=True)   # 2026-11-08: boot access for every install, not only a checkout
+    for source in BOOT_ACCESS:
+        shutil.copy2(ROOT / source, stage / "boot_access" / Path(source).name)
     for name in ("LICENSE", "THIRD_PARTY_LICENSES.md", "pyproject.toml", "requirements.lock"):
         shutil.copy2(ROOT / name, stage / name)
     modules = Path(tools or ROOT / "tools" / "node_modules")

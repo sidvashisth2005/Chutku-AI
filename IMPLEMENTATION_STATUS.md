@@ -16,6 +16,42 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (10): Telegram and "Reach this laptop after a restart" as one-click features for every install
+- **Owner:** both should ship to other users as one-click steps (2026-11-08 recheck), not only in the checkout.
+- **Telegram card** (Phone tab; `/api/telegram {action: token}`, `telegram.connect_token`, `Gateway.bot_name`):
+  - BotFather steps, then paste the token. It is checked with Telegram (`getMe`) before it is stored and is never
+    echoed back. The bot starts at once, with no restart.
+  - **Pair my phone** gives `https://t.me/<bot>?start=CODE` plus a QR. Telegram sends `/start CODE`, which pairs
+    through the same `_pair` (same lockout). `/pair CODE` still works. A bare `/start` from a stranger is not
+    counted as a wrong try. From the paired chat, `/start …` gives the link and is not treated as a task.
+- **Boot access for installed apps:**
+  - The package gets `boot_access/` (`build_release.BOOT_ACCESS`: the setup and remove scripts, `ChutkuUnlock.cs`
+    and `notify.ps1`). The helper is compiled on the user's PC by the Windows `csc.exe`.
+  - `setup_boot_access.ps1` finds Python and the helper files in both layouts and takes a `-Quiet` switch.
+  - **The RustDesk removal step is gone:** it would uninstall another user's software.
+  - New `remove_boot_access.ps1` removes both tasks, `ProgramData\ChutkuBoot` and the `:8443` serve.
+  - **Phone tab card** (`chutku/remote/boot.py`, `/api/remote {boot_on|boot_off}`): it checks first for Telegram,
+    pairing and Tailscale, then needs one Windows prompt. "On" means the boot notice's log exists and the helper
+    answers on `127.0.0.1:8767`, because a non-admin process cannot query the SYSTEM tasks ("Access is denied",
+    checked).
+- **CI gate:** `check_stages._run_suite` now prints each failed or errored test's id and the last line of its
+  traceback. The 4e40f88 run said only "2 errors". It did not reproduce in 6 local runs of the three suites or in
+  the full CI-style run.
+- **Verified:**
+  - `tests.test_boot_access_card` (7 tests) and `tests.test_telegram_gateway` (21 tests, 2 new).
+  - The `test_build_release_w3` package-contents check.
+  - Neighbouring suites: 100 tests OK.
+  - **Live, real dashboard in Edge with the real Telegram API** (9/9):
+    - an unknown, well-formed token got HTTP 401, the page showed "did not accept" and nothing was stored;
+    - a malformed token was refused;
+    - the real token's `getMe` returned `chutkuai_bot`;
+    - Pair showed `t.me/chutkuai_bot?start=<code>` plus a QR;
+    - the boot card read "On. Last boot notice: … sent on try 1".
+  - Both scripts parse with 0 errors. Run without admin rights, each stops at "run this as administrator" (exit 1)
+    and the helper keeps answering on 8767 (negative case).
+- **Not run here:** the elevated Turn on / Turn off through the Windows prompt. It needs the owner's click at the
+  laptop.
+
 ### 2026-11-08 (9): One "Connect my phone" button; setup defaults that never contradict themselves; user docs match
 - **Owner:** "make everything a cakewalk, from downloading till final execution; set the most appropriate option as
   the default".

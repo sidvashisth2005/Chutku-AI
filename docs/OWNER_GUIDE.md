@@ -571,8 +571,9 @@ A minimized window can't be read: Chutku asks to restore it. Apps that draw thei
 | "jab main 'padhai time' bolun to volume 30 karo aur lock the pc" → later just "padhai time" | your own shortcut: up to 4 instant commands, checked when saved (H23) |
 | "main bahar ja raha hoon, phone pe batana" / "main wapas aa gaya" | for 4 hours results and approvals also go to your Telegram (H16) |
 
-**Telegram (H16), once:** create a bot with @BotFather, then `chutku.cli telegram set-token`, restart Chutku, run
-`chutku.cli telegram pair` and send `/pair CODE` to your bot within an hour. Only that chat is answered. From
+**Telegram (H16), once:** Phone tab → **Telegram** card: create a bot with @BotFather, paste its token (checked with
+Telegram, no restart needed), press **Pair my phone** and scan the code (Telegram opens the bot; press **Start**), or
+send `/pair CODE`. The CLI still works: `chutku.cli telegram set-token` / `pair`. Only that chat is answered. From
 Telegram, very risky steps, code and unknown recipients never get buttons: they wait for the PC. Unpair with
 `chutku.cli telegram unpair`.
 
@@ -662,7 +663,7 @@ Rules:
 | Hands-free level | Dashboard, Hands-free row, then Hands-free level. |
 | Wake phrase | Dashboard, Hands-free row, then the "Oye Chutku" checkbox. |
 | Free cloud brain (fastest) | Free key from https://console.groq.com/keys, then `python -m chutku.cli cloud set-key groq`. Check with `cloud status` and `cloud test`. |
-| Sign in from the phone after a boot or while locked | Double-click `Setup-Boot-Access.cmd` once (one admin click; needs Telegram paired and Tailscale signed in). At every boot Telegram gets "Laptop is ON" with a sign-in link (`https://<laptop>:8443/#k=…`, tailnet only, valid until the next restart). Open it: you see the Windows lock screen. Tap the picture to click, type your password or PIN in the box, then press **Sign in**. After sign-in the page stops showing anything and Chutku sends the normal phone link. It cannot see or touch your desktop or answer a UAC prompt. Fast Startup is turned off so switching on is a real boot. Undo: delete the `ChutkuUnlock` and `ChutkuBootNotice` tasks in Task Scheduler, then run `tailscale serve --https=8443 off`. |
+| Sign in from the phone after a boot or while locked | Phone tab → "Reach this laptop after a restart" → **Turn on** (or double-click `Setup-Boot-Access.cmd`); one admin click; needs Telegram paired and Tailscale signed in. Installed copies have it too (`boot_access\` in the app folder). At every boot Telegram gets "Laptop is ON" with a sign-in link (`https://<laptop>:8443/#k=…`, tailnet only, valid until the next restart). Open it: you see the Windows lock screen. Tap the picture to click, type your password or PIN in the box, then press **Sign in**. After sign-in the page stops showing anything and Chutku sends the normal phone link. It cannot see or touch your desktop or answer a UAC prompt. Fast Startup is turned off so switching on is a real boot. Undo: **Turn off** on the same card (`scripts\remove_boot_access.ps1`). |
 
 ---
 

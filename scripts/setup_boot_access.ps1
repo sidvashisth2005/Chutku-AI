@@ -1,19 +1,24 @@
 <#
 .SYNOPSIS
     One-time setup (run as administrator, owner 2026-11-07): reach the laptop from the phone right after it boots.
+    The Phone tab's "Reach this laptop after a restart" runs it (one Windows prompt); so does Setup-Boot-Access.cmd.
+    It works in the owner's checkout (scripts\) and in an installed app (boot_access\). Your Windows account must be an
+    administrator: the setup reads your own Chutku's Telegram settings. remove_boot_access.ps1 undoes it.
       1. Tailscale unattended: the laptop joins your tailnet at boot, before anyone signs in.
-      2. RustDesk is removed if an earlier version of this setup installed it (owner 2026-11-07: Chutku only).
-      3. The lock-screen helper (boot_access\ChutkuUnlock.cs, owner 2026-11-07): a SYSTEM startup task shows the
+      2. The lock-screen helper (boot_access\ChutkuUnlock.cs, owner 2026-11-07): a SYSTEM startup task shows the
          Windows sign-in screen on your phone (https://<laptop>:8443, tailnet only) so you can tap, type the password
          and press Enter. It works only while the sign-in/lock screen is up; never on your desktop or a UAC prompt.
          Fast Startup is turned off so that switching the laptop on is a real boot (startup tasks run).
-      4. A startup task (LOCAL SERVICE) sends "Laptop is ON" with that link to your paired Telegram chat.
+      3. A startup task (LOCAL SERVICE) sends "Laptop is ON" with that link to your paired Telegram chat.
     Chutku itself never runs elevated: after you sign in it starts as before.
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File scripts\setup_boot_access.ps1
 #>
+param([switch]$Quiet)   # -Quiet: started from the dashboard; a success closes by itself (a failure still waits)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
+# the helper's files: scripts\boot_access\ in a checkout, next to this script in an installed app's boot_access\
+$helpers = if (Test-Path (Join-Path $PSScriptRoot "boot_access")) { Join-Path $PSScriptRoot "boot_access" } else { $PSScriptRoot }
 function Step($text) { Write-Host "`n== $text" -ForegroundColor Cyan }
 function Fail($text) { Write-Host "`nStopped: $text" -ForegroundColor Red; Read-Host "Press Enter to close"; exit 1 }
 $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
@@ -24,12 +29,13 @@ if (-not $admin) { Fail "run this as administrator (it asks Windows once)." }
 # An elevated window starts in C:\Windows\System32: run Chutku's Python from its own folder (PC check 2026-11-07).
 Set-Location $root
 $env:PYTHONPATH = $root
-$python = Join-Path $root ".venv\Scripts\python.exe"
+$python = Join-Path $root ".venv\Scripts\python.exe"                     # a checkout
+if (-not (Test-Path $python)) { $python = Join-Path $root "python\python.exe" }   # an installed app
 $raw = & $python -c "import json; from chutku.app import PROJECT_ROOT; from chutku.gateway import telegram as tg; print(json.dumps({'token': tg.token() or '', 'chat': tg.paired(PROJECT_ROOT)}))"
 if ($LASTEXITCODE -ne 0 -or -not $raw) { Fail "could not read Chutku's Telegram settings (see the error above)." }
 $info = $raw | ConvertFrom-Json
-if (-not $info.token) { Fail "no Telegram bot token yet: run chutku.cli telegram set-token first." }
-if (-not $info.chat) { Fail "the bot is not paired yet: send /pair CODE to your bot (chutku.cli telegram pair) first." }
+if (-not $info.token) { Fail "no Telegram bot yet: connect it in Chutku's Phone tab (Telegram card) first. (If the prompt signed in as a different administrator, run this from that account.)" }
+if (-not $info.chat) { Fail "the bot is not paired yet: press 'Pair my phone' in Chutku's Phone tab (Telegram card) first." }
 
 # --- 1. Tailscale unattended ------------------------------------------------------------------------------------
 Step "Tailscale: stay connected at boot (unattended)"
@@ -43,23 +49,7 @@ $login = $ts.User."$($ts.Self.UserID)".LoginName
 if (-not $login) { Fail "Tailscale is not signed in." }
 Write-Host "Laptop on Tailscale: $ip ($dns), owner $login"
 
-# --- 2. RustDesk removed (owner 2026-11-07: no other remote-desktop software; Chutku only) -----------------------
-Step "Removing RustDesk (no longer used)"
-$entries = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*", `
-    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
-    Where-Object { $_.DisplayName -like "RustDesk*" }
-foreach ($entry in $entries) {
-    if ($entry.PSChildName -match "^\{[0-9A-Fa-f-]+\}$") {
-        Start-Process msiexec.exe -ArgumentList "/x", $entry.PSChildName, "/qn", "/norestart" -Wait
-    } elseif ($entry.UninstallString) {
-        Start-Process cmd.exe -ArgumentList "/c", "`"$($entry.UninstallString)`" --silent-uninstall" -Wait
-    }
-}
-Stop-Service RustDesk -ErrorAction SilentlyContinue
-if (Get-Service RustDesk -ErrorAction SilentlyContinue) { Write-Host "RustDesk's service is still there: remove it in Settings > Apps." -ForegroundColor Yellow }
-else { Write-Host "RustDesk is not installed." }
-
-# --- 3. the lock-screen helper and the boot notice -------------------------------------------------------------
+# --- 2. the lock-screen helper and the boot notice -------------------------------------------------------------
 Step "Lock-screen helper and Telegram 'Laptop is ON' at every boot"
 $boot = Join-Path $env:ProgramData "ChutkuBoot"
 New-Item -ItemType Directory -Force $boot | Out-Null
@@ -82,13 +72,13 @@ foreach ($who in "BUILTIN\Administrators", "NT AUTHORITY\SYSTEM") {
 $sacl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule("NT AUTHORITY\LOCAL SERVICE", "Modify", "ContainerInherit,ObjectInherit", "None", "Allow")))
 $sacl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule("BUILTIN\Users", "ReadAndExecute", "ContainerInherit,ObjectInherit", "None", "Allow")))
 Set-Acl $status $sacl
-Copy-Item (Join-Path $PSScriptRoot "boot_access\notify.ps1") (Join-Path $boot "notify.ps1") -Force
+Copy-Item (Join-Path $helpers "notify.ps1") (Join-Path $boot "notify.ps1") -Force
 try { Stop-ScheduledTask -TaskName "ChutkuUnlock" -ErrorAction Stop } catch { }   # a re-run replaces the helper
 Get-Process ChutkuUnlock -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 $csc = Join-Path $env:SystemRoot "Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 & $csc -nologo -optimize "-out:$boot\ChutkuUnlock.exe" -r:System.Drawing.dll -r:System.Web.Extensions.dll `
-    (Join-Path $PSScriptRoot "boot_access\ChutkuUnlock.cs")
+    (Join-Path $helpers "ChutkuUnlock.cs")
 if ($LASTEXITCODE -ne 0) { Fail "the lock-screen helper did not compile (see above)." }
 Add-Type -AssemblyName System.Security
 $sealed = [Security.Cryptography.ProtectedData]::Protect([Text.Encoding]::UTF8.GetBytes($info.token), $null, "LocalMachine")
@@ -115,4 +105,4 @@ Register-ScheduledTask -TaskName "ChutkuBootNotice" -Action $action -Trigger (Ne
 Start-ScheduledTask -TaskName "ChutkuBootNotice"
 Write-Host "`nDone. A test 'Laptop is ON' message with the sign-in link is on its way to your Telegram." -ForegroundColor Green
 Write-Host "Try it: lock the laptop (Win+L), open the link on your phone, tap the picture, type your password, Sign in."
-Read-Host "Press Enter to close"
+if ($Quiet) { Start-Sleep -Seconds 8 } else { Read-Host "Press Enter to close" }

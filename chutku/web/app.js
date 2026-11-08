@@ -390,6 +390,7 @@ async function loadPhone(){
     const r=await api("/api/remote");
     $("phone-state").textContent=r.available===false?"Phone access runs inside the real Chutku only.":
       (r.enabled?`On · ${r.url||""}`:"Off")+(r.phone_active?" · 📱 phone connected":"")+(r.viewing?" · screen being watched":"")+(r.controlling?" · CONTROLLED FROM PHONE":"")+(r.control_allowed?" · control allowed":" · control forbidden");
+    showBoot(r.boot);loadTelegram();
     const list=$("phone-devices");list.replaceChildren();
     for(const d of (r.devices||[]).filter(d=>!d.revoked)){
       const row=node("div","activity-row"),name=node("div","activity-title",d.name),rm=node("button","text-button danger-text","Remove");
@@ -417,8 +418,52 @@ function showPairing(r){
   box.append(node("h2","","Code: "+r.code));
   if(r.phone_steps){const ol=node("ol","muted");r.phone_steps.forEach(t=>ol.append(node("li","",t)));box.append(ol);}
   box.append(node("p","muted",`Or open ${r.link} on the phone (valid ${r.minutes} minutes).`));
-  if(r.qr_svg){const svg=new DOMParser().parseFromString(r.qr_svg,"image/svg+xml").documentElement;if(svg&&svg.nodeName==="svg"){svg.setAttribute("width","220");svg.setAttribute("height","220");box.append(document.importNode(svg,true));}}
+  appendQr(box,r.qr_svg);
 }
+function appendQr(box,text){
+  if(text){const svg=new DOMParser().parseFromString(text,"image/svg+xml").documentElement;if(svg&&svg.nodeName==="svg"){svg.setAttribute("width","220");svg.setAttribute("height","220");box.append(document.importNode(svg,true));}}
+}
+// 2026-11-08 Telegram without a terminal: BotFather, paste the token (checked with Telegram, never shown again), then
+// scan a code so the phone's Telegram pairs itself (t.me/<bot>?start=CODE); typing /pair CODE still works.
+async function loadTelegram(){
+  const box=$("tg-box");if(!box)return;
+  let r;try{r=await api("/api/telegram",{action:"status"});}catch(e){box.replaceChildren(node("p","muted",e.message));return;}
+  box.replaceChildren();
+  if(!r.token_stored){
+    const ol=node("ol","muted"),first=node("li","","Open "),a=node("a","","@BotFather");a.href="https://t.me/BotFather";a.target="_blank";a.rel="noopener noreferrer";
+    first.append(a," in Telegram (on the phone or here).");
+    ol.append(first,node("li","","Send /newbot, then any name, then a username that ends in \"bot\"."),node("li","","Copy the token it sends you (numbers:letters) and paste it here."));
+    const input=node("input");input.type="password";input.placeholder="123456789:ABC...";input.autocomplete="off";input.id="tg-token";
+    box.append(ol,input,button("Connect bot",async()=>{await api("/api/telegram",{action:"token",token:input.value.trim()});input.value="";await loadTelegram();await pairTelegram();},"primary"));
+    return;
+  }
+  box.append(node("p","",(r.bot?`Bot @${r.bot}`:"Bot connected")+(r.paired?" · your phone's chat is paired.":" · not paired with your phone yet.")));
+  const row=node("div","row-buttons");
+  row.append(button(r.paired?"Pair a different phone":"Pair my phone",pairTelegram,r.paired?"":"primary"));
+  if(r.paired)row.append(button("Unpair",async()=>{await api("/api/telegram",{action:"unpair"});$("tg-pair").replaceChildren();loadTelegram();}));
+  box.append(row);
+}
+let tgWaiting=null;
+async function pairTelegram(){
+  const r=await api("/api/telegram",{action:"pair"}),box=$("tg-pair");box.replaceChildren();
+  if(r.link){box.append(node("p","","Scan this with your phone's camera (or open the link there), then press Start in Telegram."));appendQr(box,r.qr_svg);
+    const a=node("a","",r.link);a.href=r.link;a.target="_blank";a.rel="noopener noreferrer";box.append(a);}
+  box.append(node("p","muted",`Or send /pair ${r.code} to your bot (valid ${r.valid_minutes} minutes).`));
+  clearTimeout(tgWaiting);const until=Date.now()+r.valid_minutes*60000;
+  const wait=async()=>{try{if((await api("/api/telegram",{action:"status"})).paired){box.replaceChildren(node("p","","Paired. Send your bot a message to try it."));loadTelegram();return;}}catch{}
+    if(Date.now()<until)tgWaiting=setTimeout(wait,3000);};
+  tgWaiting=setTimeout(wait,3000);
+}
+// 2026-11-08 "Reach this laptop after a restart": one Windows prompt runs the setup (or its removal); the state is
+// what Chutku can see without admin rights: the boot notice's log and the lock-screen helper answering.
+function showBoot(b){const s=$("boot-state");if(!s||!b)return;
+  s.textContent=!b.available?"This copy of Chutku has no boot-access files.":(b.on?"On.":"Off.")+(b.last?" Last boot notice: "+b.last:"");}
+function watchBoot(on,until=Date.now()+180000){
+  setTimeout(async()=>{try{const r=await api("/api/remote");if(r.boot&&r.boot.on===on){showBoot(r.boot);return;}}catch{}
+    if(Date.now()<until)watchBoot(on,until);else $("boot-state").textContent+=" Nothing changed yet: if you clicked No, press the button again.";},3000);
+}
+for(const [id,on] of [["boot-on",true],["boot-off",false]])
+  $(id)?.addEventListener("click",async()=>{try{const r=await api("/api/remote",{action:on?"boot_on":"boot_off"});$("boot-state").textContent=r.message;if(r.started)watchBoot(on);}catch(e){error(e.message);}});
 async function connectPhone(started=Date.now()){
   clearTimeout(connecting);
   try{

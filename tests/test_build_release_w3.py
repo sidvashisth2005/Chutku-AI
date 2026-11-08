@@ -114,6 +114,8 @@ class StageTests(unittest.TestCase):
             self.assertTrue((stage / "bin" / "agent-desktop-win32-x64.exe").is_file())
             self.assertTrue((stage / "models" / "manifest.json").is_file())
             self.assertTrue((stage / "docs" / "apps" / "spotify.md").is_file())
+            self.assertEqual(sorted(p.name for p in (stage / "boot_access").iterdir()),   # 2026-11-08, nothing else
+                             ["ChutkuUnlock.cs", "notify.ps1", "remove_boot_access.ps1", "setup_boot_access.ps1"])
             desktop.with_name(desktop.name + ".sha256").write_text("0" * 64)
             with self.assertRaises(build.BuildError):
                 build.copy_bundles(Path(temp) / "stage2", tools)

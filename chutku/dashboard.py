@@ -1680,9 +1680,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._reply(200, self.server.presence_state())
                 return
             if parts.path == "/api/remote":     # W6: the Phone panel
+                from chutku.remote import boot
                 remote = self.server.remote
-                self._reply(200, remote.status() if remote is not None else {"enabled": False, "running": False,
-                                                                             "available": False})
+                self._reply(200, {**(remote.status() if remote is not None else {"enabled": False, "running": False,
+                                                                                 "available": False}),
+                                  "boot": boot.status()})   # 2026-11-08: "Reach this laptop after a restart"
                 return
             with create_runtime(self.server.base) as runtime:
                 if parts.path == "/api/state":
@@ -1801,6 +1803,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if urlsplit(self.path).path == "/api/remote":   # W6 Phone panel (laptop only: needs this dashboard's token)
             remote = self.server.remote
             action = data.get("action")
+            if action in ("boot_on", "boot_off"):   # 2026-11-08: one Windows prompt runs the setup or its removal
+                from chutku.remote import boot
+                self._reply(200, boot.run(self.server.base, action == "boot_on"))
+                return
             if remote is None:
                 self._reply(409, {"error": "Phone access is available only in the running Chutku."})
                 return
@@ -1817,7 +1823,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             elif action == "revoke" and isinstance(data.get("device_id"), str):
                 self._reply(200, remote.revoke(data["device_id"]))
             else:
-                self._reply(400, {"error": "Choose connect, enable, disable, pair, arm, disarm or revoke."})
+                self._reply(400, {"error": "Choose connect, enable, disable, pair, arm, disarm, revoke, boot_on "
+                                           "or boot_off."})
             return
         if urlsplit(self.path).path == "/api/presence/video/close":   # X13: the video's close button
             from chutku.tools.internet import hud_video_file
@@ -2042,14 +2049,31 @@ def _agent_post(self, path, data):
             return 200, {"kind": "agent", "session": session.snapshot()}
         if path == "/api/telegram":   # H16: pairing happens only here (the loopback dashboard) or in the CLI
             from chutku.gateway import telegram
+            if data.get("action") == "token" and set(data) == {"action", "token"}:
+                # 2026-11-08 the Phone tab's Telegram card: checked with Telegram, stored, never echoed back
+                bot = telegram.connect_token(server.base, data["token"])
+                if server.telegram is None:
+                    server.telegram = telegram.start(server)   # no restart needed
+                else:
+                    server.telegram.transport = None           # the running poll picks up the new token
+                return 200, {"token_stored": True, "bot": bot, "paired": telegram.paired(server.base) is not None}
             if set(data) != {"action"} or data["action"] not in {"status", "pair", "unpair"}:
-                raise ValueError("Give action: status, pair or unpair.")
+                raise ValueError("Give action: status, token, pair or unpair.")
             gateway = telegram.Gateway(server.base, server)
             if data["action"] == "pair":
-                return 200, {"code": gateway.new_code(), "send_to_bot": "/pair <code>", "valid_minutes": 60}
+                code = gateway.new_code()
+                try:
+                    bot = gateway.bot_name()
+                except telegram.TelegramError:   # offline: typing /pair CODE still works
+                    bot = None
+                link = f"https://t.me/{bot}?start={code}" if bot else None
+                from chutku.remote.manager import qr_svg
+                return 200, {"code": code, "send_to_bot": "/pair <code>", "valid_minutes": 60, "bot": bot,
+                             "link": link, "qr_svg": qr_svg(link) if link else None}
             if data["action"] == "unpair":
                 gateway.unpair()
             return 200, {"token_stored": bool(telegram.token()), "paired": telegram.paired(server.base) is not None,
+                         "bot": telegram.load(server.base).get("bot"),
                          "handoff": gateway.handed_off(), "running": server.telegram is not None}
         if path == "/api/automations":   # W6: create from a blueprint, or cancel
             return 200, server.automation_action(data)

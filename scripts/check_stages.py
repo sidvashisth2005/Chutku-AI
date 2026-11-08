@@ -58,6 +58,8 @@ def _run_suite(*modules):
     stream = io.StringIO()
     with redirect_stdout(stream), redirect_stderr(stream):
         result = unittest.TextTestRunner(stream=stream, verbosity=1).run(suite)
+    for test, trace in result.failures + result.errors:   # name what broke: CI printed only "2 errors" (2026-11-08)
+        print(f"  {test.id()}: {trace.strip().splitlines()[-1]}", file=sys.stderr)
     return result.wasSuccessful(), result.testsRun, len(result.failures), len(result.errors), len(result.skipped)
 
 

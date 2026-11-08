@@ -188,6 +188,19 @@ server can link through it under Settings → Advanced.) Traffic through the rel
 never sees your password, your requests or the screen. The phone asks for your PIN before approvals, screen view and
 control. Some steps (deleting for good, power, running code) can only be approved at the PC.
 
+**Telegram (optional).** On the **Phone** page, the **Telegram** card: open @BotFather in Telegram, send `/newbot`,
+pick any name and a username ending in "bot", and paste the token it sends you. Chutku checks the token with
+Telegram before keeping it (in Windows Credential Manager) and never shows it again. Then press **Pair my phone** and
+scan the code with your phone's camera: Telegram opens your bot, press **Start** and that chat is paired (or send
+`/pair CODE` to the bot). Only the paired chat is answered.
+
+**Reach this laptop after a restart (optional).** On the **Phone** page press **Turn on** under "Reach this laptop
+after a restart" and click **Yes** when Windows asks (your Windows account must be an administrator; Chutku itself
+never runs as one). From then on, after every restart or power cut your Telegram gets "Laptop is ON" with a link
+that shows the Windows sign-in screen on your phone: tap the picture, type your password and press Sign in. It needs
+the Telegram bot and Tailscale (**Connect my phone**) first, and it turns off Windows Fast Startup so that switching
+the laptop on is a real start. **Turn off** removes it again.
+
 ---
 
 ## 9. Where things live
@@ -216,5 +229,6 @@ settings (phone pairing, approvals, never rules) unless you confirm that separat
 | Something seems broken | Say "khud ko theek karo" / "apna checkup karo", or run `Chutku.exe --doctor` from the app folder for a health report. |
 | The log "hash chain broken" | The log was edited or damaged. Keep the file; do not delete it. |
 
-**Uninstall:** Windows Settings, then Apps, then Chutku, then Uninstall. It asks whether to delete your data as well;
-say no to keep it for a later install.
+**Uninstall:** if you turned on "Reach this laptop after a restart", press **Turn off** on the Phone page first
+(the uninstaller cannot remove it). Then Windows Settings, then Apps, then Chutku, then Uninstall. It asks whether to
+delete your data as well; say no to keep it for a later install.

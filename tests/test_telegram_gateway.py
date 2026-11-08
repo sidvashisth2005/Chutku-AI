@@ -243,6 +243,46 @@ class GatewayTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             telegram.store_token("not-a-token")
 
+    def test_the_tap_to_pair_link_pairs_and_wrong_start_codes_count(self):
+        # 2026-11-08: the dashboard's QR opens t.me/<bot>?start=CODE, which sends "/start CODE"
+        self.assertEqual(self.gateway.handle(message(STRANGER, "/start")), "ignored")   # no code: not a wrong try
+        self.assertEqual(telegram.load(self.base).get("wrong", []), [])
+        self.gateway.new_code()
+        for _ in range(telegram.MAX_WRONG):
+            self.assertEqual(self.gateway.handle(message(STRANGER, "/start WRONGWRO")), "ignored")
+        self.assertIsNone(telegram.paired(self.base))
+        with self.assertRaises(ValueError):                                         # locked, as with /pair
+            self.gateway.new_code()
+        self.now[0] += telegram.LOCKOUT + 1
+        code = self.gateway.new_code()
+        self.assertEqual(self.gateway.handle(message(OWNER, f"/start {code}")), "paired")
+        self.assertEqual(telegram.paired(self.base), OWNER)
+        self.assertEqual(self.gateway.handle(message(OWNER, f"/start {code}")), "link")   # again: not a task
+        self.assertEqual(self.core.goals, [])
+
+    def test_a_token_is_stored_only_when_telegram_knows_it(self):
+        from unittest.mock import patch
+        calls = []
+
+        def knows(method, params, timeout):
+            calls.append(method)
+            return {"username": "asha_chutku_bot"}
+
+        def refuses(method, params, timeout):
+            raise telegram.TelegramError("Telegram answered HTTP 401 to getMe.")
+        with patch.object(telegram, "store_token") as store:
+            with self.assertRaises(ValueError):
+                telegram.connect_token(self.base, "not-a-token", transport=knows)
+            self.assertEqual(calls, [])                                             # never sent anywhere
+            with self.assertRaises(ValueError) as refused:
+                telegram.connect_token(self.base, TOKEN, transport=refuses)
+            self.assertNotIn(TOKEN, str(refused.exception))
+            store.assert_not_called()
+            self.assertEqual(telegram.connect_token(self.base, " " + TOKEN + "\n", transport=knows), "asha_chutku_bot")
+            store.assert_called_once_with(TOKEN)
+        self.assertEqual(telegram.load(self.base)["bot"], "asha_chutku_bot")
+        self.assertNotIn(TOKEN, telegram.state_path(self.base).read_text())
+
     def test_poll_once_saves_the_offset(self):
         self.api.updates = [{"update_id": 41, "message": {"chat": {"id": STRANGER}, "text": "hi"}}]
         self.assertEqual(self.gateway.poll_once(), ["ignored"])

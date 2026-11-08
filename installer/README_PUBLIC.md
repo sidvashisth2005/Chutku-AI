@@ -51,6 +51,11 @@ before any change), a microphone test, offline packs, and websites she should us
 (press **Yes** if Windows asks), opens its sign-in page, turns phone access on and shows a code. On the phone,
 install the free Tailscale app, sign in with the same account, scan the code and choose a PIN.
 
+**Telegram and "after a restart" (optional):** on the Phone page, the **Telegram** card walks you through making a
+bot with @BotFather (paste its token, then scan a code to pair). **Reach this laptop after a restart** then sends
+"Laptop is ON" to your Telegram after every restart, with a link that shows the Windows sign-in screen on your
+phone so you can sign in from anywhere. It asks Windows for permission once.
+
 Then press **Ctrl+Alt+Space** in any app and talk, or type in the Chutku window. Try:
 
 - "what can you do?"
@@ -68,15 +73,16 @@ Then press **Ctrl+Alt+Space** in any app and talk, or type in the Chutku window.
   restarting always wait for your OK.
 - **Deleted files go to the Recycle Bin.** You can bring them back.
 - **System folders are never touched.** Chutku never runs as administrator and never changes Windows or program
-  folders.
+  folders. (Only the optional "after a restart" setup asks Windows once, when you press it.)
 - **Every step is checked,** and she tells you exactly how many steps really worked.
 - **Web pages and messages can't give her orders.** Text she reads cannot tell her what to do.
 - **The phone link is end-to-end encrypted.**
 
 ## Uninstall
 
-Windows **Settings → Apps → Chutku → Uninstall**. It asks whether to delete your data (memory, settings, history)
-as well. Say no to keep it for later.
+If you turned on "Reach this laptop after a restart", press **Turn off** on the Phone page first. Then Windows
+**Settings → Apps → Chutku → Uninstall**. It asks whether to delete your data (memory, settings, history) as well.
+Say no to keep it for later.
 
 ## Questions and problems
 
