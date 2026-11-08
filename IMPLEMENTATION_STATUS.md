@@ -107,9 +107,13 @@ Owner decisions are in `docs/DESIGN.md` §51.
   run. The live script now points that root at the temp home.
   - Cancelling those two was refused by the permission check. **The owner should cancel them** (Automations tab, or
     "cancel task 1add59").
+- **CI on 9123e67** (`package` run 42470793232 and `tests`, both green), the new `.iss` compiled:
+  - `Chutku-Setup-for-Windows.exe` is 227.32 MB with the package inside;
+  - a tampered package was refused (exit 7);
+  - installed from the built-in package in 23.0 s;
+  - doctor ok, a text command answered, uninstalled.
+  - The phone app's pair and unlock cards also carry the credit.
 - **Not run here:**
-  - Inno Setup is not installed on this PC, so the new `.iss` is first compiled by CI (`package` workflow) and then
-    by the `v1.1.0` release.
   - A real **Update now** needs a published 1.1.x release.
 
 ### 2026-11-08 (10): Telegram and "Reach this laptop after a restart" as one-click features for every install
