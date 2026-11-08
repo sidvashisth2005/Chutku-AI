@@ -404,15 +404,33 @@ async function phoneAction(body){
     if(body.action==="pair"){
       const box=$("phone-pairing");box.replaceChildren();
       if(r.error){box.append(node("p","muted",r.error));}
-      else{
-        box.append(node("h2","","Code: "+r.code),node("p","muted",`Open ${r.link} on the phone (valid ${r.minutes} minutes), or scan:`));
-        if(r.qr_svg){const svg=new DOMParser().parseFromString(r.qr_svg,"image/svg+xml").documentElement;if(svg&&svg.nodeName==="svg"){svg.setAttribute("width","220");svg.setAttribute("height","220");box.append(document.importNode(svg,true));}}
-      }
+      else showPairing(r);
     } else if(r.steps){ $("phone-state").textContent=r.steps; return; }
     loadPhone();
   }catch(e){error(e.message);}
 }
-for(const [id,action] of [["phone-enable","enable"],["phone-disable","disable"],["phone-pair","pair"],["phone-arm","arm"],["phone-disarm","disarm"]])
+// Owner 2026-11-08, "a cakewalk": one button. Each press (and a repeat every 3 s) does the next missing step: install
+// Tailscale, sign in, turn phone access on, then the code to scan with three plain steps for the phone.
+let connecting=null;
+function showPairing(r){
+  const box=$("phone-pairing");box.replaceChildren();
+  box.append(node("h2","","Code: "+r.code));
+  if(r.phone_steps){const ol=node("ol","muted");r.phone_steps.forEach(t=>ol.append(node("li","",t)));box.append(ol);}
+  box.append(node("p","muted",`Or open ${r.link} on the phone (valid ${r.minutes} minutes).`));
+  if(r.qr_svg){const svg=new DOMParser().parseFromString(r.qr_svg,"image/svg+xml").documentElement;if(svg&&svg.nodeName==="svg"){svg.setAttribute("width","220");svg.setAttribute("height","220");box.append(document.importNode(svg,true));}}
+}
+async function connectPhone(started=Date.now()){
+  clearTimeout(connecting);
+  try{
+    const r=await api("/api/remote",{action:"connect"});
+    if(r.stage==="ready"){$("phone-state").textContent="Phone access is on. Scan the code with your phone.";showPairing(r);loadPhone();return;}
+    const box=$("phone-pairing");box.replaceChildren(node("p","",r.message||""));
+    if(r.url){const a=node("a","",r.stage==="sign_in"?"Open the sign-in page":"Open the download page");a.href=r.url;a.target="_blank";a.rel="noopener noreferrer";box.append(a);}
+    if(r.stage!=="problem"&&Date.now()-started<15*60000)connecting=setTimeout(()=>connectPhone(started),3000);
+  }catch(e){error(e.message);}
+}
+$("phone-connect")?.addEventListener("click",()=>connectPhone());
+for(const [id,action] of [["phone-disable","disable"],["phone-pair","pair"],["phone-arm","arm"],["phone-disarm","disarm"]])
   $(id)?.addEventListener("click",()=>phoneAction({action}));
 
 // ---- W5: first-run setup and Settings (the same steps as `chutku.cli setup`) ----
@@ -461,10 +479,12 @@ function renderSetup(s){
   card=setupCard("3. Its name and voice (optional)"+done("assistant"),`Ready as “${name}” (${a.ASSISTANT_GENDER||"female"}, ${a.ASSISTANT_LANGUAGE||"hinglish"}, ${a.ASSISTANT_STYLE||"warm"}). Say “Oye ${name}” or press Ctrl+Alt+Space.`);
   const nm=input("text",a.ASSISTANT_NAME,"Chutku",20),g=select(["female","male","neutral"],a.ASSISTANT_GENDER),l=select(["hinglish","english","hindi"],a.ASSISTANT_LANGUAGE),st=select(["warm","professional","witty","calm"],a.ASSISTANT_STYLE);
   const change=details("Change");const row=node("div","memory-form");row.append(field("Name",nm),field("Gender",g),field("Language",l),field("Style",st),button("Save",()=>setupStep({action:"assistant",ASSISTANT_NAME:nm.value,ASSISTANT_GENDER:g.value,ASSISTANT_LANGUAGE:l.value,ASSISTANT_STYLE:st.value}),"primary"));change.append(row);card.append(change);
-  // 4. how much it does alone: the default is the owner's choice (2026-10-04: owner mode by default)
+  // 4. how much it does alone: this install's own default is the one marked "(recommended)" and listed first
   card=setupCard("4. How much it does on its own"+done("mode"),"Already set. Change it any time.");
-  const modes=[["full","Full (recommended): does almost everything; still asks for deletes, risky steps and new people."],["edits","Edits: also changes files it can undo; asks before the rest."],["safe","Safe: looks and opens things by itself; asks before any change."]];
-  const current={auto_safe:"safe",auto_edits:"edits",owner:"full"}[s.mode]||"full";
+  const short={auto_safe:"safe",auto_edits:"edits",owner:"full"},best=short[s.default_mode]||"safe";
+  const modes=[["safe","Safe: looks and opens things by itself; asks before any change."],["edits","Edits: also changes files it can undo; asks before the rest."],["full","Full: does almost everything; still asks for deletes, risky steps and new people."]]
+    .map(([value,text])=>[value,value===best?text.replace(":"," (recommended):"):text]).sort((x,y)=>(y[0]===best)-(x[0]===best));
+  const current=short[s.mode]||best;
   modes.forEach(([value,text])=>{const label=node("label","radio");const r=node("input");r.type="radio";r.name="setup-mode";r.value=value;r.checked=value===current;r.addEventListener("change",()=>setupStep({action:"mode",mode:value}).catch(e=>error(e.message)));label.append(r," "+text);card.append(label);});
   // 5. microphone
   card=setupCard("5. Microphone check (optional)"+done("microphone"),"Press the button and speak for one second. The sound is measured, never kept.");
@@ -472,7 +492,7 @@ function renderSetup(s){
   card.append(button("Test the microphone",async()=>{const r=await api("/api/setup",{action:"mic"});meter.value=Math.min(100,Math.round((r.microphone.peak||0)*400));heard.textContent=r.microphone.heard?"Heard you.":"Very quiet: check Windows Settings > Sound > Input.";}),meter,heard);
   // 6. the phone: Tailscale and a QR code in the Phone panel (the account relay is for people who run their own server)
   card=setupCard("6. Use it from your phone (optional)"+done("phone"),s.phone_account?`Phone account: ${s.phone_account}`:"See the laptop's screen, control it, share files and talk to Chutku from your phone. The Phone panel sets up Tailscale (free) and shows a QR code to scan.");
-  card.append(button("Set up my phone",()=>switchTab("phone"),"primary"));
+  card.append(button("Set up my phone",()=>{switchTab("phone");connectPhone();},"primary"));
   const adv=details("Advanced: link through your own relay server");
   const relay=input("url","","https://your-relay.example",200),id=input("text","","ID",32),pw=input("password","","Password (8+)",128),pin=input("password","","Phone PIN (4-6 digits)",6),fresh=node("input");fresh.type="checkbox";
   const r6=node("div","memory-form");const nl=node("label","","New account ");nl.append(fresh);

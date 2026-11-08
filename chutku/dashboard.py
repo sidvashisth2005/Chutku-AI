@@ -446,12 +446,16 @@ class DashboardServer(ThreadingHTTPServer):
             keys = {"groq": "groq" in providers.configured(self.base), "gemini": bool(cloud_planner.api_key())}
         except Exception:
             keys = {"groq": False, "gemini": False}
+        from chutku.core.preferences import defaults as start_defaults
         prefs = self.preferences.load()
         current = identity.load(Path(self.base) / ".env")
         return {**setup_wizard.state(self.base), "assistant": {k: current.get(k) for k in
                                                                 ("ASSISTANT_NAME", "ASSISTANT_GENDER",
                                                                  "ASSISTANT_LANGUAGE", "ASSISTANT_STYLE")},
                 "keys_stored": keys, "mode": prefs["handsfree_mode"], "packs": self.downloads.status(),
+                # what this install starts with (an installed app: Safe; the owner's checkout: Full), so the page
+                # marks that choice "(recommended)" and never contradicts the preselected one
+                "default_mode": start_defaults()["handsfree_mode"],
                 "phone_account": current.get("CHUTKU_ACCOUNT_ID") or None,
                 "links": {"groq": "https://console.groq.com/keys", "gemini": "https://aistudio.google.com/apikey"}}
 
@@ -1800,7 +1804,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if remote is None:
                 self._reply(409, {"error": "Phone access is available only in the running Chutku."})
                 return
-            if action == "enable":
+            if action == "connect":   # owner 2026-11-08: one button does every missing step, in order
+                self._reply(200, remote.connect())
+            elif action == "enable":
                 self._reply(200, remote.enable())
             elif action == "disable":
                 self._reply(200, remote.disable())
@@ -1811,7 +1817,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             elif action == "revoke" and isinstance(data.get("device_id"), str):
                 self._reply(200, remote.revoke(data["device_id"]))
             else:
-                self._reply(400, {"error": "Choose enable, disable, pair, arm, disarm or revoke."})
+                self._reply(400, {"error": "Choose connect, enable, disable, pair, arm, disarm or revoke."})
             return
         if urlsplit(self.path).path == "/api/presence/video/close":   # X13: the video's close button
             from chutku.tools.internet import hud_video_file

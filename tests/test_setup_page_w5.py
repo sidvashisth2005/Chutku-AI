@@ -54,6 +54,10 @@ class EndpointTests(unittest.TestCase):
     def test_steps_persist_and_finish_hides_the_page(self):
         status, view = self.web.call("GET", "/api/setup")
         self.assertEqual((status, view["done"]), (200, False))
+        # the page marks this install's own start mode "(recommended)": Safe for an installed app, Full for a checkout
+        from chutku.core.preferences import defaults
+        self.assertEqual(view["default_mode"], defaults()["handsfree_mode"])
+        self.assertEqual(view["mode"], view["default_mode"])                    # a fresh home starts on it
         self.assertEqual(set(view["packs"]), set(models.PACKS))
         self.assertEqual(self.web.call("POST", "/api/setup", {"action": "name", "name": "Asha"})[0], 200)
         self.assertEqual(self.web.call("POST", "/api/setup", {"action": "mode", "mode": "edits"})[1]["mode"],

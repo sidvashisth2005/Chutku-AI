@@ -126,6 +126,63 @@ class TailscaleTests(unittest.TestCase):
         self.assertFalse(tailscale.funnel_exposes(8766, runner=self.runner()))
         self.assertTrue(tailscale.funnel_exposes(8766, runner=lambda args: (0, "not json")))   # unreadable: closed
 
+    def test_one_button_connect_does_each_missing_step_in_order(self):
+        # owner 2026-11-08: "a cakewalk": install Tailscale, sign in, turn phone access on, show the code
+        from chutku.remote.manager import RemoteManager, DOWNLOAD
+        state, launched, opened = {"installed": False, "logged_in": False}, [], []
+
+        class Job:
+            def __init__(self, lines=()):
+                self.code, self.stdout = None, iter(lines)
+
+            def poll(self):
+                return self.code
+
+            def wait(self):
+                return 0
+
+        def runner(args):
+            if not state["installed"]:
+                return 127, ""
+            if args[:2] == ["status", "--json"]:
+                return 0, json.dumps({"BackendState": "Running" if state["logged_in"] else "NeedsLogin",
+                                      "Self": {"DNSName": HOST + ".", "UserID": 7}, "User": {"7": {"LoginName": LOGIN}}})
+            return 0, "{}" if args[:2] == ["funnel", "status"] else ""
+        jobs = []
+
+        def launch(args, output=False):
+            launched.append("login" if output else "winget")
+            job = Job(["To authenticate, visit:\n", "\n", "\thttps://login.tailscale.com/a/abc123\n"] if output else ())
+            jobs.append(job)
+            return job
+        fake_server = SimpleNamespace(serve_forever=lambda **k: None, stopped=threading.Event(), viewing=lambda: False,
+                                      controlling=lambda: False)
+        fake_server.stopped.set()
+        with TemporaryDirectory() as temp, patch.object(tailscale, "executable", lambda: "tailscale.exe"):
+            manager = RemoteManager(SimpleNamespace(base=Path(temp)), runner=runner, server_factory=lambda c, p: fake_server,
+                                    launch=launch, browse=opened.append)
+            self.assertEqual(manager.connect()["stage"], "installing")
+            self.assertEqual(manager.connect()["stage"], "installing")          # pressed again: still one install
+            self.assertEqual(launched, ["winget"])
+            jobs[0].code = 1                                                       # winget failed
+            failed = manager.connect()
+            self.assertEqual((failed["stage"], failed["url"]), ("problem", DOWNLOAD))
+            self.assertEqual(manager.connect()["stage"], "installing")          # the next press tries again
+            self.assertEqual(launched, ["winget", "winget"])
+            state["installed"] = True
+            self.assertEqual(manager.connect()["stage"], "sign_in")
+            for _ in range(50):
+                if opened:
+                    break
+                time.sleep(0.02)
+            self.assertEqual(opened, ["https://login.tailscale.com/a/abc123"])    # the sign-in page opened for the owner
+            state["logged_in"] = True
+            ready = manager.connect()
+            self.assertEqual(ready["stage"], "ready")
+            self.assertTrue(ready["code"] and "<svg" in ready["qr_svg"] and len(ready["phone_steps"]) == 3)
+            self.assertTrue(manager.store.settings()["enabled"])
+            self.assertEqual(manager.connect()["stage"], "ready")               # pressing again is harmless
+
     def test_manager_refuses_without_tailscale_or_with_funnel(self):
         from chutku.remote.manager import RemoteManager
         with TemporaryDirectory() as temp:

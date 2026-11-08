@@ -16,6 +16,45 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (9): One "Connect my phone" button; setup defaults that never contradict themselves; user docs match
+- **Owner:** "make everything a cakewalk, from downloading till final execution; set the most appropriate option as
+  the default".
+- **Phone in one button** (`RemoteManager.connect`, `/api/remote {action: connect}`, Phone panel "Connect my phone",
+  setup step 6 "Set up my phone"). Each press, and a repeat every 3 s from the page, does the next missing step:
+  1. Tailscale missing: `winget install --id Tailscale.Tailscale --exact --silent` (one Windows prompt). A failed or
+     missing winget gives the download link, and the next press tries again.
+  2. Signed out: `tailscale login` runs and its sign-in page opens in the browser.
+  3. Phone access goes on.
+  4. The pairing code and QR appear with three phone steps (install Tailscale, same account, scan, choose a PIN).
+
+  Pressing again when ready is harmless. The Phone panel text now says control is on by default.
+- **Defaults never contradict themselves:**
+  - New installs start Safe on purpose (W2 `NEW_INSTALL`); the owner's checkout starts Full.
+  - The setup page had "Full (recommended)" hard-coded, so an installed app would show Safe preselected with Full
+    recommended.
+  - `/api/setup` now returns `default_mode`, and the page marks that choice "(recommended)" and lists it first.
+- **User-facing docs** (`installer/README_PUBLIC.md`, `docs/USER_GUIDE.md` §2 and §8) describe the new page:
+  - only the key matters, with no provider to choose;
+  - "Start using Chutku";
+  - Safe by default;
+  - "Connect my phone";
+  - the installer's defaults are already right, so just click Install.
+- **Verified:**
+  - `test_one_button_connect_does_each_missing_step_in_order` (fake runner, launcher and browser):
+    - installing, and a second press does not start a second install;
+    - a winget failure gives a problem with the download URL, and the next press installs again;
+    - sign_in opens `https://login.tailscale.com/a/abc123`;
+    - ready shows a code, an SVG QR and 3 steps, with phone access on;
+    - ready again is harmless.
+  - `test_setup_page_w5`: `default_mode` equals `preferences.defaults()` and a fresh home starts on it.
+  - Edge, both install types: the checkout preselects Full with "Full (recommended)" first; an installed app (via
+    `paths.is_checkout` False) preselects Safe with "Safe (recommended)" first; exactly one "(recommended)".
+  - First-run flow 9/9 again.
+  - Full suite 1651 OK twice. One earlier run had a single error that did not repeat in two reruns (not reproduced).
+- **Still the owner's step:** the public download page does not exist yet. `sidvashisth2005/Chutku-releases` is
+  missing, with no `RELEASES_TOKEN` and no `v*` tag (`installer/RELEASES_REPO.md`), so a new user has no download
+  link today.
+
 ### 2026-11-08 (8): First-run setup made a "cakewalk": one step that matters, defaults for the rest, one Start button
 - **Owner:** "test everything for real, make it production ready; very easy from download to final use; no
   brainstorming; options pre-set to the most appropriate default."

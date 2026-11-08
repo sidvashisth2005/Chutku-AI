@@ -25,19 +25,23 @@ If Chutku hangs or crashes, she restarts by herself (up to 3 times in half an ho
 
 ## 2. First-run setup and Settings
 
-The first time Chutku opens, the **Settings** page walks you through a few short steps. You can change any of them
-later in the same tab:
+The first time Chutku opens, a short setup page appears. **Only step 1 matters**; everything else already has a
+good default, and **Start using Chutku** (top or bottom of the page) saves whatever you typed and finishes. Change any
+of it later under **Settings**.
 
-1. **Her name** and **your name**.
-2. **A free cloud brain (optional, recommended).** Paste a free key from Groq (console.groq.com/keys) or Google AI
-   Studio. The key is stored in Windows Credential Manager, never in a file. Without one, Chutku uses its local
-   models (download the Brain pack in step 5) or answers only the instant phrases.
-3. **The microphone.** Speak and watch the level bar move.
-4. **How much she does on her own** (see section 3).
-5. **Extra packs (optional downloads):** Voice (speech recognition and her voice), Brain (offline thinking) and
-   Screen (reading pictures and the screen). Every file is checked against a pinned checksum; a damaged download is
-   deleted and never used. A download that stops resumes where it left off.
-6. **Your phone (optional).** See section 8.
+1. **A free brain key (one minute).** Press **Get a free key** (it opens Groq), sign in with Google, press **Create
+   API Key**, copy it and paste it into the box. There is no provider to choose: a `gsk_` key is Groq, an `AIza` key
+   is Google Gemini. Keys go to Windows Credential Manager, never a file. Without a key Chutku still answers the
+   instant phrases ("what time is it", "volume 30"), and with the offline Brain pack (step 8) it can think without
+   internet.
+2. **Your name** (optional).
+3. **Her name and voice** (optional): Chutku, female, Hinglish, warm. Press **Change** to pick others.
+4. **How much she does on her own**: Safe is preselected and recommended (see section 3).
+5. **Microphone check** (optional): speak and watch the level bar move.
+6. **Your phone** (optional): **Set up my phone** opens the Phone page and connects it for you (section 8).
+7. **Websites that need your login** (optional): sign in once in the browser window that opens.
+8. **Work without internet** (optional downloads): Voice, Brain and Screen packs. Every file is checked against a
+   pinned checksum; a damaged download is deleted and never used, and a stopped download resumes.
 
 ---
 
@@ -177,8 +181,10 @@ Notes:
 - If you add a cloud brain key, the cloud sees your request, the list of tools and public results only.
 - Private browser windows are never recorded.
 
-**Phone app (optional).** Link it in the **Phone** tab or in Settings, through your own relay server or your own
-Tailscale network. Traffic through the relay is **end-to-end encrypted**: the relay forwards only sealed messages and
+**Phone app (optional).** On the **Phone** page press **Connect my phone**. It installs Tailscale if needed (press
+**Yes** if Windows asks), opens its sign-in page, turns phone access on and shows a code. On the phone: install the
+free Tailscale app, sign in with the same account, scan the code and choose a PIN. (People who run their own relay
+server can link through it under Settings → Advanced.) Traffic through the relay is **end-to-end encrypted**: the relay forwards only sealed messages and
 never sees your password, your requests or the screen. The phone asks for your PIN before approvals, screen view and
 control. Some steps (deleting for good, power, running code) can only be approved at the PC.
 
