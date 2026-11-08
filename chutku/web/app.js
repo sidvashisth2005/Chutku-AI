@@ -424,46 +424,79 @@ function select(options,value){const e=node("select");options.forEach(o=>{const 
 function button(text,onClick,kind){const b=node("button",kind||"",text);b.type="button";b.addEventListener("click",async()=>{b.disabled=true;try{await onClick();}catch(e){error(e.message);}finally{b.disabled=false;}});return b;}
 async function setupStep(data){error("");const s=await api("/api/setup",data);renderSetup(s);return s;}
 async function loadSetup(){try{renderSetup(await api("/api/setup"));}catch(e){error(e.message);}}
+// Owner 2026-11-08, "a cakewalk from download to use; good defaults; nothing to think about": the one step that matters
+// (a free brain key) comes first with plain steps and no provider to choose (gsk_ = Groq, AIza = Gemini); everything
+// else is optional and already set; "Start using Chutku" saves whatever was typed and finishes.
+function details(summary,open){const d=node("details");d.open=!!open;d.append(node("summary","",summary));return d;}
 function renderSetup(s){
   const box=$("setup-steps");box.replaceChildren();
   $("setup-eyebrow").textContent=s.done?"SETTINGS":"FIRST-RUN SETUP";
   $("setup-title").textContent=s.done?"Settings.":"Set up your assistant.";
+  $("setup-subtitle").textContent=s.done?"Change anything here at any time.":"Only step 1 matters. Everything else already has a good default: press “Start using Chutku” whenever you like.";
   const done=k=>s.steps&&s.steps[k]?" ✓":"";
-  const a=s.assistant||{};
-  let card=setupCard("1. Name and personality"+done("assistant"),`It answers to "Oye ${a.ASSISTANT_NAME||"Chutku"}".`);
+  const a=s.assistant||{},name=a.ASSISTANT_NAME||"Chutku",hasKey=!!(s.keys_stored.groq||s.keys_stored.gemini);
+  const start=()=>button(s.done?"Done":"Start using Chutku",async()=>{
+    const typedKey=key.value.trim(),typedName=you.value.trim();
+    const changed=nm.value!==(a.ASSISTANT_NAME||"Chutku")||g.value!==a.ASSISTANT_GENDER||l.value!==a.ASSISTANT_LANGUAGE||st.value!==a.ASSISTANT_STYLE;
+    const view={assistant:{action:"assistant",ASSISTANT_NAME:nm.value,ASSISTANT_GENDER:g.value,ASSISTANT_LANGUAGE:l.value,ASSISTANT_STYLE:st.value}};
+    if(typedKey)await setupStep({action:"key",provider:typedKey.startsWith("AIza")?"gemini":"groq",key:typedKey});
+    if(typedName)await setupStep({action:"name",name:typedName});
+    if(changed)await setupStep(view.assistant);
+    if(!s.done)await setupStep({action:"finish"});
+    switchTab("home");
+  },"primary");
+  if(!s.done){const top=node("div","row-buttons");top.append(start());box.append(top);}
+  // 1. the free brain key
+  let card=setupCard("1. Free brain key"+(hasKey?" ✓":""),hasKey?"A key is stored: Chutku is ready. You can add another one here.":"Chutku needs one free key to think fast. It takes a minute:");
+  if(!hasKey){const ol=node("ol","muted");["Press “Get a free key”: it opens Groq. Sign in with Google.","Press “Create API Key”, then copy the key.","Paste it below and press Save."].forEach(t=>ol.append(node("li","",t)));card.append(ol);}
+  const links=node("p","muted");const getKey=node("a","",hasKey?"Get another free key":"Get a free key");getKey.href=s.links.groq;getKey.target="_blank";getKey.rel="noopener noreferrer";
+  const other=node("a","","(or a Gemini key)");other.href=s.links.gemini;other.target="_blank";other.rel="noopener noreferrer";links.append(getKey," ",other);card.append(links);
+  const key=input("password","","Paste the key (starts with gsk_ or AIza)",200);key.autocomplete="off";
+  const r1=node("div","memory-form");r1.append(field("Key",key),button("Save",async()=>{const k=key.value.trim();if(!k)throw new Error("Paste the key first.");await setupStep({action:"key",provider:k.startsWith("AIza")?"gemini":"groq",key:k});},"primary"));card.append(r1);
+  card.append(node("p","muted",`Stored: Groq ${s.keys_stored.groq?"✓":"—"} · Gemini ${s.keys_stored.gemini?"✓":"—"}. Keys go to Windows Credential Manager and are never shown again.`));
+  // 2. the owner's name
+  card=setupCard("2. Your name (optional)"+done("name"),"So it can greet you by name.");
+  const you=input("text","","Your name",60);const r2=node("div","memory-form");r2.append(field("What should it call you?",you),button("Save",()=>setupStep({action:"name",name:you.value}),"primary"));card.append(r2);
+  // 3. its name and voice: already set
+  card=setupCard("3. Its name and voice (optional)"+done("assistant"),`Ready as “${name}” (${a.ASSISTANT_GENDER||"female"}, ${a.ASSISTANT_LANGUAGE||"hinglish"}, ${a.ASSISTANT_STYLE||"warm"}). Say “Oye ${name}” or press Ctrl+Alt+Space.`);
   const nm=input("text",a.ASSISTANT_NAME,"Chutku",20),g=select(["female","male","neutral"],a.ASSISTANT_GENDER),l=select(["hinglish","english","hindi"],a.ASSISTANT_LANGUAGE),st=select(["warm","professional","witty","calm"],a.ASSISTANT_STYLE);
-  const row=node("div","memory-form");row.append(field("Name",nm),field("Gender",g),field("Language",l),field("Style",st),button("Save",()=>setupStep({action:"assistant",ASSISTANT_NAME:nm.value,ASSISTANT_GENDER:g.value,ASSISTANT_LANGUAGE:l.value,ASSISTANT_STYLE:st.value}),"primary"));card.append(row);
-  card=setupCard("2. Your name"+done("name"));const you=input("text","","Your name",60);const r2=node("div","memory-form");r2.append(field("What should it call you?",you),button("Save",()=>setupStep({action:"name",name:you.value}),"primary"));card.append(r2);
-  card=setupCard("3. Free cloud brain"+done("brain_key"),"Much faster and smarter when you are online. Get a free key, then paste it here.");
-  const links=node("p","muted");[["Groq key",s.links.groq],["Gemini key",s.links.gemini]].forEach(([t,u])=>{const x=node("a","",t);x.href=u;x.target="_blank";x.rel="noopener noreferrer";links.append(x," ");});card.append(links);
-  card.append(node("p","muted",`Stored: Groq ${s.keys_stored.groq?"✓":"—"} · Gemini ${s.keys_stored.gemini?"✓":"—"}`));
-  const prov=select(["groq","gemini"],"groq"),key=input("password","","Paste the key",200);key.autocomplete="off";
-  const r3=node("div","memory-form");r3.append(field("Provider",prov),field("Key",key),button("Save key",async()=>{await setupStep({action:"key",provider:prov.value,key:key.value});key.value="";},"primary"));card.append(r3);
-  card=setupCard("4. Offline packs (optional)"+done("packs"),"Work without internet. Downloads resume if interrupted and are checked against their pinned SHA-256; a file that does not match is deleted.");
-  let downloading=false;
-  for(const [name,p] of Object.entries(s.packs||{})){
-    const line=node("div","row-buttons");line.append(node("strong","",`${p.label} (about ${p.about_gb} GB)`));
-    if(p.state==="installed")line.append(badge("installed","ok"));
-    else if(p.state==="downloading"){downloading=true;const bar=node("progress");bar.max=p.total||1;bar.value=p.done||0;line.append(bar,node("span","muted",`${Math.round((p.done||0)/1e6)} MB${p.total?" of "+Math.round(p.total/1e6)+" MB":""}`));}
-    else{if(p.state==="failed")line.append(badge("failed: "+(p.error||""),"warn"));line.append(button("Download",()=>setupStep({action:"download",pack:name})));}
-    card.append(line);
-  }
-  clearTimeout(setupPoll);if(downloading)setupPoll=setTimeout(loadSetup,2000);
-  card=setupCard("5. Microphone"+done("microphone"),"Speak for one second after you press the button. The sound is measured, never kept.");
+  const change=details("Change");const row=node("div","memory-form");row.append(field("Name",nm),field("Gender",g),field("Language",l),field("Style",st),button("Save",()=>setupStep({action:"assistant",ASSISTANT_NAME:nm.value,ASSISTANT_GENDER:g.value,ASSISTANT_LANGUAGE:l.value,ASSISTANT_STYLE:st.value}),"primary"));change.append(row);card.append(change);
+  // 4. how much it does alone: the default is the owner's choice (2026-10-04: owner mode by default)
+  card=setupCard("4. How much it does on its own"+done("mode"),"Already set. Change it any time.");
+  const modes=[["full","Full (recommended): does almost everything; still asks for deletes, risky steps and new people."],["edits","Edits: also changes files it can undo; asks before the rest."],["safe","Safe: looks and opens things by itself; asks before any change."]];
+  const current={auto_safe:"safe",auto_edits:"edits",owner:"full"}[s.mode]||"full";
+  modes.forEach(([value,text])=>{const label=node("label","radio");const r=node("input");r.type="radio";r.name="setup-mode";r.value=value;r.checked=value===current;r.addEventListener("change",()=>setupStep({action:"mode",mode:value}).catch(e=>error(e.message)));label.append(r," "+text);card.append(label);});
+  // 5. microphone
+  card=setupCard("5. Microphone check (optional)"+done("microphone"),"Press the button and speak for one second. The sound is measured, never kept.");
   const meter=node("progress");meter.max=100;meter.value=0;const heard=node("span","muted");
   card.append(button("Test the microphone",async()=>{const r=await api("/api/setup",{action:"mic"});meter.value=Math.min(100,Math.round((r.microphone.peak||0)*400));heard.textContent=r.microphone.heard?"Heard you.":"Very quiet: check Windows Settings > Sound > Input.";}),meter,heard);
-  card=setupCard("6. How much it does on its own"+done("mode"));
-  const modes=[["safe","Safe (recommended): looks and opens things by itself; asks before changes."],["edits","Edits: also changes files it can undo."],["full","Full: does almost everything; still asks for deletes, risky steps and new people."]];
-  const current={auto_safe:"safe",auto_edits:"edits",owner:"full"}[s.mode]||"safe";
-  modes.forEach(([value,text])=>{const label=node("label","radio");const r=node("input");r.type="radio";r.name="setup-mode";r.value=value;r.checked=value===current;r.addEventListener("change",()=>setupStep({action:"mode",mode:value}).catch(e=>error(e.message)));label.append(r," "+text);card.append(label);});
-  card=setupCard("7. Optional: phone app and signed-in browser"+done("phone")+done("browser"),s.phone_account?`Phone account: ${s.phone_account}`:"One ID and password link this PC and the phone app (docs/RELAY.md).");
+  // 6. the phone: Tailscale and a QR code in the Phone panel (the account relay is for people who run their own server)
+  card=setupCard("6. Use it from your phone (optional)"+done("phone"),s.phone_account?`Phone account: ${s.phone_account}`:"See the laptop's screen, control it, share files and talk to Chutku from your phone. The Phone panel sets up Tailscale (free) and shows a QR code to scan.");
+  card.append(button("Set up my phone",()=>switchTab("phone"),"primary"));
+  const adv=details("Advanced: link through your own relay server");
   const relay=input("url","","https://your-relay.example",200),id=input("text","","ID",32),pw=input("password","","Password (8+)",128),pin=input("password","","Phone PIN (4-6 digits)",6),fresh=node("input");fresh.type="checkbox";
-  const r7=node("div","memory-form");const nl=node("label","","New account ");nl.append(fresh);
-  r7.append(field("Relay",relay),field("ID",id),field("Password",pw),field("PIN",pin),nl,button("Link phone",async()=>{await setupStep({action:"phone",relay:relay.value,id:id.value,password:pw.value,pin:pin.value,new:fresh.checked});pw.value="";pin.value="";}));card.append(r7);
-  card.append(button("Sign in to the signed-in browser",()=>setupStep({action:"browser_login"})));
+  const r6=node("div","memory-form");const nl=node("label","","New account ");nl.append(fresh);
+  r6.append(field("Relay",relay),field("ID",id),field("Password",pw),field("PIN",pin),nl,button("Link phone",async()=>{await setupStep({action:"phone",relay:relay.value,id:id.value,password:pw.value,pin:pin.value,new:fresh.checked});pw.value="";pin.value="";}));adv.append(r6);card.append(adv);
+  // 7. websites that need a login
+  card=setupCard("7. Websites that need your login (optional)"+done("browser"),"Opens a browser window: sign in once to sites like WhatsApp Web or Gmail, and Chutku can use them for you.");
+  card.append(button("Open the sign-in browser",()=>setupStep({action:"browser_login"})));
+  // 8. offline packs
+  let downloading=false;const packs=Object.entries(s.packs||{});
+  packs.forEach(([,p])=>{if(p.state==="downloading")downloading=true;});
+  card=setupCard("8. Work without internet (optional)"+done("packs"),"Downloads resume if interrupted and are checked against their pinned SHA-256; a file that does not match is deleted.");
+  const offline=details("Offline packs",downloading);
+  for(const [packName,p] of packs){
+    const line=node("div","row-buttons");line.append(node("strong","",`${p.label} (about ${p.about_gb} GB)`));
+    if(p.state==="installed")line.append(badge("installed","ok"));
+    else if(p.state==="downloading"){const bar=node("progress");bar.max=p.total||1;bar.value=p.done||0;line.append(bar,node("span","muted",`${Math.round((p.done||0)/1e6)} MB${p.total?" of "+Math.round(p.total/1e6)+" MB":""}`));}
+    else{if(p.state==="failed")line.append(badge("failed: "+(p.error||""),"warn"));line.append(button("Download",()=>setupStep({action:"download",pack:packName})));}
+    offline.append(line);
+  }
+  card.append(offline);
+  clearTimeout(setupPoll);if(downloading)setupPoll=setTimeout(loadSetup,2000);
   const end=node("div","row-buttons");
-  if(!s.done)end.append(button("Finish setup",async()=>{await setupStep({action:"finish"});switchTab("home");},"primary"));
-  else end.append(button("Run setup again",()=>setupStep({action:"reopen"})));
+  end.append(start());
+  if(s.done)end.append(button("Run setup again",()=>setupStep({action:"reopen"})));
   box.append(end);
 }
 api("/api/setup").then(s=>{if(!s.done&&!startTab)switchTab("settings");}).catch(()=>{});

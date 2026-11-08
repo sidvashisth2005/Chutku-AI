@@ -16,6 +16,44 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (8): First-run setup made a "cakewalk": one step that matters, defaults for the rest, one Start button
+- **Owner:** "test everything for real, make it production ready; very easy from download to final use; no
+  brainstorming; options pre-set to the most appropriate default."
+- **Real first-run walk** (the actual dashboard on an empty Chutku home, Edge, screenshots). It found:
+  - the mode step labelled Safe "(recommended)" while Full was preselected (the owner's 2026-10-04 default);
+  - each step had its own Save, so "Finish setup" silently dropped a typed name or pasted key;
+  - the phone step asked for a "Relay URL" (`https://your-relay.example`) instead of the Tailscale/QR path;
+  - a button read "Sign in to the signed-in browser".
+
+  A user who skipped everything could still type "what time is it" and got the right answer (no key needed for
+  instant phrases).
+- **New page** (`app.js` `renderSetup`, same `/api/setup` actions):
+  1. Free brain key first, with three plain steps ("Get a free key" opens Groq) and no provider to choose: `gsk_`
+     means Groq, `AIza` means Gemini.
+  2. Your name (optional).
+  3. Its name and voice: shown as already set, with the controls under "Change".
+  4. Mode: Full (recommended), preselected, matching the default.
+  5. Microphone (optional).
+  6. Phone: "Set up my phone" opens the Phone panel (Tailscale, QR code); the account relay fields moved under
+     "Advanced: your own relay server".
+  7. "Websites that need your login": "Open the sign-in browser".
+  8. Offline packs under "Offline packs".
+
+  "Start using Chutku" sits at the top and bottom and saves whatever was typed (key, name, changed voice) before
+  finishing.
+- **Verified:** Edge walk on an empty home, with Credential Manager replaced by a fake so no real key was touched,
+  9/9:
+  - step 1 is the brain key and the rest are optional or set;
+  - the preselected mode is the one marked recommended;
+  - the relay field is not visible (`checkVisibility`);
+  - "Start using Chutku" appears twice;
+  - typing a name and pasting a `gsk_` key, then pressing only Start, stored the key as Groq, saved the name,
+    finished setup and showed Home;
+  - an `AIza` key was stored as Gemini;
+  - no JavaScript errors.
+
+  Full suite 1650 OK.
+
 ### 2026-11-08 (7): Phone control on by default, kept through restarts
 - **Owner:** "set phone control on by default; if I want to stop it I'll do that myself on the laptop". They had to
   allow it at the laptop each time. Also asked what to do about DNS: keep the phone's DNS on Automatic (it works,
