@@ -24,6 +24,20 @@ Owner decisions are in `docs/DESIGN.md` §51.
     Cython), which is on the future list.
 - **Live:** `chutku.cli control restart` on the real Chutku. The guard recorded `owner_quit`, Chutku came back on
   the 1.2 code (the "What can I say?" page is served), and `actions_paused` is **false**. WA6 is verified.
+- **Built and published on the PC.** GitHub Actions did not start (the account's spending limit or payment), so
+  the release workflow could not run:
+  - Inno Setup 6.7.3 installed **per user** with winget (no admin).
+  - `build_release.py --version 1.2.0`: 313.8 MB zip, scan clean. Note: models/embed is absent on this PC, so it is
+    not bundled.
+  - ISCC built `Chutku-Setup-for-Windows.exe` (315.9 MB, the package inside, SHA-checked at install).
+  - **Real install test:** a silent install to `%TEMP%\ctest\Chutku` (no autostart or desktop tasks) took 40 s;
+    `chutku\` and `python\` are Hidden; **0 `.py` files**; the "Uninstall Chutku" Start-menu shortcut is there.
+    A silent uninstall then removed the app and the shortcuts.
+  - `gh release create v1.2.0` on Chutku-releases with that one file; **v1.1.0 deleted**, so only v1.2.0 remains.
+  - The public README was rewritten for a first-time user: 6 install steps, each with a real screenshot and an
+    orange arrow on what to click (the release page, welcome, get key, paste key, all set, ask, "What can I say?"),
+    then how to use it, safety, updates, **uninstall** and questions. It and 7 images are in Chutku-releases
+    (commit d506bc3).
 - **FUTURE (not done; the owner asked to be reminded):**
   1. Live Night Shift practice in `D:\ChutkuPractice` (turn `practice.run(live)` on, 50 to 100 items a night) and
      read the first reports (`scripts/practice_report.py`).
