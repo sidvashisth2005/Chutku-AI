@@ -16,6 +16,26 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (17): Release 1.2.0, and the FUTURE list (deferred by the owner to save tokens; remind him)
+- **Released as 1.2.0:** the merged 1.2 (WA1–WA6), the PC's training round and fixes, "Uninstall Chutku" in the
+  Start menu, and the app's `chutku\` and `python\` folders hidden after install. The package already ships compiled
+  `.pyc` only, never source.
+  - A determined person can still decompile `.pyc` files; real protection would need a native compiler (Nuitka or
+    Cython), which is on the future list.
+- **Live:** `chutku.cli control restart` on the real Chutku. The guard recorded `owner_quit`, Chutku came back on
+  the 1.2 code (the "What can I say?" page is served), and `actions_paused` is **false**. WA6 is verified.
+- **FUTURE (not done; the owner asked to be reminded):**
+  1. Live Night Shift practice in `D:\ChutkuPractice` (turn `practice.run(live)` on, 50 to 100 items a night) and
+     read the first reports (`scripts/practice_report.py`).
+  2. The planner baseline on the task bank with the real models (`practice.run(plan)` with local and cloud), then
+     fix the worst categories: web (44 to the model), settings (41), installs (39).
+  3. The first weekly LoRA from verified wins; kept only if held-out improves.
+  4. The machine-wide install through the UAC prompt (needs the owner's "Yes" click).
+  5. Decide: should a reversible, one-step-undo change (e.g. "file extensions dikhao") ask the very first time?
+     Today it does not.
+  6. Stronger code protection (Nuitka or Cython native build) if the owner wants more than compiled `.pyc` plus
+     hidden folders.
+
 ### 2026-11-08 (16): Chutku 1.2 merged on the PC: WA1–WA6 from web Claude, plus the PC's fixes
 - **Merged** `origin/claude/chutku-1.2` at e443dad (WA6, WA1, WA2, WA3, WA4, WA5 and the launch-review fixes).
   The only conflict was this file; both sides were kept. Web Claude had fixed the elevation handle lock itself

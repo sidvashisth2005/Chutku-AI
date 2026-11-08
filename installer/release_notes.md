@@ -11,12 +11,15 @@ Linux, Android or iPhone. Ignore the "Source code" links below; GitHub adds them
 
 Already using Chutku? It tells you about this update by itself: click **Update now** in the popup.
 
-## What's new in 1.1
+## What's new in 1.2
 
-- A new look: cleaner, calmer and easier to read, in light and dark, following your Windows theme.
-- A guided first-run setup that checks your AI key really works before you start.
-- One download instead of several files, and updates from inside the app.
-- Telegram setup with a QR code, and "Reach this laptop after a restart" in the Phone tab.
+- Chutku now does almost anything you ask on your PC: install and uninstall apps, change Windows settings, startup
+  apps and more. It asks once before risky steps and remembers when you say "Yes, always".
+- It refuses only things that could damage Windows (system files, start-up, security), and tells you why.
+- Undo for system changes: say "wo setting wapas karo".
+- A simpler window: a short menu, a "What can I say?" page with examples, and tips on the Home page.
+- Restart Chutku from Settings, and it comes back ready (no more "paused").
+- "Uninstall Chutku" in the Start menu.
 
 ---
 Chutku is designed and developed by **Siddhant Vashisth**.

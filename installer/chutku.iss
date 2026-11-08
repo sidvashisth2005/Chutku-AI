@@ -58,6 +58,7 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: checkedonc
 
 [Icons]
 Name: "{userprograms}\Chutku"; Filename: "{app}\Chutku.exe"
+Name: "{userprograms}\Uninstall Chutku"; Filename: "{uninstallexe}"; Comment: "Remove Chutku from this PC"
 Name: "{userdesktop}\Chutku"; Filename: "{app}\Chutku.exe"; Tasks: desktopicon
 
 [Registry]
@@ -255,6 +256,11 @@ begin
                 ewWaitUntilTerminated, Code) or (Code <> 0) or not FileExists(ExpandConstant('{app}\Chutku.exe')) then
       RaiseException('The app could not be unpacked (code ' + IntToStr(Code) + ').');
   end;
+  { 1.2 (owner): users see Chutku.exe and the uninstaller, not the program's insides (compiled .pyc only, no source) }
+  Exec(ExpandConstant('{sys}\attrib.exe'), '+h "' + ExpandConstant('{app}') + '\chutku" /d', '', SW_HIDE,
+       ewWaitUntilTerminated, Code);
+  Exec(ExpandConstant('{sys}\attrib.exe'), '+h "' + ExpandConstant('{app}') + '\python" /d', '', SW_HIDE,
+       ewWaitUntilTerminated, Code);
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
