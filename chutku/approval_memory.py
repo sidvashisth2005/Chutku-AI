@@ -16,7 +16,7 @@ import time
 EXPIRE_SECONDS = 90 * 24 * 3600
 REMOTE_ORIGINS = frozenset({"phone", "telegram", "relay"})
 OWN_CODE = frozenset({"system.powershell", "code.run_python"})   # R4/code the owner's exact text may be remembered
-NEVER = ("elevate.", "apps.uninstall")                            # Windows' own UAC prompt asks every time
+NEVER = ("elevate.", "apps.uninstall", "services.set")           # elevated or removing: asks every time
 
 
 def _file(base):

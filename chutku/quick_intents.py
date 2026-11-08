@@ -217,6 +217,9 @@ def quick_proposal(goal, apps=None):
     taught = _teach(goal)
     if taught is not None:   # A15 teach mode, A16 screen survey
         return taught
+    system = _system_phrase(goal, installs=False)
+    if system is not None:   # WA2: a named Windows setting, a service, startup apps, undo ("notifications band karo")
+        return system
     from chutku import blueprints
     automation = blueprints.parse(goal)
     if automation is not None:   # H23: "subah ka briefing set karo 8 baje" -> task.schedule steps
@@ -230,6 +233,8 @@ def quick_proposal(goal, apps=None):
             tab, goal = choice, " ".join(pattern.sub(" ", goal).split())
             break
     proposal = _quick_proposal(goal, apps)
+    if proposal is None:   # WA2: installs, Windows settings, services, startup apps, undo of a system change, only
+        proposal = _system_phrase(goal, installs=True)   # when nothing older matched ("install notepad" opens an installed app)
     if proposal is not None and tab:
         for step in proposal["next_steps"]:
             if step["tool"] in BROWSER_TOOLS:
@@ -257,6 +262,77 @@ _TEACH_HI = re.compile(_TEACH_START + r"(?P<name>[a-z][a-z0-9 -]{0,29}?)\s+(?P<a
 _TEACH_DONE = re.compile(r"^(?:ho gaya|ho gya|bas|done|done teaching|finished|ho gaya,? save karo)\s*[.!]?$", re.I)
 _SURVEY = re.compile(r"^(?:screen survey(?: karo)?|survey (?:my |the )?screen|what(?:'s| is) open on (?:my|the) "
                      r"screen|screen pe kya kya khula hai|kaun kaun si windows? khuli hai[n]?)\s*[?.!]?$", re.I)
+
+
+_APP_NAME = r"(?P<app>[a-z0-9][\w.+-]*(?: [\w.+-]+){0,3}?)"   # 1-4 words: an app, not a sentence
+_APP_NAME2 = _APP_NAME.replace("<app>", "<app2>")
+_SYSTEM = [
+    ("apps.install", re.compile(rf"^(?:please\s+)?(?:install|download and install)\s+(?!(?:karo|kar do|kardo|it|this|that)\s*[.!]?$){_APP_NAME}(?:\s+app)?\s*[.!]?$|"
+                                rf"^{_APP_NAME2}\s+install\s+(?:karo|kar do|kardo|kar dena)\s*[.!]?$", re.I)),
+    ("apps.uninstall", re.compile(rf"^(?:please\s+)?(?:uninstall|remove the app)\s+(?!(?:karo|kar do|kardo|it|this|that)\s*[.!]?$){_APP_NAME}\s*[.!]?$|"
+                                  rf"^{_APP_NAME2}\s+uninstall (?:karo|kar do)\s*[.!]?$", re.I)),
+    ("services.list", re.compile(r"^(?:list|show)\s+(?:all\s+)?(?:windows\s+)?services|^services?\s+(?:dikhao|batao|list)\s*[.!?]?$", re.I)),
+    ("services.set", re.compile(r"^(?P<verb>start|stop|restart)\s+(?:the\s+)?(?P<name>[\w.-]{2,60})\s+service\s*[.!]?$|"
+                                r"^(?P<name2>[\w.-]{2,60})\s+service\s+(?P<verb2>start|stop|restart|band|chalu)\s*(?:karo|kar do)?\s*[.!]?$", re.I)),
+    ("startup.list", re.compile(r"^(?:show|list)\s+(?:my\s+)?startup(?:\s+apps)?|^startup(?:\s+apps)?\s+(?:dikhao|batao)\s*[.!?]?$", re.I)),
+    ("startup.toggle", re.compile(r"^(?P<verb>disable|enable)\s+(?P<name>[\w .+-]{2,60}?)\s+(?:at|on|from)\s+startup\s*[.!]?$|"
+                                  r"^(?P<name2>[\w .+-]{2,60}?)\s+(?:ko\s+)?startup\s+(?P<verb2>se hata do|se hatao|mein daalo|pe lagao)\s*[.!]?$", re.I)),
+    ("system.undo_last", re.compile(r"^(?:undo|revert)\s+(?:the\s+)?last\s+(?:system\s+)?(?:setting|change)|"
+                                    r"^(?:wo|woh|last|pichli)\s+(?:setting|change)\s+wapas\s+(?:karo|kar do)\s*[.!]?$", re.I)),
+]
+_SETTING_PHRASES = [
+    (re.compile(r"\b(show|dikhao|hide|chhupao|chupao)\b.*\bfile extensions?\b|\bfile extensions?\b.*\b(show|dikhao|hide|chhupao|chupao)\b", re.I), "file_extensions"),
+    (re.compile(r"\b(show|dikhao|hide|chhupao|chupao)\b.*\bhidden files\b|\bhidden files\b.*\b(show|dikhao|hide|chhupao|chupao)\b", re.I), "hidden_files"),
+    (re.compile(r"\btaskbar\b.*\b(left|center|centre|beech)\b", re.I), "taskbar_alignment"),
+    (re.compile(r"\bnotifications?\b.*\b(on|off|band|chalu)\b|\b(turn on|turn off)\b.*\bnotifications\b", re.I), "notifications"),
+    (re.compile(r"\b(high performance|power saver|balanced)\b.*\b(mode|plan|on|karo)\b|\bpower plan\b.*\b(high performance|power saver|balanced)\b", re.I), "power_plan"),
+]
+
+
+def _system_phrase(goal, installs):
+    """WA2 phrases; the tools check their own arguments. installs: only install/uninstall (they come last, so
+    "install notepad" still opens an installed app); otherwise everything but them."""
+    text = " ".join(goal.split()).strip()
+    lowered = text.casefold()
+    if re.search(r"\bsteam\b", lowered):
+        return None   # "install X on steam" stays games.install
+    for setting_pattern, name in ([] if installs else _SETTING_PHRASES):
+        if setting_pattern.search(text):
+            value = None
+            if name in ("file_extensions", "hidden_files"):
+                value = "hide" if re.search(r"\b(hide|chhupao|chupao)\b", lowered) else "show"
+            elif name == "taskbar_alignment":
+                value = "left" if "left" in lowered else "center"
+            elif name == "notifications":
+                value = "off" if re.search(r"\b(off|band)\b", lowered) else "on"
+            elif name == "power_plan":
+                value = ("high_performance" if "high performance" in lowered else
+                         "power_saver" if "power saver" in lowered else "balanced")
+            return _proposal("settings.set", {"name": name, "value": value}, f"Set {name} to {value}", "",
+                             finish=False)
+    for tool, pattern in _SYSTEM:
+        if installs != (tool in ("apps.install", "apps.uninstall")):
+            continue
+        match = pattern.match(text)
+        if not match:
+            continue
+        groups = {k: v for k, v in match.groupdict().items() if v}
+        if tool in ("apps.install", "apps.uninstall"):
+            app = (groups.get("app") or groups.get("app2")).strip()
+            return _proposal(tool, {"app": app}, f"{tool.split('.')[1].title()} {app}", "",
+                             finish=False)
+        if tool == "services.set":
+            verb = (groups.get("verb") or groups.get("verb2")).casefold()
+            verb = {"band": "stop", "chalu": "start"}.get(verb, verb)
+            return _proposal(tool, {"name": groups.get("name") or groups.get("name2"), "action": verb},
+                             f"{verb} a service", "", finish=False)
+        if tool == "startup.toggle":
+            verb = (groups.get("verb") or groups.get("verb2")).casefold()
+            on = verb in ("enable", "mein daalo", "pe lagao")
+            return _proposal(tool, {"name": (groups.get("name") or groups.get("name2")).strip(), "enabled": on},
+                             "Change a startup app", "", finish=False)
+        return _proposal(tool, {}, tool, "", finish=False)
+    return None
 
 
 def _teach(goal):
@@ -1900,7 +1976,12 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "telegram.handoff": lambda out: out["summary"],
                  "system.self_repair": lambda out: out["summary"],
                  "teach.start": lambda out: out["summary"], "teach.stop": lambda out: out["summary"],
-                 "desktop.survey": lambda out: out["summary"]}
+                 "desktop.survey": lambda out: out["summary"],
+                 # WA2 system tools
+                 "apps.install": lambda out: out["summary"], "apps.uninstall": lambda out: out["summary"],
+                 "settings.set": lambda out: out["summary"], "startup.list": lambda out: out["summary"],
+                 "startup.toggle": lambda out: out["summary"], "services.list": lambda out: out["summary"],
+                 "services.set": lambda out: out["summary"], "system.undo_last": lambda out: out["summary"]}
 
 
 def quick_answer(session):

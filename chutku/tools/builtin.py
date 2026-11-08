@@ -394,6 +394,8 @@ def register_builtin_tools(registry: ToolRegistry) -> None:
     register_uia_action_tools(registry)
     register_system_control_tools(registry)
     register_windows_settings_tools(registry)
+    from chutku.tools.system_tools import register_system_tools   # WA2: installs, settings, registry, services
+    register_system_tools(registry)
     register_power_tools(registry)
     register_browser_tools(registry)
     from chutku.tools.everyday import register_everyday_tools

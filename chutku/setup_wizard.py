@@ -43,6 +43,7 @@ PERMISSIONS = {
     "process.observe": "See running programs and PC load",
     "clipboard.read": "Read what you copied",
     "clipboard.write": "Put text on your clipboard",
+    "apps.manage": "Install and uninstall apps (asks each time)",
     "process.launch": "Run programs and code she writes (always asks)",
     "process.terminate": "End a stuck program (always asks)",
     "power.control": "Shut down or restart the PC (always asks)",
@@ -52,7 +53,7 @@ PERMISSIONS = {
 }
 EVERYDAY = ("apps.launch", "audio.observe", "audio.modify", "screen.observe", "desktop.input", "browser.navigate",
             "internet.read", "reminders.manage", "settings.observe", "settings.modify", "network.observe",
-            "process.observe", "clipboard.read")
+            "process.observe", "clipboard.read", "apps.manage")
 
 
 def _setup_path(base):

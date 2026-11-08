@@ -29,6 +29,13 @@ CASES = [
     # 2026-11-08 launch review: the guide's and README's own phrasings
     ("kitni jagah bachi hai", "system.disk_space"), ("laptop mein kitni jagah hai", "system.disk_space"),
     ("aaj ki news", "web.news"), ("30 min baad yaad dilana pani peena", "reminder.set"),
+    # WA2 system tools (Chutku 1.2)
+    ("install vlc", "apps.install"), ("vlc install karo", "apps.install"), ("uninstall zoom", "apps.uninstall"),
+    ("file extensions dikhao", "settings.set"), ("show hidden files", "settings.set"), ("taskbar left karo", "settings.set"),
+    ("notifications band karo", "settings.set"), ("high performance mode on karo", "settings.set"),
+    ("services dikhao", "services.list"), ("spooler service band karo", "services.set"),
+    ("startup apps dikhao", "startup.list"), ("discord ko startup se hata do", "startup.toggle"),
+    ("disable discord at startup", "startup.toggle"), ("wo setting wapas karo", "system.undo_last"),
     # W6 A15 teach mode, A16 screen survey
     ("sikho padhai setup notepad mein", "teach.start"), ("teach me dark mode in Settings", "teach.start"),
     ("screen survey karo", "desktop.survey"), ("what's open on my screen", "desktop.survey"),

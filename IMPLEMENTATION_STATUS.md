@@ -16,6 +16,46 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08: WA2 (cloud session, Chutku 1.2): system tools, no admin first, elevation through a broker
+
+**What changed** (`chutku/tools/system_tools.py`, `chutku/elevate.py`, `chutku/system_journal.py`):
+- **Installs:** `apps.install` / `apps.uninstall` use winget with `--scope user` first. On "no applicable installer"
+  they retry machine-wide, and winget raises Windows' own prompt. Both are R3 and ask, under the new capability
+  `apps.manage` (in the new-install everyday set and on the Settings permissions card).
+- **Settings:** `settings.set` covers file extensions, hidden files, taskbar alignment, transparency, notifications
+  and the power plan (powercfg). Each is read before and after, and journaled.
+- **Registry:** `registry.set_user` covers HKCU\Software only, with dword or string values. Policies and Defender
+  keys, HKLM and `..` are refused. Journaled.
+- **Startup apps:** `startup.list` / `startup.toggle` switch through StartupApproved like Task Manager (the Run entry
+  is never deleted). Journaled.
+- **Services:** `services.list` (Get-Service) and `services.set`. `services.set` runs `sc.exe` through the broker, and
+  security and core services are refused.
+- **The broker** (`chutku/elevate.py`): one structured command line, the damage check first, then
+  `Start-Process -Verb RunAs`, with output through a temp file. "No" on Windows' prompt is reported. Free text is
+  never elevated.
+- **Undo:** `system.undo_last` puts the newest journaled change back. An install is undone by uninstalling.
+- **Ask-once memory** never covers `services.set` or `apps.uninstall`.
+- **Phrases:** settings, services, startup and undo are matched early; install and uninstall come last, so
+  "install notepad" still opens an installed app and "install X on steam" stays a game.
+- SECURITY.md counts updated: 252 tools, with R0 94, R1 83, R2 32, R3 36 and R4 7.
+
+**Evidence (Linux, fakes):** `tests/test_system_tools_wa2.py`, 8 tests:
+- a setting is read back, journaled and undone, and nothing is left to undo afterwards;
+- the power plan goes through powercfg;
+- registry negatives: HKLM, Policies, Defender, `..`, a bad dword;
+- startup off without deleting the entry;
+- the service goes through the broker; Defender, firewall and the event log are refused before the broker;
+- install retries machine-wide, and undo uninstalls;
+- the broker refuses damage, multi-line and a UAC "No";
+- elevated and uninstall steps are never remembered.
+
+`check_phrases` 175/181 (the 6 Linux-only `files.*`). The full suite has no new failures. The 2 "new" are the
+renamed Windows-only zone tests.
+
+**Needs the Windows check:** a real winget install and uninstall, `settings.set` read-back, the startup toggle seen
+in Task Manager, and `services.set` with Windows' UAC prompt (Yes and No).
+
+
 ### 2026-11-08: WA1 (cloud session, Chutku 1.2): "never refuse except system damage", ask-once memory
 
 **What changed:**

@@ -183,6 +183,14 @@ class QuickIntentTests(unittest.TestCase):
         samples["teach.stop"] = {"summary": "Seekh liya, 'notes': type \"hello\" into \"Note\" in notepad. Bolo 'notes' "
                                             "to main dobara karungi (pehli baar saath mein dekhna)."}
         samples["desktop.survey"] = {"summary": "Open windows: Notepad.exe: notes.txt (14 items); Spotify.exe: Spotify (52 items)"}
+        for wa2 in ("apps.install", "apps.uninstall", "settings.set", "startup.list", "startup.toggle", "services.list",
+                    "services.set", "system.undo_last"):   # WA2: each tool's own one-line summary
+            samples[wa2] = {"summary": {"apps.install": "VLC install ho gaya.", "apps.uninstall": "Zoom uninstall ho gaya.",
+                                        "settings.set": "file extensions: show.", "startup.list": "Startup apps: Discord (on).",
+                                        "startup.toggle": "Discord no longer starts with Windows.",
+                                        "services.list": "112 of 260 services are running.",
+                                        "services.set": "Print Spooler: stop done.",
+                                        "system.undo_last": "Wapas kar diya: setting file_extensions."}[wa2]}
         samples_empty = {"apps.installed": {"query": "Steam", "apps": [], "count": 0, "truncated": False}}
         samples_empty["mind.who"] = {"name": "mammi", "known": False}
         samples_empty["mind.show"] = {"part": "all", "people": [], "facts": {}, "lists": {}}
