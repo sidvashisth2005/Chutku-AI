@@ -73,3 +73,13 @@ Head of Design (every tab), CMO (every claim), CFO (cost and limits), CISO (secu
 - **CISO (theoretical):**
   - a `/pair` sent in a group chat would pair the whole group;
   - files the elevated setup reads could be changed by same-user code before the UAC prompt.
+
+## windows-latest CI for this review
+
+The last review commit, af63226 ("Launch review fix from windows-latest") on `claude/youthful-faraday-av41ls`, is
+green:
+
+- tests: run 42481864265;
+- package: run 42481864268.
+
+The branch is merged into `claude/chutku-1.2` (be9e939).
