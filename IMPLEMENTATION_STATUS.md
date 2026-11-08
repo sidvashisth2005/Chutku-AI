@@ -16,6 +16,26 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (13): The "Tiranga" palette for the laptop and phone apps
+- **Owner** (screenshot of the dark home page): "no contrast, only text in black; brilliant tricolour palettes; design
+  like an experienced Gen Z developer".
+- **Palette:** a modern tricolour: saffron `#FF8A2A` for action, chakra blue `#6B86FF` for focus and mint `#2BE0A2`
+  for done, plus pink and violet as gradient bridges.
+- **What changed:**
+  - A deep ink background with soft saffron, blue and mint washes.
+  - A tricolour stripe on the sidebar, the onboarding card, the update popup, the phone header and the phone cards.
+  - The greeting, the section eyebrows, "You're all set" and the developer's name in the tricolour gradient.
+  - Each Today tile in its own colour (top border, label, figures).
+  - Saffron-to-pink main buttons; blue-to-violet user chat bubbles; a stripe on the active menu item.
+  - Brighter body text in dark mode: muted `#A7ACC8`, ink `#F5F6FF`.
+  - Light mode gets the same accents on white.
+  - The CSS is one override layer at the end of `theme.css` and `phone.css`; ids and structure are unchanged.
+- **Verified:**
+  - Screenshots of Home in light and dark, Settings, the phone pair screen and the phone app in portrait and
+    landscape, all with no console errors.
+  - Onboarding 38/38 and every-button all pass again.
+  - Phone, dashboard, onboarding, setup and docs suites OK.
+
 ### 2026-11-08 (12): The old release removed, Chutku restarted, the phone app in the 1.1 design
 - **Owner:** "delete old release, only new remains; restart Chutku; enhance the phone dashboard too".
 - **Releases:** `gh release delete v1.0.0 --cleanup-tag` on Chutku-releases. `gh release list` now shows only

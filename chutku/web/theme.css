@@ -257,3 +257,102 @@ body.onboarding-open{overflow:hidden}
 }
 .celebrate .onboarding-actions{justify-content:center}.celebrate .onboarding-actions .grow{display:none}
 .mic svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}.mic{display:grid;place-items:center;padding:0}
+
+/* ======================================================================================================
+   1.1 "Tiranga" palette (owner 2026-11-08: no contrast, only text in black; brilliant tricolour palettes; Gen Z must
+   stay hooked). A modern take on the tricolour: saffron (action), chakra blue (focus), mint green (done/ok), on a
+   deep ink background with soft colour washes. Overrides only; structure and ids unchanged.
+   ====================================================================================================== */
+:root{
+  --saffron:#FF7A1A;--chakra:#3B5BFF;--mint:#0FB57E;
+  --tri:linear-gradient(90deg,var(--saffron),#FF4F8B 38%,var(--chakra) 68%,var(--mint));
+  --tri-soft:linear-gradient(135deg,rgba(255,122,26,.10),rgba(59,91,255,.08) 55%,rgba(15,181,126,.10));
+  --bg:#F7F7FB;--surface:#FFFFFF;--surface-2:#F1F2F8;--line:#E2E4EF;--line-strong:#CDD1E2;
+  --ink:#121426;--ink-2:#33374D;--muted:#5F6480;
+  --accent:#F26A0F;--accent-hover:#DB5D08;--accent-soft:#FFF0E5;--accent-ink:#FFFFFF;
+  --green:#0E9F6E;--green-soft:#E3F8EF;--blue:#3B5BFF;--blue-soft:#E8ECFF;--violet:#8B5CF6;--violet-soft:#F1EBFF;--pink:#FF4F8B;
+  --shadow:0 1px 2px rgba(18,20,38,.06),0 4px 14px rgba(18,20,38,.05);
+}
+@media (prefers-color-scheme:dark){:root{
+  --saffron:#FF8A2A;--chakra:#6B86FF;--mint:#2BE0A2;
+  --bg:#090B14;--surface:#121626;--surface-2:#1A1F33;--line:#262C45;--line-strong:#343B5A;
+  --ink:#F5F6FF;--ink-2:#D9DCF0;--muted:#A7ACC8;
+  --accent:#FF8A2A;--accent-hover:#FF9C47;--accent-soft:rgba(255,138,42,.14);--accent-ink:#1A0B00;
+  --green:#2BE0A2;--green-soft:rgba(43,224,162,.12);--blue:#7E95FF;--blue-soft:rgba(107,134,255,.14);
+  --violet:#B194FF;--violet-soft:rgba(177,148,255,.14);--pink:#FF6FA0;
+  --orange:#FFB454;--orange-soft:rgba(255,180,84,.12);--red:#FF6B7A;--red-soft:rgba(255,107,122,.13);
+  --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 8px 24px rgba(0,0,0,.35);
+  --tri-soft:linear-gradient(135deg,rgba(255,138,42,.16),rgba(107,134,255,.12) 55%,rgba(43,224,162,.14));
+}}
+/* the page: soft colour washes behind everything (one per tricolour hue) */
+body{background:
+  radial-gradient(900px 520px at 8% -8%,color-mix(in srgb,var(--saffron) 16%,transparent),transparent 62%),
+  radial-gradient(800px 520px at 100% 12%,color-mix(in srgb,var(--chakra) 14%,transparent),transparent 60%),
+  radial-gradient(900px 600px at 60% 110%,color-mix(in srgb,var(--mint) 12%,transparent),transparent 60%),
+  var(--bg);background-attachment:fixed}
+/* the tricolour stripe: top of the sidebar */
+.sidebar{background:color-mix(in srgb,var(--surface) 82%,transparent);backdrop-filter:blur(14px);border-right-color:var(--line);width:256px}
+.sidebar::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--tri)}
+main{margin-left:256px;width:calc(100% - 256px)}
+header{background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(14px);border-bottom:0;box-shadow:0 1px 0 var(--line)}
+.brand{font-size:21px}
+.brand-sub{white-space:nowrap;font-size:11.5px}
+/* navigation: a soft tricolour pill and stripe for the page you are on */
+.nav-item{font-weight:550}
+.nav-item.active{background:var(--tri-soft);color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent);position:relative}
+.nav-item.active::before{content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:4px;border-radius:0 4px 4px 0;background:var(--tri)}
+.nav-item.active>svg{stroke:var(--accent)}
+.count{background:var(--accent-soft);color:var(--accent);font-weight:700}
+/* headings: the greeting wears the gradient */
+#today-greeting{background:var(--tri);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:34px;font-weight:750;letter-spacing:-.03em;padding-bottom:2px}
+h1{font-weight:700}
+.today-clock{font-weight:250;color:var(--ink)}
+.eyebrow{background:var(--tri);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700;display:inline-block}
+/* cards with presence */
+.panel,.tile,.capability,.limits,.grammar,.mind-detail{background:color-mix(in srgb,var(--surface) 92%,transparent);border-color:var(--line);box-shadow:var(--shadow)}
+.tile{border-top:3px solid var(--tile,var(--line-strong));transition:transform .15s,box-shadow .15s}
+.tile:hover{transform:translateY(-2px);box-shadow:0 10px 30px color-mix(in srgb,var(--tile,var(--accent)) 18%,transparent)}
+#tile-weather{--tile:var(--blue)}#tile-disk{--tile:var(--saffron)}#tile-notes{--tile:var(--mint)}
+#tile-reminders{--tile:var(--violet)}#tile-recent{--tile:var(--chakra)}#tile-chutku{--tile:var(--pink)}
+.tile-label{color:var(--tile,var(--muted));font-weight:700;letter-spacing:.01em}
+.tile-big{background:linear-gradient(90deg,var(--ink),var(--tile,var(--ink)));-webkit-background-clip:text;background-clip:text;color:transparent;font-size:32px;font-weight:750}
+.tile-body,.tile li{color:var(--ink-2)}
+.bar{background:var(--surface-2)}
+.bar>i{background:linear-gradient(90deg,var(--mint),var(--chakra))}
+.bar.low>i{background:linear-gradient(90deg,var(--saffron),var(--red))}
+/* suggestions: a saffron stripe */
+.alert.suggestion{background:color-mix(in srgb,var(--surface) 92%,transparent);border:1px solid var(--line);border-left:4px solid var(--saffron);color:var(--ink-2)}
+.alert.suggestion strong{color:var(--accent)}
+.alert button{border-radius:999px}
+/* buttons: saffron to pink for the main action */
+.primary,button.primary{background:linear-gradient(135deg,var(--saffron),var(--pink));border:0;color:#fff;box-shadow:0 6px 18px color-mix(in srgb,var(--saffron) 30%,transparent)}
+.primary:hover,button.primary:hover{filter:brightness(1.07);background:linear-gradient(135deg,var(--saffron),var(--pink))}
+button{border-radius:10px}
+.quick-actions button,.routine-chip{background:color-mix(in srgb,var(--surface) 85%,transparent);border-color:var(--line-strong);color:var(--ink)}
+.quick-actions button:nth-child(3n+1):hover{border-color:var(--saffron);color:var(--saffron)}
+.quick-actions button:nth-child(3n+2):hover{border-color:var(--blue);color:var(--blue)}
+.quick-actions button:nth-child(3n):hover{border-color:var(--green);color:var(--green)}
+.connection{background:var(--green-soft);color:var(--green)}
+.mode-pill{background:var(--blue-soft);color:var(--blue);border-color:transparent}
+/* chat */
+.bubble.user{background:linear-gradient(135deg,var(--chakra),var(--violet));color:#fff;border:0}
+.bubble.assistant{background:var(--surface-2);border-color:var(--line)}
+.composer textarea{background:var(--surface-2);border-color:var(--line-strong)}
+.composer textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.empty-icon{background:var(--tri-soft);color:var(--accent)}
+/* onboarding and dialogs: the stripe on top */
+.onboarding{background:
+  radial-gradient(700px 420px at 15% 10%,color-mix(in srgb,var(--saffron) 22%,transparent),transparent 60%),
+  radial-gradient(700px 420px at 90% 30%,color-mix(in srgb,var(--chakra) 20%,transparent),transparent 60%),
+  radial-gradient(700px 480px at 50% 100%,color-mix(in srgb,var(--mint) 18%,transparent),transparent 60%),var(--bg)}
+.onboarding-card,dialog{position:relative;overflow:hidden}
+.onboarding-card::before,.update-dialog::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--tri)}
+.onboarding h1{font-weight:750}
+.onboarding-progress i.on{background:var(--tri)}
+.onboarding-step{color:var(--accent);font-weight:700}
+.celebrate h1{background:var(--tri);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:32px}
+.celebrate .signature strong{background:var(--tri);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:19px}
+.radio:has(input:checked){background:var(--tri-soft);border-color:var(--accent)}
+.credit strong{background:var(--tri);-webkit-background-clip:text;background-clip:text;color:transparent}
+@media(max-width:1100px){.sidebar{width:220px}main{margin-left:220px;width:calc(100% - 220px)}}
+@media(max-width:570px){.sidebar{width:100%}main{margin:0;width:100%}.nav-item.active::before{display:none}}
