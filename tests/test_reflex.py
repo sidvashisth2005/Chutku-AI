@@ -160,10 +160,11 @@ class SessionTests(Base):
             return session._propose(self.runtime, None, None, lambda: None)
 
     def test_a_learned_skill_plans_without_the_model_and_a_hand_rule_wins(self):
-        goal = "tell me whether Zzqx exists on this laptop"
+        # a phrasing the hand rules do not know (2026-11-08: "tell me whether X exists" became a hand rule)
+        goal = "look whether Zzqx is on this laptop"
         self.assertIsNone(quick_proposal(goal))
-        self.write([installed("tell me whether vlc exists on this laptop", "vlc"),
-                    installed("tell me whether steam exists on this laptop", "steam")])
+        self.write([installed("look whether vlc is on this laptop", "vlc"),
+                    installed("look whether steam is on this laptop", "steam")])
         self.compile()
         proposal, meta = self.propose(goal)
         self.assertEqual(meta["planner"], "reflex")

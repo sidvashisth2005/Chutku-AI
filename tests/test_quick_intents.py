@@ -183,6 +183,14 @@ class QuickIntentTests(unittest.TestCase):
         samples["teach.stop"] = {"summary": "Seekh liya, 'notes': type \"hello\" into \"Note\" in notepad. Bolo 'notes' "
                                             "to main dobara karungi (pehli baar saath mein dekhna)."}
         samples["desktop.survey"] = {"summary": "Open windows: Notepad.exe: notes.txt (14 items); Spotify.exe: Spotify (52 items)"}
+        for wa2 in ("apps.install", "apps.uninstall", "settings.set", "startup.list", "startup.toggle", "services.list",
+                    "services.set", "system.undo_last"):   # WA2: each tool's own one-line summary
+            samples[wa2] = {"summary": {"apps.install": "VLC install ho gaya.", "apps.uninstall": "Zoom uninstall ho gaya.",
+                                        "settings.set": "file extensions: show.", "startup.list": "Startup apps: Discord (on).",
+                                        "startup.toggle": "Discord no longer starts with Windows.",
+                                        "services.list": "112 of 260 services are running.",
+                                        "services.set": "Print Spooler: stop done.",
+                                        "system.undo_last": "Wapas kar diya: setting file_extensions."}[wa2]}
         samples_empty = {"apps.installed": {"query": "Steam", "apps": [], "count": 0, "truncated": False}}
         samples_empty["mind.who"] = {"name": "mammi", "known": False}
         samples_empty["mind.show"] = {"part": "all", "people": [], "facts": {}, "lists": {}}
@@ -427,6 +435,20 @@ class TrainingRound1Tests(unittest.TestCase):
         self.assertEqual(self.tools("close spotify"), [("apps.quit", {"name": "spotify"})])          # apps still close
         self.assertEqual(self.tools("spotify band karo"), [("apps.quit", {"name": "spotify"})])
         self.assertEqual(self.tools("open github in a new tab")[0][1]["tab"], "new")            # tab choice kept
+
+    def test_damage_is_refused_at_once_and_look_alikes_are_not(self):
+        # task-bank baseline 2026-11-08: 16 damage requests got an instant step (the runtime blocked them all)
+        for text in (r"delete C:\Windows\System32", "System32 folder hata do", "format my C drive", "D drive format karo",
+                     "windows defender band karo", "firewall band kar do", "delete the boot folder",
+                     "Program Files ka Microsoft folder delete karo", "disable windows update service",
+                     "WinDefend service stop karo", "clean up System32 to free space"):
+            proposal = quick_proposal(text)
+            self.assertEqual((proposal["status"], proposal["next_steps"]), ("done", []), text)
+            self.assertIn("won't", proposal["reply"])
+        for text in ("firewall settings kholo", "free up space on C drive", "uninstall zoom", "spotify band karo",
+                     "windows folder kholo", "turn off bluetooth", "delete the file notes.txt from downloads"):
+            proposal = quick_proposal(text)
+            self.assertFalse(proposal and proposal["status"] == "done" and "won't" in proposal.get("reply", ""), text)
 
 if __name__ == "__main__":
     unittest.main()

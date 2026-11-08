@@ -6,6 +6,7 @@
   <a class="brand" href="#"><span class="brand-icon">c</span><span>Chutku<span class="brand-sub">Voice assistant for Windows</span></span></a>
   <nav aria-label="Main navigation">
     <button class="nav-item active" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg> Home</button>
+    <button class="nav-item" data-tab="say"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg> What can I say?</button>
     <button class="nav-item" data-tab="history"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg> Activity</button>
     <button class="nav-item" data-tab="memory"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg> Memory <span id="memory-count" class="count">0</span></button>
     <button class="nav-item" data-tab="mind"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5v4M12 11.5 6.5 17M12 11.5l5.5 5.5"/></svg> Mind map</button>
@@ -21,6 +22,7 @@
     <button class="nav-item" data-tab="voicelock"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg> Voice lock</button>
     <div class="nav-label">App</div>
     <button class="nav-item" data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg> Settings</button>
+    <button class="nav-item" id="nav-more" type="button" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg> <span id="nav-more-text">More</span></button>
     <a class="nav-item" href="/help" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/></svg> Help</a>
   </nav>
   <div class="sidebar-bottom"><span class="status-dot"></span> Running on this PC<p>Your data stays on this computer.</p><button id="open-presence" class="text-button" type="button">Open the floating orb ↗</button><div class="version" id="app-version">Chutku</div><div class="credit">by <strong>Siddhant Vashisth</strong></div></div>
@@ -28,12 +30,12 @@
 <main>
   <header><div class="breadcrumb">Workspace <span>/</span> <span id="page-label">Home</span></div><button id="pause-actions" class="danger">Pause actions</button><button id="stop-core" class="danger" hidden>Stop Chutku</button><div class="connection" id="connection">Connecting…</div></header>
   <p id="pause-note" class="error-banner" hidden>Actions paused. An in-flight action may finish. Inspect Activity before resuming.</p>
-  <div id="error-banner" class="error-banner" role="alert" hidden></div>
+  <div id="error-banner" class="error-banner" role="alert" hidden></div><button id="error-action" class="primary error-action" type="button" hidden></button>
   <p id="guard-status" class="workspace-path"></p>
   <section id="home" class="view">
     <section class="today" id="today" aria-label="Today">
       <div class="today-head"><div><h1 id="today-greeting">Hello</h1><p class="subtitle" id="today-date"></p></div><div class="today-clock" id="today-clock"></div></div>
-      <div id="today-alerts" class="today-alerts"></div><div id="today-suggestions" class="today-alerts"></div>
+      <div id="coach-tip" class="coach-tip" hidden></div><div id="today-alerts" class="today-alerts"></div><div id="today-suggestions" class="today-alerts"></div>
       <div class="today-grid">
         <article class="tile" id="tile-weather"><div class="tile-label">Weather</div><div class="tile-body">…</div></article>
         <article class="tile" id="tile-disk"><div class="tile-label">Drives</div><div class="tile-body">…</div></article>
@@ -44,7 +46,7 @@
       </div>
       <div class="routines" id="routines"></div>
     </section>
-    <div class="heading-row"><div><div class="eyebrow">Say it or type it</div><h1>What should I do?</h1><p class="subtitle">Chutku plans the steps, shows them, does what your autonomy level allows and checks every result.</p></div><span class="mode-pill" id="brain-pill">Local brain</span></div>
+    <div class="heading-row"><div><div class="eyebrow">Say it or type it</div><h1>What should I do?</h1><p class="subtitle">Chutku plans the steps, shows them, does what your autonomy level allows and checks every result.</p></div><span class="mode-pill" id="brain-pill">Cloud brain</span></div>
     <section class="panel chat-panel">
       <div id="chat-log" class="chat-log" aria-live="polite">
         <div class="chat-empty"><div class="empty-icon">✦</div><h3>Ask for anything on this PC.</h3><p>“Open Spotify” · “Find my newest PDF in Downloads and open it” · “Search YouTube for lo-fi music” · “Make a folder D:\Notes and write today's plan in it”</p></div>
@@ -59,9 +61,9 @@
         <div class="autonomy" role="radiogroup" aria-label="Autonomy level">
           <span class="autonomy-label">Autonomy</span>
           <label><input type="radio" name="mode" value="review"> Review every step</label>
-          <label><input type="radio" name="mode" value="auto_safe"> Auto: safe steps</label>
-          <label><input type="radio" name="mode" value="auto_edits"> Auto: incl. file edits</label>
-          <label><input type="radio" name="mode" value="owner"> Owner: no approvals</label>
+          <label><input type="radio" name="mode" value="auto_safe"> Safe steps by themselves</label>
+          <label><input type="radio" name="mode" value="auto_edits"> Safe + file edits</label>
+          <label><input type="radio" name="mode" value="owner"> Full: asks only for risky steps</label>
         </div>
         <span id="run-status" class="small-pill">Ready</span>
       </div>
@@ -70,15 +72,15 @@
         <span class="autonomy-label">Hands-free</span>
         <span id="hotkey-state" class="muted">Ctrl+Alt+Space talks from anywhere</span>
         <label><input type="checkbox" id="wake-toggle"> Wake phrase “Oye Chutku”</label>
-        <label>Hands-free level <select id="handsfree-mode"><option value="review">Review every step</option><option value="auto_safe">Auto: safe steps</option><option value="auto_edits">Auto: incl. file edits</option><option value="owner">Owner: no approvals</option></select></label>
+        <label>Hands-free level <select id="handsfree-mode"><option value="review">Review every step</option><option value="auto_safe">Safe steps by themselves</option><option value="auto_edits">Safe + file edits</option><option value="owner">Full: asks only for risky steps</option></select></label>
         <label>Browser <select id="browser-choice"><option value="brave">Brave</option><option value="edge">Edge</option><option value="chrome">Chrome</option><option value="firefox">Firefox</option><option value="default">Windows default</option></select></label>
-        <label><input type="checkbox" id="offline-toggle"> Offline mode (local models only, no Gemini)</label>
+        <label><input type="checkbox" id="offline-toggle"> Offline mode (no cloud brain; needs the Offline brain pack)</label>
         <span id="wake-state" class="small-pill"></span>
       </div>
     </section>
     <div class="quick-actions"><button data-ask="good morning">Morning briefing</button><button data-ask="what was I working on?">Recent work</button><button data-ask="how much space is left">Disk space</button><button data-ask="free up space on my C drive">Free up space</button><button data-ask="what did you do today">What did you do today?</button><button data-ask="organize my Downloads folder">Tidy Downloads</button><button data-ask="What is playing right now?">What's playing?</button><button data-command="undo last write">Undo last change</button></div>
     <section class="panel recent-panel"><div class="panel-heading"><h2>Recent activity</h2><button class="text-button" data-tab="history">View all activity →</button></div><div id="recent"></div></section>
-    <p class="workspace-path">Sandbox folder <code id="sandbox-path"></code> · <span id="grants-summary"></span></p>
+    <p class="workspace-path"><span id="grants-summary"></span><code id="sandbox-path" hidden></code></p>
   </section>
   <section id="memory" class="view" hidden><div class="eyebrow">Memory</div><h1>Your memory, in your hands.</h1><p class="subtitle">Only notes you explicitly save. Stored on this computer. Editable and removable.</p><div class="panel"><form id="memory-form" class="memory-form"><div><label for="memory-key">Key</label><input id="memory-key" placeholder="project_goal" maxlength="64" required></div><div class="grow"><label for="memory-value">Value</label><input id="memory-value" placeholder="Build something useful, one verified step at a time" maxlength="2000" required></div><button class="primary" type="submit">Save note</button></form><label class="sr-only" for="memory-search">Search memories</label><input id="memory-search" class="search" placeholder="Search your saved notes…"><div id="memory-list"></div><p class="footnote">Saving an existing key replaces its value. Forgetting removes it permanently. This is not a secrets vault.</p></div></section>
   <section id="mind" class="view" hidden><div class="eyebrow">Mind map</div><h1>Your mind map.</h1><p class="subtitle">People, facts, lists, habits and recent topics. Stored only on this PC. Click a dot for details; say “mark assignment 1 done” or “forget …” to change it.</p><section class="panel"><div class="mind-wrap"><svg id="mind-svg" class="mind-svg" viewBox="0 0 1000 680" role="img" aria-label="Mind map"></svg><aside id="mind-detail" class="mind-detail"><p class="muted">Click any dot.</p></aside></div></section></section>
@@ -98,6 +100,7 @@ unfinished writes</pre></div></section>
   <section id="board" class="view" hidden><div class="eyebrow">Board</div><h1>Your to-dos and Chutku's research.</h1><p class="subtitle">Say "ye kaam board pe daal do: ..." or "research karke batao ...". Chutku never does your own to-dos; research runs in the background on the public web only. Nothing is ever deleted: archived tasks are hidden.</p><div id="board-list"></div></section>
   <section id="automations" class="view" hidden><div class="eyebrow">Automations</div><h1>Things that happen by themselves.</h1><p class="subtitle">Each automation is an ordinary scheduled task: it runs with the same safety checks as when you ask yourself, and you can cancel it here or by voice.</p><section class="panel"><h2>Running now</h2><div id="automation-active"></div></section><section class="panel"><h2>Add one</h2><div id="automation-catalog"></div></section></section>
   <section id="settings" class="view" hidden><div class="eyebrow" id="setup-eyebrow">Settings</div><h1 id="setup-title">Set up your assistant.</h1><p class="subtitle" id="setup-subtitle">Every step can be skipped and changed later here. Keys go to Windows Credential Manager and are never shown again.</p><div id="setup-steps"></div></section>
+  <section id="say" class="view" hidden><div class="eyebrow">What can I say?</div><h1>Just say it, like you would to a friend.</h1><p class="subtitle">Tap any line to try it. English, Hinglish and Hindi all work. Anything risky still asks you first.</p><label class="sr-only" for="say-search">Search examples</label><input id="say-search" class="say-search" type="search" placeholder="Search: music, volume, whatsapp, install…" autocomplete="off"><div id="say-list" class="say-grid"></div></section>
   <section id="verification" class="view" hidden><div class="eyebrow">Verification</div><h1>Built. Tested. Observed.</h1><p class="subtitle">Saved verification from this machine, with explicit limits. These results describe the tested scope.</p><div id="verification-results" class="capability-grid"></div><section class="panel"><h2>What remains</h2><p class="muted">Hindi/Hinglish speech accuracy, custom wake word, observation-driven replanning and the consented human voice corpus remain empirical work. The model proposes a plan; you review every step before it runs.</p><p class="footnote">The guard owns the dashboard and its subprocesses. Existing applications and Windows-brokered app launches may remain open. Emergency stop does not undo completed file changes.</p></section></section>
 </main>
 <dialog id="trace-dialog"><div class="dialog-head"><h2>Activity trace</h2><button id="close-trace" class="icon-button" aria-label="Close trace">×</button></div><p id="trace-id" class="muted break"></p><div id="trace-events"></div></dialog>

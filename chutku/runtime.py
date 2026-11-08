@@ -18,7 +18,7 @@ from chutku.core.approvals import ApprovalStore
 from chutku.core.resource_grants import ResourceGrant, ResourceGrantStore
 from chutku.core.capability_grants import CapabilityGrantStore
 from chutku.core.task import Task, TaskState
-from chutku.core.paths import path_argument_names, protection_reason, sandbox_target
+from chutku.core.paths import damage_in_text, path_argument_names, protection_reason, sandbox_target, sensitive_reason
 from chutku.policy.kernel import Decision, PolicyKernel
 from chutku.tools.registry import ExecutionContext, ToolRegistry, Verification
 
@@ -170,7 +170,8 @@ class Runtime:
                                      resource_access=access, capability_allowed=capability_allowed,
                                      autonomy=autonomy, tainted=tainted, exposed=exposed,
                                      protected_reason=self.protected_target(tool, arguments),
-                                     owner_question=self.step_question(tool, arguments) if autonomy is not None else None,
+                                     owner_question=(self.step_question(tool, arguments) if autonomy is not None
+                                                     else None) or self.sensitive_question(tool, arguments),
                                      suspicious=suspicious,
                                      reliability=self.reliability(tool, arguments)
                                      if autonomy is not None and tool.base_risk >= 1 else None,
@@ -182,6 +183,20 @@ class Runtime:
         from chutku.policy import never_rules
         return never_rules.floor_reason(tool, arguments, granted_root=self.granted_root,
                                      base=getattr(self, "control_root", None)) or False
+
+    def sensitive_question(self, tool, arguments):
+        """WA1: a change to an installed app's own files (Program Files, ProgramData, AppData) asks the first time."""
+        if tool.resource_access != "modify":
+            return None
+        for key in sorted(path_argument_names(tool)):
+            if key in arguments:
+                try:
+                    reason = sensitive_reason(sandbox_target(self.granted_root, arguments[key]))
+                except (ValueError, OSError):
+                    return None   # protected_target already refuses an unsafe location
+                if reason:
+                    return reason
+        return None
 
     def step_question(self, tool, arguments):
         """A reason this exact agent step must be confirmed on screen, in every autonomy mode, or None.
@@ -247,15 +262,27 @@ class Runtime:
             return "Chutku could not check the saved contact; this asks first."
         return None
 
+    MOVE_TOOLS = frozenset({"filesystem.move", "files.organize"})
+
     def protected_target(self, tool, arguments):
-        """Deny modification of system/runtime areas regardless of grant, mode or approval."""
+        """WA1: deny what could damage Windows or Chutku itself (paths.system_damage), regardless of grant, mode or
+        approval. PowerShell commands and scripts are checked by their text first."""
+        if tool.name == "system.powershell":
+            return damage_in_text(arguments.get("command"))
+        if tool.name == "code.run_python":
+            try:
+                script = sandbox_target(self.granted_root, arguments["path"])
+                return damage_in_text(script.read_text(encoding="utf-8", errors="replace")[:200000])
+            except (KeyError, ValueError, OSError):
+                return None   # an unreadable script fails when it runs; it always asks first anyway
         if tool.resource_access != "modify":
             return None
+        op = "delete" if tool.deletes else "move" if tool.name in self.MOVE_TOOLS else "write"
         for key in sorted(path_argument_names(tool)):
             if key in arguments:
                 try:
                     target = sandbox_target(self.granted_root, arguments[key])
-                    reason = protection_reason(target)
+                    reason = protection_reason(target, op)
                 except (ValueError, OSError) as error:
                     # Fail closed: a location that cannot be resolved safely is never modified.
                     return f"The '{key}' location could not be resolved safely ({error}); Chutku will not modify it."
@@ -468,7 +495,8 @@ class Runtime:
                                      "origin": provenance, "resource": grant.public(),
                                      "capability": capability,
                                      "manifest_version": tool.manifest_version(),
-                                     "consequence": tool.description, "expires_in": self.approvals.ttl}}
+                                     "consequence": tool.description, "reversibility": tool.reversibility,
+                                     "expires_in": self.approvals.ttl}}
             self.action_control.check()
             self._transition(task, TaskState.EXECUTING)
             context = ExecutionContext(task.task_id, self.journal, self.granted_root, self.memory,

@@ -81,7 +81,9 @@ def path_argument_names(tool) -> set[str]:
     properties = (tool.argument_schema or {}).get("properties", {})
     names = {key for key in PATH_ARGUMENTS if key in properties or tool.argument_schema is None}
     for key, spec in properties.items():
-        if not isinstance(spec, dict) or spec.get("type") not in {"string", None}:
+        kinds = spec.get("type") if isinstance(spec, dict) else None
+        kinds = set(kinds) if isinstance(kinds, list) else {kinds}   # "type": ["integer", "string"] (registry.set_user)
+        if not isinstance(spec, dict) or not kinds & {"string", None}:   # crashed the action log on Windows (2026-11-08)
             continue
         if spec.get("format") == "path" or _PATH_NAME.search(key.casefold()):
             names.add(key)
@@ -154,34 +156,96 @@ def protected_zones() -> list[str]:
     return sorted(set(result))
 
 
-def protection_reason(target: Path) -> str | None:
-    """Return why a resolved target is in a protected system zone, else None."""
+def _env_zone(*names):
+    return [_norm(Path(os.environ[name]).resolve()) for name in names if os.environ.get(name)]
+
+
+def system_damage(target: Path, op: str = "write") -> str | None:
+    """WA1 (owner 2026-11-08, "never refuse except system damage"): why changing `target` could damage Windows or
+    Chutku itself, else None. Always refused, in every mode, with any approval.
+    op: "write" (create or overwrite), "delete" or "move" (the source of a move or rename)."""
     resolved = _norm(Path(target).resolve())
     state, sandbox = _norm(home().resolve()), _norm((home() / "sandbox").resolve())
     if _within(resolved, sandbox):
         return None
-    # W2: Chutku's own data stays protected wherever home() is: inside TEMP (a CHUTKU_HOME there) the TEMP exemption
-    # does not apply; the zone check below refuses it.
     if not _within(resolved, state) and _within(resolved, _norm(Path(tempfile.gettempdir()).resolve())):
-        return None
+        return None   # TEMP, as before WA1 (a CHUTKU_HOME inside TEMP stays protected)
+    if appdata_root() is None:   # fail closed first: without AppData, Chutku's own data cannot be located safely
+        return "Chutku cannot tell where your AppData folder is, so it will not change files there or elsewhere."
+    for zone in (_norm(CODE_ROOT.resolve()), state):   # Chutku's code, grants and rules: never by itself
+        if _within(resolved, zone):
+            return "This is Chutku's own program or settings folder; it cannot change itself."
     parts = PureWindowsPath(resolved).parts
-    if len(parts) >= 2 and parts[1].casefold() in _DRIVE_ROOT_DIRS:
-        return f"'{parts[1]}' is a protected system area; Chutku will not modify it."
-    if len(parts) == 2 and (parts[1].casefold() in _DRIVE_ROOT_FILES or parts[1].casefold().startswith("dumpstack")):
-        return "Drive-root system files are protected; Chutku will not modify them."
     if len(parts) == 1:
-        return "A drive root itself cannot be modified."
-    if appdata_root() is None:
-        # Without knowing where AppData is, its protection cannot be applied: refuse rather than guess.
-        return "Chutku cannot tell where your AppData folder is, so it will not change files anywhere."
+        return "A drive root itself cannot be changed."
+    if len(parts) == 2 and (parts[1].casefold() in _DRIVE_ROOT_FILES or parts[1].casefold().startswith("dumpstack")):
+        return "Windows' own files at the drive root are never changed (it could stop Windows from starting)."
+    top = parts[1].casefold() if len(parts) >= 2 else ""
+    for zone in _env_zone("SystemRoot", "windir"):
+        if _within(resolved, zone):
+            return "Windows' own folder is never changed: it could stop Windows from working."
+    if top in {"windows", "boot", "efi", "recovery", "system volume information", "$windows.~bt", "$windows.~ws",
+               "$winreagent", "config.msi"}:
+        return f"'{parts[1]}' belongs to Windows or its start-up; it is never changed."
+    programs = _env_zone("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "ProgramData", "CommonProgramFiles",
+                         "CommonProgramFiles(x86)")
+    if op in {"delete", "move"} and (top in {"program files", "program files (x86)", "programdata"}
+                                     or any(_within(resolved, zone) for zone in programs)):
+        return "Installed programs are not deleted or moved file by file; say \"uninstall <app>\" instead."
     profile = os.environ.get("USERPROFILE")
     if profile and _norm(Path(profile).resolve()) == _norm(Path(resolved).parent) and \
             PureWindowsPath(resolved).name.casefold().startswith("ntuser."):
-        return "User registry hive files are protected; Chutku will not modify them."
-    for zone in protected_zones():
-        if _within(resolved, zone):
-            return "This location is a protected system or Chutku runtime area; Chutku will not modify it."
+        return "Your Windows profile's registry files are never changed."
     return None
+
+
+def sensitive_reason(target: Path) -> str | None:
+    """WA1: not damage, but an app's own files (Program Files, ProgramData, AppData): asks the first time."""
+    resolved = _norm(Path(target).resolve())
+    if _within(resolved, _norm((home() / "sandbox").resolve())):   # Chutku's own scratch folder (inside AppData
+        return None                                                 # in an installed app)
+    if _within(resolved, _norm(Path(tempfile.gettempdir()).resolve())) and not _within(resolved, _norm(home().resolve())):
+        return None   # TEMP (inside AppData\\Local) was always free to use
+    zones = _env_zone("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "ProgramData", "CommonProgramFiles",
+                      "CommonProgramFiles(x86)")
+    appdata = appdata_root()
+    if appdata:
+        zones.append(_norm(Path(appdata).resolve()))
+    parts = PureWindowsPath(resolved).parts
+    if any(_within(resolved, zone) for zone in zones) or (len(parts) >= 2 and parts[1].casefold() in _DRIVE_ROOT_DIRS):
+        return "This changes an installed app's own files or settings; confirm it the first time."
+    return None
+
+
+# PowerShell and scripts can hide damage: this text check is the first filter; raw PowerShell also runs non-admin
+# (Windows itself then protects system files). WA1 hardening 1.
+_SYSTEM_PATH = r"(?:%systemroot%|%windir%|\$env:(?:systemroot|windir)|[a-z]:\\+(?:windows|boot|efi|recovery)\b|system32|syswow64|winsxs)"
+_DAMAGE_TEXT = [re.compile(p, re.I) for p in (
+    r"\bformat(?:\.com)?\s+[a-z]:",
+    r"\b(?:format-volume|clear-disk|initialize-disk|remove-partition|diskpart|bcdedit|bcdboot)\b",
+    r"\b(?:remove-item|del|erase|rd|rmdir|rm|ri|move-item|mv|rename-item|ren)\b[^|;]*" + _SYSTEM_PATH,
+    r"\b(?:takeown|icacls|cacls)\b[^|;]*" + _SYSTEM_PATH,
+    r"\breg(?:\.exe)?\s+(?:delete|add|import)\s+(?:hklm|hkey_local_machine)",
+    r"\b(?:remove-item(?:property)?|set-itemproperty|new-itemproperty)\b[^|;]*hklm:",
+    r"\bset-mppreference\b[^|;]*-disable", r"\bnetsh\s+advfirewall\s+set\s+\S+\s+state\s+off",
+    r"\bset-netfirewallprofile\b[^|;]*-enabled\s+(?:\$?false|0)", r"\bsecedit\b|\bauditpol\b[^|;]*/clear",
+    r"\bshutil\.rmtree\s*\([^)]*(?:windows|system32|program files)", r"\bos\.(?:remove|unlink|rmdir)\s*\([^)]*(?:windows|system32)",
+)]
+
+
+def damage_in_text(text: str) -> str | None:
+    """A PowerShell command or a script whose text would damage Windows (format, bcdedit, deleting system files,
+    HKLM deletes, turning Defender or the firewall off); None otherwise."""
+    for pattern in _DAMAGE_TEXT:
+        if pattern.search(str(text or "")):
+            return ("That command could damage Windows (system files, start-up, security or a whole drive), so I "
+                    "won't run it. Tell me what you want to achieve and I'll find a safe way.")
+    return None
+
+
+def protection_reason(target: Path, op: str = "write") -> str | None:
+    """Why `target` may never be changed (WA1: the system-damage list), else None."""
+    return system_damage(target, op)
 
 
 def sandbox_target(root: Path, raw: str) -> Path:

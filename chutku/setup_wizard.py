@@ -23,7 +23,37 @@ import time
 
 SETUP_FILE = ("data", "setup.json")
 AUTONOMY = {"safe": "auto_safe", "edits": "auto_edits", "full": "owner"}   # the page's three choices (Safe = default)
-STEPS = ("assistant", "name", "brain_key", "packs", "microphone", "mode", "phone", "browser")
+STEPS = ("assistant", "name", "brain_key", "packs", "microphone", "mode", "phone", "browser", "permissions")
+# What each PC permission means, in the order the Settings page lists them (2026-11-08 launch review: a new install
+# had none, so "open notepad" was refused and only the CLI could grant one). EVERYDAY is what a new install gets when
+# setup finishes; the rest stay off until the user turns them on. A permission only lets Chutku TRY that kind of
+# step: the autonomy level and the fixed safety rules still decide what asks first.
+PERMISSIONS = {
+    "apps.launch": "Open apps, files and games",
+    "audio.observe": "See the volume and what is playing",
+    "audio.modify": "Change the volume and control music",
+    "screen.observe": "Look at the screen and app windows",
+    "desktop.input": "Click, type and use shortcuts in apps (messages, windows)",
+    "browser.navigate": "Open web pages and YouTube",
+    "internet.read": "Read the web: news, weather, search results",
+    "reminders.manage": "Set reminders and timers",
+    "settings.observe": "See brightness, theme and wallpaper",
+    "settings.modify": "Change brightness, theme and wallpaper",
+    "network.observe": "See Wi-Fi and network status",
+    "process.observe": "See running programs and PC load",
+    "clipboard.read": "Read what you copied",
+    "clipboard.write": "Put text on your clipboard",
+    "apps.manage": "Install and uninstall apps (asks each time)",
+    "process.launch": "Run programs and code she writes (always asks)",
+    "process.terminate": "End a stuck program (always asks)",
+    "power.control": "Shut down or restart the PC (always asks)",
+    "network.modify": "Turn Wi-Fi or network adapters on and off (always asks)",
+    "browser.input": "Click and type in your signed-in browser",
+    "email.send": "Send email from your account (always asks)",
+}
+EVERYDAY = ("apps.launch", "audio.observe", "audio.modify", "screen.observe", "desktop.input", "browser.navigate",
+            "internet.read", "reminders.manage", "settings.observe", "settings.modify", "network.observe",
+            "process.observe", "clipboard.read", "apps.manage")
 
 
 def _setup_path(base):
@@ -51,7 +81,65 @@ def _mark(base, step=None, *, done=None):
     return current
 
 
+def _capabilities(base):
+    from chutku.core.capability_grants import CapabilityGrantStore
+    return CapabilityGrantStore(Path(base) / "data" / "capability_grants.db")
+
+
+def permissions(base):
+    """[{capability, label, on}] for the Settings page."""
+    store = _capabilities(base)
+    try:
+        on = {grant.capability for grant in store.list() if grant.active}
+    finally:
+        store.close()
+    return [{"capability": name, "label": label, "on": name in on} for name, label in PERMISSIONS.items()]
+
+
+def set_permission(base, capability, on):
+    if capability not in PERMISSIONS or not isinstance(on, bool):
+        raise ValueError("Choose one of the listed permissions, and on or off.")
+    store = _capabilities(base)
+    try:
+        if on:
+            store.grant(capability)
+        elif any(g.capability == capability and g.active for g in store.list()):
+            store.revoke(capability)
+    finally:
+        store.close()
+    return permissions(base)
+
+
+def allow_everyday(base):
+    """An installed app's first finish: the everyday permissions and the user's own folders (read and change; the
+    autonomy level still decides what asks first). Once only, so what the user turns off later stays off. The owner's
+    git checkout keeps its own grants untouched."""
+    from chutku.core.paths import is_checkout
+    if is_checkout() or "permissions" in state(base)["steps"]:
+        return []
+    store = _capabilities(base)
+    try:
+        for capability in EVERYDAY:
+            store.grant(capability)
+    finally:
+        store.close()
+    import os
+    profile = os.environ.get("USERPROFILE")
+    if profile and Path(profile).is_dir():
+        from chutku.core.resource_grants import ResourceAccess, ResourceGrantStore
+        folders = ResourceGrantStore(Path(base) / "data" / "resource_grants.db")
+        try:
+            folders.grant(profile, {ResourceAccess.OBSERVE, ResourceAccess.MODIFY})
+        except ValueError:
+            pass   # a profile inside a protected zone: Chutku keeps to its sandbox
+        finally:
+            folders.close()
+    _mark(base, "permissions")
+    return list(EVERYDAY)
+
+
 def finish(base):
+    allow_everyday(base)
     return _mark(base, done=True)
 
 
@@ -66,9 +154,9 @@ def set_assistant(base, updates):
 
 
 def set_owner_name(base, name):
-    name = " ".join(str(name).split())[:60]
-    if not name:
-        raise ValueError("Type your name.")
+    if not isinstance(name, str) or not 1 <= len(" ".join(name.split())) <= 60:   # review: 5 became "5"
+        raise ValueError("Type your name (up to 60 letters).")
+    name = " ".join(name.split())
     from chutku.mind import Mind
     Mind(base).set_fact("name", name)
     _mark(base, "name")

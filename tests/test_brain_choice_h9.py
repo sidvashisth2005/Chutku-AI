@@ -47,8 +47,10 @@ class ErrorClassTests(unittest.TestCase):
                 raise ProviderError("groq quota reached.", kind="quota")
         session = AgentSession("best free pdf editor kaun sa hai", mode="owner")
         session.advance(FakeRuntime(), Broken())
-        self.assertEqual(session.status, "clarify")
-        self.assertIn("free cloud quota is used up", session.reply)
+        self.assertEqual(session.status, "failed")          # 2026-11-08 review: not "needs more detail"
+        self.assertIn("free AI limit is used up", session.reply)
+        self.assertIn("Settings", session.reply)            # what to do next, with no CLI command
+        self.assertNotIn("groq quota reached", session.reply)   # the planner's own words stay in the log
 
     def test_no_key_text_in_the_explanation(self):
         secret = "AIzaSy" + "X" * 33

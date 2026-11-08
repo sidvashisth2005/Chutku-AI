@@ -235,7 +235,7 @@ class CloudAgentPlanner:
         catalog = compact_catalog(catalog)
         system = AGENT_SYSTEM.replace(" /no_think", "") + JSON_CONTRACT + "TOOL_CATALOG=" + catalog
         view = cloud_view(session, runtime)
-        failures = []
+        failures, kind = [], None
         try:
             raw, meta = providers.ask(system, view, base=self.base, transport=self.transport, rungs=self.rungs)
             self.name = "cloud:" + meta["provider"]
@@ -247,10 +247,13 @@ class CloudAgentPlanner:
                 failures.append(str(error))
         except providers.ProviderError as error:
             failures.append(str(error))
+            kind = error.kind
         if self.gemini is not None:
             self.name = "gemini"
             return self.gemini.propose(session, runtime, check)
-        raise OSError("; ".join(failures)[:300] or "No cloud model is available.")
+        # keep the kind (quota, no key ...) so the owner hears the right reason (2026-11-08 review)
+        raise providers.ProviderError("; ".join(failures)[:300] or "No cloud model is available.",
+                                      kind=kind or "unavailable")
 
 
 class GeminiAgentPlanner:

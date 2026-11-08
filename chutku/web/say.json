@@ -1,0 +1,202 @@
+{
+ "apps": {
+  "tools": [
+   "apps.launch",
+   "apps.quit"
+  ],
+  "say": [
+   "open Spotify",
+   "Spotify kholo",
+   "close Spotify",
+   "Notepad band karo",
+   "स्पॉटिफाई खोलो",
+   "open Notepad",
+   "Notepad kholo",
+   "close Notepad",
+   "Calculator band karo",
+   "नोटपैड खोलो"
+  ]
+ },
+ "media": {
+  "tools": [
+   "youtube.play",
+   "spotify.search"
+  ],
+  "say": [
+   "play lofi on youtube",
+   "youtube pe arijit singh chalao",
+   "spotify pe arijit singh chalao",
+   "play arijit singh on youtube",
+   "youtube pe kesariya chalao",
+   "spotify pe kesariya chalao",
+   "play kesariya on youtube",
+   "youtube pe bhajan chalao",
+   "spotify pe coldplay chalao",
+   "play coldplay on youtube"
+  ]
+ },
+ "settings": {
+  "tools": [
+   "audio.volume",
+   "display.brightness",
+   "settings.set"
+  ],
+  "say": [
+   "set volume to 10",
+   "volume 10 karo",
+   "set brightness to 10",
+   "brightness 10 karo",
+   "आवाज़ 20 करो",
+   "file extensions dikhao",
+   "show hidden files",
+   "set volume to 20",
+   "volume 40 karo",
+   "set brightness to 30"
+  ]
+ },
+ "web": {
+  "tools": [
+   "web.search",
+   "web.news"
+  ],
+  "say": [
+   "search cricket",
+   "news about AI",
+   "cricket ki news batao",
+   "search AI",
+   "news about stock market",
+   "AI ki news batao",
+   "search stock market",
+   "news about weather in Delhi",
+   "weather in Delhi ki news batao",
+   "search weather in Delhi"
+  ]
+ },
+ "files": {
+  "tools": [
+   "files.locate"
+  ],
+  "say": [
+   "meri resume file dhundo",
+   "find my resume",
+   "meri invoice file dhundo",
+   "find my invoice",
+   "meri aadhaar file dhundo",
+   "find my electricity bill",
+   "meri offer letter file dhundo",
+   "find my aadhaar",
+   "meri notes file dhundo",
+   "find my offer letter"
+  ]
+ },
+ "messages": {
+  "tools": [
+   "message.send"
+  ],
+  "say": [
+   "send hi to Rahul on whatsapp",
+   "Rahul ko whatsapp pe hi bhejo",
+   "send good night to Rahul on whatsapp",
+   "Rahul ko whatsapp pe main 10 min mein aa raha hoon bhejo",
+   "send main 10 min mein aa raha hoon to Rahul on whatsapp",
+   "Rahul ko whatsapp pe call me bhejo",
+   "send call me to Rahul on whatsapp",
+   "Rahul ko whatsapp pe khana kha liya? bhejo",
+   "send khana kha liya? to Rahul on whatsapp",
+   "Rahul ko whatsapp pe happy birthday bhejo"
+  ]
+ },
+ "reminders": {
+  "tools": [
+   "reminder.set"
+  ],
+  "say": [
+   "remind me in 10 minutes to drink water",
+   "10 min baad pani peena yaad dilana",
+   "remind me in 20 minutes to drink water",
+   "20 min baad pani peena yaad dilana",
+   "remind me in 30 minutes to drink water",
+   "30 min baad pani peena yaad dilana",
+   "remind me in 50 minutes to drink water",
+   "40 min baad pani peena yaad dilana",
+   "remind me in 80 minutes to drink water",
+   "50 min baad pani peena yaad dilana"
+  ]
+ },
+ "memory": {
+  "tools": [
+   "mind.person",
+   "memory.remember"
+  ],
+  "say": [
+   "remember Rahul is my friend",
+   "remember mummy is my friend",
+   "remember Priya is my friend",
+   "remember papa is my friend",
+   "remember Aman is my friend",
+   "remember didi is my friend",
+   "remember Neha is my friend",
+   "remember bhai is my friend"
+  ]
+ },
+ "installs": {
+  "tools": [
+   "apps.install",
+   "apps.uninstall"
+  ],
+  "say": [
+   "install VLC",
+   "7zip install karo",
+   "uninstall 7zip",
+   "install 7zip",
+   "Zoom install karo",
+   "uninstall Zoom",
+   "install Zoom",
+   "GIMP install karo",
+   "uninstall Audacity",
+   "install GIMP"
+  ]
+ },
+ "chains": {
+  "tools": [
+   "apps.launch",
+   "audio.volume",
+   "display.brightness",
+   "youtube.play",
+   "web.search"
+  ],
+  "say": [
+   "Spotify kholo aur volume 10 karo",
+   "open Spotify and set brightness to 10",
+   "volume 10 karo aur youtube pe lofi chalao",
+   "set volume to 10 then search cricket",
+   "Spotify kholo aur volume 20 karo",
+   "open Spotify and set brightness to 30",
+   "volume 20 karo aur youtube pe lofi chalao",
+   "set volume to 20 then search AI",
+   "Spotify kholo aur volume 40 karo",
+   "open Spotify and set brightness to 40"
+  ]
+ },
+ "vague": {
+  "tools": [
+   "media.control",
+   "youtube.play",
+   "spotify.search",
+   "system.performance",
+   "system.get_time",
+   "system.disk_space",
+   "net.check",
+   "system.health"
+  ],
+  "say": [
+   "ek gaana chala do",
+   "kuch music lagao",
+   "laptop slow hai",
+   "kitne baje",
+   "pc pe jagah hai kya",
+   "net chal raha hai?",
+   "battery?"
+  ]
+ }
+}

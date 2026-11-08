@@ -24,6 +24,7 @@ word like "chutku" is treated as a web search by every browser, so the address n
 | Emergency stop | **Ctrl+Alt+F12**. Everything stops at once and actions stay paused until you click **Resume actions**. |
 | Pause / resume | The **Pause** button at the top of the window, or say "pause" / "resume". |
 | Quit | Right-click the tray icon, then **Quit Chutku (close everything)**. |
+| Restart | Say "chutku restart karo", or the tray icon → **Restart Chutku**, or Settings → About → **Restart Chutku**. She comes back in about 10 seconds, not paused. (Only the emergency stop leaves her paused.) |
 
 If Chutku hangs or crashes, she restarts by herself (up to 3 times in half an hour).
 
@@ -80,6 +81,8 @@ button stays on screen.
 
 ## 4. Things you can say
 
+The **What can I say?** page in the Chutku window has many more examples you can tap to try.
+
 **Apps and windows**
 - "Spotify kholo" / "open notepad" / "VS Code band karo"
 - "minimize this" / "window left side pe karo" / "switch to Chrome"
@@ -133,7 +136,7 @@ button stays on screen.
 **Routines** run several things from one phrase:
 - **Save:** "save routine work: open visual studio code, play lofi on youtube, set volume to 30"
 - **Run:** "start work mode" / "work mode on karo", or just say its name.
-- **Shortcut style:** "jab main 'padhai time' bolun to volume 30 karo aur focus mode on karo".
+- **Shortcut style:** "jab main 'padhai time' bolun to volume 30 karo aur music band karo".
 - A routine can also press things inside an app by name: `click "Lofi" in Spotify`,
   `toggle "Dark mode" in Settings`, `type "hello" into "Search" in Spotify`.
 - **See / delete:** "list my routines" / ask to forget one (asks first).
@@ -154,6 +157,11 @@ Notes:
 
 ## 6. The Chutku window
 
+The menu starts simple: **Home**, **What can I say?**, **Activity**, **Phone** and **Settings**. Press **More** to see
+every page; Chutku remembers your choice. During your first week, Home shows one "Try saying…" tip. Every error
+message has one button for what to do next (**Try again**, **Open Settings** or **Show me how**).
+
+- **What can I say?:** examples you can tap to try, in English, Hinglish and Hindi, with a search box.
 - **Command center:** chat, the Today panel (clock, weather, drive space, reminders, to-dos, what Chutku did),
   suggestions with **Yes** and **Not now**, and health alerts (disk, battery, memory).
 - **Board:** your tasks and Chutku's research jobs, with **Done**, **Again** and **Archive**.
@@ -171,8 +179,12 @@ Notes:
 
 ## 7. Safety rules (fixed in the code)
 
-- **Chutku never runs as administrator**, and never changes Windows or program folders (Windows, Program Files,
-  ProgramData, AppData, drive roots), at any level, with any approval.
+- **Chutku never runs as administrator.** She refuses only what could damage Windows: its own folder, start-up files,
+  deleting programs file by file (say "uninstall" instead), turning Defender or the firewall off, formatting a drive.
+  An app's own files (Program Files, ProgramData, AppData) ask you the first time.
+- **"Yes, always"** on an approval card: once that exact step worked, she does it again without asking. Deletes,
+  power and anything right after reading a web page still ask. Settings → "Things you let Chutku do without asking"
+  lists them, each with Forget.
 - **Delete means the Recycle Bin**, and always asks. Permanent delete happens only when *you* ask for it.
 - **Every step is checked independently.** Answers end with a tally like `[Verified: 2 of 2 steps completed.]`, and
   she never claims a step that did not happen.
@@ -189,7 +201,8 @@ Notes:
 ## 8. Privacy and your phone
 
 - Your files, screen text, clipboard and memory stay on this PC.
-- If you add a cloud brain key, the cloud sees your request, the list of tools and public results only.
+- With a cloud brain key, the AI service sees your request, notes you told Chutku that relate to it, and names of files and windows; with a Gemini key and no offline Screen pack, screen questions send a screenshot to Google.
+- Watching the laptop screen on mobile data uses up to about 1.4 GB an hour (Watch mode up to about 3.6 GB).
 - Private browser windows are never recorded.
 
 **Phone app (optional).** On the **Phone** page press **Connect my phone**. It installs Tailscale if needed (press

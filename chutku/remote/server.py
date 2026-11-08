@@ -198,6 +198,14 @@ class PhoneHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _deny(self, error):
+        if self.command == "GET" and "text/html" in (self.headers.get("Accept") or ""):   # a person, not the app:
+            import html   # a readable page with the next step instead of raw JSON (2026-11-08 review)
+            page = (f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'>"
+                    f"<title>Chutku</title><body style='font-family:sans-serif;padding:24px'><h2>{html.escape(str(error))}"
+                    "</h2><p>On the phone, sign in to the Tailscale app with the same account as the laptop, then open "
+                    "the link the laptop's Phone page shows (or scan its QR code).</p></body>")
+            self._reply(getattr(error, "status", 403), page.encode("utf-8"), "text/html; charset=utf-8")
+            return
         self._reply(getattr(error, "status", 403), {"error": str(error)})
 
     # -- the gates ------------------------------------------------------------------------------------------------
@@ -487,6 +495,7 @@ class PhoneHandler(BaseHTTPRequestHandler):
         text = str(data.get("text") or "").strip()
         if not 1 <= len(text) <= 500:
             raise RemoteDenied("Write what Chutku should say on the laptop (up to 500 characters).", 400)
+        self._pin(record, data.get("pin"))   # inside the PIN session (2026-11-08 review)
         _log(self.server.core.base, "laptop_say", {"characters": len(text)})
         threading.Thread(target=self.server.core._speak, args=(text,), name="chutku-phone-say", daemon=True).start()
         return {"saying": len(text)}
@@ -894,19 +903,19 @@ class PhoneHandler(BaseHTTPRequestHandler):
         text = data.get("text")
         if not isinstance(text, str) or len(text) > 20000:
             raise RemoteDenied("Send text up to 20000 characters.", 400)
+        # 2026-11-08 review: changing the laptop needs the PIN session, not only the 12-hour pairing cookie
+        pin_ok = data.get("pin") is not None
+        self._pin(record, data.get("pin"), strict=pin_ok)
         from chutku.tools.clipboard import _invoke
         _invoke({"action": "write", "text": text})
         _log(self.server.core.base, "clipboard_from_phone", {"characters": len(text)})
         if data.get("paste"):
-            pin_ok = False
-            if data.get("pin") is not None:
-                self._pin(record, data.get("pin"), strict=True)
-                pin_ok = True
             self._control().keys("ctrl+v", pin_ok=pin_ok)
         return {"copied": len(text), "pasted": bool(data.get("paste"))}
 
     # -- P8: files ---------------------------------------------------------------------------------------------------
     def _upload(self, record):
+        self._pin(record, self.headers.get("X-Chutku-PIN") or None)   # inside the PIN session (2026-11-08 review)
         name = Path(str(parse_qs(urlsplit(self.path).query).get("name", ["phone-file"])[0])).name[:120] or "phone-file"
         length = int(self.headers.get("Content-Length") or 0)
         if not 0 < length <= MAX_UPLOAD:

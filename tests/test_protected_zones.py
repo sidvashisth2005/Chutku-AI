@@ -32,13 +32,19 @@ class ProtectedZoneTests(unittest.TestCase):
         return result
 
     def test_system_areas_cannot_be_written(self):
-        for target in (WINDOWS / "chutku-test.txt", Path(r"C:\PROGRA~1\chutku-test.txt"),
-                       Path(str(WINDOWS).upper()) / "chutku-test2.txt",
-                       Path(os.environ["ProgramData"]) / "chutku-test.txt",
-                       Path(os.environ["USERPROFILE"]) / "AppData" / "chutku-test.txt"):
+        for target in (WINDOWS / "chutku-test.txt", Path(str(WINDOWS).upper()) / "chutku-test2.txt"):
             result = self.assert_denied_without_effect("filesystem.write_text",
                                                        {"path": str(target), "content": "x"}, target)
             self.assertEqual(str(result["state"]), "DENIED", target)
+
+    def test_app_folders_ask_first_and_nothing_is_written_before_the_ok(self):
+        # WA1 (owner 2026-11-08): Program Files, ProgramData and AppData are an app's own files: no longer refused,
+        # they ask the first time (and nothing happens until the owner says yes)
+        for target in (Path(r"C:\PROGRA~1\chutku-test.txt"), Path(os.environ["ProgramData"]) / "chutku-test.txt",
+                       Path(os.environ["USERPROFILE"]) / "AppData" / "chutku-test.txt"):
+            result = self.runtime.run("filesystem.write_text", {"path": str(target), "content": "x"})
+            self.assertEqual(str(result["state"]), "WAITING_CONFIRMATION", target)
+            self.assertFalse(target.exists(), target)
 
     def test_chutku_runtime_cannot_be_modified(self):
         store = ResourceGrantStore(self.base / "data/resource_grants.db")
@@ -129,20 +135,20 @@ class ProtectedZoneTests(unittest.TestCase):
             self.assertIsNotNone(self.runtime.protected_target(tool, {key: str(WINDOWS / "x")}), key)
         self.assertIsNone(self.runtime.protected_target(tool, {"note": str(WINDOWS / "x")}))
 
-    def test_copy_into_program_files_denied(self):
+    def test_copy_into_program_files_asks(self):
         source = Path(tempfile.gettempdir()) / f"chutku-copy-src-{os.getpid()}.txt"
         source.write_text("x", encoding="utf-8")
         destination = Path(os.environ["ProgramFiles"]) / f"chutku-copy-{os.getpid()}.txt"
         try:
-            result = self.assert_denied_without_effect(
-                "filesystem.copy", {"source": str(source), "destination": str(destination)}, destination)
-            self.assertEqual(str(result["state"]), "DENIED")
+            result = self.runtime.run("filesystem.copy", {"source": str(source), "destination": str(destination)})
+            self.assertEqual(str(result["state"]), "WAITING_CONFIRMATION")   # WA1: asks, never silently
+            self.assertFalse(destination.exists())
         finally:
             source.unlink(missing_ok=True)
 
     def test_drive_root_windows_on_other_drive_denied(self):
         self.assertIsNotNone(protection_reason(Path(r"D:\Windows\x.txt")))
-        self.assertIsNotNone(protection_reason(Path(r"D:\Program Files\x")))
+        self.assertIsNotNone(protection_reason(Path(r"D:\Program Files\x"), "delete"))   # uninstall instead
 
     def test_path_forms(self):
         self.assertIsNotNone(protection_reason(DRIVE / "pagefile.sys"))

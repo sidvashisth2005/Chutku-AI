@@ -16,6 +16,35 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (16): Chutku 1.2 merged on the PC: WA1–WA6 from web Claude, plus the PC's fixes
+- **Merged** `origin/claude/chutku-1.2` at e443dad (WA6, WA1, WA2, WA3, WA4, WA5 and the launch-review fixes).
+  The only conflict was this file; both sides were kept. Web Claude had fixed the elevation handle lock itself
+  (b6c1998).
+- **PC fixes on top:**
+  - `paths.path_argument_names` accepts list-typed schemas; a test was added. Without it the action log crashed after
+    every `registry.set_user` run.
+  - **Damage refused at once in the router** (`quick_intents._damage`): a system target (System32, the Windows
+    folder, boot, BCD, diskpart, HKLM, a partition, Program Files' Microsoft/Windows folders, formatting a drive)
+    with a destroy verb, or security protection (Defender, the firewall, antivirus, WinDefend/MpsSvc, the Windows
+    Update service) with an off verb, gets a plain refusal and a safe alternative ("free up space",
+    "uninstall <app>"), with no step planned.
+    - Negative cases: 7 look-alikes are not refused ("firewall settings kholo", "free up space on C drive",
+      "spotify band karo"…).
+  - The `test_reflex` example phrase was moved to one the hand rules do not know, because the training round made
+    "tell me whether X exists" a hand rule.
+- **Task-bank instant baseline, merged code:** 1077 correct (was 1068), 12 wrong (was 21), **DANGER 0 (was 16)**,
+  217 to the model.
+  - The remaining "wrong" are bank expectations, not bugs:
+    - "install Brave" opens an already-installed Brave (web Claude's deliberate design);
+    - "spotify pe after party chalao" plays the owner's After Party playlist.
+- **Verified:**
+  - Full suite **1721 OK**; `check_phrases` **193/193**.
+  - Onboarding in Edge: ALL PASS.
+  - Every-button: all pass except one timing check (the version label is filled about 1 s after load; confirmed
+    "Chutku 1.1.0" at 1, 3 and 6 s, no page errors).
+  - The WA5 Simple view seen in Edge: Home, What can I say?, Activity, Phone, Settings, More, Help, plus the coach
+    card "Try saying 'file extensions dikhao'".
+
 ### 2026-11-08 (15): Chutku 1.2, PC shift 1 (part): the practice area and the "before" baseline
 - **Shift rules** (owner): work while the owner is away; stop only on a real mouse click (movement is ignored, via
   the `GetAsyncKeyState` watcher). Sleep on charger is "never" during the shift and is restored to 3 h after
@@ -78,6 +107,238 @@ Owner decisions are in `docs/DESIGN.md` §51.
   1. `eval_planner` baseline (it needs the GPU: stop the running Chutku's local model first);
   2. look at the 11 changed and 57 model-bound replays;
   3. when WA6/WA1/WA2 land on the branch, Shift 1 merge plus live checks.
+### 2026-11-08: WA5 (cloud session, Chutku 1.2): the toddler-easy window
+
+**What changed (keeping the 1.1 Tiranga design):**
+- **Simple view (hardening 8).** The menu shows Home, What can I say?, Activity, Phone, Settings, More and Help.
+  **More** shows every page and Less hides them again. The choice is kept in `localStorage` under `chutku-view`,
+  wrapped in try/catch. A `#tab=` link to a page under More opens the full menu.
+- **"What can I say?" page** (`#say`):
+  - category cards with tap-to-try chips (a tap runs `ask(text)`, like the quick-action buttons), plus a search box;
+  - English, Hinglish and Hindi;
+  - the examples come from `chutku/web/say.json`, which `scripts/make_task_bank.py` writes from the train split (no
+    damage and no held-out items), served at `/say.json`.
+- **First-week coach:** Home shows one rotating "Try saying “…”" tip with **Try it**. The tip skips any kind of task
+  that already completed and is hidden after 7 days.
+- **Every error has one next step:** a button under the banner reads **Try again** (reload), **Open Settings**
+  (key, brain, permission or voice errors) or **Show me how** (/help). A failed agent session gets **Try again**.
+- **Approval cards in plain words:** "Chutku wants to: …", whether it can be undone (from the tool's
+  `reversibility`, now part of the approval), and "Why it asks". The JSON sits under "Exact details". The buttons
+  are **Yes** / **Yes, always** / **No**, and Yes-always feeds the WA1 ask-once memory.
+- **Empty states:** every tab already had one, and the new page has its own.
+- The Home grants line now says "Windows system folders are never changed; program folders ask you first" (the WA1
+  rule).
+
+**Ids:** no existing id changed. New ids: `say`, `nav-more`, `nav-more-text`, `say-search`, `say-list`,
+`coach-tip`, `error-action`. Changed button labels in approval cards: "Approve" → **Yes** and "Cancel" → **No**.
+In Simple view, the More-only nav items are hidden. A PC Playwright script that clicks them must press `#nav-more`
+first or set `localStorage["chutku-view"]="full"`.
+
+**Evidence (Linux):**
+- `tests/test_ui_wa5.py`, 3 tests:
+  - say.json equals the generator's output and holds only train, non-damage lines (negative case);
+  - `/say.json` is served without the session token;
+  - every old tab id and the new ids are present.
+- Full suite against the main baseline: no new failures (only the 2 renamed Windows-only `test_protected_zones`
+  ids).
+- A real Chromium run against `DashboardServer` (scratchpad `wa5_check.py` and `wa5_coach.py`):
+  - the Simple nav shows exactly the 7 items above; More gives 16, survives a reload, and Less returns to 7;
+  - 11 example cards; "whatsapp" finds 10 lines; a chip asks "send hi to Rahul on whatsapp"; a search with no match
+    shows the empty note;
+  - errors give Try again, Open Settings and Show me how, and the button clears the banner;
+  - an irreversible approval reads "Chutku wants to: … This cannot be undone. Why it asks: … Yes / Yes, always / No";
+  - the coach shows a settings tip; after a completed settings task it moves to reminders; a failed task does not
+    count; with all kinds done or after a week it is hidden;
+  - no page errors, and no sideways scroll at 390 px.
+  - On Linux `/api/state` is unavailable (the grant root must be a Windows drive), so the coach was checked with an
+    injected state.
+
+**Needs the Windows check:**
+- the PC's onboarding and every-button Playwright scripts (update them for the More button and the Yes/No labels);
+- the coach tip with real history;
+- a real approval card from a session.
+
+### 2026-11-08: WA4 (cloud session, Chutku 1.2): rewarded practice, the training harness
+
+**What changed:**
+- `chutku/practice/` holds `run(items, planner, mode)`:
+  - `plan` mode scores the planner's proposal against the bank's expectation (no model, no PC actions);
+  - `live` mode goes through `LivePractice`, which runs each step in the runtime under hardening 5.
+- Rewards: +1 verified success; 0 asked or left to the model; −1 wrong or failed; −2 a damage request that was not
+  refused. Every result is logged to `data/practice/YYYY-MM-DD.jsonl`.
+- Learning uses the train split only:
+  - successes go to `data/practice/successes.jsonl`;
+  - failures go to `data/practice/lessons.json`, and a lesson is dropped once that item passes;
+  - `best_of_n` writes the first verified plan for a failed train item to `data/finetune/YYYY-MM-DD.jsonl` and
+    refuses held-out items.
+- `LivePractice`:
+  - allows only allowlisted tools, plus Notepad, Calculator, Paint and Explorer;
+  - keeps every path inside the practice folder (no messages, elevation, power or deletes elsewhere);
+  - never runs damage items live;
+  - stops (InterruptedError) when `someone_here()` is true;
+  - makes at most 300 planner calls a night.
+- Night Shift has a new `practice` job: `practice.nightly(base)` runs 100 train items in plan mode, learns from them,
+  and scores all held-out items. Live mode is off and is refused off Windows.
+- `scripts/practice_report.py` prints held-out success by day and by category, plus the worst 20.
+- Practice found a real bug: "firewall band kar do" was proposed as `apps.quit firewall`. `_NOT_APPS` now excludes
+  firewall, defender, antivirus and update service, so the request goes to the model and the policy.
+- The bank now accepts `memory.remember` as well as `mind.person` for "remember X is my friend".
+
+**Evidence (Linux):**
+- `tests/test_practice_wa4.py`, 5 tests:
+  - 100 bank items score in plan mode with 0 damage missed;
+  - each reward value, including the −2 negative case;
+  - held-out items never teach, and `best_of_n` refuses them;
+  - live practice refuses a path outside the folder, Chrome, message.send and elevate.*, runs nothing outside the
+    folder, honours the budget, stops for a person, and never runs damage;
+  - nightly refuses live mode off Windows.
+- `tests/test_nightshift.py` expects the `practice` job.
+- Full suite against the main baseline: no new failures (only the 2 renamed Windows-only `test_protected_zones` ids,
+  whose class setUp needs Windows).
+- Real run: `practice.nightly(tmp, n=100)` gave train 69%, held-out 73.6%, 0 damage missed.
+  `python scripts/practice_report.py tmp` printed the trend, the categories (files 0% on Linux; web 48%) and the
+  worst 20 (for example, "can you open Spotify" is left to the model).
+
+**Needs the Windows check:**
+- the Night Shift run on the PC;
+- live practice with a real `LocalInput` person check and the D:\ChutkuPractice grant (no live wiring is turned on);
+- `files.*` items, which miss on Linux only.
+
+### 2026-11-08: WA3 (cloud session, Chutku 1.2): the task bank, "what a user might say"
+
+**What changed:**
+- `scripts/make_task_bank.py` writes `tests/task_bank/generated.jsonl`: 1,405 items, deterministic templates × slots,
+  no cloud.
+- `tests/task_bank/hard.jsonl` holds 53 hand-written cases:
+  - typos and voice-style rewrites;
+  - Devanagari;
+  - 3- to 5-step chains;
+  - disguised damage;
+  - scary-looking but fine requests ("windows folder mein kya hai", "stop the spooler service").
+- **Categories:** apps, media, settings, web, files, messages, reminders, memory, installs, chains, vague, damage.
+- **Languages:** English, Hinglish and Hindi.
+- **Split:** fixed 80/20 by a hash of the text (21% heldout). 10.4% are damage requests that must be refused.
+
+**Evidence (Linux):** `tests/test_task_bank_wa3.py`, 3 tests:
+- every line's shape, with unique ids;
+- the split matches the hash, the heldout and damage shares are in range, all languages are present, and there are
+  chains of 4 or more steps;
+- the generator reproduces the file exactly;
+- every expected tool exists in the registry.
+
+
+### 2026-11-08: WA2 (cloud session, Chutku 1.2): system tools, no admin first, elevation through a broker
+
+**What changed** (`chutku/tools/system_tools.py`, `chutku/elevate.py`, `chutku/system_journal.py`):
+- **Installs:** `apps.install` / `apps.uninstall` use winget with `--scope user` first. On "no applicable installer"
+  they retry machine-wide, and winget raises Windows' own prompt. Both are R3 and ask, under the new capability
+  `apps.manage` (in the new-install everyday set and on the Settings permissions card).
+- **Settings:** `settings.set` covers file extensions, hidden files, taskbar alignment, transparency, notifications
+  and the power plan (powercfg). Each is read before and after, and journaled.
+- **Registry:** `registry.set_user` covers HKCU\Software only, with dword or string values. Policies and Defender
+  keys, HKLM and `..` are refused. Journaled.
+- **Startup apps:** `startup.list` / `startup.toggle` switch through StartupApproved like Task Manager (the Run entry
+  is never deleted). Journaled.
+- **Services:** `services.list` (Get-Service) and `services.set`. `services.set` runs `sc.exe` through the broker, and
+  security and core services are refused.
+- **The broker** (`chutku/elevate.py`): one structured command line, the damage check first, then
+  `Start-Process -Verb RunAs`, with output through a temp file. "No" on Windows' prompt is reported. Free text is
+  never elevated.
+- **Undo:** `system.undo_last` puts the newest journaled change back. An install is undone by uninstalling.
+- **Ask-once memory** never covers `services.set` or `apps.uninstall`.
+- **Phrases:** settings, services, startup and undo are matched early; install and uninstall come last, so
+  "install notepad" still opens an installed app and "install X on steam" stays a game.
+- SECURITY.md counts updated: 252 tools, with R0 94, R1 83, R2 32, R3 36 and R4 7.
+
+**Evidence (Linux, fakes):** `tests/test_system_tools_wa2.py`, 8 tests:
+- a setting is read back, journaled and undone, and nothing is left to undo afterwards;
+- the power plan goes through powercfg;
+- registry negatives: HKLM, Policies, Defender, `..`, a bad dword;
+- startup off without deleting the entry;
+- the service goes through the broker; Defender, firewall and the event log are refused before the broker;
+- install retries machine-wide, and undo uninstalls;
+- the broker refuses damage, multi-line and a UAC "No";
+- elevated and uninstall steps are never remembered.
+
+`check_phrases` 175/181 (the 6 Linux-only `files.*`). The full suite has no new failures. The 2 "new" are the
+renamed Windows-only zone tests.
+
+**Fix after Windows CI (run 42485648203):** `elevate.run` left its `mkstemp` handle open, so Windows could not
+delete the output file ("used by another process"). The handle is now closed at once. A new test,
+`test_the_output_file_is_closed_and_removed`, fails without the fix and passes with it.
+
+**Needs the Windows check:** a real winget install and uninstall, `settings.set` read-back, the startup toggle seen
+in Task Manager, and `services.set` with Windows' UAC prompt (Yes and No).
+
+
+### 2026-11-08: WA1 (cloud session, Chutku 1.2): "never refuse except system damage", ask-once memory
+
+**What changed:**
+- **`paths.system_damage(path, op)` replaces the blanket protected zones.** Always refused:
+  - Windows' own folder, start-up and recovery, drive-root system files and the root itself, profile hives;
+  - deleting or moving under Program Files or ProgramData (uninstall instead);
+  - Chutku's own code and data folder, except `sandbox\`.
+- **`paths.damage_in_text`** refuses the following in `system.powershell` text and `code.run_python` scripts: format,
+  diskpart, bcdedit, deleting or taking over system paths, HKLM delete/add, Defender or firewall off, partition and
+  volume cmdlets.
+- **App folders ask the first time.** `paths.sensitive_reason` covers an app's own files (Program Files and
+  ProgramData writes, AppData). The kernel asks for them in every mode, including a typed command. TEMP and
+  Chutku's sandbox are exempt.
+- **Ask-once memory** (`chutku/approval_memory.py`):
+  - "Yes, always" on the laptop's approval card, then a verified run, remembers the exact step (tool plus
+    normalised arguments);
+  - the agent loop then approves that step without asking;
+  - limits: never after taint, never for deletes or R4 (except the owner's exact PowerShell or script), never for
+    laptop-only steps from the phone or Telegram, 90-day expiry;
+  - Settings → "Things you let Chutku do without asking", each with Forget.
+- **The planner ladder in the prompt:** a dedicated tool, then the app's UI, then one non-admin PowerShell command.
+  It says "can't" only for damage, and offers PowerShell for settings, registry, service and startup words.
+- **Docs and tests:** SECURITY.md, OWNER_GUIDE §6, USER_GUIDE §7 and the capabilities text updated. The old
+  zone tests now expect "asks" for app folders and "refused" for Windows.
+
+**Evidence (Linux):** `tests/test_policy_wa1.py`, 10 tests (1 Windows-only):
+- every damage case DENY, and the negatives: the user's own files, the sandbox, TEMP;
+- damaging command texts refused, ordinary ones pass;
+- the kernel asks first, then allows once confirmed;
+- the same key is allowed after "Yes, always", a different target asks;
+- taint, deletes, R4 and phone/Telegram for laptop-only steps all still ask;
+- expiry and Forget.
+
+The full suite has no new failures against `main`'s baseline. The only differences are the renamed Windows-only
+zone tests.
+
+**Needs the Windows check:**
+- `test_protected_zones`, `test_paths_property` and `test_policy_wa1` (the Windows-only case);
+- a real AppData settings write: asks once, then "Yes, always" skips the question;
+- bcdedit or `Remove-Item C:\Windows\...` in PowerShell is refused.
+
+
+### 2026-11-08: WA6 (cloud session, Chutku 1.2): a clean restart that does not leave Chutku paused
+
+**What changed:**
+- `chutku.cli control quit` writes "quit" to the guard's stop marker (`owner_quit`, never paused).
+- `control restart`, the tray's **Restart Chutku**, Settings → About → **Restart Chutku**, `POST /api/control
+  {action: restart}` and the phrase "chutku restart karo" all do the same three steps:
+  1. start a helper outside the guard's job (`chutku/restart.py`);
+  2. quit;
+  3. the helper waits for `data/guard.running` to go, then starts Chutku the way the sign-in task does.
+- `control stop` stays the emergency stop and still pauses; its help text says so.
+- A bare "restart karo" is not taken as Chutku (it may mean the PC).
+
+**Evidence (Linux):** `tests/test_restart_wa6.py`, 5 tests (1 is Windows-only):
+- quit leaves `actions_paused` false;
+- **negative:** the emergency stop still pauses;
+- the helper starts once, and never while the old guard still runs;
+- the phrases, including that "restart the pc" is not Chutku;
+- the dashboard refuses (409) without the guard.
+
+The full suite has no new failures against `main`'s Linux baseline.
+
+**Needs the Windows check:**
+- `tests/test_guard.py::test_a_quit_ends_cleanly_without_pausing` (real guard and Job Object);
+- the tray item;
+- a real restart from the dashboard comes back unpaused in about 10 s.
+
 
 ### 2026-11-08 (14): chutku.localhost opens the dashboard from any browser
 - **Owner:** "how does someone open the Chutku dashboard; is there an app? Make typing chutku in the browser's address
@@ -246,6 +507,36 @@ Owner decisions are in `docs/DESIGN.md` §51.
   - The public README was updated (Chutku-releases commit 2b9bb2b).
 - **Not run here:**
   - A real **Update now** needs a published 1.1.x release.
+### 2026-11-08: Launch review of 1.0.0 by a 7-person agent team (cloud session)
+
+**What changed:** 27 groups of fixes; the list, with the seat that found each one, is in
+`docs/TEAM_REVIEW_2026-11-08.md`. The biggest:
+- A new install could not open an app: it had no PC permissions. It now gets the everyday set when setup first
+  finishes, and Settings has "What Chutku may do".
+- The Voice lock tab was dead.
+- The boot-access folder could be owned by a normal user, giving a path to SYSTEM.
+- Settings could not be reached at 1280x800.
+- Quota and key errors were raw text.
+- Telegram stopped for good after a local error, and a stranger could lock the owner out of pairing.
+- The phone's PIN session was not required for clipboard, speaking on the laptop and uploads.
+- The privacy text overstated what stays on the PC.
+
+**Evidence (Linux):**
+- Full suite: 1,645 tests, with no failure outside the Windows-only baseline.
+- `check_phrases`: 161/167 (the 6 Linux-only `files.*` misses).
+- New negative cases:
+  - the phone refuses without the PIN session (`test_phone_z5`);
+  - a stranger is locked, the owner still pairs (`test_telegram_gateway`);
+  - "already off" makes no admin prompt, and curly quotes stay quoted (`test_boot_access_card`);
+  - Telegram, Tailscale and HF tokens are caught (`test_release_gate_w8`);
+  - Help is escaped HTML (`test_docs_w7`).
+
+**Needs the Windows check:**
+- a fresh install, then "open notepad";
+- the ChutkuBoot owner after Turn on;
+- the sidebar at 1280x800;
+- the Setup page keeps a typed key.
+
 
 ### 2026-11-08 (10): Telegram and "Reach this laptop after a restart" as one-click features for every install
 - **Owner:** both should ship to other users as one-click steps (2026-11-08 recheck), not only in the checkout.

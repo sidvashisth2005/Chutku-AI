@@ -52,8 +52,22 @@ Write-Host "Laptop on Tailscale: $ip ($dns), owner $login"
 # --- 2. the lock-screen helper and the boot notice -------------------------------------------------------------
 Step "Lock-screen helper and Telegram 'Laptop is ON' at every boot"
 $boot = Join-Path $env:ProgramData "ChutkuBoot"
+# 2026-11-08 review: a folder that already exists may have been made by a normal user (ProgramData lets them), who
+# would stay its OWNER and could re-grant themselves access and swap the SYSTEM helper. So: never reuse it. A link is
+# refused; a real folder is removed with rmdir /s, which deletes junctions inside without following them.
+if (Test-Path -LiteralPath $boot) {
+    if ((Get-Item -LiteralPath $boot -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        Fail "$boot is a link, not a folder. Delete it, then run this again."
+    }
+    try { Stop-ScheduledTask -TaskName "ChutkuUnlock" -ErrorAction Stop } catch { }
+    Get-Process ChutkuUnlock -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+    cmd /c "rmdir /s /q `"$boot`""
+    if (Test-Path -LiteralPath $boot) { Fail "Could not replace $boot (a file in it is in use). Restart, then run this again." }
+}
 New-Item -ItemType Directory -Force $boot | Out-Null
 $acl = New-Object Security.AccessControl.DirectorySecurity
+$acl.SetOwner([Security.Principal.SecurityIdentifier]"S-1-5-32-544")   # BUILTIN\Administrators owns it
 $acl.SetAccessRuleProtection($true, $false)   # only these: administrators and SYSTEM change it, LOCAL SERVICE reads
 foreach ($who in "BUILTIN\Administrators", "NT AUTHORITY\SYSTEM") {
     $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($who, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")))
@@ -65,6 +79,7 @@ Set-Acl $boot $acl
 $status = Join-Path $boot "status"
 New-Item -ItemType Directory -Force $status | Out-Null
 $sacl = New-Object Security.AccessControl.DirectorySecurity
+$sacl.SetOwner([Security.Principal.SecurityIdentifier]"S-1-5-32-544")
 $sacl.SetAccessRuleProtection($true, $false)
 foreach ($who in "BUILTIN\Administrators", "NT AUTHORITY\SYSTEM") {
     $sacl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($who, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")))

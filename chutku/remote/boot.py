@@ -54,14 +54,22 @@ def missing_step(base):
     return None
 
 
-def run(base, on, *, launch=subprocess.Popen):
+def _quote(text):
+    """Text for inside a PowerShell '...' string: PowerShell also ends one at curly single quotes (an install path
+    like C:\\Users\\O’Brien would otherwise break the command)."""
+    return "".join(ch * 2 if ch in "'\u2018\u2019\u201a\u201b" else ch for ch in text)
+
+
+def run(base, on, *, launch=subprocess.Popen, installed=STATUS.parent.parent):
     """Start the elevated setup (on) or removal (off). Windows asks once; a window shows each step."""
     if on and (step := missing_step(base)):
         return {"started": False, "message": step}
+    if not on and not Path(installed).exists():   # nothing to remove: no admin prompt for nothing
+        return {"started": False, "message": "It is already off."}
     path = script("setup_boot_access.ps1" if on else "remove_boot_access.ps1")
     if path is None:
         return {"started": False, "message": "This copy of Chutku has no boot-access scripts."}
-    inner = f"-NoProfile -ExecutionPolicy Bypass -File \"{path}\" -Quiet".replace("'", "''")   # inside '...'
+    inner = _quote(f"-NoProfile -ExecutionPolicy Bypass -File \"{path}\" -Quiet")   # inside '...'
     launch(["powershell.exe", "-NoProfile", "-Command",
             f"Start-Process powershell.exe -Verb RunAs -ArgumentList '{inner}'"],
            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))

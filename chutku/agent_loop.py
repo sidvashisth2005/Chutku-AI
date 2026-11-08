@@ -140,8 +140,12 @@ AGENT_SYSTEM = (
     "after it. Prefer apps.launch for opening apps, apps.quit for closing an app, files.open for documents and folders, web.search/web.open for "
     "websites (web.search already shows the results page; use browser.inspect/browser.workflow only when asked to read or fill a web page), filesystem.recycle for deleting (recoverable), web.news for news, web.weather for weather, web.results then web.read for facts, prices and research, audio.volume / display.brightness for volume and brightness, code.build_project (ONE step; it writes, opens in "
     "VS Code, tests and fixes the code itself) when the user asks to build/make/code an app, program, website or game, "
-    "with path = CONTEXT.projects_folder + a short lowercase name. To use the buttons, fields, checkboxes or menus of an open app, prefer desktop.look (app) then desktop.act (ref from that look): it works in the background without the mouse and returns the window's new state. For the owner's own accounts on websites (Gmail, YouTube, shopping orders, any site they are signed in to) use browser.open url=... then browser.act / browser.type (browser.look reads the open page again): the signed-in browser, in the background. web.open only SHOWS a page to the owner in a visible window; when you must read, click or fill something on a page yourself (or the owner says signed-in, logged in, my account), use browser.open instead of web.open. To SEE the screen (images, video, games, or what desktop.look cannot list) use screen.understand (when='hotkey_moment' for 'this / is / yahan / ye / what I am looking at', else 'now'), then act with screen.click (element ids from the latest screen.understand), keyboard.type_text/press_enter/shortcut and screen.scroll, and call screen.understand again to check the result. To SAVE a new file under a given name: keyboard.edit action=save (opens the Save As dialog), then keyboard.type_text with the full path (the file name box is focused), then keyboard.press_enter; close an app only after its work is saved. Apps like Notepad may reopen the user's own files: when writing NEW text, first open a blank document (keyboard.shortcut new_tab) and check the window title; keyboard tools refuse a window showing an existing document unless the user named it (argument document). To close a window you opened, use windows.close with the window_id/process_id/executable from apps.launch (apps.quit closes EVERY window of that app, including the user's own). System folders (Windows, Program Files, ProgramData, "
-    "AppData) and Chutku's own folders can never be changed: refuse such requests at once with status=clarify. "
+    "with path = CONTEXT.projects_folder + a short lowercase name. To use the buttons, fields, checkboxes or menus of an open app, prefer desktop.look (app) then desktop.act (ref from that look): it works in the background without the mouse and returns the window's new state. For the owner's own accounts on websites (Gmail, YouTube, shopping orders, any site they are signed in to) use browser.open url=... then browser.act / browser.type (browser.look reads the open page again): the signed-in browser, in the background. web.open only SHOWS a page to the owner in a visible window; when you must read, click or fill something on a page yourself (or the owner says signed-in, logged in, my account), use browser.open instead of web.open. To SEE the screen (images, video, games, or what desktop.look cannot list) use screen.understand (when='hotkey_moment' for 'this / is / yahan / ye / what I am looking at', else 'now'), then act with screen.click (element ids from the latest screen.understand), keyboard.type_text/press_enter/shortcut and screen.scroll, and call screen.understand again to check the result. To SAVE a new file under a given name: keyboard.edit action=save (opens the Save As dialog), then keyboard.type_text with the full path (the file name box is focused), then keyboard.press_enter; close an app only after its work is saved. Apps like Notepad may reopen the user's own files: when writing NEW text, first open a blank document (keyboard.shortcut new_tab) and check the window title; keyboard tools refuse a window showing an existing document unless the user named it (argument document). To close a window you opened, use windows.close with the window_id/process_id/executable from apps.launch (apps.quit closes EVERY window of that app, including the user's own). Do what the user asks (owner rule 2026-11-08). "
+    "Ladder: a dedicated catalog tool first; else the app's own UI (desktop.look/desktop.act, browser.*); else ONE "
+    "non-admin system.powershell command (e.g. 'Set-ItemProperty HKCU:\\...' for a per-user setting, 'Get-Service' "
+    "to look). Say you can't (status=clarify) ONLY when the request would damage Windows (system files, start-up, "
+    "drivers, security, formatting): then say why and what the user can do instead. Chutku's own folders never "
+    "change. "
     "Never delete or overwrite many files at once. To repeat ONE action (move, copy, rename, open) for all items of a "
     "list an earlier step returned, use steps.for_each in one step (all items share one approval) instead of asking "
     "or doing them one round at a time. Use only catalog tools and their arguments; never "
@@ -427,7 +431,8 @@ _EFFECT_INTENTS = [
     (("files.organize_undo",), re.compile(r"\b(?:undo|restore|revert|put back|wapas|vapas)\b", re.I)),
     (("code.run_python",), re.compile(r"\b(?:run|execute|chalao|start)\b", re.I)),
     # A free-form shell command only when the owner asks for one, never as the planner's own shortcut.
-    (("system.powershell",), re.compile(r"\b(?:powershell|command|cmdlet|terminal|shell)\b", re.I)),
+    (("system.powershell",), re.compile(r"\b(?:powershell|command|cmdlet|terminal|shell|registry|service|startup|"
+                                         r"setting|settings|enable|disable)\b", re.I)),   # WA1 ladder: the last rung
     # A build needs a build verb AND something buildable: "create draft.txt with the text hello" is a file write
     # (verify_agent_chat 2026-10-04: the model chose code.build_project for it).
     (("code.build_project",), re.compile(r"^(?=.*\b(?:build|make|create|code|develop|program|write|generate|banao|bana|"
@@ -1066,8 +1071,8 @@ class AgentSession:
                 from chutku.coder import _with_beats
                 proposal, meta = _with_beats(lambda: self._propose(runtime, planner, fallback, check))
                 with self.lock:
-                    if proposal is None:
-                        self._finish("clarify", meta)
+                    if proposal is None:   # a brain that is down is a failure, not a request to rephrase
+                        self._finish("failed" if getattr(self, "brain_down", False) else "clarify", meta)
                         break
                     self.planners.append({k: meta.get(k) for k in ("planner", "seconds", "backend")})
                     self.declared_plan = proposal["declared_plan"] or self.declared_plan
@@ -1185,7 +1190,8 @@ class AgentSession:
                     break
                 if str(result.get("state")) == "WAITING_CONFIRMATION" and not (step.get("group") and self.suspicious) \
                         and (_signature(step) in self.approved_calls
-                             or _signature(step) in recent_approvals(getattr(target, "control_root", None))):
+                             or _signature(step) in recent_approvals(getattr(target, "control_root", None))
+                             or self._remembered(target, step, tainted)):
                     # (H14: a for-each item rides on the group's one OK only while nothing read since then tried to
                     # give instructions; after that every item asks again.)
                     # The owner already approved this exact step in this request (owner, 2026-10-08): no second ask.
@@ -1230,7 +1236,7 @@ class AgentSession:
             self.pending_feedback = self.surprise   # the model hears what was expected vs observed
         self.surprise = None
         errors = []
-        self.brain_failures = []
+        self.brain_failures, self.brain_down = [], False
         if self.pending_feedback:
             self.feedback, self.pending_feedback = self.pending_feedback, None
         first, meta = self._checked(planner, runtime, check, errors)
@@ -1249,8 +1255,13 @@ class AgentSession:
             return first, meta
         from chutku.brain_errors import explain   # H9: say why (quota, key, network...) when every brain failed
         reason = explain(self.brain_failures)
-        return None, ("I could not produce a safe plan for that" + (f" ({reason})" if reason else "") + ". "
-                      + ("; ".join(errors))[:400])
+        import logging   # the planners' own words go to the log, not to the owner (2026-11-08 review)
+        logging.getLogger("chutku.agent").info("no plan: %s", "; ".join(errors)[:600])
+        if reason:
+            self.brain_down = True
+            return None, f"I couldn't work on that: {reason}."
+        # no brain was down: the planners' reasons (a refused step, "you did not ask for ...") help the owner
+        return None, ("I could not produce a safe plan for that. " + "; ".join(errors))[:450]
 
     def _replay(self, runtime):
         """An exact repeat of a request whose one-round plan fully worked before: run that plan again without asking
@@ -1473,8 +1484,19 @@ class AgentSession:
         return self._record(step, {"state": "COMPLETED", "verification": "PASS", "output": summary})
 
     @_in_session
-    def decide(self, runtime, *, approve):
-        """Resolve the pending on-screen confirmation for exactly one step."""
+    def _remembered(self, target, step, tainted):
+        """WA1 ask-once memory: the owner said "Yes, always" to exactly this step before and it worked."""
+        from chutku import approval_memory
+        try:
+            tool = target.registry.get(step["tool"])
+        except (KeyError, AttributeError):
+            return False
+        return not self.suspicious and approval_memory.allows(getattr(target, "control_root", None), step, tool,
+                                                               tainted=bool(tainted), origin=self.origin)
+
+    def decide(self, runtime, *, approve, always=False):
+        """Resolve the pending on-screen confirmation for exactly one step. always (WA1): the owner's "Yes, always" at
+        the laptop; the step is remembered only if it then verified."""
         with self.lock:
             if self.pending is None:
                 raise ValueError("No confirmation is pending for this session.")
@@ -1495,6 +1517,17 @@ class AgentSession:
                 if lasting:
                     remember_approval(getattr(RuntimeRouter.wrap(runtime).default, "control_root", None),
                                       pending["step"])
+            if always and approve is True and str(result.get("state")) == "COMPLETED" \
+                    and str(result.get("verification", "")).upper().endswith("PASS"):
+                from chutku import approval_memory
+                default = RuntimeRouter.wrap(runtime).default
+                try:
+                    approval_memory.remember(getattr(default, "control_root", None), pending["step"],
+                                             default.registry.get(pending["step"]["tool"]),
+                                             tainted=bool(self.tainted or pending["step"].get("tainted_source")),
+                                             origin=self.origin)
+                except (KeyError, OSError):
+                    pass
             state = self._record(pending["step"], result)
             if approve is not True:
                 self._finish("cancelled", "You cancelled that step. Nothing further ran.")

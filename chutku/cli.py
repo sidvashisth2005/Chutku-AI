@@ -20,8 +20,12 @@ def _nightshift_command(namespace):
         print(json.dumps(nightshift.install(PROJECT_ROOT), indent=2))
         return
     if namespace.night_action == "report":
-        print(json.dumps(nightshift.latest_report(PROJECT_ROOT), indent=2, ensure_ascii=False))
-        print(nightshift.morning_line(PROJECT_ROOT))
+        report = nightshift.latest_report(PROJECT_ROOT)
+        if report is None:
+            print("No Night Shift report yet.")
+            return
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        print(nightshift.morning_line(PROJECT_ROOT) or "")
         return
     if namespace.when_idle and not nightshift.wait_for_idle(PROJECT_ROOT):
         print("No 30 idle minutes on mains power today (or it already ran): skipped.")
@@ -193,8 +197,9 @@ def main() -> None:
     sequence = subparsers.add_parser("sequence", help="Review up to six explicit commands; add --execute to run")
     sequence.add_argument("--step", action="append", required=True)
     sequence.add_argument("--execute", action="store_true")
-    control = subparsers.add_parser("control", help="Pause/resume actions independently of the running dashboard")
-    control.add_argument("action", choices=("pause", "resume", "status", "stop"))
+    control = subparsers.add_parser("control", help="Pause/resume actions; quit or restart Chutku cleanly; stop = the "
+                                    "EMERGENCY stop, which leaves actions paused on purpose")
+    control.add_argument("action", choices=("pause", "resume", "status", "stop", "quit", "restart"))
     brain = subparsers.add_parser("brain", help="Preview a general typed-tool plan with the local model; never execute automatically")
     brain.add_argument("message", nargs="+")
     brain.add_argument("--consult-gemini", action="store_true",
@@ -473,8 +478,16 @@ def main() -> None:
         from chutku.core.execution_lock import ExecutionBusy
         controller = ActionControl(PROJECT_ROOT)
         try:
-            if namespace.action == "stop":
+            if namespace.action == "stop":   # the emergency stop: Chutku comes back paused, on purpose
                 controller.stop()
+            elif namespace.action == "quit":   # WA6: close cleanly; the next start is not paused
+                controller.quit()
+                print("Chutku is closing (not paused).")
+                return
+            elif namespace.action == "restart":
+                from chutku import restart
+                print(restart.request(PROJECT_ROOT))
+                return
             elif namespace.action == "pause":
                 controller.pause()
             elif namespace.action == "resume":

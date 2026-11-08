@@ -67,6 +67,16 @@ class LaptopSoundServerTests(unittest.TestCase):
             time.sleep(0.02)
         self.assertEqual(said, ["Khana ready hai"])
 
+    def test_after_the_pin_session_ends_changes_to_the_laptop_need_the_pin(self):
+        # 2026-11-08 review: the 12-hour cookie alone overwrote the laptop clipboard and spoke on the laptop
+        self.core._speak = lambda text: None
+        self.pair_and_login()
+        self.server.pin_ok.clear()                                    # 30 idle minutes later
+        self.assertEqual(self.request("/api/laptop/say", {"text": "hello"})[0], 403)
+        self.assertEqual(self.request("/api/clipboard/set", {"text": "evil"})[0], 403)
+        self.assertEqual(self.request("/api/files/upload?name=a.txt", raw=b"abc")[0], 403)
+        self.assertEqual(self.request("/api/laptop/say", {"text": "hello", "pin": "4321"})[0], 200)   # the PIN
+
     def test_the_owners_recorded_voice_plays_on_the_laptop(self):
         played = []
         self.pair_and_login()

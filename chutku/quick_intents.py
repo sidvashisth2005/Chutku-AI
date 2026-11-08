@@ -43,6 +43,7 @@ PATTERNS = [
     ("brightness_set", re.compile(rf"^{_POLITE}(?:set\s+)?(?:the\s+)?(?:screen\s+)?brightness\s+(?:to\s+)?(?P<level>\d{{1,3}})(?:\s*(?:%|percent))?{_TAIL}", re.I)),
     ("remind_in", re.compile(rf"^{_POLITE}remind me (?:in|after) (?P<n>\d{{1,4}}) {_UNIT} (?:to |that |about )?(?P<message>.+?){_TAIL}", re.I)),
     ("remind_in", re.compile(rf"^{_POLITE}(?P<n>\d{{1,4}}) {_UNIT} (?:baad|me|mein) (?P<message>.+?) (?:yaad dilana|yaad dila dena|remind karna){_TAIL}", re.I)),
+    ("remind_in", re.compile(rf"^{_POLITE}(?P<n>\d{{1,4}}) {_UNIT} (?:baad|me|mein) (?:mujhe )?(?:yaad dilana|yaad dila dena|remind karna)(?: ki)? (?P<message>.+?){_TAIL}", re.I)),   # 2026-11-08: the guide's word order
     ("timer", re.compile(rf"^{_POLITE}(?:set (?:a )?)?timer (?:for )?(?P<n>\d{{1,4}}) {_UNIT}{_TAIL}", re.I)),
     ("remind_at", re.compile(rf"^{_POLITE}remind me (?P<day>tomorrow )?at (?P<h>\d{{1,2}})(?::(?P<m>\d{{2}}))? ?(?P<ampm>am|pm)? (?P<day2>tomorrow )?(?:to |that |about )?(?P<message>.+?){_TAIL}", re.I)),
     ("briefing", re.compile(rf"^{_POLITE}(?:good morning|morning briefing|briefing|daily briefing|brief me|what'?s my day like|subah ki report){_TAIL}", re.I)),
@@ -50,7 +51,7 @@ PATTERNS = [
     ("play", re.compile(rf"^{_POLITE}(?:youtube|yt)\s+(?:pe|par|mein|me)\s+(?P<query>.+?)\s+(?:chalao|bajao|lagao|play karo|play){_TAIL}", re.I)),
     ("weather", re.compile(rf"^{_POLITE}(?:(?:what(?:'?s| is) the |how(?:'s| is) the |tell me the |check the )?weather|mausam|temperature)(?:\s+(?:like\s+)?(?:in|at|of|for)\s+(?P<city>[a-z .'-]{{2,60}}?))?(?:\s+(?:today|now|right now|currently|at the moment|tomorrow|kaisa hai|kya hai|batao|kaisa rahega))*{_TAIL}", re.I)),
     ("weather", re.compile(rf"^{_POLITE}(?P<city>[a-z .'-]{{2,60}}?)\s+(?:ka|mein|me)\s+(?:mausam|weather|temperature)(?:\s+(?:kaisa hai|kya hai|batao|kaisa rahega))?{_TAIL}", re.I)),
-    ("news", re.compile(rf"^{_POLITE}(?:(?:give|tell|show|get) me |what(?:'?s| is) |any )?(?:the )?(?:(?:latest|today'?s|top|recent)\s+)?(?:news|headlines|khabar|samachar)(?:\s+(?:about|on|of|for|regarding)\s+(?P<topic>.{{2,100}}?))?(?:\s+(?:batao|sunao|dikhao))?{_TAIL}", re.I)),
+    ("news", re.compile(rf"^{_POLITE}(?:(?:give|tell|show|get) me |what(?:'?s| is) |any )?(?:the )?(?:(?:latest|today'?s|top|recent|aaj ki|aaj ke|taaza|taza)\s+)*(?:news|headlines|khabar|khabrein|samachar)(?:\s+(?:about|on|of|for|regarding)\s+(?P<topic>.{{2,100}}?))?(?:\s+(?:batao|sunao|dikhao))?{_TAIL}", re.I)),
     ("info_learned", re.compile(rf"^{_POLITE}(?:tumne kya (?:kya )?seekha(?: hai)?|kya seekha(?: hai)?|what (?:did|have) you "
                                 rf"learn(?:ed|t)?|what skills (?:did|have) you learn(?:ed|t)?|show (?:your |the )?learned "
                                 rf"skills|skills i taught you){_TAIL}", re.I)),
@@ -159,7 +160,7 @@ PATTERNS = [
     ("remember", re.compile(rf"^{_POLITE}remember (?:that )?(?:my )?(?P<key>[a-z][a-z0-9_ -]{{0,40}}?)\s*(?:=|is|:)\s*(?P<value>.{{1,300}}?){_TAIL}", re.I)),
     ("playing", re.compile(rf"^{_POLITE}(?:what(?:'?s| is) (?:playing|this song)(?: right now| now)?|(?:kaunsa|kya) (?:gaana|song) (?:chal raha|baj raha) (?:hai|he)){_TAIL}", re.I)),
     ("cleanup", re.compile(rf"^{_POLITE}(?:(?:help me |how (?:can|do) i )?free up (?:some )?(?:disk |storage )?space(?: on (?:my )?(?:c(?: drive)?|pc|computer|laptop))?|(?:clean up|cleanup) (?:my )?(?:c(?: drive)?|pc|computer|laptop|disk|storage)|what(?:'?s| is) taking (?:up )?(?:all )?(?:the )?space(?: on (?:my )?(?:c(?: drive)?|pc|computer))?|(?:c drive|storage|space) (?:khali|saaf) karo){_TAIL}", re.I)),
-    ("disk", re.compile(rf"^{_POLITE}(?:how much (?:free |disk |storage )?space(?: is)?(?: left| free| there)?(?: on (?:my |the )?(?:pc|computer|laptop|drives?|disks?))?|(?:check |show )?(?:the )?(?:disk|drive|storage) (?:space|usage)|(?:disk|storage|space) kitna (?:bacha|khali) (?:hai|he)|storage (?:check karo|batao)){_TAIL}", re.I)),
+    ("disk", re.compile(rf"^{_POLITE}(?:how much (?:free |disk |storage )?space(?: is)?(?: left| free| there)?(?: on (?:my |the )?(?:pc|computer|laptop|drives?|disks?))?|(?:check |show )?(?:the )?(?:disk|drive|storage) (?:space|usage)|(?:disk|storage|space) kitna (?:bacha|khali) (?:hai|he)|storage (?:check karo|batao)|(?:(?:pc|laptop|computer) (?:mein|me) )?kitn[ia] (?:jagah|space) (?:bachi|bacha|khali)?\s*(?:hai|he)?){_TAIL}", re.I)),
     ("log", re.compile(rf"^{_POLITE}(?:what (?:did|have) you (?:do|done)(?P<today> today)?|(?:show )?(?:your |the )?(?:action log|activity log|history of actions)|aaj (?:tumne )?kya kiya){_TAIL}", re.I)),
     ("recent", re.compile(rf"^{_POLITE}(?:what (?:was|am) i working on|(?:show |list )?(?:my )?recent(?:ly changed)? files|(?:main )?kis (?:file )?pe kaam kar raha tha){_TAIL}", re.I)),
     ("routine_save", re.compile(rf"^{_POLITE}(?:save|create|make)\s+(?:a\s+|my\s+)?routine\s+(?:called\s+|named\s+)?(?P<name>[a-z][a-z0-9 -]{{0,29}}?)\s*[:=-]\s*(?P<commands>.+?){_TAIL}", re.I)),
@@ -188,7 +189,7 @@ _MEDIA = {"pause": "pause", "stop": "pause", "roko": "pause", "rok do": "pause",
           "play": "play", "chalao": "play", "chalu karo": "play", "next": "next", "skip": "next", "agla": "next",
           "previous": "previous", "pichla": "previous"}
 _NOT_APPS = re.compile(r"\b(?:and|then|after|folder|file|files|document|pdf|window|windows|tabs?|settings? of|wi-?fi|"
-                       r"bluetooth|hotspot|internet|airplane mode|flight mode|data)\b|[\\/:]", re.I)
+                       r"bluetooth|hotspot|internet|airplane mode|flight mode|data|firewall|defender|antivirus|update service)\b|[\\/:]", re.I)
 
 _cache = {"at": 0.0, "apps": None}
 
@@ -215,16 +216,50 @@ _SAME_TAB = re.compile(r"[\s,]*\b(?:(?:in )?(?:the )?(?:same|this|current) tab|(
 BROWSER_TOOLS = frozenset({"web.open", "web.search", "youtube.play"})
 
 
+
+# 1.2 (owner 2026-11-08: "never refuse, except anything that can damage Windows"). The runtime already blocks these
+# steps (paths.system_damage, damage_in_text, security services); this answers at once, in plain words, instead of
+# planning a step that would then be refused (task bank baseline: 16 damage requests got an instant step).
+_SYSTEM_TARGET = re.compile(r"system32|syswow64|winsxs|\bwindows\s+(?:folder|directory)|c:\\+windows\b|\bboot\s+"
+                            r"(?:folder|menu|files?)|\bbcd(?:edit)?\b|\bdiskpart\b|hklm|program\s+files\s+(?:ka|ki|ke|"
+                            r"mein|me|of)?\s*(?:the\s+)?(?:microsoft|windows)\b|\bpartition", re.I)
+_DESTROY = re.compile(r"\b(?:delete|del|remove|remove-item|erase|wipe|format|hata|hatao|mita|mitao|saaf|clean(?:\s*up)?|"
+                      r"uninstall|deletevalue|rmdir|rd)\b", re.I)
+_SECURITY = re.compile(r"\b(?:windows\s+)?defender\b|\bfirewall\b|\bantivirus\b|\bwindefend\b|\bmpssvc\b|"
+                       r"\bsecurity\s+(?:service|center)\b|\bwindows\s+update\s+service\b", re.I)
+_SWITCH_OFF = re.compile(r"\b(?:off|band|disable|disabled|stop|hata|hatao|remove|uninstall|turn\s+off|switch\s+off|"
+                         r"kill|bypass)\b", re.I)
+_FORMAT_DRIVE = re.compile(r"\bformat\b.{0,20}\b[a-z]\s*(?:drive|:)|\b[a-z]\s*drive\s+(?:ko\s+)?format", re.I)
+
+
+def _damage(text):
+    """A plain refusal for a request that would damage Windows, else None."""
+    if _SECURITY.search(text) and _SWITCH_OFF.search(text):
+        return _done("Windows' security protection (Defender, the firewall, security services and updates) keeps "
+                     "your PC safe, so I won't turn it off. If something is being blocked, tell me what, and I'll "
+                     "help you allow just that app.")
+    if _FORMAT_DRIVE.search(text) or (_SYSTEM_TARGET.search(text) and _DESTROY.search(text)):
+        return _done("That would damage Windows (its system files, start-up or a whole drive), so I won't do it. "
+                     "If you want space, say \u201cfree up space\u201d; if an app is the problem, say "
+                     "\u201cuninstall <app>\u201d.")
+    return None
+
 def quick_proposal(goal, apps=None):
     """A deterministic proposal for an unambiguous everyday request, with the owner's tab choice applied."""
     from chutku.translit import roman
     goal = roman(goal)
+    refused = _damage(goal)
+    if refused is not None:
+        return refused
     shortcut = _shortcut(goal) or _shortcut_save(goal)
     if shortcut is not None:   # H23: one of the owner's own shortcut names, or a new shortcut
         return shortcut
     taught = _teach(goal)
     if taught is not None:   # A15 teach mode, A16 screen survey
         return taught
+    system = _system_phrase(goal, installs=False)
+    if system is not None:   # WA2: a named Windows setting, a service, startup apps, undo ("notifications band karo")
+        return system
     from chutku import blueprints
     automation = blueprints.parse(goal)
     if automation is not None:   # H23: "subah ka briefing set karo 8 baje" -> task.schedule steps
@@ -239,6 +274,8 @@ def quick_proposal(goal, apps=None):
             tab, goal = choice, " ".join(pattern.sub(" ", goal).split())
             break
     proposal = _quick_proposal(goal, apps)
+    if proposal is None:   # WA2: installs, Windows settings, services, startup apps, undo of a system change, only
+        proposal = _system_phrase(goal, installs=True)   # when nothing older matched ("install notepad" opens an installed app)
     if proposal is not None and tab:
         for step in proposal["next_steps"]:
             if step["tool"] in BROWSER_TOOLS:
@@ -266,6 +303,77 @@ _TEACH_HI = re.compile(_TEACH_START + r"(?P<name>[a-z][a-z0-9 -]{0,29}?)\s+(?P<a
 _TEACH_DONE = re.compile(r"^(?:ho gaya|ho gya|bas|done|done teaching|finished|ho gaya,? save karo)\s*[.!]?$", re.I)
 _SURVEY = re.compile(r"^(?:screen survey(?: karo)?|survey (?:my |the )?screen|what(?:'s| is) open on (?:my|the) "
                      r"screen|screen pe kya kya khula hai|kaun kaun si windows? khuli hai[n]?)\s*[?.!]?$", re.I)
+
+
+_APP_NAME = r"(?P<app>[a-z0-9][\w.+-]*(?: [\w.+-]+){0,3}?)"   # 1-4 words: an app, not a sentence
+_APP_NAME2 = _APP_NAME.replace("<app>", "<app2>")
+_SYSTEM = [
+    ("apps.install", re.compile(rf"^(?:please\s+)?(?:install|download and install)\s+(?!(?:karo|kar do|kardo|it|this|that)\s*[.!]?$){_APP_NAME}(?:\s+app)?\s*[.!]?$|"
+                                rf"^{_APP_NAME2}\s+install\s+(?:karo|kar do|kardo|kar dena)\s*[.!]?$", re.I)),
+    ("apps.uninstall", re.compile(rf"^(?:please\s+)?(?:uninstall|remove the app)\s+(?!(?:karo|kar do|kardo|it|this|that)\s*[.!]?$){_APP_NAME}\s*[.!]?$|"
+                                  rf"^{_APP_NAME2}\s+uninstall (?:karo|kar do)\s*[.!]?$", re.I)),
+    ("services.list", re.compile(r"^(?:list|show)\s+(?:all\s+)?(?:windows\s+)?services|^services?\s+(?:dikhao|batao|list)\s*[.!?]?$", re.I)),
+    ("services.set", re.compile(r"^(?P<verb>start|stop|restart)\s+(?:the\s+)?(?P<name>[\w.-]{2,60})\s+service\s*[.!]?$|"
+                                r"^(?P<name2>[\w.-]{2,60})\s+service\s+(?P<verb2>start|stop|restart|band|chalu)\s*(?:karo|kar do)?\s*[.!]?$", re.I)),
+    ("startup.list", re.compile(r"^(?:show|list)\s+(?:my\s+)?startup(?:\s+apps)?|^startup(?:\s+apps)?\s+(?:dikhao|batao)\s*[.!?]?$", re.I)),
+    ("startup.toggle", re.compile(r"^(?P<verb>disable|enable)\s+(?P<name>[\w .+-]{2,60}?)\s+(?:at|on|from)\s+startup\s*[.!]?$|"
+                                  r"^(?P<name2>[\w .+-]{2,60}?)\s+(?:ko\s+)?startup\s+(?P<verb2>se hata do|se hatao|mein daalo|pe lagao)\s*[.!]?$", re.I)),
+    ("system.undo_last", re.compile(r"^(?:undo|revert)\s+(?:the\s+)?last\s+(?:system\s+)?(?:setting|change)|"
+                                    r"^(?:wo|woh|last|pichli)\s+(?:setting|change)\s+wapas\s+(?:karo|kar do)\s*[.!]?$", re.I)),
+]
+_SETTING_PHRASES = [
+    (re.compile(r"\b(show|dikhao|hide|chhupao|chupao)\b.*\bfile extensions?\b|\bfile extensions?\b.*\b(show|dikhao|hide|chhupao|chupao)\b", re.I), "file_extensions"),
+    (re.compile(r"\b(show|dikhao|hide|chhupao|chupao)\b.*\bhidden files\b|\bhidden files\b.*\b(show|dikhao|hide|chhupao|chupao)\b", re.I), "hidden_files"),
+    (re.compile(r"\btaskbar\b.*\b(left|center|centre|beech)\b", re.I), "taskbar_alignment"),
+    (re.compile(r"\bnotifications?\b.*\b(on|off|band|chalu)\b|\b(turn on|turn off)\b.*\bnotifications\b", re.I), "notifications"),
+    (re.compile(r"\b(high performance|power saver|balanced)\b.*\b(mode|plan|on|karo)\b|\bpower plan\b.*\b(high performance|power saver|balanced)\b", re.I), "power_plan"),
+]
+
+
+def _system_phrase(goal, installs):
+    """WA2 phrases; the tools check their own arguments. installs: only install/uninstall (they come last, so
+    "install notepad" still opens an installed app); otherwise everything but them."""
+    text = " ".join(goal.split()).strip()
+    lowered = text.casefold()
+    if re.search(r"\bsteam\b", lowered):
+        return None   # "install X on steam" stays games.install
+    for setting_pattern, name in ([] if installs else _SETTING_PHRASES):
+        if setting_pattern.search(text):
+            value = None
+            if name in ("file_extensions", "hidden_files"):
+                value = "hide" if re.search(r"\b(hide|chhupao|chupao)\b", lowered) else "show"
+            elif name == "taskbar_alignment":
+                value = "left" if "left" in lowered else "center"
+            elif name == "notifications":
+                value = "off" if re.search(r"\b(off|band)\b", lowered) else "on"
+            elif name == "power_plan":
+                value = ("high_performance" if "high performance" in lowered else
+                         "power_saver" if "power saver" in lowered else "balanced")
+            return _proposal("settings.set", {"name": name, "value": value}, f"Set {name} to {value}", "",
+                             finish=False)
+    for tool, pattern in _SYSTEM:
+        if installs != (tool in ("apps.install", "apps.uninstall")):
+            continue
+        match = pattern.match(text)
+        if not match:
+            continue
+        groups = {k: v for k, v in match.groupdict().items() if v}
+        if tool in ("apps.install", "apps.uninstall"):
+            app = (groups.get("app") or groups.get("app2")).strip()
+            return _proposal(tool, {"app": app}, f"{tool.split('.')[1].title()} {app}", "",
+                             finish=False)
+        if tool == "services.set":
+            verb = (groups.get("verb") or groups.get("verb2")).casefold()
+            verb = {"band": "stop", "chalu": "start"}.get(verb, verb)
+            return _proposal(tool, {"name": groups.get("name") or groups.get("name2"), "action": verb},
+                             f"{verb} a service", "", finish=False)
+        if tool == "startup.toggle":
+            verb = (groups.get("verb") or groups.get("verb2")).casefold()
+            on = verb in ("enable", "mein daalo", "pe lagao")
+            return _proposal(tool, {"name": (groups.get("name") or groups.get("name2")).strip(), "enabled": on},
+                             "Change a startup app", "", finish=False)
+        return _proposal(tool, {}, tool, "", finish=False)
+    return None
 
 
 def _teach(goal):
@@ -1929,7 +2037,12 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "telegram.handoff": lambda out: out["summary"],
                  "system.self_repair": lambda out: out["summary"],
                  "teach.start": lambda out: out["summary"], "teach.stop": lambda out: out["summary"],
-                 "desktop.survey": lambda out: out["summary"]}
+                 "desktop.survey": lambda out: out["summary"],
+                 # WA2 system tools
+                 "apps.install": lambda out: out["summary"], "apps.uninstall": lambda out: out["summary"],
+                 "settings.set": lambda out: out["summary"], "startup.list": lambda out: out["summary"],
+                 "startup.toggle": lambda out: out["summary"], "services.list": lambda out: out["summary"],
+                 "services.set": lambda out: out["summary"], "system.undo_last": lambda out: out["summary"]}
 
 
 def quick_answer(session):

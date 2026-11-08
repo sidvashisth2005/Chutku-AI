@@ -85,7 +85,8 @@ class PolicyKernel:
         if tool.resource_access is not None and (resource_access is None or tool.resource_access not in resource_access):
             return Authorization(Decision.DENY, risk, "The selected resource grant does not allow this operation.")
         if tool.required_capability is not None and capability_allowed is not True:
-            return Authorization(Decision.DENY, risk, "The required PC capability has not been explicitly granted.")
+            return Authorization(Decision.DENY, risk, "The required PC capability has not been explicitly granted. "
+                                 "Turn it on in Settings, under 'What Chutku may do'.")
         if protected_reason is not None:
             return Authorization(Decision.DENY, risk, str(protected_reason))
         if tool.user_only and provenance not in USER_ONLY_PROVENANCE:
@@ -105,6 +106,8 @@ class PolicyKernel:
             return Authorization(Decision.DENY, risk, "This operation class is disabled.")
         if tool.runs_code and not confirmed_on_screen:
             return Authorization(Decision.CONFIRM, risk, RUNS_CODE_REASON)
+        if owner_question and not confirmed_on_screen:   # WA1: e.g. an installed app's own files, the first time
+            return Authorization(Decision.CONFIRM, risk, str(owner_question))
         if risk >= Risk.EXTERNAL_SIDE_EFFECT and not confirmed_on_screen:
             return Authorization(Decision.CONFIRM, risk, "On-screen confirmation is required for this risk level.")
         if tool.deletes and not confirmed_on_screen:

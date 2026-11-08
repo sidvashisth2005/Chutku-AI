@@ -26,14 +26,14 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (243 registered, plus 144 app actions)
+### Risk levels and tools (252 registered, plus 144 app actions)
 
 | Level | Count | Meaning |
 |---|---|---|
-| R0 observation | 92 | reads only |
-| R1 reversible | 81 | easily undone (open apps or pages, window and media control) |
-| R2 data modification | 30 | changes data, with runtime undo where available |
-| R3 external side effect | 33 | apps.close, apps.quit, browser.act_risky, browser.workflow, code.build_project, code.run_python, desktop.act_risky, email.send, evolve.approve, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, settings.theme_restore, settings.theme_set, skill.approve, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close, windows.close_this |
+| R0 observation | 94 | reads only |
+| R1 reversible | 83 | easily undone (open apps or pages, window and media control) |
+| R2 data modification | 32 | changes data, with runtime undo where available |
+| R3 external side effect | 36 | apps.close, apps.install, apps.uninstall, apps.quit, browser.act_risky, browser.workflow, code.build_project, code.run_python, desktop.act_risky, email.send, evolve.approve, files.organize, input.click, input.type_text, keyboard.keys, keyboard.press_enter, message.send, mouse.click, mouse.drag, process.launch, remote.arm, remote.enable, screen.click_risky, services.set, settings.theme_restore, settings.theme_set, skill.approve, system.volume_restore, system.volume_set, uia.expand, uia.invoke, uia.scroll, uia.select, uia.set_value, windows.close, windows.close_this |
 | R4 destructive / privileged | 7 | filesystem.delete_permanent, network.adapter_restore, network.adapter_set, power.cancel, power.schedule, process.terminate, system.powershell |
 
 **Self-written skills** (X15/X16, `chutku/skills.py`): `skill.create` has the coder write `skill.json`, `SKILL.md`, `tool.py` and `test_tool.py` into `data/skills/_pending/<name>`, runs the tests and repairs at most 3 times (a failing assertion cannot be edited away). Pending skills are never tools. `skill.approve` is `user_only` (typed, then a click): only if the tests pass again does it activate the skill and record the SHA-256 of its files; a skill whose files changed since is not registered or run. `skill.<name>` runs `python -I` in a child process (60 s, 8 KB JSON result, untrusted output) and always asks first. It runs with the owner's Windows rights: the click is the boundary, not a sandbox, and the manifest's `network` / `writes_files` flags are declarations, not enforced.
@@ -100,7 +100,7 @@ tools` from `tools/package-lock.json` (npm integrity hashes), run as separate pr
 | Auto-edits | R0–R2 with runtime undo | R3+, R2 without undo, R2 after untrusted content |
 | **Owner** (default, owner's standing order 2026-10-04) | everything else | changing files (create-only tools excepted), every deletion, R4, messages to people not in memory |
 
-**In every mode, these always ask:**
+**In every mode, these ask** (the first time: the owner's "Yes, always" plus a verified run lets the exact same step skip the question afterwards, within the ask-once limits above; deletes and R4 other than the owner's own PowerShell or script always ask):
 - Running code or a program with arguments (`Tool.runs_code`: `code.run_python`, `process.launch`, `system.powershell`, `skill.create`, `skill.approve`, `evolve.approve`, `skill.import` and every `skill.<name>`). `system.powershell` is also R4, so its approval is never reused by a later request (a scheduled task or a re-sent task asks again).
 - Typing into a command window, opening the Run box, or launching a command-line app.
 - Changing a saved contact's phone or WhatsApp name.
@@ -115,11 +115,29 @@ tools` from `tools/package-lock.json` (npm integrity hashes), run as separate pr
 
 ## 2. Hard boundaries (no approval overrides them)
 
-- **Protected zones are observe-only:**
-  - the folders: Windows, Program Files (all), ProgramData, Common Files;
-  - AppData (from the shell's known folder, not only `%USERPROFILE%`; if AppData is unknown, every change is refused);
-  - drive-root system folders and files, and user registry hives;
-  - Chutku's own folder (except `sandbox\`).
+- **The system-damage list is always refused** (WA1, owner 2026-11-08, `paths.system_damage`, `paths.damage_in_text`):
+  - Windows' own folder, start-up and recovery folders, drive-root system files and the drive root itself, user
+    registry hives;
+  - deleting or moving anything under Program Files or ProgramData (uninstall instead);
+  - Chutku's own code and data folder (except `sandbox\`), so it can never change its own grants or rules;
+  - in `system.powershell` text and `code.run_python` scripts: format/diskpart/bcdedit, deleting or taking over
+    system paths, `HKLM` deletes, turning Defender or the firewall off;
+  - if AppData is unknown, every change is refused.
+- **An installed app's own files ask the first time** (Program Files, ProgramData, AppData writes; `sensitive_reason`),
+  in every mode, including a typed command.
+- **System tools (WA2):** `apps.install`/`apps.uninstall` use winget per-user first (a machine installer raises
+  Windows' own prompt); `settings.set` (named settings, read back), `registry.set_user` (HKCU\\Software only;
+  Policies and Defender keys refused) and `startup.toggle` (StartupApproved, never deletes the entry) journal the
+  previous value in `data/system_journal.jsonl` for `system.undo_last`. `services.set` runs `sc.exe` through
+  `chutku/elevate.py` (one structured command line, damage check first, Windows' UAC prompt, output via a temp file);
+  security services (Defender, firewall, event log, RPC, WMI, Windows Update and others) are refused. Free text is
+  never elevated.
+- **Ask-once memory** (`chutku/approval_memory.py`, `data/approval_memory.json`):
+  - only the owner's "Yes, always" on the laptop, and only after that exact step verified;
+  - the key is the tool plus normalised arguments, so another target asks again;
+  - never after outside content, never for deletes or R4 (except the owner's exact PowerShell or script), and never
+    for laptop-only steps asked from the phone or Telegram;
+  - an entry expires after 90 days unused; Settings forgets each one.
 - **Paths fail closed:** UNC, `\\?\`, device names, alternate data streams, `..`, trailing dots or spaces, reparse points and hard links are refused.
 - **Never elevated.** `network.adapter_set` needs administrator rights, so it is `user_only` and usually fails by design.
 - **No silent overwrite:** file moves and organize never replace an existing file; undo refuses when the owner changed a file since.

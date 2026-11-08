@@ -16,7 +16,7 @@ NIM_ADD, NIM_DELETE = 0, 2
 NIF_MESSAGE, NIF_ICON, NIF_TIP = 1, 2, 4
 MF_STRING, MF_GRAYED, MF_SEPARATOR = 0x0, 0x1, 0x800
 TPM_RIGHTBUTTON, TPM_RETURNCMD, TPM_NONOTIFY = 0x2, 0x100, 0x80
-OPEN, TOGGLE, STOP, WINDOW = 1, 2, 3, 4
+OPEN, TOGGLE, STOP, WINDOW, RESTART = 1, 2, 3, 4, 5
 
 LRESULT = ctypes.c_ssize_t
 WNDPROC = ctypes.WINFUNCTYPE(LRESULT, w.HWND, w.UINT, w.WPARAM, w.LPARAM)
@@ -28,7 +28,9 @@ def menu_items(paused: bool, guard_active: bool):
             (WINDOW, "Show Chutku window", True),
             (OPEN, "Open dashboard", True),
             (TOGGLE, "Resume actions" if paused else "Pause actions", True),
-            (STOP, "Quit Chutku (close everything)" if guard_active else "Quit needs Start-Chutku.cmd", guard_active)]
+            (RESTART, "Restart Chutku", guard_active),   # WA6: quit cleanly and start again, not paused
+            (STOP, "Quit Chutku (close everything)" if guard_active else "Quit (open Chutku from the Start menu)",
+             guard_active)]
 
 
 class _WNDCLASS(ctypes.Structure):
@@ -47,9 +49,10 @@ class _NOTIFYICONDATA(ctypes.Structure):
 
 
 class Tray(threading.Thread):
-    def __init__(self, *, open_dashboard, toggle_pause, stop, is_paused, guard_active, show_window=None):
+    def __init__(self, *, open_dashboard, toggle_pause, stop, is_paused, guard_active, show_window=None, restart=None):
         super().__init__(name="chutku-tray", daemon=True)
-        self.actions = {OPEN: open_dashboard, TOGGLE: toggle_pause, STOP: stop, WINDOW: show_window or open_dashboard}
+        self.actions = {OPEN: open_dashboard, TOGGLE: toggle_pause, STOP: stop, WINDOW: show_window or open_dashboard,
+                        RESTART: restart or (lambda: None)}
         self.is_paused, self.guard_active = is_paused, guard_active
         self.ready, self.error, self.hwnd = threading.Event(), None, None
         self._proc = WNDPROC(self._window_proc)  # keep a reference for the lifetime of the window
