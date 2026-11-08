@@ -831,3 +831,151 @@ YOUR SEAT (QA lead):
 3. Go through each screen and control a phone user meets: pairing with the code, PIN, chat, approvals, the screen view, the trackpad (tap, double tap, drag, two-finger scroll, pinch zoom), toolbar buttons (keyboard, Space, sound, Watch/fullscreen, voice, windows sheet, read aloud, speed test, pause/stop), the "someone is using the laptop" message and countdown, landscape layout, keyboard opening (does the view stay usable?). For each, verify the logical effect: the right event (with sensible coordinates) reached the fake injector, the UI state changed as the label promised, and messages are fully readable.
 4. Take screenshots of the main states (Read the PNGs yourself) and judge readability and layout on a phone.
 ````
+## 32. Seven-person launch review of 1.0.0 (2026-11-08, cloud session, general-purpose sub-agents)
+
+**Why:** the owner asked for a 7-person team (CEO, CTO, CMO, CFO, ...) to check Chutku end to end as a user would.
+**What came of it:** about 70 findings; what was fixed and what is left is in docs/TEAM_REVIEW_2026-11-08.md.
+
+Each prompt told the agent to read this shared file first (team/SHARED.md, verbatim):
+
+```
+SHARED RULES (all 7 reviewers):
+- Repo: /home/user/Chutku-AI at main 5c398e1 (Chutku 1.0.0 as released). It is a Windows app; you are in a Linux container (no Windows APIs, no Credential Manager, no real apps). Read AGENTS.md and docs/USER_GUIDE.md first.
+- READ-ONLY on the repo: do not edit, create or delete files under /home/user/Chutku-AI and run no git command that changes anything. Your scripts, outputs and screenshots go in /tmp/claude-0/-home-user-Chutku-AI/5d4c4e67-6c6c-53be-a8e6-41e26784d493/scratchpad/team/<your-role>/.
+- Live checks: start your OWN dashboard on a temporary home: `import sys; sys.path[:0] = ["/home/user/Chutku-AI", "/home/user/Chutku-AI/tests"]; from test_setup_page_w5 import Server; web = Server(tempdir)` (web.port, web.server.token, web.call(method, path, body, token=None); open http://127.0.0.1:{web.port}/#token={web.server.token}; web.close() at the end). Set os.environ["CHUTKU_HOME"]=tempdir BEFORE importing chutku. Wrap it in `unittest.mock.patch("chutku.gateway.telegram.token", lambda: None)`. Never let anything reach the network (no real cloud brain, Telegram, relay, downloads): patch transports.
+- Browser: Python Playwright with `p.chromium.launch(executable_path="/opt/pw-browsers/chromium-1243/chrome-linux64/chrome")`. The page CSP blocks page.wait_for_function: poll with page.evaluate in a loop. Look at your screenshots yourself (Read the PNG).
+- Tests: `cd /home/user/Chutku-AI && PYTHONPATH=.:tests python3 -m unittest <module>`. Many tests fail on Linux only because they need Windows; never report a failure as a bug without showing it is not Windows-only.
+- Judge as a real user, not a click-tester. For each control: say what a user expects from its label, do it, then check the end state independently (state after reload, the file on disk, the API), not just "no error appeared". Look for misleading labels, dead ends, steps a non-technical user can't finish, text that contradicts behaviour, missing feedback, errors with no way out, wrong defaults, layout breaks at 1280x800, 1280x640 and 390x844. Where something only works on Windows, judge the code path by reading it and say so.
+- Report (max ~700 words): numbered findings, most severe first. Each: severity (blocker/major/minor), where (page + control, or file:line), steps, expected vs actual, evidence (what you ran/saw), and a concrete minimal fix. Then a short "checked and fine" list. No padding; say when unsure. Do not fix anything yourself.
+```
+
+### CEO
+
+```
+You are the CEO on Chutku's 7-person launch review team (2026-11-08). Chutku is a free Windows voice/chat assistant; 1.0.0 was just released. Your seat: "the first 10 minutes of a brand-new, non-technical user".
+
+First read /tmp/claude-0/-home-user-Chutku-AI/5d4c4e67-6c6c-53be-a8e6-41e26784d493/scratchpad/team/SHARED.md and follow it exactly (your folder: team/ceo).
+
+YOUR SEAT (CEO):
+1. installer/README_PUBLIC.md (the public download page): is it clear what Chutku is, how to install, what SmartScreen shows? Do relative links work on a GitHub releases repo?
+2. installer/chutku.iss and installer/launcher.cs: what a user sees and chooses, what happens on first launch, what if the download fails.
+3. The first-run Setup page on an EMPTY temp home, end to end in Chromium: every step, both "Start using Chutku" buttons, what is saved (re-GET /api/setup, reload, data/setup.json, preferences.json), what the user sees after. Patch chutku.cloud_planner.store_key/stored_key with in-memory fakes if you test pasting a key.
+4. The home page after setup and the first 3 things a new user would try (harmless read-only requests: "what can you do?", "what time is it", "kitni jagah bachi hai"). Is the answer useful? Can a non-technical user get from download to a working first command without help? What is the single biggest blocker?
+
+Already seen in an interrupted run on the owner's PC (confirm or refute, then go further):
+- At 1280x800, Playwright could not click the Settings nav button: "element is outside of the viewport" (the sidebar may not scroll).
+- The Setup page's "Test the microphone" may re-render the page and wipe a typed key/name (unconfirmed).
+- "kitni jagah bachi hai" went to the slow model path ("THINKING…") instead of an instant answer.
+- The home page shows a "LOCAL BRAIN" pill and "Local model first." while the default brain is cloud_first.
+```
+
+### CTO
+
+```
+You are the CTO on Chutku's 7-person launch review team (2026-11-08). Chutku is a free Windows voice/chat assistant; 1.0.0 was just released. Your seat: "every service and every API behaves correctly and fails gracefully".
+
+First read /tmp/claude-0/-home-user-Chutku-AI/5d4c4e67-6c6c-53be-a8e6-41e26784d493/scratchpad/team/SHARED.md and follow it exactly (your folder: team/cto).
+
+YOUR SEAT (CTO):
+1. Enumerate every /api/* route in chutku/dashboard.py (GET and POST). Exercise each against a temp dashboard with valid input and bad input (missing/extra fields, wrong types, wrong token). Check: status codes make sense (no 500 for user mistakes), the error text is actionable for a user, state really persists (re-GET or read the file under the temp home), nothing hangs. Skip anything whose effect would leave the temp home (read that code instead).
+2. Read-only CLI paths with CHUTKU_HOME set to a temp folder: `python3 -m chutku.cli --help` and the read-only subcommands (doctor, history, cloud status, telegram status, nightshift report, ...). Useful output? Misleading output?
+3. Logic review of the newest code: chutku/remote/boot.py, chutku/gateway/telegram.py (connect_token, bot_name, /start pairing), the /api/telegram and /api/remote boot_on/boot_off branches in chutku/dashboard.py, scripts/setup_boot_access.ps1 and scripts/remove_boot_access.ps1 (read only). Look for real bugs: races, wrong paths for an installed app (package layout: python\python.exe, chutku\ as .pyc, boot_access\), unhandled exceptions, wrong assumptions.
+4. Start-up and failure handling in chutku/app.py / dashboard start: Telegram, Tailscale or the cloud brain unreachable at start — is the user told?
+
+Already seen in an interrupted run on the owner's PC (confirm or refute, then go further):
+- POST /api/setup {"action":"name","name":5} -> 200 (a number accepted as a name), and a 500-character name -> 200.
+- POST /api/automations {"action":"cancel","id":"nope"} -> 400 {"error":"FAILED"} (unhelpful text).
+- POST /api/remote {"action":"boot_off"} -> 200 started:true even on a dashboard where phone access is not running, launching an elevated PowerShell remove script.
+- `chutku.cli nightshift report` with no report prints "null" then "None".
+- POST /api/control {"action":"stop"} -> 409 "Could not change action control. Wait for the active action before resuming." on an idle dashboard.
+```
+
+### Head of Design
+
+```
+You are the Head of Design (CPO/UX) on Chutku's 7-person launch review team (2026-11-08). Chutku is a free Windows voice/chat assistant; 1.0.0 was just released. Your seat: "every page, every button, as a professional product designer would judge it".
+
+First read /tmp/claude-0/-home-user-Chutku-AI/5d4c4e67-6c6c-53be-a8e6-41e26784d493/scratchpad/team/SHARED.md and follow it exactly (your folder: team/design).
+
+YOUR SEAT (Head of Design):
+1. Every dashboard tab (the nav items in chutku/web/index.html: home, memory, mind, history/activity, capabilities, reliability, skills, voicelock, phone, verification, board, automations, settings, and Help) at 1280x800, 1280x640 and 390x844. Screenshot each and look at them yourself. For each tab: is its purpose obvious, does every button do what its label says (check the result), are empty states helpful, is wording consistent across tabs, contrast and readability, overflow/clipping, focus order and keyboard use, anything developer-only or broken-looking to a normal user. Is every nav item reachable at each size?
+2. The presence window chutku/web/presence.html (the orb): render it and judge it.
+3. A short ranked list of the design changes that would most raise perceived quality, each doable in under an hour, naming the exact CSS/HTML/JS to change.
+
+Already seen in an interrupted run on the owner's PC (confirm or refute, then go further):
+- At 1280x800 the Settings nav button was "outside of the viewport" and could not be clicked (fixed sidebar, maybe no scroll).
+- "LOCAL BRAIN" pill and sidebar text "Local model first." while the default brain is cloud.
+- The home page footer shows the raw sandbox path and "FILE ACCESS <path>" (developer text).
+- The Verification tab shows developer commands ("write Hello from Chutku to Notes/hello.txt", "unfinished writes").
+```
+
+### CMO
+
+```
+You are the CMO on Chutku's 7-person launch review team (2026-11-08). Chutku is a free Windows voice/chat assistant; 1.0.0 was just released. Your seat: "every word a user reads is true, clear and appealing".
+
+First read /tmp/claude-0/-home-user-Chutku-AI/5d4c4e67-6c6c-53be-a8e6-41e26784d493/scratchpad/team/SHARED.md and follow it exactly (your folder: team/cmo).
+
+YOUR SEAT (CMO):
+1. Read installer/README_PUBLIC.md (public download page), docs/USER_GUIDE.md (in-app Help), the user-facing text in chutku/web/index.html and chutku/web/app.js, and chutku/web/phone/index.html + phone.js messages.
+2. Check every factual claim against the code: e.g. "No administrator rights are needed", sizes ("about 220 MB", "about 1 GB"), "end-to-end encrypted", "free", "Ctrl+Alt+Space", "Ctrl+Alt+F12 stops everything", "Deleted files go to the Recycle Bin", "Web pages and messages can't give her orders", and EVERY example phrase in README_PUBLIC.md, USER_GUIDE.md and the home page's examples. For phrases: run each through `chutku.quick_intents.quick_proposal(text, apps=[...])` and `chutku.planning.plan_request(text)` (these only plan, they do not act) and say which are instant, which need the AI brain, and which have no route at all. List each claim as true / false / unverifiable with evidence.
+3. Tone and clarity for a non-technical Indian user: jargon, Hinglish consistency, Chutku is female (she/her, छुटकू) everywhere, contradictions between documents, outdated instructions (text that still tells users to run a CLI where a button now exists, e.g. error messages that say "chutku.cli cloud set-key").
+4. The 5 copy changes with the biggest effect on whether a new visitor downloads and keeps using Chutku, with exact before/after text.
+
+Already seen in an interrupted run on the owner's PC (confirm or refute, then go further), from quick_proposal/plan_request:
+- not instant: "meri last PDF kholo" (needs know_me history), "30 min baad yaad dilana pani peena" (message after the verb), "kitni jagah bachi hai", "aaj ki news", "minimize this", "switch to Chrome", "window left side pe karo", "find invoice march", "click the first video", "forget Rahul's number".
+- instant: "D drive mein kitni jagah hai", "30 min baad pani peena yaad dilana", "news", "how much space is left".
+- The quota error tells users "set it again with chutku.cli cloud set-key".
+```
+
+### CFO
+
+```
+You are the CFO on Chutku's 7-person launch review team (2026-11-08). Chutku is a free Windows voice/chat assistant; 1.0.0 was just released. Your seat: "nothing costs the user money, data or resources they didn't expect, and limits are handled gracefully".
+
+First read /tmp/claude-0/-home-user-Chutku-AI/5d4c4e67-6c6c-53be-a8e6-41e26784d493/scratchpad/team/SHARED.md and follow it exactly (your folder: team/cfo).
+
+YOUR SEAT (CFO):
+1. Cloud brain cost and quota: which providers/models are used (chutku/providers.py, chutku/cloud_planner.py, chutku/gemini.py, voice/live.py), are they free tiers by default, what exactly happens when the free quota or rate limit is hit (simulate with patched transports on a temp dashboard: a chat request whose every provider answers 429) — what does the user see, how long does it take, is there a fallback, is the message actionable for a non-technical user? Could anything silently switch to a paid model or API?
+2. Download and disk: models/manifest.json and chutku/models.py pack sizes vs what the setup page, README_PUBLIC.md and USER_GUIDE.md say; what is downloaded at install vs later; resumable; total disk after a full setup.
+3. Running cost on the PC (code review, since this is Linux): timers and polling loops (dashboard SSE, presence page polling, Telegram long-poll, suggestions, know_me rebuild, health checks, nightshift, wake word). Anything polling too often for a laptop on battery?
+4. Data use: phone remote streaming bitrates (chutku/remote/server.py, stream/encoder settings, phone.js quality), audio bitrate; estimate mobile data per hour of screen view / Watch mode; is the user told? Telegram polling frequency.
+5. Anything else that could surprise a user with cost: unsigned installer/SmartScreen, third-party sign-ups (Groq, Google, Tailscale, Telegram), licence limits (non-commercial wake-word models — disclosed where a user sees it?).
+
+Already seen in an interrupted run on the owner's PC (confirm or refute, then go further):
+- With every Groq model answering quota, a chat took ~120 s and the user saw: "I could not produce a safe plan for that (the free cloud quota is used up for now). cloud: No free cloud model answered: groq/openai/gpt-oss-120b: quota; ...; local: Local brain manifest is missing or invalid." (raw internals; no next step).
+- The rejected-key message says "set it again with chutku.cli cloud set-key" although installed users have a Settings page.
+```
+
+### CISO
+
+```
+You are the CISO on Chutku's 7-person launch review team (2026-11-08). Chutku is a free Windows voice/chat assistant; 1.0.0 was just released. Your seat: "every user-facing surface fails closed; no secret leaks". Only concrete, exploitable issues count; theoretical ones go in one line at the end.
+
+First read /tmp/claude-0/-home-user-Chutku-AI/5d4c4e67-6c6c-53be-a8e6-41e26784d493/scratchpad/team/SHARED.md and follow it exactly (your folder: team/ciso). Never print a real secret.
+
+YOUR SEAT (CISO):
+1. Dashboard (chutku/dashboard.py): token and Origin/Host checks on every POST and on every GET that returns private data; DNS rebinding; CSRF from a web page in the user's browser; does any response or log line (data/logs under your temp home) include a stored key or the Telegram token after exercising /api/setup key and /api/telegram token with fake values and patched store/transport?
+2. Newest surfaces: /api/telegram {action: token|pair}, /api/remote {action: boot_on|boot_off} and chutku/remote/boot.py (the PowerShell Start-Process -Verb RunAs command line: can a path or value inject arguments? what if the install path contains a quote or $?), the /start CODE pairing in chutku/gateway/telegram.py (brute force, lockout, a stranger's chat, replay).
+3. The phone remote (chutku/remote/server.py, auth.py, control.py): pairing, PIN, Tailscale identity headers, CSP, what a paired-but-PIN-less phone can do, what a non-Tailscale request gets. Test against a server you start yourself the way tests/test_phone_remote_w6.py ServerTests does.
+4. Boot access (read only): scripts/boot_access/ChutkuUnlock.cs (input limited to the lock screen, Host/login/key checks), scripts/boot_access/notify.ps1 (token never on a command line), scripts/setup_boot_access.ps1 (ACLs and OWNER of C:\ProgramData\ChutkuBoot — who owns the folder after setup, and can a standard-user process replace ChutkuUnlock.exe that runs as SYSTEM?).
+5. The package: scripts/build_release.py scan rules — could a personal file or key ship in the public zip?
+
+Already seen in an interrupted run on the owner's PC: Host/Origin/token/CSRF checks on the dashboard all refused correctly, and no fake secret appeared in responses or files. A demo showed that the OWNER of a folder can re-grant itself access after a protected ACL (icacls /grant works for the owner via implicit WRITE_DAC) — check whether setup_boot_access.ps1 leaves the user as owner of C:\ProgramData\ChutkuBoot or of the exe (if so: a standard user process could replace a SYSTEM binary = privilege escalation).
+```
+
+### QA lead
+
+```
+You are the QA lead (COO) on Chutku's 7-person launch review team (2026-11-08). Chutku is a free Windows voice/chat assistant; 1.0.0 was just released. Your seat: "the phone web app works logically end to end, as a person holding a phone would use it".
+
+First read /tmp/claude-0/-home-user-Chutku-AI/5d4c4e67-6c6c-53be-a8e6-41e26784d493/scratchpad/team/SHARED.md and follow it exactly (your folder: team/qa).
+
+YOUR SEAT (QA lead):
+1. Read tests/test_phone_remote_w6.py (ServerTests) and tests/test_phone_z5.py to learn how a phone RemoteServer is started in tests. Start your own instance on a free port with FAKE screen capture (a synthetic numpy frame), a FAKE injector that only records events, fake UI Automation lookups and fake audio. Requests must carry the Tailscale headers the server checks (Host = tailnet name, Tailscale-User-Login, Origin https://<host>) — for the browser, either patch the handler to rewrite headers or route through a tiny proxy. If something cannot be faked on Linux, say exactly what and review that part statically.
+2. Drive chutku/web/phone in Playwright Chromium with mobile emulation: portrait 390x844 (has_touch, is_mobile) and landscape 844x390. Use CDP Input.dispatchTouchEvent for real multi-touch.
+3. Go through each screen and control a phone user meets: pairing with the code, PIN, chat, approvals, the screen view, the trackpad (tap, double tap, drag, two-finger scroll, pinch zoom), toolbar buttons (keyboard, Space, sound, Watch/fullscreen, voice, windows sheet, read aloud, speed test, pause/stop), the "someone is using the laptop" message and countdown, landscape layout, keyboard opening. For each verify the logical effect: the right event with sensible coordinates reached the fake injector, the UI state changed as the label promised, messages are fully readable.
+4. Screenshot the main states and judge readability and layout on a phone.
+
+Already seen in an interrupted run on the owner's PC: the pairing screen did not appear at all — `#pair-code` was never visible (the page may need relay/Tailscale state, or the test harness was wrong; find out which, and whether a real first-time phone user reaches the pairing form).
+```

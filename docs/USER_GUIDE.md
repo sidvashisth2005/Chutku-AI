@@ -133,7 +133,7 @@ button stays on screen.
 **Routines** run several things from one phrase:
 - **Save:** "save routine work: open visual studio code, play lofi on youtube, set volume to 30"
 - **Run:** "start work mode" / "work mode on karo", or just say its name.
-- **Shortcut style:** "jab main 'padhai time' bolun to volume 30 karo aur focus mode on karo".
+- **Shortcut style:** "jab main 'padhai time' bolun to volume 30 karo aur music band karo".
 - A routine can also press things inside an app by name: `click "Lofi" in Spotify`,
   `toggle "Dark mode" in Settings`, `type "hello" into "Search" in Spotify`.
 - **See / delete:** "list my routines" / ask to forget one (asks first).
@@ -189,7 +189,8 @@ Notes:
 ## 8. Privacy and your phone
 
 - Your files, screen text, clipboard and memory stay on this PC.
-- If you add a cloud brain key, the cloud sees your request, the list of tools and public results only.
+- With a cloud brain key, the AI service sees your request, notes you told Chutku that relate to it, and names of files and windows; with a Gemini key and no offline Screen pack, screen questions send a screenshot to Google.
+- Watching the laptop screen on mobile data uses up to about 1.4 GB an hour (Watch mode up to about 3.6 GB).
 - Private browser windows are never recorded.
 
 **Phone app (optional).** On the **Phone** page press **Connect my phone**. It installs Tailscale if needed (press

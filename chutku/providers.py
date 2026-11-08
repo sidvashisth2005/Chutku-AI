@@ -55,6 +55,7 @@ def api_key(provider):
 def store_key(provider, key):
     from chutku.cloud_planner import store_key as store
     store(key, PROVIDERS[provider]["credential"])
+    clear_cooldown(provider)
 
 
 # H9 key pool (W6): extra keys in Credential Manager as "Chutku/Groq#2" ... "#5". Slot 1 is api_key() (the environment
@@ -96,6 +97,7 @@ def add_key(provider, key, *, stored=None, store=None):
     for slot in range(1, POOL_SLOTS + 1):
         if not stored(slot_target(credential, slot)):
             store(key, slot_target(credential, slot))
+            clear_cooldown(provider)
             return slot
     raise ValueError(f"All {POOL_SLOTS} {provider} key slots are used.")
 
@@ -128,6 +130,18 @@ def cool_down(key, seconds, base=None):
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(data), encoding="utf-8")
+        except OSError:
+            pass
+
+
+def clear_cooldown(provider, base=None):
+    """A newly stored key gets a fresh start (2026-11-08 review: a rejected key kept the provider off for 24 h, even
+    after the user pasted the right one)."""
+    with _lock:
+        data = {k: v for k, v in cooling(base).items() if k != provider and not k.startswith(provider + "/")
+                and not k.startswith(provider + "#")}
+        try:
+            _cooldown_file(base).write_text(json.dumps(data), encoding="utf-8")
         except OSError:
             pass
 
@@ -225,4 +239,8 @@ def ask(system, user, *, base=None, transport=None, timeout=25, rungs=None):
                 elif error.kind == "unavailable":
                     cool_down(f"{provider}/{model}", ERROR_COOLDOWN, base)
                 break   # a model problem, not a key problem: the next rung
-    raise ProviderError("No free cloud model answered: " + "; ".join(tried or ["no key stored"]), kind="exhausted")
+    if not tried:   # nothing was tried: every model is resting after a limit, or there is no key at all
+        resting = rungs is None and bool(configured(base))
+        raise ProviderError("Every free cloud model is resting after its limit." if resting else "No key stored.",
+                            kind="exhausted" if resting else "no_key")
+    raise ProviderError("No free cloud model answered: " + "; ".join(tried), kind="exhausted")

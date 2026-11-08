@@ -46,10 +46,13 @@ class ScanTests(unittest.TestCase):
             "python/Lib/site-packages/y/__pycache__/y.pyc": self.pyc(
                 "C:\\Users\\asha\\AppData\\Local\\Temp\\pip-target\\y.py", "x"),
             "Chutku.exe": "C:\\Users\\asha\\".encode("utf-16-le"),
-            "keys/id": "-----BEGIN RSA PRIVATE KEY-----\n" + "A" * 64})
+            "keys/id": "-----BEGIN RSA PRIVATE KEY-----\n" + "A" * 64,
+            "chutku/web/x.js": "bot = '123456789:AA" + "b" * 33 + "'",
+            "docs/apps/n.md": "tskey-auth-" + "k" * 30 + " " + "hf_" + "Q" * 34})
         joined = "\n".join(problems)
         for needle in ("data/mind.json: personal", ".env: personal", "conversations.jsonl: personal",
-                       "app.js: looks like a key", "NOTICE: the owner's name", "chutku/x.pyc: the builder's",
+                       "app.js: looks like a key", "NOTICE: the owner's name", "x.js: looks like a key",
+                       "n.md: looks like a key", "chutku/x.pyc: the builder's",
                        "y.pyc: the builder's", "Chutku.exe: the builder's", "keys/id: looks like a key"):
             self.assertIn(needle, joined)
         self.assertNotIn(GROQ, joined)                 # the report never repeats the secret

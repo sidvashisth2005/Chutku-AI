@@ -201,7 +201,10 @@ function drawOrb(t){
 
 // ---- captions, steps, approval -------------------------------------------------------------------------------
 const ICON = {COMPLETED:"✓", FAILED:"!", DENIED:"⛔", WAITING_CONFIRMATION:"?"};
+let shownSteps = "";
 function renderSteps(steps){
+  // 2026-11-08 review: rebuilding on every 100 ms poll replayed the fade-in, so the list never became readable
+  const key = JSON.stringify(steps); if(key === shownSteps) return; shownSteps = key;
   const list = $("steps"); list.replaceChildren();
   for(const step of steps){
     const li = document.createElement("li");

@@ -42,6 +42,7 @@ PATTERNS = [
     ("brightness_set", re.compile(rf"^{_POLITE}(?:set\s+)?(?:the\s+)?(?:screen\s+)?brightness\s+(?:to\s+)?(?P<level>\d{{1,3}})(?:\s*(?:%|percent))?{_TAIL}", re.I)),
     ("remind_in", re.compile(rf"^{_POLITE}remind me (?:in|after) (?P<n>\d{{1,4}}) {_UNIT} (?:to |that |about )?(?P<message>.+?){_TAIL}", re.I)),
     ("remind_in", re.compile(rf"^{_POLITE}(?P<n>\d{{1,4}}) {_UNIT} (?:baad|me|mein) (?P<message>.+?) (?:yaad dilana|yaad dila dena|remind karna){_TAIL}", re.I)),
+    ("remind_in", re.compile(rf"^{_POLITE}(?P<n>\d{{1,4}}) {_UNIT} (?:baad|me|mein) (?:mujhe )?(?:yaad dilana|yaad dila dena|remind karna)(?: ki)? (?P<message>.+?){_TAIL}", re.I)),   # 2026-11-08: the guide's word order
     ("timer", re.compile(rf"^{_POLITE}(?:set (?:a )?)?timer (?:for )?(?P<n>\d{{1,4}}) {_UNIT}{_TAIL}", re.I)),
     ("remind_at", re.compile(rf"^{_POLITE}remind me (?P<day>tomorrow )?at (?P<h>\d{{1,2}})(?::(?P<m>\d{{2}}))? ?(?P<ampm>am|pm)? (?P<day2>tomorrow )?(?:to |that |about )?(?P<message>.+?){_TAIL}", re.I)),
     ("briefing", re.compile(rf"^{_POLITE}(?:good morning|morning briefing|briefing|daily briefing|brief me|what'?s my day like|subah ki report){_TAIL}", re.I)),
@@ -49,7 +50,7 @@ PATTERNS = [
     ("play", re.compile(rf"^{_POLITE}(?:youtube|yt)\s+(?:pe|par|mein|me)\s+(?P<query>.+?)\s+(?:chalao|bajao|lagao|play karo|play){_TAIL}", re.I)),
     ("weather", re.compile(rf"^{_POLITE}(?:(?:what(?:'?s| is) the |how(?:'s| is) the |tell me the |check the )?weather|mausam|temperature)(?:\s+(?:like\s+)?(?:in|at|of|for)\s+(?P<city>[a-z .'-]{{2,60}}?))?(?:\s+(?:today|now|right now|currently|at the moment|tomorrow|kaisa hai|kya hai|batao|kaisa rahega))*{_TAIL}", re.I)),
     ("weather", re.compile(rf"^{_POLITE}(?P<city>[a-z .'-]{{2,60}}?)\s+(?:ka|mein|me)\s+(?:mausam|weather|temperature)(?:\s+(?:kaisa hai|kya hai|batao|kaisa rahega))?{_TAIL}", re.I)),
-    ("news", re.compile(rf"^{_POLITE}(?:(?:give|tell|show|get) me |what(?:'?s| is) |any )?(?:the )?(?:(?:latest|today'?s|top|recent)\s+)?(?:news|headlines|khabar|samachar)(?:\s+(?:about|on|of|for|regarding)\s+(?P<topic>.{{2,100}}?))?(?:\s+(?:batao|sunao|dikhao))?{_TAIL}", re.I)),
+    ("news", re.compile(rf"^{_POLITE}(?:(?:give|tell|show|get) me |what(?:'?s| is) |any )?(?:the )?(?:(?:latest|today'?s|top|recent|aaj ki|aaj ke|taaza|taza)\s+)*(?:news|headlines|khabar|khabrein|samachar)(?:\s+(?:about|on|of|for|regarding)\s+(?P<topic>.{{2,100}}?))?(?:\s+(?:batao|sunao|dikhao))?{_TAIL}", re.I)),
     ("info_learned", re.compile(rf"^{_POLITE}(?:tumne kya (?:kya )?seekha(?: hai)?|kya seekha(?: hai)?|what (?:did|have) you "
                                 rf"learn(?:ed|t)?|what skills (?:did|have) you learn(?:ed|t)?|show (?:your |the )?learned "
                                 rf"skills|skills i taught you){_TAIL}", re.I)),
@@ -158,7 +159,7 @@ PATTERNS = [
     ("remember", re.compile(rf"^{_POLITE}remember (?:that )?(?:my )?(?P<key>[a-z][a-z0-9_ -]{{0,40}}?)\s*(?:=|is|:)\s*(?P<value>.{{1,300}}?){_TAIL}", re.I)),
     ("playing", re.compile(rf"^{_POLITE}(?:what(?:'?s| is) (?:playing|this song)(?: right now| now)?|(?:kaunsa|kya) (?:gaana|song) (?:chal raha|baj raha) (?:hai|he)){_TAIL}", re.I)),
     ("cleanup", re.compile(rf"^{_POLITE}(?:(?:help me |how (?:can|do) i )?free up (?:some )?(?:disk |storage )?space(?: on (?:my )?(?:c(?: drive)?|pc|computer|laptop))?|(?:clean up|cleanup) (?:my )?(?:c(?: drive)?|pc|computer|laptop|disk|storage)|what(?:'?s| is) taking (?:up )?(?:all )?(?:the )?space(?: on (?:my )?(?:c(?: drive)?|pc|computer))?|(?:c drive|storage|space) (?:khali|saaf) karo){_TAIL}", re.I)),
-    ("disk", re.compile(rf"^{_POLITE}(?:how much (?:free |disk |storage )?space(?: is)?(?: left| free| there)?(?: on (?:my |the )?(?:pc|computer|laptop|drives?|disks?))?|(?:check |show )?(?:the )?(?:disk|drive|storage) (?:space|usage)|(?:disk|storage|space) kitna (?:bacha|khali) (?:hai|he)|storage (?:check karo|batao)){_TAIL}", re.I)),
+    ("disk", re.compile(rf"^{_POLITE}(?:how much (?:free |disk |storage )?space(?: is)?(?: left| free| there)?(?: on (?:my |the )?(?:pc|computer|laptop|drives?|disks?))?|(?:check |show )?(?:the )?(?:disk|drive|storage) (?:space|usage)|(?:disk|storage|space) kitna (?:bacha|khali) (?:hai|he)|storage (?:check karo|batao)|(?:(?:pc|laptop|computer) (?:mein|me) )?kitn[ia] (?:jagah|space) (?:bachi|bacha|khali)?\s*(?:hai|he)?){_TAIL}", re.I)),
     ("log", re.compile(rf"^{_POLITE}(?:what (?:did|have) you (?:do|done)(?P<today> today)?|(?:show )?(?:your |the )?(?:action log|activity log|history of actions)|aaj (?:tumne )?kya kiya){_TAIL}", re.I)),
     ("recent", re.compile(rf"^{_POLITE}(?:what (?:was|am) i working on|(?:show |list )?(?:my )?recent(?:ly changed)? files|(?:main )?kis (?:file )?pe kaam kar raha tha){_TAIL}", re.I)),
     ("routine_save", re.compile(rf"^{_POLITE}(?:save|create|make)\s+(?:a\s+|my\s+)?routine\s+(?:called\s+|named\s+)?(?P<name>[a-z][a-z0-9 -]{{0,29}}?)\s*[:=-]\s*(?P<commands>.+?){_TAIL}", re.I)),

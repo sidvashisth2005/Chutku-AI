@@ -1066,8 +1066,8 @@ class AgentSession:
                 from chutku.coder import _with_beats
                 proposal, meta = _with_beats(lambda: self._propose(runtime, planner, fallback, check))
                 with self.lock:
-                    if proposal is None:
-                        self._finish("clarify", meta)
+                    if proposal is None:   # a brain that is down is a failure, not a request to rephrase
+                        self._finish("failed" if getattr(self, "brain_down", False) else "clarify", meta)
                         break
                     self.planners.append({k: meta.get(k) for k in ("planner", "seconds", "backend")})
                     self.declared_plan = proposal["declared_plan"] or self.declared_plan
@@ -1230,7 +1230,7 @@ class AgentSession:
             self.pending_feedback = self.surprise   # the model hears what was expected vs observed
         self.surprise = None
         errors = []
-        self.brain_failures = []
+        self.brain_failures, self.brain_down = [], False
         if self.pending_feedback:
             self.feedback, self.pending_feedback = self.pending_feedback, None
         first, meta = self._checked(planner, runtime, check, errors)
@@ -1249,8 +1249,13 @@ class AgentSession:
             return first, meta
         from chutku.brain_errors import explain   # H9: say why (quota, key, network...) when every brain failed
         reason = explain(self.brain_failures)
-        return None, ("I could not produce a safe plan for that" + (f" ({reason})" if reason else "") + ". "
-                      + ("; ".join(errors))[:400])
+        import logging   # the planners' own words go to the log, not to the owner (2026-11-08 review)
+        logging.getLogger("chutku.agent").info("no plan: %s", "; ".join(errors)[:600])
+        if reason:
+            self.brain_down = True
+            return None, f"I couldn't work on that: {reason}."
+        # no brain was down: the planners' reasons (a refused step, "you did not ask for ...") help the owner
+        return None, ("I could not produce a safe plan for that. " + "; ".join(errors))[:450]
 
     def _replay(self, runtime):
         """An exact repeat of a request whose one-round plan fully worked before: run that plan again without asking

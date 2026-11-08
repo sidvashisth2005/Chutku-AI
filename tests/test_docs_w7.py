@@ -22,7 +22,10 @@ class DocsTests(unittest.TestCase):
                 body = response.read().decode("utf-8")
                 connection.close()
                 self.assertEqual(response.status, 200)
-                self.assertTrue(body.startswith("# Chutku: User Guide"))
+                self.assertIn("<h1>Chutku: User Guide</h1>", body)   # 2026-11-08: a page, not raw Markdown
+                self.assertIn("text/html", response.getheader("Content-Type"))
+                self.assertNotIn("**", body)
+                self.assertNotIn("|---", body)
                 connection = http.client.HTTPConnection("127.0.0.1", web.port, timeout=10)
                 connection.request("GET", "/help", headers={"Host": "evil.example"})   # DNS rebinding: refused
                 self.assertEqual(connection.getresponse().status, 403)

@@ -164,3 +164,4 @@ button.primary{background:linear-gradient(135deg,#FF8A2A,#FF6FA0);border:0;color
 .msg.me{background:linear-gradient(135deg,#3B5BFF,#8B5CF6);border:0;color:#fff}
 .dock{background:#0e1120f2}
 
+.card-error{color:#e8806b;margin:10px 0 0;white-space:normal}

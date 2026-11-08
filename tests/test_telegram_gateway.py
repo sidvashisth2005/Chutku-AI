@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from chutku.agent_loop import AgentSession, AgentSessionStore
 from chutku.gateway import telegram
@@ -110,14 +111,32 @@ class GatewayTests(unittest.TestCase):
         self.gateway.handle(message(OWNER, "link"))
         self.assertIn("phone connect karo", self.api.texts()[-1])
 
-    def test_wrong_codes_lock_pairing(self):
-        self.gateway.new_code()
+    def test_wrong_codes_lock_that_chat_only(self):
+        # 2026-11-08 review: a stranger's wrong codes lock the stranger, never the owner's pairing
+        code = self.gateway.new_code()
         for _ in range(telegram.MAX_WRONG):
             self.assertEqual(self.gateway.handle(message(STRANGER, "/pair WRONGWRO")), "ignored")
-        with self.assertRaises(ValueError):
-            self.gateway.new_code()
-        self.now[0] += telegram.LOCKOUT + 1
-        self.gateway.new_code()
+        self.assertEqual(self.gateway.handle(message(STRANGER, f"/pair {code}")), "ignored")   # locked: even the code
+        self.assertIsNone(telegram.paired(self.base))
+        self.gateway.new_code()                                                     # the laptop still makes codes
+        self.assertEqual(self.gateway.handle(message(OWNER, f"/pair {code}")), "paired")
+        self.assertEqual(telegram.paired(self.base), OWNER)
+
+    def test_the_poll_survives_any_error_and_says_so(self):
+        import threading
+        calls = []
+
+        def poll():
+            calls.append(1)
+            if len(calls) == 1:
+                raise PermissionError("telegram.json is open in another program")
+            stop.set()
+        stop = threading.Event()
+        self.gateway.poll_once = poll
+        with patch.object(stop, "wait", lambda seconds: False):
+            self.gateway.run(stop)
+        self.assertEqual(len(calls), 2)                                   # it went on polling
+        self.assertIsNone(self.gateway.last_error)                        # and cleared the error once it worked
 
     def test_an_expired_code_is_refused(self):
         code = self.gateway.new_code()
@@ -246,15 +265,12 @@ class GatewayTests(unittest.TestCase):
     def test_the_tap_to_pair_link_pairs_and_wrong_start_codes_count(self):
         # 2026-11-08: the dashboard's QR opens t.me/<bot>?start=CODE, which sends "/start CODE"
         self.assertEqual(self.gateway.handle(message(STRANGER, "/start")), "ignored")   # no code: not a wrong try
-        self.assertEqual(telegram.load(self.base).get("wrong", []), [])
-        self.gateway.new_code()
+        self.assertFalse(telegram.load(self.base).get("wrong"))
+        code = self.gateway.new_code()
         for _ in range(telegram.MAX_WRONG):
             self.assertEqual(self.gateway.handle(message(STRANGER, "/start WRONGWRO")), "ignored")
         self.assertIsNone(telegram.paired(self.base))
-        with self.assertRaises(ValueError):                                         # locked, as with /pair
-            self.gateway.new_code()
-        self.now[0] += telegram.LOCKOUT + 1
-        code = self.gateway.new_code()
+        self.assertEqual(self.gateway.handle(message(STRANGER, f"/start {code}")), "ignored")   # locked, as with /pair
         self.assertEqual(self.gateway.handle(message(OWNER, f"/start {code}")), "paired")
         self.assertEqual(telegram.paired(self.base), OWNER)
         self.assertEqual(self.gateway.handle(message(OWNER, f"/start {code}")), "link")   # again: not a task

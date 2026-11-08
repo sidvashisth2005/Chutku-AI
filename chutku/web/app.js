@@ -11,9 +11,9 @@ let state=null, busy=false;
 const labels={board:"Board",automations:"Automations",settings:"Settings",phone:"Phone",voicelock:"Voice lock",skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Home",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
 const MODE_HELP={
   review:"Review: every step waits for your click before it runs.",
-  auto_safe:"Auto (safe): looking, opening apps/files/sites and other easily reversible steps run by themselves. File changes and anything risky wait for your click.",
-  auto_edits:"Auto (incl. edits): also runs file changes that Chutku can undo. Deleting, sending, closing apps, power and anything after reading untrusted content still wait for your click.",
-  owner:"Owner (no approvals): everything runs by itself, including messages to people in your memory. Asks only for file changes, any deletion, shutdown/killing programs, messages to someone new, and steps right after reading web pages or messages."};
+  auto_safe:"Safe: looking, opening apps/files/sites and other easily reversible steps run by themselves. File changes and anything risky wait for your click.",
+  auto_edits:"Safe + file edits: also runs file changes that Chutku can undo. Deleting, sending, closing apps, power and anything after reading untrusted content still wait for your click.",
+  owner:"Full: almost everything runs by itself, including messages to people she knows. Still asks before changing or deleting files, shutting down or ending programs, messages to someone new, and anything right after reading web pages or messages."};
 const TERMINAL=new Set(["done","clarify","failed","stopped","cancelled"]);
 
 function error(message){$("error-banner").textContent=message;$("error-banner").hidden=!message;
@@ -23,19 +23,20 @@ async function api(path,data){
   const options={headers:{"X-Chutku-Token":sessionToken}};
   if(data!==undefined){options.method="POST";options.headers["Content-Type"]="application/json";options.body=JSON.stringify(data);}
   let response;
-  try{response=await fetch(path,options);}catch{throw new Error("Chutku is disconnected. Keep its terminal running, or restart and open the new session link.");}
+  try{response=await fetch(path,options);}catch{throw new Error("Chutku is not running. Open it again from the Start menu.");}
   const payload=await response.json();
   if(!response.ok)throw new Error(payload.error||"The request failed.");
   return payload;
 }
-function switchTab(id){if(id==="board")loadBoard();if(id==="automations")loadAutomations();if(id==="settings")loadSetup();if(id==="phone")loadPhone();if(id==="mind")loadMind();if(id==="reliability")loadReliability();if(id==="skills")loadSkills();if(id==="voicelock")loadVoiceLock();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
+function switchTab(id){error("");if(id==="board")loadBoard();if(id==="automations")loadAutomations();if(id==="settings")loadSetup();if(id==="phone")loadPhone();if(id==="mind")loadMind();if(id==="reliability")loadReliability();if(id==="skills")loadSkills();if(id==="voicelock")loadVoiceLock();document.querySelectorAll(".view").forEach(e=>e.hidden=e.id!==id);document.querySelectorAll(".nav-item").forEach(e=>e.classList.toggle("active",e.dataset.tab===id));$("page-label").textContent=labels[id];}
 document.querySelectorAll("[data-tab]").forEach(e=>e.addEventListener("click",()=>switchTab(e.dataset.tab)));
 
 // ---- autonomy selector (remembered per browser) ----
 function currentMode(){return document.querySelector('input[name="mode"]:checked')?.value||"review";}
 function setMode(mode){const input=document.querySelector(`input[name="mode"][value="${mode}"]`)||document.querySelector('input[name="mode"][value="review"]');input.checked=true;$("mode-help").textContent=MODE_HELP[input.value];}
-let savedMode="owner";try{savedMode=localStorage.getItem("chutku-mode")||"owner";}catch{}
-setMode(savedMode);
+// 2026-11-08 review: until the user picks one here, typed requests use the level chosen in setup (not Full)
+let savedMode=null;try{savedMode=localStorage.getItem("chutku-mode");}catch{}
+setMode(savedMode||"auto_safe");
 document.querySelectorAll('input[name="mode"]').forEach(e=>e.addEventListener("change",()=>{setMode(e.value);try{localStorage.setItem("chutku-mode",e.value);}catch{}}));
 
 // ---- chat rendering ----
@@ -312,14 +313,16 @@ function renderPause(paused){$("pause-actions").textContent=paused?"Resume actio
 function renderVerification(report){const area=$("verification-results");area.replaceChildren();if(!report){area.append(node("p","empty-note","No release verification saved yet."));return;}area.append(node("p","muted",(report.stale?"SOURCE CHANGED SINCE VERIFICATION · ":"VERIFIED SOURCE SNAPSHOT · ")+report.timestamp_utc));(report.checks||[]).forEach(check=>{const card=node("article","capability");card.append(node("h3","",check.title),node("span","risk",check.passed?"PASS":"NEEDS ATTENTION"),node("p","",check.detail));area.append(card);});}
 async function refresh(){
   state=await api("/api/state");$("connection").textContent="Local session connected";$("sandbox-path").textContent=state.sandbox;
-  const roots=(state.resource_grants||[]).filter(g=>g.active&&g.access.includes("modify")).map(g=>g.root);
-  $("grants-summary").textContent="File access: "+(roots.join("  ")||"sandbox only")+" · system folders are read-only";
+  const roots=(state.resource_grants||[]).filter(g=>g.active&&g.access.includes("modify")&&g.grant_id!=="sandbox").map(g=>g.root);
+  $("grants-summary").textContent="Folders Chutku may change: "+(roots.join(", ")||"only her own sandbox folder (Settings → What Chutku may do)")+". Windows and program folders are never changed.";
+  const hf=state.handsfree||{};if(!savedMode&&hf.handsfree_mode)setMode(hf.handsfree_mode);
+  $("brain-pill").textContent=hf.offline_mode||hf.brain==="local"?"Local brain":"Cloud brain";
   renderPause(state.actions_paused);renderHistory();renderMemories();renderCapabilities();
-  $("stop-core").hidden=!state.guard_active;$("guard-status").textContent=state.guard_active?"GUARD ACTIVE · Ctrl+Alt+F12 or Stop Chutku stops everything":"GUARD INACTIVE · Launch with Start-Chutku.cmd for the independent emergency stop";
+  $("stop-core").hidden=!state.guard_active;$("guard-status").textContent=state.guard_active?"Ctrl+Alt+F12 or Stop Chutku stops everything at once":"The emergency stop (Ctrl+Alt+F12) is off: close Chutku and open it again from the Start menu";
   renderVerification(state.verification);renderHandsfree(state.handsfree);
   if(state.handsfree&&state.handsfree.latest_session)seenSessions.add(state.handsfree.latest_session);
 }
-$("stop-core").addEventListener("click",async()=>{try{await api("/api/control",{action:"stop"});}catch{}$("connection").textContent="Emergency stop requested";error("Independent stop requested. Restart Chutku and inspect Activity before resuming. Completed effects may remain.");});
+$("stop-core").addEventListener("click",async()=>{try{await api("/api/control",{action:"stop"});}catch(e){error(e.message);return;}$("connection").textContent="Emergency stop requested";error("Independent stop requested. Restart Chutku and inspect Activity before resuming. Completed effects may remain.");});
 $("pause-actions").addEventListener("click",async()=>{try{const result=await api("/api/control",{action:$("pause-note").hidden?"pause":"resume"});renderPause(result.actions_paused);}catch(e){error(e.message);}});
 $("memory-form").addEventListener("submit",async e=>{e.preventDefault();await ask("remember "+$("memory-key").value+" = "+$("memory-value").value,true);$("memory-key").value="";$("memory-value").value="";});
 $("memory-search").addEventListener("input",()=>state&&renderMemories());
@@ -499,9 +502,11 @@ async function loadSetup(){try{renderSetup(await api("/api/setup"));}catch(e){er
 // Settings (after the first-run onboarding below). Owner 2026-11-08: a new user goes through the guided setup first
 // and cannot skip the AI key; Settings is where everything is changed later.
 function details(summary,open){const d=node("details");d.open=!!open;d.append(node("summary","",summary));return d;}
+const setupTyped={};   // 2026-11-08 review: a re-render (mode click, any Save, the download poll) wiped a typed key
 function renderSetup(s){
   if(!s.done){showOnboarding(s);return;}
-  const box=$("setup-steps");box.replaceChildren();
+  const box=$("setup-steps");box.querySelectorAll("[data-keep]").forEach(e=>{setupTyped[e.dataset.keep]=e.value;});box.replaceChildren();
+  const keep=(e,name)=>{e.dataset.keep=name;if(setupTyped[name])e.value=setupTyped[name];return e;};
   $("setup-eyebrow").textContent="Settings";
   $("setup-title").textContent="Settings";
   $("setup-subtitle").textContent="Change anything here at any time. Keys go to Windows Credential Manager and are never shown again.";
@@ -512,23 +517,26 @@ function renderSetup(s){
   if(!hasKey){const ol=node("ol","muted");["Press “Get a free key”: it opens Groq. Sign in with Google.","Press “Create API Key”, then copy the key.","Paste it below and press Save."].forEach(t=>ol.append(node("li","",t)));card.append(ol);}
   const links=node("p","muted");const getKey=node("a","",hasKey?"Get another free key":"Get a free key");getKey.href=s.links.groq;getKey.target="_blank";getKey.rel="noopener noreferrer";
   const other=node("a","","(or a Gemini key)");other.href=s.links.gemini;other.target="_blank";other.rel="noopener noreferrer";links.append(getKey," ",other);card.append(links);
-  const key=input("password","","Paste the key (starts with gsk_ or AIza)",200);key.autocomplete="off";
-  const r1=node("div","memory-form");r1.append(field("Key",key),button("Check and save",async()=>{const k=key.value.trim();if(!k)throw new Error("Paste the key first.");await setupStep({action:"key",provider:providerOf(k),key:k});},"primary"));card.append(r1);
-  card.append(node("p","muted",`Stored: Groq ${s.keys_stored.groq?"✓":"—"} · Gemini ${s.keys_stored.gemini?"✓":"—"}. Keys go to Windows Credential Manager and are never shown again.`));
+  const key=keep(input("password","","Paste the key (starts with gsk_ or AIza)",200),"key");key.autocomplete="off";
+  const r1=node("div","memory-form");r1.append(field("Key",key),button("Check and save",async()=>{const k=key.value.trim();if(!k)throw new Error("Paste the key first.");key.value="";try{await setupStep({action:"key",provider:providerOf(k),key:k});}catch(e){key.value=k;throw e;}},"primary"));card.append(r1);
+  card.append(node("p","muted",`Keys saved: Groq ${s.keys_stored.groq?"✓":"not yet"} · Gemini ${s.keys_stored.gemini?"✓":"not yet"}. They are kept in Windows Credential Manager and never shown again.`));
   // 2. the owner's name
-  card=setupCard("2. Your name (optional)"+done("name"),"So it can greet you by name.");
-  const you=input("text","","Your name",60);const r2=node("div","memory-form");r2.append(field("What should it call you?",you),button("Save",()=>setupStep({action:"name",name:you.value}),"primary"));card.append(r2);
+  card=setupCard("2. Your name (optional)"+done("name"),`So ${name} can greet you by name.`);
+  const you=keep(input("text","","Your name",60),"you");const r2=node("div","memory-form");r2.append(field(`What should ${name} call you?`,you),button("Save",async()=>{const v=you.value;you.value="";try{await setupStep({action:"name",name:v});}catch(e){you.value=v;throw e;}},"primary"));card.append(r2);
   // 3. its name and voice: already set
-  card=setupCard("3. Its name and voice (optional)"+done("assistant"),`Ready as “${name}” (${a.ASSISTANT_GENDER||"female"}, ${a.ASSISTANT_LANGUAGE||"hinglish"}, ${a.ASSISTANT_STYLE||"warm"}). Say “Oye ${name}” or press Ctrl+Alt+Space.`);
+  card=setupCard("3. Assistant's name and voice (optional)"+done("assistant"),`Ready as “${name}” (${a.ASSISTANT_GENDER||"female"}, ${a.ASSISTANT_LANGUAGE||"hinglish"}, ${a.ASSISTANT_STYLE||"warm"}). Say “Oye ${name}” or press Ctrl+Alt+Space.`);
   const nm=input("text",a.ASSISTANT_NAME,"Chutku",20),g=select(["female","male","neutral"],a.ASSISTANT_GENDER),l=select(["hinglish","english","hindi"],a.ASSISTANT_LANGUAGE),st=select(["warm","professional","witty","calm"],a.ASSISTANT_STYLE);
   const change=details("Change");const row=node("div","memory-form");row.append(field("Name",nm),field("Gender",g),field("Language",l),field("Style",st),button("Save",()=>setupStep({action:"assistant",ASSISTANT_NAME:nm.value,ASSISTANT_GENDER:g.value,ASSISTANT_LANGUAGE:l.value,ASSISTANT_STYLE:st.value}),"primary"));change.append(row);card.append(change);
   // 4. how much it does alone: this install's own default is the one marked "(recommended)" and listed first
-  card=setupCard("4. How much it does on its own"+done("mode"),"Already set. Change it any time.");
+  card=setupCard(`4. How much ${name} does alone`+done("mode"),"Already set. Change it any time; typed requests use it too.");
   const short={auto_safe:"safe",auto_edits:"edits",owner:"full"},best=short[s.default_mode]||"safe";
-  const modes=[["safe","Safe: looks and opens things by itself; asks before any change."],["edits","Edits: also changes files it can undo; asks before the rest."],["full","Full: does almost everything; still asks for deletes, risky steps and new people."]]
+  const modes=[["safe","Safe: looks and opens things by itself; asks before any change."],["edits","Safe + file edits: also changes files that can be undone; asks before the rest."],["full","Full: does almost everything; still asks before changing or deleting files, risky steps and new people."]]
     .map(([value,text])=>[value,value===best?text.replace(":"," (recommended):"):text]).sort((x,y)=>(y[0]===best)-(x[0]===best));
   const current=short[s.mode]||best;
-  modes.forEach(([value,text])=>{const label=node("label","radio");const r=node("input");r.type="radio";r.name="setup-mode";r.value=value;r.checked=value===current;r.addEventListener("change",()=>setupStep({action:"mode",mode:value}).catch(e=>error(e.message)));label.append(r," "+text);card.append(label);});
+  modes.forEach(([value,text])=>{const label=node("label","radio");const r=node("input");r.type="radio";r.name="setup-mode";r.value=value;r.checked=value===current;r.addEventListener("change",()=>{try{localStorage.removeItem("chutku-mode");}catch{}savedMode=null;setMode({safe:"auto_safe",edits:"auto_edits",full:"owner"}[value]);setupStep({action:"mode",mode:value}).catch(e=>error(e.message));});label.append(r," "+text);card.append(label);});
+  // 4b. what it may touch at all (2026-11-08 review: a new install had none, so "open notepad" was refused)
+  card=setupCard(`What ${name} may do on this PC`,"Ticked items are allowed. The level above still decides what asks you first.");
+  for(const p of s.permissions||[]){const label=node("label","radio");const c=node("input");c.type="checkbox";c.checked=p.on;c.addEventListener("change",()=>setupStep({action:"permission",capability:p.capability,on:c.checked}).catch(e=>{c.checked=!c.checked;error(e.message);}));label.append(c," "+p.label);card.append(label);}
   // 5. microphone
   card=setupCard("5. Microphone check (optional)"+done("microphone"),"Press the button and speak for one second. The sound is measured, never kept.");
   const meter=node("progress");meter.max=100;meter.value=0;const heard=node("span","muted");
@@ -546,7 +554,7 @@ function renderSetup(s){
   // 8. offline packs
   let downloading=false;const packs=Object.entries(s.packs||{});
   packs.forEach(([,p])=>{if(p.state==="downloading")downloading=true;});
-  card=setupCard("8. Work without internet (optional)"+done("packs"),"Downloads resume if interrupted and are checked against their pinned SHA-256; a file that does not match is deleted.");
+  card=setupCard("8. Work without internet (optional)"+done("packs"),"Downloads resume if interrupted, and every file is checked; a damaged file is deleted and never used.");
   const offline=details("Offline packs",downloading);
   for(const [packName,p] of packs){
     const line=node("div","row-buttons");line.append(node("strong","",`${p.label} (about ${p.about_gb} GB)`));

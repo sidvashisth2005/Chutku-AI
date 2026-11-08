@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import subprocess
 import threading
 import time
 from urllib.parse import urlsplit, parse_qs
@@ -433,7 +434,7 @@ class DashboardServer(ThreadingHTTPServer):
 
     # -- W5: first-run setup (the page in chutku/web; the same steps as `chutku.cli setup`) ----------------------
     SETUP_ACTIONS = {"assistant", "name", "key", "mic", "mode", "download", "phone", "browser_login", "finish",
-                     "reopen"}
+                     "reopen", "permission"}
 
     def setup_view(self):
         """What the first-run page shows. Never a key, password or token: only whether one is stored."""
@@ -457,6 +458,7 @@ class DashboardServer(ThreadingHTTPServer):
                 # marks that choice "(recommended)" and never contradicts the preselected one
                 "default_mode": start_defaults()["handsfree_mode"],
                 "phone_account": current.get("CHUTKU_ACCOUNT_ID") or None,
+                "permissions": setup_wizard.permissions(self.base),
                 "links": {"groq": "https://console.groq.com/keys", "gemini": "https://aistudio.google.com/apikey"}}
 
     def setup_action(self, data):
@@ -489,6 +491,8 @@ class DashboardServer(ThreadingHTTPServer):
             from chutku.tools import signed_in_browser
             signed_in_browser.login()
             setup_wizard._mark(self.base, "browser")
+        elif action == "permission":   # Settings > "What Chutku may do"
+            setup_wizard.set_permission(self.base, data.get("capability"), data.get("on"))
         elif action == "finish":   # owner 2026-11-08: no skipping past the AI key, or Chutku looks broken
             if not setup_wizard.has_brain_key(self.base):
                 raise ValueError("Add your free AI key first (step 1): Chutku needs it to understand you.")
@@ -526,6 +530,8 @@ class DashboardServer(ThreadingHTTPServer):
             results = [runtime.run(tool, arguments, provenance="user_stated") for tool, arguments in calls]
         failed = [r for r in results if str(r.get("state")) != "COMPLETED"]
         if failed:
+            if calls[0][0] == "task.cancel":   # review: a double click or a stale list said only "FAILED"
+                return {**self.automations_view(), "note": "That automation was already gone."}
             raise ValueError(str(failed[0].get("error") or failed[0].get("reason") or failed[0].get("state"))[:300])
         return self.automations_view()
 
@@ -1358,7 +1364,7 @@ class DashboardServer(ThreadingHTTPServer):
         wake = self.wake
         return {"hotkey": "Ctrl+Alt+Space", "hotkey_active": bool(self.hotkey and self.hotkey.registered.is_set()),
                 "handsfree_mode": prefs["handsfree_mode"], "wake_word": prefs["wake_word"], "browser": prefs["browser"],
-                "offline_mode": prefs.get("offline_mode", False),
+                "offline_mode": prefs.get("offline_mode", False), "brain": prefs.get("brain", "cloud_first"),
                 "mic_muted": __import__("chutku.voice.mic", fromlist=["muted"]).muted(),
                 "mute_hotkey": getattr(self.hotkey, "mute_hotkey", None) if self.hotkey else None,
                 "wake_listening": bool(wake and wake.is_alive()), "wake_error": wake.error if wake else None,
@@ -1636,6 +1642,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 and self.headers.get("Sec-Fetch-Site") != "cross-site"
                 and (origin == self.server.origin if mutation else origin in (None, self.server.origin)))
 
+    def _remote_post(self, data):
+        """W6 Phone panel (laptop only: needs this dashboard's token)."""
+        remote = self.server.remote
+        action = data.get("action")
+        if action in ("boot_on", "boot_off"):   # 2026-11-08: one Windows prompt runs the setup or its removal
+            from chutku.remote import boot
+            self._reply(200, boot.run(self.server.base, action == "boot_on"))
+            return
+        if remote is None:
+            self._reply(409, {"error": "Phone access is available only in the running Chutku."})
+            return
+        if action == "connect":   # owner 2026-11-08: one button does every missing step, in order
+            self._reply(200, remote.connect())
+        elif action == "enable":
+            self._reply(200, remote.enable())
+        elif action == "disable":
+            self._reply(200, remote.disable())
+        elif action == "pair":
+            self._reply(200, remote.pair_code())
+        elif action in ("arm", "disarm"):
+            self._reply(200, remote.arm(action == "arm"))
+        elif action == "revoke" and isinstance(data.get("device_id"), str):
+            self._reply(200, remote.revoke(data["device_id"]))
+        else:
+            self._reply(400, {"error": "Choose connect, enable, disable, pair, arm, disarm, revoke, boot_on "
+                                       "or boot_off."})
+
     def do_GET(self):
         if not self._host_ok():
             self._reply(403, {"error": "Invalid host."})
@@ -1658,7 +1691,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         if parts.path == "/help":   # W7: the user guide (public text, like the page itself)
             from chutku.core.paths import CODE_ROOT
-            self._reply(200, (CODE_ROOT / "docs" / "USER_GUIDE.md").read_bytes(), "text/plain; charset=utf-8")
+            from chutku.help_page import render   # 2026-11-08 review: a page, not raw Markdown
+            self._reply(200, render((CODE_ROOT / "docs" / "USER_GUIDE.md").read_text(encoding="utf-8")),
+                        "text/html; charset=utf-8")
             return
         if not self._authorized():
             self._reply(403, {"error": "Open the complete dashboard link printed by Chutku, including its session token."})
@@ -1793,7 +1828,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             try:
                 if data["action"] == "stop":
                     if self.server.heartbeat is None:
-                        raise ValueError("Start the dashboard with Start-Chutku.cmd to enable the independent guard.")
+                        self._reply(409, {"error": "The emergency stop needs Chutku's guard, which is not running. "
+                                                   "Close Chutku and open it again from the Start menu."})
+                        return
                     control.stop()
                 elif data["action"] == "pause":
                     control.pause()
@@ -1824,30 +1861,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._reply(400, {"error": str(error)})
             return
         if urlsplit(self.path).path == "/api/remote":   # W6 Phone panel (laptop only: needs this dashboard's token)
-            remote = self.server.remote
-            action = data.get("action")
-            if action in ("boot_on", "boot_off"):   # 2026-11-08: one Windows prompt runs the setup or its removal
-                from chutku.remote import boot
-                self._reply(200, boot.run(self.server.base, action == "boot_on"))
-                return
-            if remote is None:
-                self._reply(409, {"error": "Phone access is available only in the running Chutku."})
-                return
-            if action == "connect":   # owner 2026-11-08: one button does every missing step, in order
-                self._reply(200, remote.connect())
-            elif action == "enable":
-                self._reply(200, remote.enable())
-            elif action == "disable":
-                self._reply(200, remote.disable())
-            elif action == "pair":
-                self._reply(200, remote.pair_code())
-            elif action in ("arm", "disarm"):
-                self._reply(200, remote.arm(action == "arm"))
-            elif action == "revoke" and isinstance(data.get("device_id"), str):
-                self._reply(200, remote.revoke(data["device_id"]))
-            else:
-                self._reply(400, {"error": "Choose connect, enable, disable, pair, arm, disarm, revoke, boot_on "
-                                           "or boot_off."})
+            try:
+                self._remote_post(data)
+            except (OSError, subprocess.SubprocessError, ValueError) as error:   # 2026-11-08 review: a timeout
+                # in "tailscale status" closed the connection with no answer and the page kept retrying
+                self._reply(409, {"error": f"That did not work: {error}"})
+            except Exception:
+                self._reply(500, {"error": "Something went wrong.", "error_id": _error_ref("POST /api/remote")})
             return
         if urlsplit(self.path).path == "/api/presence/video/close":   # X13: the video's close button
             from chutku.tools.internet import hud_video_file
@@ -2097,7 +2117,8 @@ def _agent_post(self, path, data):
                 gateway.unpair()
             return 200, {"token_stored": bool(telegram.token()), "paired": telegram.paired(server.base) is not None,
                          "bot": telegram.load(server.base).get("bot"),
-                         "handoff": gateway.handed_off(), "running": server.telegram is not None}
+                         "handoff": gateway.handed_off(), "running": server.telegram is not None,
+                         "error": getattr(server.telegram, "last_error", None)}
         if path == "/api/automations":   # W6: create from a blueprint, or cancel
             return 200, server.automation_action(data)
         if path == "/api/board":   # W6: the Board tab's done / again / archive buttons

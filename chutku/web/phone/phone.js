@@ -35,8 +35,9 @@ async function sealedFetch(path, options) {
   return new Response(answer.s === 204 ? null : ChutkuE2E.unb64(answer.b || ""), { status: answer.s, headers: answer.h || {} });
 }
 
-async function api(path, data, raw) {
+async function api(path, data, raw, pin) {
   const options = { credentials: "same-origin", headers: {} };
+  if (pin) options.headers["X-Chutku-PIN"] = pin;   // a file upload's body is the file itself
   if (data !== undefined) {
     options.method = "POST";
     if (!relay) options.headers["X-Chutku-CSRF"] = csrf;
@@ -58,12 +59,17 @@ function show(view) { for (const id of ["account", "pair", "login", "app"]) $(id
 let toastTimer = null;
 function status(text) {
   $("status").textContent = text;
-  const toast = $("toast"); if ($("app").hidden || !text) return;
+  if ($("app").hidden) {   // 2026-11-08 review: on the Pair/Unlock cards the one-line header cut the reason off
+    const card = ["account", "pair", "login"].map($).find(c => c && !c.hidden);
+    if (card) { const p = card.querySelector(".card-error") || card.appendChild(el("p", "small card-error")); p.textContent = text || ""; }
+    return;
+  }
+  const toast = $("toast"); if (!text) return;
   clearInterval(toastTimer); toast.hidden = false;
   const counting = /resumes in (\d+) s/.exec(text); let left = counting ? +counting[1] : 4;
   const draw = () => { toast.textContent = counting ? text.replace(/\d+ s/, left + " s") : text; };
   draw();
-  toastTimer = setInterval(() => { left--; if (left <= 0) { clearInterval(toastTimer); toast.hidden = true; } else draw(); }, 1000);
+  toastTimer = setInterval(() => { left--; if (left <= 0) { clearInterval(toastTimer); toast.hidden = true; if ($("status").textContent === text) $("status").textContent = ""; } else draw(); }, 1000);
 }
 function askPin(why) {
   return new Promise(resolve => {
@@ -74,8 +80,11 @@ function askPin(why) {
 }
 
 // ---- P1: pairing and unlock ---------------------------------------------------------------------------------------
-const pairCode = new URLSearchParams(location.hash.slice(1)).get("code");
-if (pairCode) { $("pair-code").value = pairCode; history.replaceState(null, "", "/"); }
+function codeFromLink() {   // also when the link opens in a tab that already shows the page (only the hash changes)
+  const code = new URLSearchParams(location.hash.slice(1)).get("code");
+  if (code) { $("pair-code").value = code; history.replaceState(null, "", "/"); }
+}
+codeFromLink(); window.addEventListener("hashchange", codeFromLink);
 $("pair-go").addEventListener("click", async () => {
   try {
     const result = await api("/api/pair", { code: $("pair-code").value, name: $("pair-name").value, pin: $("pair-pin").value });
@@ -93,20 +102,22 @@ $("forget").addEventListener("click", () => { store.credential = ""; show("pair"
 // ---- P2: chat, live progress, approvals ----------------------------------------------------------------------------
 function bubble(text, who) { const b = el("div", "msg " + who, text); $("log").append(b); $("log").scrollTop = 1e9; return b; }
 function render(box, s) {
-  box.replaceChildren(el("div", "", s.reply || (s.status === "done" ? "Done." : "…")));
+  const reply = (s.reply || "").replace(/\s*\[Verified:[^\]]*\]\s*$/, "");   // the tally is for the laptop's log
+  box.replaceChildren(el("div", "", reply || (s.status === "done" ? "Done." : "…")));
   for (const step of s.steps || []) box.append(el("div", "step " + (step.state === "COMPLETED" ? "ok" : step.state === "FAILED" || step.state === "DENIED" ? "bad" : ""), step.purpose || step.tool));
   if (s.pending) {
     const card = el("div", "approval");
     card.append(el("strong", "", "Needs your OK: "), el("span", "", s.pending.consequence || s.pending.tool));
     if (s.pending.laptop_only) card.append(el("p", "small", "Ye laptop pe approve karna hoga."));
     else {
-      const row = el("div", "row"), yes = el("button", "primary", "Approve (PIN)"), no = el("button", "", "Cancel");
+      const row = el("div", "row"), yes = el("button", "primary", "Approve"), no = el("button", "", "Cancel");
       for (const [button, approve] of [[yes, true], [no, false]]) button.addEventListener("click", async () => {
         try { const r = await withPin(approve ? "PIN to approve" : "PIN to cancel", pin => api("/api/approve", { id: s.id, approve, pin, nonce: s.pending.nonce })); render(box, r.session); follow(box, s.id); } catch (e) { status(e.message); }
       });
       row.append(yes, no); card.append(row);
     }
     box.append(card);
+    $("log").scrollTop = 1e9;   // 2026-11-08 review: the card was added below the visible part of the chat
   }
 }
 async function follow(box, id) {
@@ -175,7 +186,7 @@ for (const ev of ["pointerup", "pointerleave", "pointercancel"]) $("talk").addEv
 // ---- Z5: sound on the laptop, only on purpose ------------------------------------------------------------------------
 $("laptop-say").addEventListener("click", async () => {
   const text = $("laptop-text").value.trim(); if (!text) return;
-  try { await api("/api/laptop/say", { text }); $("laptop-text").value = ""; status("Laptop pe bol rahi hoon"); } catch (e) { status(e.message); }
+  try { await withPin("PIN to speak on the laptop", pin => api("/api/laptop/say", pin ? { text, pin } : { text })); $("laptop-text").value = ""; status("Laptop pe bol rahi hoon"); } catch (e) { status(e.message); }
 });
 let laptopRecorder = null;
 $("laptop-talk").addEventListener("pointerdown", async () => {
@@ -896,7 +907,7 @@ $("clip-paste").addEventListener("click", async () => {
 // ---- P8: files ---------------------------------------------------------------------------------------------------------
 $("upload-go").addEventListener("click", async () => {
   const file = $("upload-file").files[0]; if (!file) return;
-  try { const r = await api("/api/files/upload?name=" + encodeURIComponent(file.name), file, true); $("upload-out").textContent = "Saved: " + r.saved; } catch (e) { $("upload-out").textContent = e.message; }
+  try { const r = await withPin("PIN to send a file to the laptop", pin => api("/api/files/upload?name=" + encodeURIComponent(file.name), file, true, pin)); $("upload-out").textContent = "Saved: " + r.saved; } catch (e) { $("upload-out").textContent = e.message; }
 });
 // Owner 2026-11-07: browse the laptop's files (no paths to remember), filtered by kind; download, share or view.
 const ICON = { photo: "🖼", video: "🎬", pdf: "📕", doc: "📄", audio: "🎵", archive: "🗜", other: "📎" };
