@@ -113,3 +113,4 @@ body.watch .watch-exit{display:block;position:fixed;top:calc(8px + env(safe-area
   z-index:7;width:40px;height:40px;padding:0;border-radius:50%;background:#0008;color:#fff;opacity:.35;font-size:18px}
 body.watch .watch-exit:active,body.watch .watch-exit:focus-visible{opacity:1}
 [hidden]{display:none!important}
+.card-error{color:#e8806b;margin:10px 0 0;white-space:normal}

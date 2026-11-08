@@ -85,7 +85,8 @@ class PolicyKernel:
         if tool.resource_access is not None and (resource_access is None or tool.resource_access not in resource_access):
             return Authorization(Decision.DENY, risk, "The selected resource grant does not allow this operation.")
         if tool.required_capability is not None and capability_allowed is not True:
-            return Authorization(Decision.DENY, risk, "The required PC capability has not been explicitly granted.")
+            return Authorization(Decision.DENY, risk, "The required PC capability has not been explicitly granted. "
+                                 "Turn it on in Settings, under 'What Chutku may do'.")
         if protected_reason is not None:
             return Authorization(Decision.DENY, risk, str(protected_reason))
         if tool.user_only and provenance not in USER_ONLY_PROVENANCE:

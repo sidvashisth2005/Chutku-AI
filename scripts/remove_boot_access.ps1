@@ -26,7 +26,10 @@ if (Test-Path $tailscale) {   # try: Windows PowerShell 5.1 turns a native comma
     Write-Host "Tailnet address :8443 turned off"
 }
 $boot = Join-Path $env:ProgramData "ChutkuBoot"
-if (Test-Path $boot) { Remove-Item -Recurse -Force $boot; Write-Host "Removed $boot" }
+if (Test-Path -LiteralPath $boot) {   # rmdir /s deletes junctions without following them (review 2026-11-08)
+    cmd /c "rmdir /s /q `"$boot`""
+    Write-Host "Removed $boot"
+}
 Write-Host "`nDone: the laptop no longer sends 'Laptop is ON' and the lock screen is not reachable from the phone." -ForegroundColor Green
 Write-Host "Fast Startup is still off. To turn it back on: Control Panel > Power Options > 'Choose what the power buttons do'."
 if ($Quiet) { Start-Sleep -Seconds 6 } else { Read-Host "Press Enter to close" }

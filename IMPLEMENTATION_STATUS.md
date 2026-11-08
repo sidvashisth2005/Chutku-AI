@@ -16,6 +16,37 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08: Launch review of 1.0.0 by a 7-person agent team (cloud session)
+
+**What changed:** 27 groups of fixes; the list, with the seat that found each one, is in
+`docs/TEAM_REVIEW_2026-11-08.md`. The biggest:
+- A new install could not open an app: it had no PC permissions. It now gets the everyday set when setup first
+  finishes, and Settings has "What Chutku may do".
+- The Voice lock tab was dead.
+- The boot-access folder could be owned by a normal user, giving a path to SYSTEM.
+- Settings could not be reached at 1280x800.
+- Quota and key errors were raw text.
+- Telegram stopped for good after a local error, and a stranger could lock the owner out of pairing.
+- The phone's PIN session was not required for clipboard, speaking on the laptop and uploads.
+- The privacy text overstated what stays on the PC.
+
+**Evidence (Linux):**
+- Full suite: 1,645 tests, with no failure outside the Windows-only baseline.
+- `check_phrases`: 161/167 (the 6 Linux-only `files.*` misses).
+- New negative cases:
+  - the phone refuses without the PIN session (`test_phone_z5`);
+  - a stranger is locked, the owner still pairs (`test_telegram_gateway`);
+  - "already off" makes no admin prompt, and curly quotes stay quoted (`test_boot_access_card`);
+  - Telegram, Tailscale and HF tokens are caught (`test_release_gate_w8`);
+  - Help is escaped HTML (`test_docs_w7`).
+
+**Needs the Windows check:**
+- a fresh install, then "open notepad";
+- the ChutkuBoot owner after Turn on;
+- the sidebar at 1280x800;
+- the Setup page keeps a typed key.
+
+
 ### 2026-11-08 (10): Telegram and "Reach this laptop after a restart" as one-click features for every install
 - **Owner:** both should ship to other users as one-click steps (2026-11-08 recheck), not only in the checkout.
 - **Telegram card** (Phone tab; `/api/telegram {action: token}`, `telegram.connect_token`, `Gateway.bot_name`):

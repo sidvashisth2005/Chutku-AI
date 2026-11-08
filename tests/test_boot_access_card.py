@@ -76,10 +76,34 @@ class BootAccess(unittest.TestCase):
             RemoteStore(base).configure(host="laptop.tail1.ts.net", login="me@example.com", enabled=True)
             self.assertTrue(boot.run(base, True, launch=lambda args, **k: launched.append(args))["started"])
         with TemporaryDirectory() as base, patch.object(telegram, "token", lambda: None):
-            self.assertTrue(boot.run(base, False, launch=lambda args, **k: launched.append(args))["started"])
+            self.assertTrue(boot.run(base, False, launch=lambda args, **k: launched.append(args),
+                                     installed=base)["started"])
+            # 2026-11-08 review: nothing installed -> no admin prompt at all
+            gone = boot.run(base, False, launch=lambda args, **k: launched.append(args), installed=Path(base) / "x")
+            self.assertEqual(gone, {"started": False, "message": "It is already off."})
+        self.assertEqual(len(launched), 2)
         self.assertIn("-Verb RunAs", launched[0][-1])
         self.assertIn("setup_boot_access.ps1", launched[0][-1])
         self.assertIn("remove_boot_access.ps1", launched[1][-1])
+
+    def test_curly_quotes_in_the_install_path_stay_inside_the_powershell_string(self):
+        launched = []
+        with TemporaryDirectory() as base, patch.object(boot, "script", lambda name: Path("C:/Users/O\u2019Brien's/x.ps1")):
+            boot.run(base, False, launch=lambda args, **k: launched.append(args), installed=base)
+        inner = launched[0][-1].split("-ArgumentList '", 1)[1][:-1]
+        for quote in "'\u2018\u2019\u201a\u201b":   # every single quote PowerShell knows is doubled, so none ends it
+            self.assertNotRegex(inner.replace(quote * 2, ""), quote)
+
+    def test_the_system_helpers_folder_is_never_reused_or_user_owned(self):
+        # 2026-11-08 review: a normal user could pre-create C:\\ProgramData\\ChutkuBoot, stay its owner and swap the
+        # SYSTEM helper. The script must refuse links, replace an existing folder and give it to Administrators.
+        setup = (ROOT / "scripts" / "setup_boot_access.ps1").read_text(encoding="utf-8")
+        remove = (ROOT / "scripts" / "remove_boot_access.ps1").read_text(encoding="utf-8")
+        before = setup.index("New-Item -ItemType Directory -Force $boot")
+        self.assertIn("ReparsePoint", setup[:before])
+        self.assertIn('rmdir /s /q', setup[:before])
+        self.assertEqual(setup.count('SetOwner([Security.Principal.SecurityIdentifier]"S-1-5-32-544")'), 2)
+        self.assertNotIn("Remove-Item -Recurse -Force $boot", remove)   # PowerShell 5.1 can follow junctions
 
     def test_the_scripts_ship_and_leave_other_software_alone(self):
         import importlib.util

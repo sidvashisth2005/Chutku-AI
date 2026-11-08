@@ -24,12 +24,13 @@ _TEXT = (
     (re.compile(r"\b5\d\d\b|server error|unavailable|overloaded", re.I), "server"),
 )
 
-MESSAGES = {
-    "rate_limited": "the free cloud quota is used up for now",
-    "auth": "a cloud key is missing or was rejected (set it again with chutku.cli cloud set-key)",
-    "not_found": "the cloud model was retired",
-    "network": "the internet or the provider is not reachable",
-    "server": "the cloud provider had an error",
+MESSAGES = {   # 2026-11-08 review: each says what to do next, in words a non-technical user can act on
+    "rate_limited": "the free AI limit is used up for now. Try again in a minute, or add another free key in "
+                    "Settings",
+    "auth": "the free AI key is missing or was refused. Paste it again in Settings, under 'Free brain key'",
+    "not_found": "the AI model was retired; try again and Chutku will use another one",
+    "network": "the internet or the AI service is not reachable. Check the connection and try again",
+    "server": "the AI service had a problem. Try again in a minute",
     "local_oom": "the GPU ran out of memory for the local model",
     "local_down": "the local model is not running (say 'khud ko theek karo')",
     "empty": "the brain gave an empty answer",

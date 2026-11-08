@@ -3,7 +3,7 @@
 **A free voice assistant for your Windows PC.** Say what you want in English, Hindi or Hinglish, and Chutku does it
 for you, then tells you honestly what happened.
 
-- "Spotify pe lofi chalao"
+- "YouTube pe lofi chalao"
 - "meri last PDF kholo"
 - "D drive mein kitni jagah hai"
 - "har roz 8 baje weather batao"
@@ -32,7 +32,7 @@ for you, then tells you honestly what happened.
    made). No administrator rights are needed. The setup downloads the app (about 220 MB), checks it, and opens
    Chutku.
 
-Needs Windows 10 or 11 (64-bit) and about 1 GB of free space, plus a microphone for voice.
+Needs Windows 10 or 11 (64-bit) and about 1 GB of free space (about 7 GB more if you add the optional offline packs), plus a microphone for voice.
 
 ## First start
 
@@ -67,8 +67,9 @@ Then press **Ctrl+Alt+Space** in any app and talk, or type in the Chutku window.
 
 ## Privacy and safety, in plain words
 
-- **Your things stay on your PC.** Files, screen text, clipboard and memory stay on your PC. With an AI key, only
-  your request and public results go to that service.
+- **Your things stay on your PC.** File contents, your clipboard and your messages stay on your PC. To plan a task,
+  the free AI service sees your request, notes you told Chutku that relate to it, and names of files and windows.
+  With a Gemini key and no offline Screen pack, questions about the screen send a screenshot to Google.
 - **She asks before anything serious.** Deleting, sending messages, running programs, and shutting down or
   restarting always wait for your OK.
 - **Deleted files go to the Recycle Bin.** You can bring them back.
@@ -76,7 +77,7 @@ Then press **Ctrl+Alt+Space** in any app and talk, or type in the Chutku window.
   folders. (Only the optional "after a restart" setup asks Windows once, when you press it.)
 - **Every step is checked,** and she tells you exactly how many steps really worked.
 - **Web pages and messages can't give her orders.** Text she reads cannot tell her what to do.
-- **The phone link is end-to-end encrypted.**
+- **The phone app link is encrypted end to end.** Telegram messages go through Telegram.
 
 ## Uninstall
 
@@ -88,7 +89,7 @@ Say no to keep it for later.
 
 | Question or problem | Answer |
 |---|---|
-| Is it free? | Yes. The AI keys from Groq and Google AI Studio are free too, with daily limits. |
+| Is it free? | Yes. The AI keys from Groq and Google AI Studio are free, with daily limits, as long as billing is not turned on for that account. |
 | Does it work offline? | Yes, after you download the offline packs in Settings. It is faster with a graphics card. |
 | The shortcut key does nothing | Another app uses Ctrl+Alt+Space. Close it, or restart Chutku. |
 | "quota" or "busy" | The free AI limit is used up for now. Wait a bit, or add a key for the other service in Settings. |

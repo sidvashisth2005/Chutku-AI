@@ -26,6 +26,9 @@ CASES = [
     ("kaun si automations hain", "blueprint.list"),
     ("jab main 'padhai time' bolun to volume 30 karo aur lock the pc", "routine.save"),
     ("khud ko theek karo", "system.self_repair"), ("apna checkup karo", "system.self_repair"),
+    # 2026-11-08 launch review: the guide's and README's own phrasings
+    ("kitni jagah bachi hai", "system.disk_space"), ("laptop mein kitni jagah hai", "system.disk_space"),
+    ("aaj ki news", "web.news"), ("30 min baad yaad dilana pani peena", "reminder.set"),
     # W6 A15 teach mode, A16 screen survey
     ("sikho padhai setup notepad mein", "teach.start"), ("teach me dark mode in Settings", "teach.start"),
     ("screen survey karo", "desktop.survey"), ("what's open on my screen", "desktop.survey"),

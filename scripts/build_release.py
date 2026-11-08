@@ -309,6 +309,8 @@ PERSONAL_NAMES = re.compile(r"(?i)^(data|sandbox|\.git)/|(^|/)\.env$|(^|/)(conve
                             r"[^/]*\.jsonl$|actions\.log\.jsonl$|dashboard-session\.json$|(^|/)(History|Cookies)$")
 SECRETS = re.compile(rb"AIza[0-9A-Za-z_-]{35}|gsk_[0-9A-Za-z]{40,}|csk-[0-9a-z]{40,}|ghp_[0-9A-Za-z]{36}"
                      rb"|github_pat_[0-9A-Za-z_]{60,}|sk-(?:proj-)?[0-9A-Za-z]{40,}"
+                     rb"|\b\d{8,10}:AA[0-9A-Za-z_-]{33}\b|tskey-[0-9A-Za-z-]{20,}|\bhf_[0-9A-Za-z]{30,}"   # Telegram bot,
+                     # Tailscale and Hugging Face tokens (2026-11-08 review)
                      rb"|-----BEGIN [A-Z ]*PRIVATE KEY-----\r?\n[A-Za-z0-9+/=]{64}")   # a key body, not just the marker
 OWNER = re.compile(rb"(?i)siddhant|vashisth|dubeypankaj")   # LICENSE carries the copyright line on purpose
 

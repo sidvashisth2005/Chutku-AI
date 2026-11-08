@@ -20,8 +20,12 @@ def _nightshift_command(namespace):
         print(json.dumps(nightshift.install(PROJECT_ROOT), indent=2))
         return
     if namespace.night_action == "report":
-        print(json.dumps(nightshift.latest_report(PROJECT_ROOT), indent=2, ensure_ascii=False))
-        print(nightshift.morning_line(PROJECT_ROOT))
+        report = nightshift.latest_report(PROJECT_ROOT)
+        if report is None:
+            print("No Night Shift report yet.")
+            return
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        print(nightshift.morning_line(PROJECT_ROOT) or "")
         return
     if namespace.when_idle and not nightshift.wait_for_idle(PROJECT_ROOT):
         print("No 30 idle minutes on mains power today (or it already ran): skipped.")

@@ -79,6 +79,8 @@ def connect_token(base, value, *, transport=None):
     store_token(value)
     with _LOCK:
         data = load(base)
+        if data.get("bot") != me.get("username"):   # another bot: its update ids start elsewhere (review: the old
+            data.pop("offset", None)                  # offset could hide every message to the new bot)
         data["bot"] = me.get("username")
         save(base, data)
     return data["bot"]
@@ -156,7 +158,14 @@ class Gateway:
         data = load(self.base)
         now = self.clock()
         data["codes"] = [c for c in data.get("codes", []) if c.get("expires", 0) > now]
-        data["wrong"] = [t for t in data.get("wrong", []) if now - t < LOCKOUT]
+        # 2026-11-08 review: wrong codes count and lock PER CHAT, so a stranger who knows the bot's name cannot lock
+        # the owner out of pairing (31^8 codes stay out of reach at 5 tries an hour per chat)
+        wrong = data.get("wrong") if isinstance(data.get("wrong"), dict) else {}
+        data["wrong"] = {chat: kept for chat, times in wrong.items()
+                         if (kept := [t for t in times if now - t < LOCKOUT])}
+        locked = data.get("locked") if isinstance(data.get("locked"), dict) else {}
+        data["locked"] = {chat: until for chat, until in locked.items() if until > now}
+        data.pop("locked_until", None)
         data["rate"] = [t for t in data.get("rate", []) if now - t < 3600]
         data["nonces"] = {k: v for k, v in (data.get("nonces") or {}).items() if v.get("expires", 0) > now}
         return data
@@ -165,8 +174,6 @@ class Gateway:
         """A pairing code for the owner to send as /pair CODE (shown on the laptop only)."""
         with _LOCK:
             data = self._state()
-            if data.get("locked_until", 0) > self.clock():
-                raise ValueError("Too many wrong codes: pairing is locked for an hour.")
             if len(data["codes"]) >= MAX_PENDING:
                 raise ValueError("3 codes are already waiting. Use one of them, or wait an hour.")
             code = "".join(secrets.choice(ALPHABET) for _ in range(CODE_LENGTH))
@@ -177,17 +184,18 @@ class Gateway:
     def _pair(self, chat_id, code):
         with _LOCK:
             data = self._state()
-            now = self.clock()
-            if data.get("locked_until", 0) > now:
+            now, chat = self.clock(), str(int(chat_id))
+            if chat in data["locked"]:
                 return False
             code = str(code or "").strip().upper()
             if any(secrets.compare_digest(c["code"], code) for c in data["codes"]):
-                data.update(chat_id=int(chat_id), codes=[], wrong=[], paired_at=now)
+                data.update(chat_id=int(chat_id), codes=[], wrong={}, locked={}, paired_at=now)
                 save(self.base, data)
                 return True
-            data["wrong"].append(now)
-            if len(data["wrong"]) >= MAX_WRONG:
-                data["locked_until"], data["wrong"] = now + LOCKOUT, []
+            data["wrong"].setdefault(chat, []).append(now)
+            if len(data["wrong"][chat]) >= MAX_WRONG:
+                data["locked"][chat] = now + LOCKOUT
+                data["wrong"].pop(chat)
             save(self.base, data)
             return False
 
@@ -459,15 +467,23 @@ class Gateway:
             save(self.base, data)
             self.send("PC pe wapas aa gaye: ab sab laptop pe dikhaungi.")
 
+    last_error = None   # shown on the Phone tab's Telegram card; None while polling works
+
     def run(self, stop):
         from chutku.core.log import get_logger
         log, wait = get_logger("telegram"), 2
         while not stop.is_set():
             try:
                 self.poll_once()
-                wait = 2
-            except TelegramError as error:
-                log.warning("telegram poll: %s", error)   # never the token: errors carry no URL
+                wait, self.last_error = 2, None
+            except Exception as error:   # 2026-11-08 review: any other error (a locked telegram.json) ended the
+                # thread for good while the card still said "connected"; now it is shown, and polling retries
+                if isinstance(error, TelegramError):
+                    log.warning("telegram poll: %s", error)   # never the token: errors carry no URL
+                    self.last_error = str(error)
+                else:
+                    log.exception("telegram poll failed")
+                    self.last_error = "Telegram stopped for a moment (a local error); retrying by itself."
                 if stop.wait(wait):
                     return
                 wait = min(wait * 2, 300)

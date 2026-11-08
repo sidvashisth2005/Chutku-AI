@@ -21,7 +21,7 @@
     <button class="nav-item" data-tab="settings"><span>⚙</span> Settings</button>
     <a class="nav-item" href="/help" target="_blank" rel="noopener"><span>?</span> Help</a>
   </nav>
-  <div class="sidebar-bottom"><span class="status-dot"></span> Runs on your computer<p>Local model first.<br>Every result verified.</p><div class="version">CHUTKU · COMMAND CENTER</div><button id="open-presence" class="text-button" type="button">Open presence orb ↗</button></div>
+  <div class="sidebar-bottom"><span class="status-dot"></span> Runs on your computer<p>Free cloud brain, works offline too.<br>Every result verified.</p><div class="version">CHUTKU · COMMAND CENTER</div><button id="open-presence" class="text-button" type="button">Open presence orb ↗</button></div>
 </aside>
 <main>
   <header><div class="breadcrumb">Workspace <span>/</span> <span id="page-label">Command center</span></div><button id="pause-actions" class="danger">Pause actions</button><button id="stop-core" class="danger" hidden>Stop Chutku</button><div class="connection" id="connection">Connecting…</div></header>
@@ -42,7 +42,7 @@
       </div>
       <div class="routines" id="routines"></div>
     </section>
-    <div class="heading-row"><div><div class="eyebrow">COMMAND CENTER · SAY IT OR TYPE IT</div><h1>What should I do?</h1><p class="subtitle">Chutku plans the steps, shows them, runs what your autonomy level allows and verifies every result.</p></div><span class="mode-pill" id="brain-pill">LOCAL BRAIN</span></div>
+    <div class="heading-row"><div><div class="eyebrow">COMMAND CENTER · SAY IT OR TYPE IT</div><h1>What should I do?</h1><p class="subtitle">Chutku plans the steps, shows them, runs what your autonomy level allows and verifies every result.</p></div><span class="mode-pill" id="brain-pill">CLOUD BRAIN</span></div>
     <section class="panel chat-panel">
       <div id="chat-log" class="chat-log" aria-live="polite">
         <div class="chat-empty"><div class="empty-icon">⌘</div><h3>Ask for anything on this PC.</h3><p>“Open Spotify” · “Find my newest PDF in Downloads and open it” · “Search YouTube for lo-fi music” · “Make a folder D:\Notes and write today's plan in it”</p></div>
@@ -57,9 +57,9 @@
         <div class="autonomy" role="radiogroup" aria-label="Autonomy level">
           <span class="autonomy-label">Autonomy</span>
           <label><input type="radio" name="mode" value="review"> Review every step</label>
-          <label><input type="radio" name="mode" value="auto_safe"> Auto: safe steps</label>
-          <label><input type="radio" name="mode" value="auto_edits"> Auto: incl. file edits</label>
-          <label><input type="radio" name="mode" value="owner"> Owner: no approvals</label>
+          <label><input type="radio" name="mode" value="auto_safe"> Safe steps by themselves</label>
+          <label><input type="radio" name="mode" value="auto_edits"> Safe + file edits</label>
+          <label><input type="radio" name="mode" value="owner"> Full: asks only for risky steps</label>
         </div>
         <span id="run-status" class="small-pill">Ready</span>
       </div>
@@ -68,15 +68,15 @@
         <span class="autonomy-label">Hands-free</span>
         <span id="hotkey-state" class="muted">Ctrl+Alt+Space talks from anywhere</span>
         <label><input type="checkbox" id="wake-toggle"> Wake phrase “Oye Chutku”</label>
-        <label>Hands-free level <select id="handsfree-mode"><option value="review">Review every step</option><option value="auto_safe">Auto: safe steps</option><option value="auto_edits">Auto: incl. file edits</option><option value="owner">Owner: no approvals</option></select></label>
+        <label>Hands-free level <select id="handsfree-mode"><option value="review">Review every step</option><option value="auto_safe">Safe steps by themselves</option><option value="auto_edits">Safe + file edits</option><option value="owner">Full: asks only for risky steps</option></select></label>
         <label>Browser <select id="browser-choice"><option value="brave">Brave</option><option value="edge">Edge</option><option value="chrome">Chrome</option><option value="firefox">Firefox</option><option value="default">Windows default</option></select></label>
-        <label><input type="checkbox" id="offline-toggle"> Offline mode (local models only, no Gemini)</label>
+        <label><input type="checkbox" id="offline-toggle"> Offline mode (no cloud brain; needs the Offline brain pack)</label>
         <span id="wake-state" class="small-pill"></span>
       </div>
     </section>
     <div class="quick-actions"><button data-ask="good morning">☀ Briefing</button><button data-ask="what was I working on?">🗂 Recent work</button><button data-ask="how much space is left">💽 Disk space</button><button data-ask="free up space on my C drive">🧽 Free up space</button><button data-ask="what did you do today">🧾 What did you do?</button><button data-ask="organize my Downloads folder">🧹 Tidy Downloads</button><button data-ask="What is playing right now?">🎵 What's playing?</button><button data-command="undo last write">↶ Undo last write</button></div>
     <section class="panel recent-panel"><div class="panel-heading"><h2>Recent activity</h2><button class="text-button" data-tab="history">View all activity →</button></div><div id="recent"></div></section>
-    <p class="workspace-path">SANDBOX <code id="sandbox-path"></code> · <span id="grants-summary"></span></p>
+    <p class="workspace-path"><span id="grants-summary"></span><code id="sandbox-path" hidden></code></p>
   </section>
   <section id="memory" class="view" hidden><div class="eyebrow">REMEMBER WHAT MATTERS</div><h1>Your memory, in your hands.</h1><p class="subtitle">Only notes you explicitly save. Stored on this computer. Editable and removable.</p><div class="panel"><form id="memory-form" class="memory-form"><div><label for="memory-key">Key</label><input id="memory-key" placeholder="project_goal" maxlength="64" required></div><div class="grow"><label for="memory-value">Value</label><input id="memory-value" placeholder="Build something useful, one verified step at a time" maxlength="2000" required></div><button class="primary" type="submit">Save note</button></form><label class="sr-only" for="memory-search">Search memories</label><input id="memory-search" class="search" placeholder="Search your saved notes…"><div id="memory-list"></div><p class="footnote">Saving an existing key replaces its value. Forgetting removes it permanently. This is not a secrets vault.</p></div></section>
   <section id="mind" class="view" hidden><div class="eyebrow">EVERYTHING YOU TOLD CHUTKU</div><h1>Your mind map.</h1><p class="subtitle">People, facts, lists, habits and recent topics. Stored only on this PC. Click a dot for details; say “mark assignment 1 done” or “forget …” to change it.</p><section class="panel"><div class="mind-wrap"><svg id="mind-svg" class="mind-svg" viewBox="0 0 1000 680" role="img" aria-label="Mind map"></svg><aside id="mind-detail" class="mind-detail"><p class="muted">Click any dot.</p></aside></div></section></section>

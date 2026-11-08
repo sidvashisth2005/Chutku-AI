@@ -72,6 +72,20 @@ class KeyPoolTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             providers.add_key("groq", "d", stored=full.get, store=lambda *a: None)
 
+    def test_a_new_key_clears_the_old_rest_and_no_key_is_named(self):
+        # 2026-11-08 review: a rejected key kept Groq off for 24 h even after the right key was pasted
+        providers.cool_down("groq", 86400, self.base)
+        providers.cool_down("groq/a#2", 60, self.base)
+        providers.cool_down("cerebras/x", 60, self.base)
+        providers.clear_cooldown("groq", self.base)
+        self.assertEqual(set(providers.cooling(self.base)), {"cerebras/x"})
+        with patch.object(providers, "configured", return_value=[]):
+            with self.assertRaises(providers.ProviderError) as caught:
+                providers.ask("s", "u", base=self.base)
+        self.assertEqual(caught.exception.kind, "no_key")
+        from chutku import brain_errors
+        self.assertIn("Settings", brain_errors.explain([caught.exception]))
+
     def test_gemini_moves_to_the_next_key_on_429(self):
         from chutku.cloud_planner import GeminiAgentPlanner
         from chutku.gemini import GeminiUnavailable
