@@ -29,7 +29,7 @@ Without a certificate the setup is unsigned: Windows SmartScreen shows "Windows 
 - `CHUTKU_SIGN_PFX_BASE64`: the `.pfx` file, base64-encoded (`[Convert]::ToBase64String([IO.File]::ReadAllBytes("cert.pfx"))`);
 - `CHUTKU_SIGN_PASSWORD`: its password.
 
-`installer/sign.ps1` then signs `ChutkuSetup.exe`, and verifies the signature.
+`installer/sign.ps1` then signs `Chutku-Setup-for-Windows.exe`, and verifies the signature.
 
 ## 5. Make a release (after the PC session's Windows live checks)
 ```powershell
@@ -39,7 +39,10 @@ git push origin v1.0.0
 The `release` workflow then:
 1. runs the tests;
 2. builds the package and checks it;
-3. builds and checks the setup (a clean-machine install test);
-4. publishes `ChutkuSetup.exe`, `Chutku-1.0.0-win64.zip`, its `.sha256` and `latest.json`.
+3. builds `Chutku-Setup-for-Windows.exe` with the package inside and checks it (a clean-machine install test of that
+   exact file);
+4. publishes that one file, with `installer/release_notes.md` as the release text (update its "What's new" before
+   tagging: the in-app update popup shows it).
 
-`ChutkuSetup.exe` always installs what `releases/latest/download/latest.json` names, checked by SHA-256.
+The setup checks the package inside it against the SHA-256 recorded at build time before installing. Installed copies
+see the new release through GitHub's API and offer **Update now** (`chutku/updates.py`).

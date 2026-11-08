@@ -16,6 +16,102 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (11): Chutku 1.1: a required guided setup, a new design, one download, in-app updates, the owner's credit
+- **Owner:**
+  - Don't let a new user into the app without a working API key.
+  - Keep the release minimal, with one clearly-for-Windows file.
+  - The app looks AI-made: make it professional.
+  - Credit Siddhant Vashisth, and congratulate the user when setup is done.
+  - Push updates to existing users as a popup.
+  - Test every component as a user.
+- **Required setup:**
+  - A full-screen onboarding: welcome, then the AI key, then about you, then the microphone, then a celebration with
+    confetti, the user's name and the developer's name.
+  - `setup_wizard.check_brain_key` asks Groq or Google whether the key works before it is stored. A refused key, no
+    internet and a malformed key each get a plain message. A rate-limited key counts as working.
+  - The server refuses `finish` without a stored key (`has_brain_key`).
+  - Settings now changes things later and has "Run the first-run setup again" and an About card.
+- **Design** (`theme.css` rewritten; `index.html`):
+  - Windows 11 style: Segoe UI Variable, neutral surfaces, one warm brand colour, light and dark following Windows.
+  - Line icons instead of emoji, grouped menu, sentence-case labels, nothing under 12px.
+  - A new brand mark: an orange square with a white "c" and a dot. It is `logo.svg`, plus `icon.png`/`.ico` drawn by
+    `chutku/icon.py` (anti-aliased, no image library).
+  - The orb window re-tinted to match.
+- **Credit:** sidebar, onboarding, celebration, Settings → About, the installer (publisher, copyright, welcome page),
+  the release notes, the Help and the public README.
+  - The package scan (`build_release.CREDIT`) now allows the credit line and the releases address. Any other use of
+    the name is still refused.
+- **One download:**
+  - `Chutku-Setup-for-Windows.exe` holds the package. It checks the package against a SHA-256 baked in at build time
+    (`/DPackageSha256`), so a damaged setup installs nothing.
+  - The release publishes only that file, with `installer/release_notes.md` (which says it is for Windows 10/11 and
+    to ignore "Source code").
+  - CI installs that exact file (`ci_install_check.ps1 -Embedded`).
+- **Updates** (`chutku/updates.py`, `GET/POST /api/update`):
+  - GitHub's latest release is checked at most every 6 h, and the popup shows the notes.
+  - **Update now** downloads the file, checks GitHub's SHA-256 digest and size, and runs
+    `/SILENT /RELAUNCH=yes`: Chutku stops, the app is replaced, the data is kept and Chutku starts again.
+  - **Later** waits 24 h.
+  - A developer checkout never self-updates.
+- **Bugs found by the user-style runs and fixed:**
+  - The Voice lock tab always showed "Unknown action." (its `status` was never handled; this was the 400 on every
+    page load).
+  - Saving a Memory note jumped to Home.
+  - Forget left its approval card on Home: it now asks on the Memory tab, and the user's OK is the approval.
+  - A failed update download left the popup with no buttons.
+  - The onboarding's errors went to a banner hidden behind it.
+- **Verified:**
+  - **Edge, onboarding, light and dark (38/38):**
+    - the onboarding covers the app;
+    - an empty key, a malformed key and a key the provider refuses are each refused, with nothing stored;
+    - finishing without a key is refused;
+    - a working key moves on;
+    - the name is saved, the celebration shows the user's name and the credit, and the app opens;
+    - there is no onboarding after a reload.
+  - **Edge, every button (all pass), each checked by its effect:**
+    - the time answer;
+    - disk GB;
+    - the browser choice in the preferences file;
+    - pause and resume;
+    - memory save, search and forget (the list and the count);
+    - mind-map details;
+    - automation add and cancel;
+    - the Telegram and boot cards;
+    - five trust tabs with no error;
+    - Settings name and mode saved;
+    - Check for updates;
+    - the update popup: notes shown without markdown, a failed download explained with Try again, Later remembered
+      across a reload;
+    - "Run setup again" reopening the onboarding;
+    - Help.
+  - **Screenshots of 13 tabs** in light, dark and 390 px phone width; no console errors and no failing requests
+    afterwards.
+  - **`tests/test_onboarding_updates.py` (10 tests):**
+    - a refused key is never stored, and the message carries no key;
+    - offline is explained;
+    - the key is sent in a header, never in the URL;
+    - `finish` is refused without a key;
+    - Voice lock `status` works;
+    - an update is offered and cached; nothing is offered when current, offline or from a foreign URL;
+    - the real `_download` deletes a file with a wrong checksum or a short file;
+    - a bad file is never run;
+    - a developer copy never installs;
+    - the icon is drawn.
+  - **Full CI suite: 1670 OK**, and `check_phrases` gives instant 163/163.
+    - Three tests were updated for the new behaviour: the key check, the developer credit in the docs, and the
+      Home label.
+    - The H.264 stream test's window went from 0.5 s to 1 s: under full-suite load the encoder start used most of
+      0.5 s. Its assertion is unchanged.
+- **Test isolation found:** `task.schedule` writes under `mind.PROJECT_ROOT`. A temp dashboard therefore wrote two
+  "morning briefing" jobs (`1add59`, `de31ef`, 2026-11-08 15:24/15:25) into the owner's real data during the first
+  run. The live script now points that root at the temp home.
+  - Cancelling those two was refused by the permission check. **The owner should cancel them** (Automations tab, or
+    "cancel task 1add59").
+- **Not run here:**
+  - Inno Setup is not installed on this PC, so the new `.iss` is first compiled by CI (`package` workflow) and then
+    by the `v1.1.0` release.
+  - A real **Update now** needs a published 1.1.x release.
+
 ### 2026-11-08 (10): Telegram and "Reach this laptop after a restart" as one-click features for every install
 - **Owner:** both should ship to other users as one-click steps (2026-11-08 recheck), not only in the checkout.
 - **Telegram card** (Phone tab; `/api/telegram {action: token}`, `telegram.connect_token`, `Gateway.bot_name`):

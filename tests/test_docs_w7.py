@@ -33,7 +33,8 @@ class DocsTests(unittest.TestCase):
 
     def test_public_docs_have_no_personal_details(self):
         for name in ("docs/USER_GUIDE.md", "installer/README_PUBLIC.md", "README.md"):
-            text = (ROOT / name).read_text(encoding="utf-8")
+            # owner 2026-11-08: the developer credit is wanted in public text; nothing else personal is
+            text = (ROOT / name).read_text(encoding="utf-8").replace("Siddhant Vashisth", "")
             self.assertIsNone(PERSONAL.search(text), (name, PERSONAL.search(text)))
         self.assertIsNotNone(PERSONAL.search((ROOT / "docs" / "OWNER_GUIDE.md").read_text(encoding="utf-8")))  # the check bites
 

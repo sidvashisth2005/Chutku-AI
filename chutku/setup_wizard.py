@@ -75,13 +75,49 @@ def set_owner_name(base, name):
     return name
 
 
-def store_brain_key(base, provider, key):
-    """A free cloud brain key into Windows Credential Manager (never a file, never echoed back)."""
+KEY_CHECKS = {   # a free, read-only call that only answers 200 for a working key (2026-11-08)
+    "groq": ("https://api.groq.com/openai/v1/models", "Authorization", "Bearer {}", "Groq"),
+    "gemini": ("https://generativelanguage.googleapis.com/v1beta/models", "x-goog-api-key", "{}", "Google AI Studio"),
+}
+
+
+def check_brain_key(provider, key, *, opener=None):
+    """Ask the provider whether this key works, before it is kept (owner 2026-11-08: a wrong key must not let a new
+    user through setup). A rate-limited key works; a refused key or no internet raises a plain ValueError."""
+    import urllib.error
+    import urllib.request
+    url, header, value, name = KEY_CHECKS[provider]
+    request = urllib.request.Request(url, headers={header: value.format(key), "User-Agent": "Chutku"})
+    try:
+        with (opener or urllib.request.urlopen)(request, timeout=20):
+            return True
+    except urllib.error.HTTPError as error:   # never the URL or headers: the key is in them
+        if error.code == 429:
+            return True
+        raise ValueError(f"{name} did not accept this key (HTTP {error.code}). Copy it again from {name} and "
+                         "paste the whole key.") from None
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise ValueError(f"Chutku could not reach {name} to check the key. Check your internet connection and "
+                         "try again.") from None
+
+
+def has_brain_key(base):
+    try:
+        from chutku import cloud_planner, providers
+        return "groq" in providers.configured(base) or bool(cloud_planner.api_key())
+    except Exception:
+        return False
+
+
+def store_brain_key(base, provider, key, *, check=None):
+    """A free cloud brain key into Windows Credential Manager (never a file, never echoed back), after the provider
+    has confirmed it works."""
     key = str(key or "").strip()
     if provider not in {"groq", "gemini"}:
         raise ValueError("Choose groq or gemini.")
     if not key:
         raise ValueError("Paste the key.")
+    (check or check_brain_key)(provider, key)
     if provider == "groq":   # cloud_planner.store_key checks the key's shape (20-200 characters)
         from chutku import providers
         providers.store_key("groq", key)

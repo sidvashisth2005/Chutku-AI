@@ -489,7 +489,9 @@ class DashboardServer(ThreadingHTTPServer):
             from chutku.tools import signed_in_browser
             signed_in_browser.login()
             setup_wizard._mark(self.base, "browser")
-        elif action == "finish":
+        elif action == "finish":   # owner 2026-11-08: no skipping past the AI key, or Chutku looks broken
+            if not setup_wizard.has_brain_key(self.base):
+                raise ValueError("Add your free AI key first (step 1): Chutku needs it to understand you.")
             setup_wizard.finish(self.base)
         elif action == "reopen":   # Settings > "Run setup again"
             setup_wizard._mark(self.base, done=False)
@@ -710,7 +712,9 @@ class DashboardServer(ThreadingHTTPServer):
     def voice_enroll(self, action):
         """Owner Voice Lock enrollment from the dashboard: record one prompted line at a time (memory only)."""
         from chutku.voice import speaker
-        if action == "reset":
+        if action == "status":   # opening the tab (2026-11-08: it fell through to "Unknown action.")
+            pass
+        elif action == "reset":
             self.enroll_clips = []
         elif action == "clip":
             if not self.action_lock.acquire(blocking=False):
@@ -1642,6 +1646,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                   "/style.css": ("style.css", "text/css; charset=utf-8"),
                   "/chutku.ico": ("chutku.ico", "image/x-icon"),
                   "/icon.png": ("icon.png", "image/png"),
+                  "/logo.svg": ("logo.svg", "image/svg+xml"),
                   "/theme.css": ("theme.css", "text/css; charset=utf-8"),
                   "/presence": ("presence.html", "text/html; charset=utf-8"),
                   "/presence.js": ("presence.js", "text/javascript; charset=utf-8"),
@@ -1678,6 +1683,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
             if parts.path == "/api/presence":   # polled ~10x a second by the presence orb: memory only
                 self._reply(200, self.server.presence_state())
+                return
+            if parts.path == "/api/update":     # 2026-11-08: the "update available" popup (cached 6 h)
+                from chutku import updates
+                self._reply(200, updates.check())
                 return
             if parts.path == "/api/remote":     # W6: the Phone panel
                 from chutku.remote import boot
@@ -1799,6 +1808,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
             from chutku.voice import tts
             tts.stop()
             self._reply(200, {"stopped": True})
+            return
+        if urlsplit(self.path).path == "/api/update":   # 2026-11-08: "Update now" (or "Check again")
+            from chutku import updates
+            action = data.get("action")
+            try:
+                if action == "check":
+                    self._reply(200, updates.check(force=True))
+                elif action == "install":
+                    updates.install()
+                    self._reply(200, updates.check())
+                else:
+                    self._reply(400, {"error": "Choose check or install."})
+            except ValueError as error:
+                self._reply(400, {"error": str(error)})
             return
         if urlsplit(self.path).path == "/api/remote":   # W6 Phone panel (laptop only: needs this dashboard's token)
             remote = self.server.remote

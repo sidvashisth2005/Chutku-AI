@@ -1,36 +1,65 @@
-"""Chutku's small app icon (a green rounded square with a white "c"), drawn in code: no image libraries."""
+"""Chutku's brand mark (2026-11-08 redesign): a warm orange rounded square with a white "c" and a dot in its
+opening, like a speech mark. Drawn in code, anti-aliased by 4x4 supersampling: no image libraries. The same shape is
+chutku/web/logo.svg; chutku/web/icon.png is written by `python -m chutku.icon` (png_bytes)."""
 from __future__ import annotations
 
 from pathlib import Path
 import struct
+import zlib
 
 ICON_PATH = Path(__file__).resolve().parent / "web" / "chutku.ico"
-GREEN = (0x23, 0x5F, 0x4D)
+PNG_PATH = Path(__file__).resolve().parent / "web" / "icon.png"
+BRAND = (0xE8, 0x59, 0x0C)
+
+
+def _coverage(u, v):
+    """What covers the point (u, v) in a 64x64 design (logo.svg): 0 outside, 1 brand, 2 white."""
+    radius = 15.0
+    dx = max(radius - u, u - (64 - radius), 0)
+    dy = max(radius - v, v - (64 - radius), 0)
+    if dx * dx + dy * dy > radius * radius:
+        return 0
+    ox, oy = u - 32, v - 32
+    distance = (ox * ox + oy * oy) ** 0.5
+    if 10.5 <= distance <= 17.5 and not (ox > 0 and abs(oy) < 9.5 * distance / 13.1):   # the "c", open to the right
+        return 2
+    if (u - 45.5) ** 2 + (v - 32) ** 2 <= 3.6 * 3.6:                                      # the dot
+        return 2
+    return 1
+
+
+def _rgba(size: int):
+    """RGBA rows, top-down."""
+    rows, step = [], 64 / size
+    for y in range(size):
+        row = bytearray()
+        for x in range(size):
+            hits = [_coverage((x + (i + .5) / 4) * step, (y + (j + .5) / 4) * step) for i in range(4) for j in range(4)]
+            inside = sum(1 for h in hits if h)
+            if not inside:
+                row += bytes(4)
+                continue
+            white = sum(1 for h in hits if h == 2) / inside
+            colour = [round(c + (255 - c) * white) for c in BRAND]
+            row += bytes((*colour, round(255 * inside / 16)))
+        rows.append(bytes(row))
+    return rows
 
 
 def _pixels(size: int):
     """BGRA rows, bottom-up (as ICO bitmaps are stored)."""
-    radius, centre = size * 0.22, (size - 1) / 2
-    ring_outer, ring_inner = size * 0.30, size * 0.18
-    rows = []
-    for y in range(size - 1, -1, -1):
-        row = bytearray()
-        for x in range(size):
-            # rounded-square mask
-            dx = max(radius - x, x - (size - 1 - radius), 0)
-            dy = max(radius - y, y - (size - 1 - radius), 0)
-            inside = dx * dx + dy * dy <= radius * radius
-            if not inside:
-                row += bytes((0, 0, 0, 0))
-                continue
-            # a "c": a ring with its right side cut away
-            ox, oy = x - centre, y - centre
-            distance = (ox * ox + oy * oy) ** 0.5
-            letter = ring_inner <= distance <= ring_outer and not (ox > 0 and abs(oy) < size * 0.13)
-            r, g, b = (255, 255, 255) if letter else GREEN
-            row += bytes((b, g, r, 255))
-        rows.append(bytes(row))
-    return b"".join(rows)
+    out = []
+    for row in reversed(_rgba(size)):
+        out.append(b"".join(bytes((row[i + 2], row[i + 1], row[i], row[i + 3])) for i in range(0, len(row), 4)))
+    return b"".join(out)
+
+
+def png_bytes(size: int = 256) -> bytes:
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    raw = b"".join(b"\x00" + row for row in _rgba(size))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
 
 
 def icon_bytes(sizes=(16, 32, 48)) -> bytes:

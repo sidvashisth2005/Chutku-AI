@@ -24,7 +24,7 @@ async function api(path, data){
 const canvas = $(BAR ? "eyes" : "orb"), ctx = canvas.getContext("2d");
 const particles = Array.from({length:70}, (_, i) => ({a:Math.random()*Math.PI*2, r:0.55+Math.random()*0.4,
   s:(0.15+Math.random()*0.6)*(i%2?1:-1), z:Math.random()}));
-function accent(){return getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#22d3ee";}
+function accent(){return getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#ff7a3d";}
 
 // ---- her face on the core (X11 eyes with moods, X12 mouth) -----------------------------------------------------
 // The mood comes from /api/presence ("mood"); each look is a target the face eases toward, so moods morph.

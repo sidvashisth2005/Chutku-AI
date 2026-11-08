@@ -48,7 +48,7 @@ class DashboardTests(unittest.TestCase):
     def test_static_ui_has_no_embedded_session_secret_and_sets_security_headers(self):
         status, body, headers = self.request("/")
         self.assertEqual(status, 200)
-        self.assertIn(b"Command center", body)
+        self.assertIn(b"What should I do?", body)
         self.assertNotIn(self.server.token.encode(), body)
         self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
         self.assertEqual(headers["Cache-Control"], "no-store")

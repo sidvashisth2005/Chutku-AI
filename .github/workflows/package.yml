@@ -1,6 +1,6 @@
 name: package
 
-# W3/W4: build the app package and ChutkuSetup.exe on a clean Windows runner; prove the package starts, answers,
+# W3/W4: build the app package and Chutku-Setup-for-Windows.exe on a clean Windows runner; prove the package starts, answers,
 # passes doctor, stops and never writes into its own folder, and that the setup installs, runs and uninstalls.
 on:
   push:
@@ -33,18 +33,20 @@ jobs:
         run: ./installer/ci_package_check.ps1 -Zip (Get-ChildItem dist/Chutku-*-win64.zip).FullName
       - name: Inno Setup
         run: choco install innosetup --no-progress -y
-      - name: Build ChutkuSetup.exe (W4)
+      - name: Build Chutku-Setup-for-Windows.exe (W4; the package inside, 2026-11-08)
         shell: pwsh
         run: |
           python -c "import sys; sys.path.insert(0, '.'); from chutku.icon import icon_bytes; open('installer/chutku.ico', 'wb').write(icon_bytes())"
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp /DAppVersion=0.0.0 installer\chutku.iss
+          $zip = (Get-ChildItem dist/Chutku-*-win64.zip).FullName
+          $hash = (Get-Content "$zip.sha256").Split(' ')[0]
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp /DAppVersion=0.0.0 "/DPackageZip=$zip" "/DPackageSha256=$hash" installer\chutku.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
       - name: Sign (skipped without a certificate)
         shell: pwsh
-        run: ./installer/sign.ps1 -Files dist\ChutkuSetup.exe
+        run: ./installer/sign.ps1 -Files dist\Chutku-Setup-for-Windows.exe
       - name: Clean-machine install test (tampered refused, install, doctor, text command, uninstall)
         shell: pwsh
-        run: ./installer/ci_install_check.ps1 -Setup dist\ChutkuSetup.exe -Zip (Get-ChildItem dist/Chutku-*-win64.zip).FullName
+        run: ./installer/ci_install_check.ps1 -Setup dist\Chutku-Setup-for-Windows.exe -Zip (Get-ChildItem dist/Chutku-*-win64.zip).FullName -Embedded
       - uses: actions/upload-artifact@v4
         with:
           name: chutku-package

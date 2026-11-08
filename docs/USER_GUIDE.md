@@ -5,6 +5,8 @@ written the way people actually talk to Chutku, in English, Hindi or Hinglish.
 
 > Chutku is female. Her name in Hindi is छुटकू (said "Chhutku"). You can give her another name in **Settings**.
 
+Chutku is designed and developed by **Siddhant Vashisth**.
+
 ---
 
 ## 1. Starting, opening and stopping
@@ -25,16 +27,21 @@ If Chutku hangs or crashes, she restarts by herself (up to 3 times in half an ho
 
 ## 2. First-run setup and Settings
 
-The first time Chutku opens, a short setup page appears. **Only step 1 matters**; everything else already has a
-good default, and **Start using Chutku** (top or bottom of the page) saves whatever you typed and finishes. Change any
-of it later under **Settings**.
+The first time Chutku opens, a short guided setup fills the window. It takes about two minutes, and Chutku opens
+when it is done. Everything can be changed later under **Settings**.
 
-1. **A free brain key (one minute).** Press **Get a free key** (it opens Groq), sign in with Google, press **Create
-   API Key**, copy it and paste it into the box. There is no provider to choose: a `gsk_` key is Groq, an `AIza` key
-   is Google Gemini. Keys go to Windows Credential Manager, never a file. Without a key Chutku still answers the
-   instant phrases ("what time is it", "volume 30"), and with the offline Brain pack (step 8) it can think without
-   internet.
-2. **Your name** (optional).
+1. **Your free AI key (required).** Click **Get my free key** (it opens Groq), sign in with Google, click **Create
+   API Key**, copy the key and paste it in. Chutku checks the key with Groq (or Google) before keeping it, so a wrong
+   or half-copied key is caught at once with a plain message; setup cannot be finished without a working key. There
+   is no provider to choose: a `gsk_` key is Groq, an `AIza` key is Google Gemini. Keys go to Windows Credential
+   Manager, never a file.
+2. **A little about you:** your name (optional) and how much Chutku does on her own (Safe is preselected and
+   recommended).
+3. **Microphone check** (optional): say something and watch the level bar move.
+
+Then Chutku says you are all set and opens. The rest is optional, under **Settings**:
+
+1. **Your name** (optional).
 3. **Her name and voice** (optional): Chutku, female, Hinglish, warm. Press **Change** to pick others.
 4. **How much she does on her own**: Safe is preselected and recommended (see section 3).
 5. **Microphone check** (optional): speak and watch the level bar move.
@@ -228,6 +235,10 @@ settings (phone pairing, approvals, never rules) unless you confirm that separat
 | She reacts to sounds you did not make | Open **Activity**, then **What I heard**, to see what she acted on. Turn the wake phrase off in Settings if needed. |
 | Something seems broken | Say "khud ko theek karo" / "apna checkup karo", or run `Chutku.exe --doctor` from the app folder for a health report. |
 | The log "hash chain broken" | The log was edited or damaged. Keep the file; do not delete it. |
+
+**Updates:** Chutku checks for a new version by itself. When one is out, a window shows what is new: click
+**Update now** (it downloads, checks the file, installs and opens Chutku again, keeping all your data) or **Later**
+(it asks again tomorrow). **Settings → About Chutku → Check for updates** checks at any time.
 
 **Uninstall:** if you turned on "Reach this laptop after a restart", press **Turn off** on the Phone page first
 (the uninstaller cannot remove it). Then Windows Settings, then Apps, then Chutku, then Uninstall. It asks whether to

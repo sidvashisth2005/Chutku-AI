@@ -311,6 +311,8 @@ SECRETS = re.compile(rb"AIza[0-9A-Za-z_-]{35}|gsk_[0-9A-Za-z]{40,}|csk-[0-9a-z]{
                      rb"|github_pat_[0-9A-Za-z_]{60,}|sk-(?:proj-)?[0-9A-Za-z]{40,}"
                      rb"|-----BEGIN [A-Z ]*PRIVATE KEY-----\r?\n[A-Za-z0-9+/=]{64}")   # a key body, not just the marker
 OWNER = re.compile(rb"(?i)siddhant|vashisth|dubeypankaj")   # LICENSE carries the copyright line on purpose
+# owner 2026-11-08: the developer credit and the public releases address may ship; any other use of the name may not
+CREDIT = re.compile(rb"Siddhant Vashisth|sidvashisth2005/Chutku-releases")
 
 
 def scan_zip(path, user=None):
@@ -336,7 +338,7 @@ def scan_zip(path, user=None):
             data = bundle.read(info)
             if SECRETS.search(data):
                 problems.append(f"{name}: looks like a key or private key")
-            if name != "LICENSE" and OWNER.search(data):
+            if name != "LICENSE" and OWNER.search(CREDIT.sub(b"", data)):
                 problems.append(f"{name}: the owner's name")
             ours = "/" not in name or name.startswith(("chutku/", "docs/", "models/"))
             if home is not None and name.endswith(".pyc") and not ours:

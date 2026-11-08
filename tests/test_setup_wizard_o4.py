@@ -20,7 +20,7 @@ class SetupTests(unittest.TestCase):
         return base, done
 
     def test_name_key_mic_and_mode_are_stored_where_chutku_reads_them(self):
-        with patch("chutku.providers.store_key") as store:
+        with patch("chutku.providers.store_key") as store, patch.object(setup_wizard, "check_brain_key", lambda p, k: True):
             base, done = self.run_with(["", "", "Asha", "groq", "", "3", ""], key="gsk_test")
         store.assert_called_once_with("groq", "gsk_test")
         self.assertEqual(done, {"name": "Asha", "brain_key": "groq", "microphone": {"peak": 0.3, "heard": True},

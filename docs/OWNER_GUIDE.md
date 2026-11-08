@@ -595,6 +595,8 @@ Rules:
 
 ## 5. The dashboard home page
 
+**New look (2026-11-08, v1.1):** light and dark follow Windows; the menu is grouped (Home ... Automations, Connect, Trust and control, App); your name is in the sidebar, the first-run setup, its "You're all set" screen and Settings, About Chutku. A new install must pass the guided setup (a working AI key, checked with Groq/Google) before the app opens; Settings, "Run the first-run setup again" shows it again. Installed copies offer **Update now** when a release is out (your checkout never does: git pull).
+
 - **Today panel:**
   - greeting and clock
   - weather (needs `remember city = …` once)

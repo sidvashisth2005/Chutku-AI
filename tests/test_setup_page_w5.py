@@ -64,7 +64,8 @@ class EndpointTests(unittest.TestCase):
                          "auto_edits")
         self.assertEqual(self.web.call("POST", "/api/setup", {"action": "mode", "mode": "yolo"})[0], 400)
         self.assertEqual(self.web.call("POST", "/api/setup", {"action": "rm -rf"})[0], 400)
-        self.web.call("POST", "/api/setup", {"action": "finish"})
+        with patch.object(setup_wizard, "has_brain_key", lambda base: True):   # 2026-11-08: finish needs a key
+            self.web.call("POST", "/api/setup", {"action": "finish"})
         saved = setup_wizard.state(self.temp.name)                          # independent check: the file
         self.assertTrue(saved["done"])
         self.assertIn("name", saved["steps"])
@@ -74,7 +75,7 @@ class EndpointTests(unittest.TestCase):
 
     def test_a_key_is_stored_but_never_echoed(self):
         secret = "gsk_" + "A1b2C3d4" * 6
-        with patch("chutku.providers.store_key") as store:
+        with patch("chutku.providers.store_key") as store, patch.object(setup_wizard, "check_brain_key", lambda p, k: True):
             status, view = self.web.call("POST", "/api/setup", {"action": "key", "provider": "groq", "key": secret})
         self.assertEqual(status, 200)
         store.assert_called_once_with("groq", secret)

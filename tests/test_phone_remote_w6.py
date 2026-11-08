@@ -610,7 +610,8 @@ class ServerTests(unittest.TestCase):
                 count["closed"] = True
         with patch("chutku.vision.Capturer", Capturer), patch.object(remote_server, "_keep_awake"):
             self.assertEqual(self.request("/api/screen/start", {"pin": "4321"})[0], 200)
-            self.server.screen["until"] = time.monotonic() + 0.5
+            # 1 s, not 0.5: under a loaded full-suite run the encoder start took most of 0.5 s (3 frames; 2026-11-08)
+            self.server.screen["until"] = time.monotonic() + 1.0
             status, body, headers = self.request("/api/screen/h264?w=640")
         self.assertEqual(status, 200)
         self.assertIn(headers["X-Encoder"], {name for name, _ in remote_server.H264_ENCODERS})

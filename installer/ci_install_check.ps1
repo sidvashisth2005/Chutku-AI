@@ -1,11 +1,12 @@
 # W4: the clean-machine install test (release workflow and the package job; also usable by hand on a test PC).
-#   powershell -File installer/ci_install_check.ps1 -Setup dist\ChutkuSetup.exe -Zip dist\Chutku-<v>-win64.zip
+#   powershell -File installer/ci_install_check.ps1 -Setup dist\Chutku-Setup-for-Windows.exe -Zip dist\Chutku-<v>-win64.zip [-Embedded]
 # 1. A tampered copy of the package is refused (nothing installed).
-# 2. A silent install from the local, hash-checked package.
+# 2. A silent install from the local, hash-checked package (-Embedded: from the package inside the setup, the way a
+#    user installs).
 # 3. doctor from the installed app (only "Not elevated" may fail: CI runners are Administrator).
 # 4. One text command through the installed, running app (/api/chat with the session token, then its answer).
 # 5. Silent uninstall: the app folder is gone; the user's data is deleted only because /DELETEDATA=yes is given.
-param([Parameter(Mandatory = $true)][string]$Setup, [Parameter(Mandatory = $true)][string]$Zip)
+param([Parameter(Mandatory = $true)][string]$Setup, [Parameter(Mandatory = $true)][string]$Zip, [switch]$Embedded)
 $ErrorActionPreference = "Stop"
 $app = Join-Path $env:LOCALAPPDATA "Programs\Chutku"
 $data = Join-Path $env:LOCALAPPDATA "Chutku"
@@ -26,7 +27,8 @@ Write-Host "Tampered package refused (exit $code)."
 
 # 2. install
 $clock = [Diagnostics.Stopwatch]::StartNew()
-$code = Run-Setup "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /PACKAGE=`"$Zip`""
+$source = if ($Embedded) { "" } else { " /PACKAGE=`"$Zip`"" }
+$code = Run-Setup "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART$source"
 $installSeconds = $clock.Elapsed.TotalSeconds
 if ($code -ne 0 -or -not (Test-Path (Join-Path $app "Chutku.exe"))) { throw "The install failed (exit $code)." }
 Write-Host ("Installed in {0:N1} s" -f $installSeconds)

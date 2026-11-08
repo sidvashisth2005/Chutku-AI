@@ -8,7 +8,7 @@ if(location.hash)history.replaceState(null,"",location.pathname);
 let sessionToken = tokenFromLink || "";
 try{sessionToken = sessionToken || sessionStorage.getItem("chutku-token") || "";}catch{}
 let state=null, busy=false;
-const labels={board:"Board",automations:"Automations",settings:"Settings",phone:"Phone",voicelock:"Voice lock",skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Command center",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
+const labels={board:"Board",automations:"Automations",settings:"Settings",phone:"Phone",voicelock:"Voice lock",skills:"Skills I learned",reliability:"Reliability",mind:"Mind map",home:"Home",memory:"Memory",history:"Activity",capabilities:"Capabilities",verification:"Verification"};
 const MODE_HELP={
   review:"Review: every step waits for your click before it runs.",
   auto_safe:"Auto (safe): looking, opening apps/files/sites and other easily reversible steps run by themselves. File changes and anything risky wait for your click.",
@@ -16,7 +16,8 @@ const MODE_HELP={
   owner:"Owner (no approvals): everything runs by itself, including messages to people in your memory. Asks only for file changes, any deletion, shutdown/killing programs, messages to someone new, and steps right after reading web pages or messages."};
 const TERMINAL=new Set(["done","clarify","failed","stopped","cancelled"]);
 
-function error(message){$("error-banner").textContent=message;$("error-banner").hidden=!message;}
+function error(message){$("error-banner").textContent=message;$("error-banner").hidden=!message;
+  const ob=$("onboarding");if(ob&&!ob.hidden&&message){let line=ob.querySelector(".err-line");if(!line){line=node("div","err-line");const acts=ob.querySelector(".onboarding-actions");if(acts)acts.before(line);else ob.append(line);}line.className="err-line";line.textContent=message;}}
 function setBusy(value){busy=value;$("run-status").textContent=value?"Working…":"Ready";$("run-status").classList.toggle("busy",value);$("send").disabled=value;$("mic").disabled=value;}
 async function api(path,data){
   const options={headers:{"X-Chutku-Token":sessionToken}};
@@ -137,8 +138,8 @@ async function follow(bubble,id){
   finally{refresh().catch(()=>{});refreshToday();}
 }
 
-async function ask(message){
-  if(busy||!message.trim())return;error("");switchTab("home");userBubble(message);
+async function ask(message,stay){   // stay: the Memory tab saves a note without jumping to Home (2026-11-08)
+  if(busy||!message.trim())return;error("");if(!stay)switchTab("home");userBubble(message);
   const bubble=assistantBubble();bubble.append(node("p","muted","Thinking…"));setBusy(true);
   try{
     const payload=await api("/api/chat",{message,mode:currentMode()});
@@ -170,7 +171,7 @@ function renderHandsfree(h){
   if(!h)return;
   $("hotkey-state").textContent=h.hotkey_active?h.hotkey+" talks from anywhere":"Hotkey unavailable (another app owns "+h.hotkey+")";
   $("wake-toggle").checked=h.wake_word;$("handsfree-mode").value=h.handsfree_mode;if(h.browser)$("browser-choice").value=h.browser;$("offline-toggle").checked=!!h.offline_mode;
-  $("wake-state").textContent=h.wake_error?"MIC ERROR":h.wake_listening?"LISTENING FOR “OYE CHUTKU”":"WAKE OFF";
+  $("wake-state").textContent=h.wake_error?"Microphone problem":h.wake_listening?"Listening for “Oye Chutku”":"Wake phrase off";
   $("wake-state").classList.toggle("busy",Boolean(h.wake_listening));
 }
 async function setPreference(change){try{const r=await api("/api/preferences",change);renderHandsfree(r.handsfree);}catch(e){error(e.message);}}
@@ -229,7 +230,7 @@ async function loadVoiceLock(action){
   try{
     if(action==="clip")box.prepend(node("p","muted","Listening… read the highlighted line now."));
     const s=await api("/api/voice/enroll",{action:action||"status"});box.replaceChildren();
-    box.append(node("p","",`Lock: ${s.voice_lock?"ON":"off"} · Voice enrolled: ${s.enrolled?"yes":"no"} · Threshold ${s.threshold}`));
+    box.append(node("p","",`Lock: ${s.voice_lock?"on":"off"} · Voice enrolled: ${s.enrolled?"yes":"no"} · Threshold ${s.threshold}`));
     if(s.learning&&s.enrolled)box.append(node("p","muted",`Learned from your voice ${s.learning.adapted||0} times`+(s.learning.refused?` (${s.learning.refused} updates refused: too far from your enrollment)`:"")+"."));
     if(s.learned!==undefined)box.append(node("p","",s.learned?"Thanks: Chutku learned that voice as yours.":"Not learned: that voice is too different from your enrollment. Re-enroll if your voice really changed."));
     if(s.ok===false)box.append(node("p","muted",`Only ${s.heard_seconds} s of speech heard; read it again a little louder.`));
@@ -288,8 +289,16 @@ function renderMemories(){
   const terms=$("memory-search").value.toLocaleLowerCase().split(/\s+/).filter(Boolean),area=$("memory-list");area.replaceChildren();
   state.memories.filter(m=>terms.every(q=>(m.key+" "+m.value).toLocaleLowerCase().includes(q))).forEach(m=>{
     const row=node("div","memory-row"),text=node("div");text.append(node("h3","",m.key),node("p","",m.value),node("span","memory-meta","USER STATED · "+new Date(m.updated_at).toLocaleString()));
-    const forget=node("button","danger","Forget");forget.setAttribute("aria-label","Forget "+m.key);forget.addEventListener("click",()=>ask("forget "+m.key));row.append(text,forget);area.append(row);
+    const forget=node("button","danger","Forget");forget.setAttribute("aria-label","Forget "+m.key);forget.addEventListener("click",()=>forgetNote(m.key));row.append(text,forget);area.append(row);
   });if(!area.childNodes.length)area.append(node("p","empty-note","No matching notes. Save something you'd like to remember."));$("memory-count").textContent=state.memories.length;
+}
+// 2026-11-08: Forget used to send a chat command, jump to Home and leave its approval card there. Now the question is
+// asked here, and the user's "OK" is the approval that deleting always needs.
+async function forgetNote(key){
+  if(!confirm(`Forget “${key}”? Chutku will no longer remember it.`))return;
+  try{const r=await api("/api/chat",{message:"forget "+key,mode:currentMode()});const res=r.result||{};
+    if(res.state==="WAITING_CONFIRMATION"&&res.approval)await api("/api/approve",{token:res.approval.token});
+    await refresh();}catch(e){error(e.message);}
 }
 function renderCapabilities(){
   $("capability-list").replaceChildren();
@@ -304,7 +313,7 @@ function renderVerification(report){const area=$("verification-results");area.re
 async function refresh(){
   state=await api("/api/state");$("connection").textContent="Local session connected";$("sandbox-path").textContent=state.sandbox;
   const roots=(state.resource_grants||[]).filter(g=>g.active&&g.access.includes("modify")).map(g=>g.root);
-  $("grants-summary").textContent="FILE ACCESS "+(roots.join("  ")||"sandbox only")+" · system folders are read-only";
+  $("grants-summary").textContent="File access: "+(roots.join("  ")||"sandbox only")+" · system folders are read-only";
   renderPause(state.actions_paused);renderHistory();renderMemories();renderCapabilities();
   $("stop-core").hidden=!state.guard_active;$("guard-status").textContent=state.guard_active?"GUARD ACTIVE · Ctrl+Alt+F12 or Stop Chutku stops everything":"GUARD INACTIVE · Launch with Start-Chutku.cmd for the independent emergency stop";
   renderVerification(state.verification);renderHandsfree(state.handsfree);
@@ -312,7 +321,7 @@ async function refresh(){
 }
 $("stop-core").addEventListener("click",async()=>{try{await api("/api/control",{action:"stop"});}catch{}$("connection").textContent="Emergency stop requested";error("Independent stop requested. Restart Chutku and inspect Activity before resuming. Completed effects may remain.");});
 $("pause-actions").addEventListener("click",async()=>{try{const result=await api("/api/control",{action:$("pause-note").hidden?"pause":"resume"});renderPause(result.actions_paused);}catch(e){error(e.message);}});
-$("memory-form").addEventListener("submit",async e=>{e.preventDefault();await ask("remember "+$("memory-key").value+" = "+$("memory-value").value);$("memory-key").value="";$("memory-value").value="";});
+$("memory-form").addEventListener("submit",async e=>{e.preventDefault();await ask("remember "+$("memory-key").value+" = "+$("memory-value").value,true);$("memory-key").value="";$("memory-value").value="";});
 $("memory-search").addEventListener("input",()=>state&&renderMemories());
 $("refresh").addEventListener("click",()=>refresh().catch(e=>error(e.message)));
 async function showTrace(id){try{const payload=await api("/api/trace?id="+encodeURIComponent(id));$("trace-id").textContent=id;$("trace-events").replaceChildren();payload.events.forEach(event=>{const item=node("div","trace-event");item.append(node("strong","",event.event_type.replaceAll("_"," ")),node("pre","",JSON.stringify(event.details,null,2)));$("trace-events").append(item);});if(!payload.events.length)$("trace-events").append(node("p","empty-note","No trace found."));$("trace-dialog").showModal();}catch(e){error(e.message);}}
@@ -487,35 +496,24 @@ function select(options,value){const e=node("select");options.forEach(o=>{const 
 function button(text,onClick,kind){const b=node("button",kind||"",text);b.type="button";b.addEventListener("click",async()=>{b.disabled=true;try{await onClick();}catch(e){error(e.message);}finally{b.disabled=false;}});return b;}
 async function setupStep(data){error("");const s=await api("/api/setup",data);renderSetup(s);return s;}
 async function loadSetup(){try{renderSetup(await api("/api/setup"));}catch(e){error(e.message);}}
-// Owner 2026-11-08, "a cakewalk from download to use; good defaults; nothing to think about": the one step that matters
-// (a free brain key) comes first with plain steps and no provider to choose (gsk_ = Groq, AIza = Gemini); everything
-// else is optional and already set; "Start using Chutku" saves whatever was typed and finishes.
+// Settings (after the first-run onboarding below). Owner 2026-11-08: a new user goes through the guided setup first
+// and cannot skip the AI key; Settings is where everything is changed later.
 function details(summary,open){const d=node("details");d.open=!!open;d.append(node("summary","",summary));return d;}
 function renderSetup(s){
+  if(!s.done){showOnboarding(s);return;}
   const box=$("setup-steps");box.replaceChildren();
-  $("setup-eyebrow").textContent=s.done?"SETTINGS":"FIRST-RUN SETUP";
-  $("setup-title").textContent=s.done?"Settings.":"Set up your assistant.";
-  $("setup-subtitle").textContent=s.done?"Change anything here at any time.":"Only step 1 matters. Everything else already has a good default: press “Start using Chutku” whenever you like.";
+  $("setup-eyebrow").textContent="Settings";
+  $("setup-title").textContent="Settings";
+  $("setup-subtitle").textContent="Change anything here at any time. Keys go to Windows Credential Manager and are never shown again.";
   const done=k=>s.steps&&s.steps[k]?" ✓":"";
   const a=s.assistant||{},name=a.ASSISTANT_NAME||"Chutku",hasKey=!!(s.keys_stored.groq||s.keys_stored.gemini);
-  const start=()=>button(s.done?"Done":"Start using Chutku",async()=>{
-    const typedKey=key.value.trim(),typedName=you.value.trim();
-    const changed=nm.value!==(a.ASSISTANT_NAME||"Chutku")||g.value!==a.ASSISTANT_GENDER||l.value!==a.ASSISTANT_LANGUAGE||st.value!==a.ASSISTANT_STYLE;
-    const view={assistant:{action:"assistant",ASSISTANT_NAME:nm.value,ASSISTANT_GENDER:g.value,ASSISTANT_LANGUAGE:l.value,ASSISTANT_STYLE:st.value}};
-    if(typedKey)await setupStep({action:"key",provider:typedKey.startsWith("AIza")?"gemini":"groq",key:typedKey});
-    if(typedName)await setupStep({action:"name",name:typedName});
-    if(changed)await setupStep(view.assistant);
-    if(!s.done)await setupStep({action:"finish"});
-    switchTab("home");
-  },"primary");
-  if(!s.done){const top=node("div","row-buttons");top.append(start());box.append(top);}
   // 1. the free brain key
   let card=setupCard("1. Free brain key"+(hasKey?" ✓":""),hasKey?"A key is stored: Chutku is ready. You can add another one here.":"Chutku needs one free key to think fast. It takes a minute:");
   if(!hasKey){const ol=node("ol","muted");["Press “Get a free key”: it opens Groq. Sign in with Google.","Press “Create API Key”, then copy the key.","Paste it below and press Save."].forEach(t=>ol.append(node("li","",t)));card.append(ol);}
   const links=node("p","muted");const getKey=node("a","",hasKey?"Get another free key":"Get a free key");getKey.href=s.links.groq;getKey.target="_blank";getKey.rel="noopener noreferrer";
   const other=node("a","","(or a Gemini key)");other.href=s.links.gemini;other.target="_blank";other.rel="noopener noreferrer";links.append(getKey," ",other);card.append(links);
   const key=input("password","","Paste the key (starts with gsk_ or AIza)",200);key.autocomplete="off";
-  const r1=node("div","memory-form");r1.append(field("Key",key),button("Save",async()=>{const k=key.value.trim();if(!k)throw new Error("Paste the key first.");await setupStep({action:"key",provider:k.startsWith("AIza")?"gemini":"groq",key:k});},"primary"));card.append(r1);
+  const r1=node("div","memory-form");r1.append(field("Key",key),button("Check and save",async()=>{const k=key.value.trim();if(!k)throw new Error("Paste the key first.");await setupStep({action:"key",provider:providerOf(k),key:k});},"primary"));card.append(r1);
   card.append(node("p","muted",`Stored: Groq ${s.keys_stored.groq?"✓":"—"} · Gemini ${s.keys_stored.gemini?"✓":"—"}. Keys go to Windows Credential Manager and are never shown again.`));
   // 2. the owner's name
   card=setupCard("2. Your name (optional)"+done("name"),"So it can greet you by name.");
@@ -559,12 +557,190 @@ function renderSetup(s){
   }
   card.append(offline);
   clearTimeout(setupPoll);if(downloading)setupPoll=setTimeout(loadSetup,2000);
+  aboutCard();
   const end=node("div","row-buttons");
-  end.append(start());
-  if(s.done)end.append(button("Run setup again",()=>setupStep({action:"reopen"})));
+  end.append(button("Run the first-run setup again",()=>setupStep({action:"reopen"})));
   box.append(end);
 }
-api("/api/setup").then(s=>{if(!s.done&&!startTab)switchTab("settings");}).catch(()=>{});
+// ---- First-run onboarding (owner 2026-11-08) ----
+// "Don't let a new user jump into the app without their API key": a full-screen, step-by-step setup. The key is
+// checked with the provider before it is kept, and the server refuses "finish" without one. It ends with a short
+// celebration and the developer's name, then opens the app.
+const SVG_NS="http://www.w3.org/2000/svg";
+function svgIcon(paths){const svg=document.createElementNS(SVG_NS,"svg");svg.setAttribute("viewBox","0 0 24 24");svg.setAttribute("aria-hidden","true");
+  for(const d of paths){const p=document.createElementNS(SVG_NS,"path");p.setAttribute("d",d);svg.append(p);}return svg;}
+function providerOf(key){
+  if(key.startsWith("AIza"))return "gemini";
+  if(key.startsWith("gsk_"))return "groq";
+  throw new Error("That doesn't look like a Groq key (starts with gsk_) or a Google key (starts with AIza). Copy the whole key again.");
+}
+const onboarding={s:null,step:"welcome",name:"",shown:false};
+const OB_STEPS=["key","you","mic"];
+function obCard(stepName){
+  const box=$("onboarding"),card=node("div","onboarding-card");box.replaceChildren(card);
+  if(OB_STEPS.includes(stepName)){
+    const bar=node("div","onboarding-progress");OB_STEPS.forEach((k,i)=>{const seg=node("i");if(i<=OB_STEPS.indexOf(stepName))seg.className="on";bar.append(seg);});
+    card.append(bar,node("div","onboarding-step",`Step ${OB_STEPS.indexOf(stepName)+1} of ${OB_STEPS.length}`));
+  }
+  return card;
+}
+function obActions(card,back,primaryText,onPrimary){
+  const row=node("div","onboarding-actions");
+  if(back)row.append(button("Back",back));
+  row.append(node("span","grow"));
+  const go=button(primaryText,onPrimary,"primary");row.append(go);card.append(row);return go;
+}
+function obFoot(card){const foot=node("div","onboarding-foot");const by=node("span","","Designed and developed by ");by.append(node("strong","","Siddhant Vashisth"));foot.append(by,node("span","","Your data stays on this PC"));card.append(foot);}
+function showOnboarding(s){
+  onboarding.s=s;
+  if(!onboarding.shown){onboarding.shown=true;onboarding.step="welcome";}
+  $("onboarding").hidden=false;document.body.classList.add("onboarding-open");
+  ({welcome:obWelcome,key:obKey,you:obYou,mic:obMic}[onboarding.step]||obWelcome)();
+}
+function obGo(step){onboarding.step=step;showOnboarding(onboarding.s);}
+function obWelcome(){
+  const card=obCard("welcome");
+  card.append(node("div","onboarding-logo"),node("h1","","Namaste! I'm Chutku."),
+    node("p","","Your voice assistant for Windows. Tell me what you need in English, Hindi or Hinglish, and I'll do it on this PC, then tell you honestly how it went."));
+  const list=node("div","feature-list");
+  [[["M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z","M5 11a7 7 0 0 0 14 0M12 18v3"],"Talk or type","Press Ctrl+Alt+Space anywhere, or say “Oye Chutku”."],
+   [["M12 3 4 6v6c0 4.5 3.4 8 8 9 4.6-1 8-4.5 8-9V6z","m8.5 12 2.5 2.5 4.5-5"],"Safe by design","I ask before anything serious, and deleted files go to the Recycle Bin."],
+   [["M3 12h4l3-8 4 16 3-8h4"],"Takes about 2 minutes","One free AI key is all I need. I'll show you how to get it."]]
+    .forEach(([paths,title,text])=>{const row=node("div");const t=node("div");t.append(node("b","",title),text);row.append(svgIcon(paths),t);list.append(row);});
+  card.append(list);
+  obActions(card,null,"Let's set up",()=>obGo("key"));obFoot(card);
+}
+function obKey(){
+  const s=onboarding.s,has=!!(s.keys_stored.groq||s.keys_stored.gemini),card=obCard("key");
+  card.append(node("h1","","Add your free AI key"),
+    node("p","","Chutku uses a free AI service to understand you. Getting a key takes about a minute and costs nothing."));
+  const ol=node("ol");
+  const first=node("li","","Click ");const get=node("a","","Get my free key");get.href=s.links.groq;get.target="_blank";get.rel="noopener noreferrer";first.append(get," and sign in with Google.");
+  ol.append(first,node("li","","Click “Create API Key”, give it any name, then copy the key."),node("li","","Paste it below and click “Check key”."));
+  card.append(ol);
+  const f=node("div","field"),label=node("label","","Your key"),key=input("password","","Paste here (starts with gsk_)",200);key.id="ob-key";key.autocomplete="off";key.spellcheck=false;
+  label.htmlFor="ob-key";f.append(label,key);
+  const alt=node("div","hint","Have a Google AI Studio key instead? That works too (it starts with AIza). ");const g=node("a","","Get one here");g.href=s.links.gemini;g.target="_blank";g.rel="noopener noreferrer";alt.append(g);f.append(alt);
+  const status=node("div",has?"ok-line":"err-line",has?"✓ A working key is already saved. You can continue.":"");card.append(f,status);
+  const check=async()=>{
+    status.className="err-line";status.textContent="";
+    const k=key.value.trim();
+    if(!k){if(has){obGo("you");return;}throw new Error("Paste your key first.");}
+    go.textContent="Checking…";
+    try{onboarding.s=await api("/api/setup",{action:"key",provider:providerOf(k),key:k});}
+    catch(e){status.textContent=e.message;go.textContent="Check key";return;}
+    key.value="";status.className="ok-line";status.textContent="✓ Your key works. Chutku is connected.";
+    setTimeout(()=>obGo("you"),700);
+  };
+  const go=obActions(card,()=>obGo("welcome"),has?"Continue":"Check key",check);
+  key.addEventListener("input",()=>{go.textContent=key.value.trim()?"Check key":(has?"Continue":"Check key");});
+  key.addEventListener("keydown",e=>{if(e.key==="Enter")go.click();});
+  error("");obFoot(card);setTimeout(()=>key.focus(),50);
+}
+function obYou(){
+  const s=onboarding.s,card=obCard("you");
+  card.append(node("h1","","A little about you"),node("p","","Both are optional and you can change them any time in Settings."));
+  const f=node("div","field"),label=node("label","","What should Chutku call you?"),you=input("text",onboarding.name,"Your name",60);you.id="ob-name";label.htmlFor="ob-name";f.append(label,you);card.append(f);
+  card.append(node("label","","How much should Chutku do on her own?"));
+  const short={auto_safe:"safe",auto_edits:"edits",owner:"full"},best=short[s.default_mode]||"safe";let chosen=short[s.mode]||best;
+  [["safe","Safe","Looks and opens things by herself; asks before any change."],["edits","Edits","Also changes files she can undo; asks before the rest."],["full","Full","Does almost everything; still asks before deleting, risky steps and new people."]]
+    .sort((x,y)=>(y[0]===best)-(x[0]===best)).forEach(([value,title,text])=>{
+      const l=node("label","radio");const r=node("input");r.type="radio";r.name="ob-mode";r.value=value;r.checked=value===chosen;r.addEventListener("change",()=>{chosen=value;});
+      const t=node("span");t.append(node("b","",title+(value===best?" (recommended)":"")),node("br"),node("span","muted",text));l.append(r,t);card.append(l);});
+  obActions(card,()=>obGo("key"),"Continue",async()=>{
+    const typed=you.value.trim();onboarding.name=typed;
+    if(typed)onboarding.s=await api("/api/setup",{action:"name",name:typed});
+    if(chosen!==(short[s.mode]||best)||!(s.steps&&s.steps.mode))onboarding.s=await api("/api/setup",{action:"mode",mode:chosen});
+    obGo("mic");
+  });
+  obFoot(card);
+}
+function obMic(){
+  const card=obCard("mic");
+  card.append(node("h1","","Check your microphone"),node("p","","Click the button and say something for a second. The sound is only measured, never recorded or kept."));
+  const meter=node("div","meter"),fill=node("i");meter.append(fill);const heard=node("div","hint","");
+  card.append(button("Test my microphone",async()=>{heard.textContent="Listening…";const r=await api("/api/setup",{action:"mic"});
+    fill.style.width=Math.min(100,Math.round((r.microphone.peak||0)*400))+"%";
+    heard.textContent=r.microphone.heard?"✓ I can hear you.":"Very quiet. Check Windows Settings → System → Sound → Input, or skip and type instead.";}),meter,heard);
+  obActions(card,()=>obGo("you"),"Finish setup",obFinish);obFoot(card);
+}
+async function obFinish(){
+  try{onboarding.s=await api("/api/setup",{action:"finish"});}
+  catch(e){onboarding.step="key";showOnboarding(onboarding.s);error(e.message);return;}
+  obCelebrate();
+}
+function obCelebrate(){
+  const card=obCard("done");card.classList.add("celebrate");
+  const check=node("div","check");check.append(svgIcon(["M5 12.5 10 17 19 7"]));
+  const who=onboarding.name?`, ${onboarding.name}`:"";
+  card.append(check,node("h1","",`You're all set${who}!`),node("p","","Chutku is ready to help. Here's how to talk to her:"));
+  const tips=node("div","tips");
+  const t1=node("div");const k=node("kbd","","Ctrl");const k2=node("kbd","","Alt");const k3=node("kbd","","Space");t1.append("Press ",k," + ",k2," + ",k3," in any app and speak.");
+  tips.append(t1,node("div","","Or just say “Oye Chutku”."),node("div","","Or type in the box on the Home page."));card.append(tips);
+  const sig=node("div","signature","Designed and developed with care by");sig.append(node("strong","","Siddhant Vashisth"));card.append(sig);
+  obActions(card,null,"Open Chutku",()=>{$("onboarding").hidden=true;$("onboarding").replaceChildren();document.body.classList.remove("onboarding-open");onboarding.shown=false;switchTab("home");if(typeof refresh==="function")refresh();checkForUpdate();});
+  confetti();
+}
+function confetti(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const canvas=node("canvas");canvas.id="confetti";document.body.append(canvas);
+  const ctx=canvas.getContext("2d"),dpr=window.devicePixelRatio||1;canvas.width=innerWidth*dpr;canvas.height=innerHeight*dpr;ctx.scale(dpr,dpr);
+  const colors=["#d9480f","#ff7a3d","#f2b84b","#4cc38a","#2f80ed","#8a63d2"];
+  const bits=Array.from({length:140},()=>({x:innerWidth/2+(Math.random()-.5)*160,y:innerHeight*0.42,vx:(Math.random()-.5)*13,vy:-Math.random()*13-4,s:5+Math.random()*6,r:Math.random()*6,vr:(Math.random()-.5)*.3,c:colors[Math.floor(Math.random()*colors.length)]}));
+  const start=performance.now();
+  (function frame(t){
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+    for(const b of bits){b.vy+=.32;b.vx*=.99;b.x+=b.vx;b.y+=b.vy;b.r+=b.vr;ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.r);ctx.fillStyle=b.c;ctx.fillRect(-b.s/2,-b.s/4,b.s,b.s/2);ctx.restore();}
+    if(t-start<3200)requestAnimationFrame(frame);else canvas.remove();
+  })(start);
+}
+api("/api/setup").then(s=>{if(!s.done)showOnboarding(s);else checkForUpdate();}).catch(()=>{});
+
+// ---- Updates and About (owner 2026-11-08: "publish an update to existing users, like a pop up") ----
+function snoozed(version){try{return Number(localStorage.getItem("chutku-update-later-"+version)||0)>Date.now();}catch{return false;}}
+function snooze(version){try{localStorage.setItem("chutku-update-later-"+version,String(Date.now()+24*3600e3));}catch{}}
+async function checkForUpdate(){
+  try{const u=await api("/api/update");
+    if($("app-version"))$("app-version").textContent="Chutku "+u.current;
+    if(u.available&&!u.developer_copy&&!snoozed(u.latest))showUpdate(u);
+  }catch{}
+}
+function showUpdate(u){
+  const d=$("update-dialog");d.replaceChildren();
+  const head=node("div","dialog-head"),title=node("h2","","Update available");title.id="update-title";head.append(title);
+  d.append(head,node("p","muted",`Chutku ${u.latest} is ready. You have ${u.current}.${u.size?` The download is about ${Math.round(u.size/1e6)} MB.`:""}`));
+  if(u.notes)d.append(node("div","update-notes",u.notes.replace(/[#*_`]/g,"").replace(/\n{3,}/g,"\n\n").trim()));
+  const bar=node("div","update-progress"),fill=node("i");bar.append(fill);bar.hidden=true;const status=node("p","muted","");
+  const row=node("div","dialog-actions");
+  const later=button("Later",()=>{snooze(u.latest);d.close();});
+  const now=button("Update now",async()=>{
+    later.hidden=true;now.hidden=true;bar.hidden=false;status.textContent="Downloading…";
+    try{await api("/api/update",{action:"install"});}
+    catch(e){status.textContent=e.message;bar.hidden=true;later.hidden=false;now.hidden=false;now.textContent="Try again";return;}
+    const poll=async()=>{let j;try{j=(await api("/api/update")).job;}catch{status.textContent="Installing… Chutku closes and opens again by itself.";return;}
+      if(j.state==="downloading"){fill.style.width=(j.size?Math.round(100*j.done/j.size):10)+"%";status.textContent=`Downloading… ${Math.round((j.done||0)/1e6)} MB`;}
+      else if(j.state==="installing"){fill.style.width="100%";status.textContent="Installing… Chutku closes and opens again by itself in a minute.";}
+      else if(j.state==="failed"){status.textContent=j.error||"The update failed.";later.hidden=false;now.hidden=false;now.textContent="Try again";return;}
+      setTimeout(poll,1000);};
+    poll();
+  },"primary");
+  row.append(later,now);d.append(bar,status,row);
+  if(!d.open)d.showModal();
+}
+function aboutCard(){
+  const card=setupCard("About Chutku","");const row=node("div","about");const logo=node("div","onboarding-logo");
+  const text=node("div");const version=node("h3","","Chutku");const by=node("p","muted","Designed and developed by ");by.append(node("strong","","Siddhant Vashisth"),".");
+  text.append(version,by);row.append(logo,text);card.append(row);
+  const status=node("p","muted","");
+  card.append(node("div","row-buttons"));
+  card.lastChild.append(button("Check for updates",async()=>{status.textContent="Checking…";const u=await api("/api/update",{action:"check"});
+    version.textContent="Chutku "+u.current;
+    if(u.developer_copy)status.textContent="This is a developer copy: update it with git pull.";
+    else if(u.available)showUpdate(u);
+    else status.textContent=u.latest?`You have the newest version (${u.current}).`:"Could not reach the update server. Check your internet and try again.";}));
+  card.append(status);
+  api("/api/update").then(u=>{version.textContent="Chutku "+u.current;}).catch(()=>{});
+}
 
 // ---- W6: Board and Automations tabs ----
 const BOARD_STATE={todo:"waiting",ready:"in line",running:"running",blocked:"stopped",review:"check it",done:"done",archived:"archived"};
