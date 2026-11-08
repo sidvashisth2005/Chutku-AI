@@ -44,7 +44,7 @@ SECURITY_SERVICES = frozenset(s.casefold() for s in (
     "Schedule", "ProfSvc", "Power", "PlugPlay", "AppIDSvc", "KeyIso", "VaultSvc"))
 _APP = re.compile(r"^[\w][\w .+\-]{0,79}$")
 _SERVICE = re.compile(r"^[A-Za-z0-9_.\-]{1,80}$")
-NO_USER_INSTALLER = (-1978335212, 2316632084)   # winget: no installer for the requested scope
+NO_USER_INSTALLER = (-1978335216, 2316632080, -1978335212, 2316632084)   # winget 0x8A150010 (seen on the PC 2026-11-09) / 0x8A150014
 ENABLED, DISABLED = bytes([2] + [0] * 11), bytes([3] + [0] * 11)
 
 

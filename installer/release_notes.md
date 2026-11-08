@@ -11,6 +11,10 @@ Linux, Android or iPhone. Ignore the "Source code" links below; GitHub adds them
 
 Already using Chutku? It tells you about this update by itself: click **Update now** in the popup.
 
+## What's new in 1.2.2
+
+- Installing apps that need administrator rights now works: Windows asks once, you click Yes.
+
 ## What's new in 1.2.1
 
 - **Chutku learns every night by herself.** While your PC is idle at night (on charger), she practises everyday

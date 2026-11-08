@@ -193,5 +193,10 @@ class ListTypedSchemaTests(unittest.TestCase):
             "value": {"type": ["integer", "string"]}, "path": {"type": ["string", "null"]}}})
         self.assertEqual(path_argument_names(tool), {"path"})
 
+    def test_wingets_real_no_user_installer_code_falls_back_to_machine(self):
+        # PC 2026-11-09: 7-Zip (MSI) with --scope user exits 0x8A150010, not 0x8A150014; the admin route never ran
+        from chutku.tools import system_tools
+        self.assertIn(-1978335216, system_tools.NO_USER_INSTALLER)
+
 if __name__ == "__main__":
     unittest.main()

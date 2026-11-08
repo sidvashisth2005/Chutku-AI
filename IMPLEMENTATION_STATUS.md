@@ -16,6 +16,15 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-09 (19): Release 1.2.2: machine-wide installs through Windows' prompt work (verified with the owner's clicks)
+- **Owner:** releases are always built on the PC (no money for GitHub Actions); do the admin install test now (he
+  clicks).
+- **Bug found live:** `apps.install` of 7-Zip (an MSI, machine scope only) failed with "No applicable installer
+  found". With `--scope user`, winget exits `0x8A150010` (-1978335216), but `NO_USER_INSTALLER` had only
+  `0x8A150014`, so the machine-scope retry never ran. Both codes are now accepted, with a test.
+- **Verified live:** with the owner clicking Yes twice, 7-Zip installed machine-wide (`scope: machine`, 34 s,
+  `winget list` shows it), then uninstalled (`winget list` empty). The PC is as before. FUTURE item 4 is done.
+
 ### 2026-11-08 (18): Release 1.2.1: night learning on by default
 - **Owner:** switch on night practice, weekly self-training and learning from real use, on by default; spend few
   tokens; release.
