@@ -16,6 +16,26 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-08 (12): The old release removed, Chutku restarted, the phone app in the 1.1 design
+- **Owner:** "delete old release, only new remains; restart Chutku; enhance the phone dashboard too".
+- **Releases:** `gh release delete v1.0.0 --cleanup-tag` on Chutku-releases. `gh release list` now shows only
+  "Chutku v1.1.0 for Windows" (Latest).
+- **Restart:** `chutku.cli control stop`, then `Start-Chutku.cmd`.
+  - Dashboard on 8765 and phone remote on 8766 both answer. `/api/update` reports 1.1.0 (developer copy). Phone
+    access is on and control is allowed.
+  - **Found:** `control stop` leaves `actions_paused: true` behind, so the restarted Chutku came up paused. It was
+    resumed with `/api/control {resume}`, and `actions_paused` now reads false.
+- **Phone app:**
+  - The 1.1 design layer at the end of `phone.css`: neutral dark, orange accent, flat buttons, no glow.
+  - The toolbar emoji became line icons (`index.html`). The Sound button now shows "on" by its highlight; it used to
+    swap its emoji through `firstChild`, which an SVG icon cannot take.
+  - The broken-image text before the first frame is hidden.
+  - The pair and unlock cards carry the credit.
+  - Verified: Edge in phone emulation, 390×844 and 844×390, screenshots of the pair card and the remote screen with
+    its dock, no page errors. `test_phone_remote_w6` and `test_phone_z5`: 52 OK.
+  - The phone server reads these files on every request, and `sw.js` fetches network-first, so phones get them
+    without another restart.
+
 ### 2026-11-08 (11): Chutku 1.1: a required guided setup, a new design, one download, in-app updates, the owner's credit
 - **Owner:**
   - Don't let a new user into the app without a working API key.

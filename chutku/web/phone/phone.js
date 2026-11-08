@@ -661,7 +661,7 @@ async function soundOutput() {
   sound.node.connect(sound.ctx.destination);
 }
 async function setSound(on) {
-  sound.on = on; $("sound").classList.toggle("on", on); $("sound").firstChild.textContent = on ? "🔊" : "🔈";
+  sound.on = on; $("sound").classList.toggle("on", on);   // the icon is highlighted while the sound plays (1.1 line icons)
   if (sound.stop) { sound.stop.abort(); sound.stop = null; }
   if (sound.node) sound.node.port.postMessage({ clear: true });
   if (!on) return;

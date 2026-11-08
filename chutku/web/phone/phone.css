@@ -113,3 +113,41 @@ body.watch .watch-exit{display:block;position:fixed;top:calc(8px + env(safe-area
   z-index:7;width:40px;height:40px;padding:0;border-radius:50%;background:#0008;color:#fff;opacity:.35;font-size:18px}
 body.watch .watch-exit:active,body.watch .watch-exit:focus-visible{opacity:1}
 [hidden]{display:none!important}
+
+/* ---- 1.1 design (2026-11-08): the same system as the laptop app. Neutral dark (the laptop screen is the content),
+   one warm brand colour, flat controls, line icons, no glow. Overrides only: the layout above is unchanged. ---- */
+:root{--bg:#0f0f12;--card:#18181c;--ink:#f1f1f4;--muted:#a0a0ad;--line:#2b2b33;--accent:#ff7a3d;--ok:#4cc38a;--bad:#ff6b5e;--warn:#f0a24b;
+  font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+body{background:var(--bg)}
+header{border-bottom:1px solid var(--line);min-height:48px}
+#assistant-name{font-size:16px;letter-spacing:-.01em}
+.logo{box-shadow:none;border-radius:7px}
+.card{border-radius:14px;padding:18px}
+.card h1{font-size:21px;letter-spacing:-.01em}
+input,select{background:#111114;border-color:#34343d;border-radius:10px}
+input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+button{background:#202026;border-color:#34343d;border-radius:10px;font-weight:600}
+button:active{background:#2a2a32}
+button.primary{background:var(--accent);border-color:var(--accent);color:#1a0d06}
+button.primary:active{background:#ff8d57}
+.dock{background:#141418f2;border-top:1px solid var(--line);backdrop-filter:blur(10px)}
+.keys button{background:#202026;font-weight:600}
+.toolbar button{background:transparent;border-color:transparent;padding:6px 2px 4px;gap:3px;color:var(--ink)}
+.toolbar button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.toolbar button span{font-size:11px;color:var(--muted)}
+.toolbar button:active{background:#202026}
+.toolbar button.on{border-color:transparent;background:#3a2216;color:var(--accent)}
+.toolbar button.on span{color:var(--accent)}
+.hilite{border-color:var(--accent);background:#ff7a3d1f}
+.note,.toast{background:#18181cf2;border-color:var(--line);color:var(--ink)}
+.sheet{background:#141418;border-top-color:var(--line)}
+.sheet-head{background:#141418}
+.chips button.on{border-color:var(--accent);color:var(--accent)}
+.msg.me{background:#3a2216;border-color:#5a3220}
+.msg.her{background:#1e1e24;border-color:var(--line)}
+.approval{border-color:#5c4416;background:#2a2112}
+.banner{background:#33191a;border-color:#5b2a2c}
+dialog{background:var(--card);border-color:var(--line)}
+.stage.controlling{box-shadow:inset 0 0 0 2px #ff6b5e99}
+@media (orientation:landscape) and (max-height:540px){.toolbar button svg{width:19px;height:19px}}
+#frame{color:transparent;font-size:0}   /* no "Laptop screen" placeholder text before the first frame */
