@@ -108,5 +108,33 @@ class SystemControlTests(unittest.TestCase):
                 self.assertEqual(runtime.approve(pending["approval"]["token"])["state"], "FAILED")
 
 
+    def test_bluetooth_status_and_switch_read_back_and_fail_closed(self):
+        """Owner's convos 2026-11-10: Bluetooth had no tool; on/off/devices were asked about instead."""
+        from chutku.tools import system_controls
+        phone = {"name": "Redmi Note 12 Pro 5G", "connected": False}
+        with TemporaryDirectory() as temp, create_runtime(Path(temp)) as runtime:
+            self.assertEqual(runtime.run("system.bluetooth_status", {})["state"], "DENIED")
+            runtime.capability_grants.grant("settings.observe")
+            runtime.capability_grants.grant("settings.modify")
+            twice = {"present": True, "on": False, "devices": [phone, phone | {"connected": True}]}
+            with patch.object(system_controls, "_powershell", return_value=twice):
+                out = runtime.run("system.bluetooth_status", {})
+            self.assertEqual(out["output"], {"on": False, "devices": [{"name": phone["name"], "connected": True}]})
+            pending = runtime.run("system.bluetooth_set", {"on": True})
+            self.assertEqual(pending["state"], "WAITING_CONFIRMATION")
+            with patch.object(system_controls, "_powershell", return_value={"present": True, "on": True, "devices": []}):
+                self.assertEqual(runtime.approve(pending["approval"]["token"])["state"], "COMPLETED")
+            pending = runtime.run("system.bluetooth_set", {"on": True})
+            with patch.object(system_controls, "_powershell",    # Windows refused: the read-back says off
+                              return_value={"present": True, "on": False, "access": "DeniedByUser", "devices": []}):
+                done = runtime.approve(pending["approval"]["token"])
+            self.assertEqual(done["state"], "FAILED")
+            self.assertIn("DeniedByUser", done["output"]["error"])
+            with patch.object(system_controls, "_powershell", return_value={"present": False}):
+                self.assertEqual(runtime.run("system.bluetooth_status", {})["state"], "FAILED")   # no radio
+            with self.assertRaises(ValueError):
+                runtime.registry.get("system.bluetooth_set").validate_arguments({"on": "yes"})
+
+
 if __name__ == "__main__":
     unittest.main()

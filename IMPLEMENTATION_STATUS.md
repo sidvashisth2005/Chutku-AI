@@ -16,6 +16,27 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (23): Night shift: app names, Bluetooth, power phrases (20x plan P1)
+- **App names** (`everyday.resolve_app`):
+  - Spoken Hinglish around a name is dropped ("Ato mera brave open kar" → Brave).
+  - Every word of one app's name said among other words matches it.
+  - A misheard name goes to the one clearly closest app ("sport", "spotfy" → Spotify; "telegrm" → Telegram).
+    There is never a guess on a tie or when nothing is close.
+  - "vs code" → Visual Studio Code.
+  - Live against the real Start menu: 11 of 11 spoken names resolved, and "zzqx" was refused.
+- **Quit** (`apps_extra.matching_windows`): "the active vs code window", "in brave" and "vs code" (Code.exe) now
+  find their windows (live, read only). Tests in `tests/test_everyday.py`.
+- **Bluetooth (new tools):**
+  - `system.bluetooth_status` reports on/off plus paired devices, one per device.
+  - `system.bluetooth_set` turns it on or off and reads the state back. It uses the Windows Radio API, with no admin
+    rights.
+  - Phrases: "turn on bluetooth", "bluetooth band karo", "show bluetooth devices".
+  - **Live:** status 2.1 s (off; Redmi Note 12 Pro 5G, Rockerz 110, T-300 TUFB, Mini boost 4). Set on 2.7 s and
+    off 2.3 s, both read back; it was left off as it was.
+  - Tests: `tests/test_system_controls.py` (including Windows refusing and no radio).
+- **Power:** "shutdown pc", "pc band karo" and "restart my laptop" go to `power.schedule`, 5 minutes later, with the
+  approval card; "cancel shutdown" goes to `power.cancel`. Not run live.
+
 ### 2026-11-10 (22): Night shift: hangs, asks and WhatsApp names (20x plan P1/P2)
 - **Sleep is no longer a "hang".** The core's stall watchdog used `time.monotonic()`, which keeps counting through
   Windows sleep. Every wake-up looked like a hang as long as the sleep (2898.9 s on 2026-11-09), dumped stacks and

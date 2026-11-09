@@ -32,6 +32,11 @@ _IN_APP = re.compile(r"\b(?:in|on|inside)\s+(?:my\s+|the\s+)?(?:whats\s?app|tele
 _ORDERING = re.compile(r"\b(?:newest|latest|oldest|biggest|largest|smallest|recent|last)\b", re.I)
 PATTERNS = [
     ("timeline_switch", re.compile(rf"^{_POLITE}timeline\s+(?P<state>on|off|chalu karo|chalu|band karo|band){_TAIL}", re.I)),
+    # owner's convos 2026-11-10: Bluetooth and "shutdown pc" had no route and were asked about
+    ("bluetooth_set", re.compile(rf"^{_POLITE}(?:turn\s+(?P<on1>on|off)\s+(?:the\s+)?bluetooth|bluetooth\s+(?P<on2>on|off|chalu|band|start|stop)\s*(?:karo|kar do|kardo|kar|do)?|(?P<on3>enable|disable)\s+bluetooth|switch\s+(?P<on4>on|off)\s+bluetooth){_TAIL}", re.I)),
+    ("bluetooth_status", re.compile(rf"^{_POLITE}(?:(?:show|list)\s+(?:my\s+|all\s+)?(?:bluetooth\s+devices|paired\s+devices)|bluetooth\s+devices?\s+(?:dikhao|batao)|is\s+bluetooth\s+on|bluetooth\s+(?:on\s+hai|status|chalu\s+hai)(?:\s+kya)?|kaun\s+se\s+bluetooth\s+devices?.*){_TAIL}", re.I)),
+    ("power_now", re.compile(rf"^{_POLITE}(?P<mode>shut\s*down|restart|reboot)\s+(?:the\s+|my\s+)?(?:pc|computer|laptop|system)|(?:pc|computer|laptop|system)\s+(?P<mode2>shut\s*down|band|restart)\s*(?:karo|kar do|kardo|do)?{_TAIL}", re.I)),
+    ("power_cancel", re.compile(rf"^{_POLITE}(?:cancel|stop|abort)\s+(?:the\s+)?(?:shut\s*down|restart)|(?:shut\s*down|restart)\s+(?:cancel|rok\s+do|roko|mat\s+karo){_TAIL}", re.I)),
     ("build", re.compile(rf"^{_POLITE}(?:can you |could you |i want you to |i want to )?(?:build|make|create|code|develop|write|generate)\s+(?:me\s+|us\s+)?(?:a\s+|an\s+|the\s+|my\s+)?(?P<what>(?:(?!\b(?:folder|file|note|document|reminder|timer|playlist)s?\b).)*?\b{_BUILDABLE}\b.*?){_TAIL}", re.I)),
     ("build", re.compile(rf"^{_POLITE}(?:(?:mere liye|mujhe|ek)\s+)*(?P<what>.*?\b{_BUILDABLE}\b.*?)\s+(?:banao|bana do|banado|bana ke do|bana kar do|build karo|build kar do|code karo|code kar do|develop karo){_TAIL}", re.I)),
     ("close", re.compile(rf"^{_POLITE}{_CLOSE}\s+(?:the\s+|my\s+)?(?P<name>.+?){_APP_WORDS}(?:\s+window)?{_TAIL}", re.I)),
@@ -1218,6 +1223,22 @@ def _single(goal, apps=None):
             return _proposal("web.news", {"topic": topic} if topic else {}, "Get the latest headlines", "", finish=False)
         if kind == "time":
             return _proposal("system.get_time", {}, "Read the clock", "", finish=False)
+        if kind == "bluetooth_set":
+            word = next(match.group(g) for g in ("on1", "on2", "on3", "on4") if match.group(g)).casefold()
+            on = word in {"on", "chalu", "start", "enable"}
+            return _proposal("system.bluetooth_set", {"on": on}, f"Turn Bluetooth {'on' if on else 'off'}", "",
+                             finish=False)
+        if kind == "bluetooth_status":
+            return _proposal("system.bluetooth_status", {}, "Check Bluetooth and its devices", "", finish=False)
+        if kind == "power_now":
+            mode = "restart" if re.search(r"restart|reboot", match.group(0), re.I) else "shutdown"
+            phrase = {"shutdown": "SHUT DOWN THIS PC", "restart": "RESTART THIS PC"}[mode]
+            return _proposal("power.schedule", {"mode": mode, "delay_seconds": 300, "confirmation_phrase": phrase},
+                             f"{mode.title()} the PC in 5 minutes",
+                             f"PC 5 minute mein {'band' if mode == 'shutdown' else 'restart'} hoga. "
+                             "Rokna ho to 'cancel shutdown' bolo.", finish=False)
+        if kind == "power_cancel":
+            return _proposal("power.cancel", {}, "Cancel the scheduled shutdown or restart", "", finish=False)
         if kind == "volume_status":
             return _proposal("system.volume_status", {}, "Read the volume", "", finish=False)
         if kind == "app_installed":
@@ -1819,6 +1840,12 @@ def _say_environment(out):
     return f"{name} (build {out['windows_version']}, {out['machine']})." + (f" Drives: {drives}." if drives else "")
 
 
+def _say_bluetooth(out):
+    names = [d["name"] for d in out.get("devices") or [] if d.get("connected")]
+    state = "Bluetooth is on" if out.get("on") else "Bluetooth is off"
+    return state + (f"; connected: {', '.join(names[:5])}." if names else ".")
+
+
 def _say_volume(out):
     return "Sound is muted." if out.get("muted") else f"Volume is at {out['level']}%."
 
@@ -2030,7 +2057,7 @@ QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, 
                  "note.list": _say_notes, "files.find": _say_found, "files.locate": _say_located, "files.index": _say_index,
                  "net.check": _say_net, "net.ping": _say_ping,
                  "message.send": _say_message, "system.gpu_status": _say_gpu,
-                 "system.environment": _say_environment, "system.volume_status": _say_volume,
+                 "system.environment": _say_environment, "system.volume_status": _say_volume, "system.bluetooth_status": _say_bluetooth, "system.bluetooth_set": _say_bluetooth,
                  "settings.theme_status": _say_theme, "system.health": _say_health, "system.performance": _say_perf,
                  "screen.displays": _say_displays, "display.brightness_status": _say_brightness,
                  "apps.installed": _say_installed, "games.list": _say_games,

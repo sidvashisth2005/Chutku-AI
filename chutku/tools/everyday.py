@@ -278,7 +278,25 @@ def _installed(arguments, _context):
                       {"count": len(apps)})
 
 
-_FILLER_WORDS = {"browser", "app", "application", "software", "program", "the", "my", "wala", "wali", "waala"}
+_FILLER_WORDS = {"browser", "app", "application", "software", "program", "the", "my", "wala", "wali", "waala",
+                 # spoken Hinglish around a name (owner's convos 2026-11-10: "Ato mera brave open kar")
+                 "ato", "arre", "are", "mera", "meri", "mere", "apna", "apni", "yaar", "zara", "jara", "please", "pls",
+                 "open", "kholo", "khol", "kar", "karo", "do", "de", "chalao", "start", "launch"}
+
+
+def _closest_app(said, apps, cutoff=0.66):
+    """Apps whose name (or first word) is closest to what was said, when one is clearly ahead of the rest."""
+    import difflib
+    scores = []
+    for app in apps:
+        name = " ".join(app["name"].casefold().split())
+        first = (re.findall(r"[a-z0-9+]+", name) or [""])[0]
+        scores.append((max(difflib.SequenceMatcher(None, said, name).ratio(),
+                           difflib.SequenceMatcher(None, said, first).ratio()), app))
+    scores.sort(key=lambda item: -item[0])
+    if not scores or scores[0][0] < cutoff or (len(scores) > 1 and scores[1][0] >= scores[0][0] - 0.05):
+        return []
+    return [scores[0][1]]
 
 
 def resolve_app(arguments, apps):
@@ -287,6 +305,8 @@ def resolve_app(arguments, apps):
         matches = [a for a in apps if a["app_id"] == arguments["app_id"]]
     else:
         wanted = " ".join(arguments["name"].casefold().split())
+        wanted = {"vs code": "visual studio code", "vscode": "visual studio code", "ms word": "word",
+                  "ms excel": "excel", "powerpoint": "powerpoint"}.get(wanted, wanted)   # spoken short names
         matches = [a for a in apps if " ".join(a["name"].casefold().split()) == wanted]
         if not matches:
             matches = [a for a in apps if wanted in a["name"].casefold()]
@@ -296,6 +316,11 @@ def resolve_app(arguments, apps):
             matches = [a for a in apps if stripped and " ".join(a["name"].casefold().split()) == stripped] or \
                 [a for a in apps if (words := re.findall(r"[a-z0-9+]+", a["name"].casefold()))
                  and set(words) <= set(said) and len(words) >= len(said) - 1]
+        if not matches and said:   # every word of one app's name was said, among other words ("ato mera brave")
+            matches = [a for a in apps if (words := re.findall(r"[a-z0-9+]+", a["name"].casefold()))
+                       and set(words) <= set(said)]
+        if not matches and said:   # a misheard name ("sport" -> Spotify): the one clearly closest app, never a tie
+            matches = _closest_app(" ".join(said), apps)
     unique = {a["app_id"]: a for a in matches}
     if len(unique) != 1:
         names = sorted({a["name"] for a in matches})[:8]

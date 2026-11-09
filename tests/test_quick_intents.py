@@ -83,6 +83,8 @@ class QuickIntentTests(unittest.TestCase):
                            "chain_ok": True},
             "routine.list": {"routines": {"work": ["open spotify"]}},
             "media.status": {"title": "Song", "artist": "Band"},
+            "system.bluetooth_status": {"on": True, "devices": [{"name": "Rockerz 110", "connected": True}]},
+            "system.bluetooth_set": {"on": False, "devices": []},
             "audio.outputs": {"devices": [{"name": "Speakers", "default": True}, {"name": "Headphones", "default": False}]},
             "image.describe": {"description": "A cat sitting on a sofa next to a window."},
             "screen.understand": {"summary": "VS Code with a Python file open.", "answer": ""},
@@ -367,8 +369,10 @@ class QuickIntentTests(unittest.TestCase):
         self.assertEqual(step("gaana band karo"), ("media.control", {"action": "pause"}))
         self.assertEqual(step("stop the music"), ("media.control", {"action": "pause"}))
         self.assertEqual(step("close the tab"), ("keyboard.edit", {"action": "close_tab"}))
-        for unclear in ("close it", "close everything", "shut down the computer"):
+        for unclear in ("close it", "close everything"):
             self.assertIsNone(step(unclear), unclear)
+        # never "close" an app: a 5-minute shutdown that asks first and can be cancelled (2026-11-10)
+        self.assertEqual(step("shut down the computer")[0], "power.schedule")
         chain = quick_proposal("Open Calculator and then close it", apps=APPS)
         self.assertEqual([(s["tool"], s["arguments"]) for s in chain["next_steps"]],
                          [("apps.launch", {"name": "Calculator"}), ("apps.quit", {"name": "Calculator"})])
@@ -478,6 +482,17 @@ class OwnerConversationFixes(unittest.TestCase):
                          [("task.cancel", {"id": "1add59"}), ("task.cancel", {"id": "de31ef"})])
         self.assertEqual(self.tools("Phone Control on karo feature"), [("remote.arm", {"on": True})])
         self.assertEqual(self.tools("spotify band karo"), [("apps.quit", {"name": "spotify"})])          # unchanged
+
+    def test_bluetooth_and_power_phrases_reach_their_tools(self):
+        self.assertEqual(self.tools("turn on bluetooth"), [("system.bluetooth_set", {"on": True})])
+        self.assertEqual(self.tools("bluetooth band karo"), [("system.bluetooth_set", {"on": False})])
+        self.assertEqual(self.tools("show bluetooth devices"), [("system.bluetooth_status", {})])
+        (tool, arguments), = self.tools("shutdown pc")
+        self.assertEqual((tool, arguments["delay_seconds"], arguments["confirmation_phrase"]),
+                         ("power.schedule", 300, "SHUT DOWN THIS PC"))         # 5 minutes, cancellable, asks first
+        self.assertEqual(self.tools("restart my laptop")[0][1]["mode"], "restart")
+        self.assertEqual(self.tools("cancel shutdown"), [("power.cancel", {})])
+        self.assertEqual(self.tools("notepad band karo"), [("apps.quit", {"name": "notepad"})])   # unchanged
 
     def test_the_chat_on_screen_is_a_target_and_its_words_are_not_the_message(self):
         """2026-11-09: six sends searched for a chat named 'chat open on the screen' (KitKat in Locked chats)."""

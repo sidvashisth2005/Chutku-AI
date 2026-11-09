@@ -39,6 +39,36 @@ class EverydayValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             everyday.resolve_app({"app_id": "Microsoft.VisualStudioCode && calc"}, APPS)
 
+    def test_spoken_and_misheard_app_names(self):
+        """Owner's convos 2026-11-10: 'Ato mera brave open kar' and 'Open sport' found no app."""
+        apps = APPS + [{"name": "Brave", "app_id": "Brave"}, {"name": "Telegram", "app_id": "Telegram"},
+                       {"name": "Notepad", "app_id": "Notepad"}, {"name": "Paint", "app_id": "Paint"}]
+        for said, name in (("Ato mera brave", "Brave"), ("sport", "Spotify"), ("spotfy", "Spotify"),
+                           ("telegrm", "Telegram"), ("vs code", "Visual Studio Code"), ("mera notepad kholo", "Notepad")):
+            self.assertEqual(everyday.resolve_app({"name": said}, apps)["name"], name, said)
+        for said in ("zzqx", "paintbrush studio pro max", "cmd /c del"):   # nothing close enough: no guess
+            with self.assertRaises(ValueError, msg=said):
+                everyday.resolve_app({"name": said}, apps)
+        with self.assertRaises(ValueError):            # two equally close names: never a coin toss
+            everyday.resolve_app({"name": "visual studi"}, apps)
+
+    def test_quit_names_drop_spoken_words_and_use_program_names(self):
+        from unittest.mock import patch
+        from chutku.tools import apps_extra
+        windows = {1: {"window_id": 1, "title": "main.py - Chutku - Visual Studio Code", "executable": r"C:\x\Code.exe"},
+                   2: {"window_id": 2, "title": "Movie - Brave", "executable": r"C:\b\brave.exe"}}
+
+        class Fake:
+            def windows(self):
+                return list(windows)
+
+            def describe(self, hwnd):
+                return windows[hwnd]
+        with patch.object(everyday, "Desktop", return_value=Fake()):
+            for said, wid in (("vs code", 1), ("the active vs code window", 1), ("in brave", 2), ("brave", 2)):
+                self.assertEqual([w["window_id"] for w in apps_extra.matching_windows(said)[1]], [wid], said)
+            self.assertEqual(apps_extra.matching_windows("notepad")[1], [])
+
     def test_search_urls_are_built_deterministically(self):
         opened = []
         with patch.object(everyday, "_open_url", side_effect=lambda url, browser=None, tab="auto": opened.append(url)):

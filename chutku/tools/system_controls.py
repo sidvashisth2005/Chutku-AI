@@ -80,6 +80,33 @@ _ADAPTER_SCHEMA = {"type": "object", "properties": {
     "required": ["interface_index", "name", "interface_description", "enabled"], "additionalProperties": False}
 
 
+_BLUETOOTH_SCRIPT = r'''
+$ErrorActionPreference='Stop'
+[Console]::InputEncoding=New-Object System.Text.UTF8Encoding
+[Console]::OutputEncoding=New-Object System.Text.UTF8Encoding
+$request = [Console]::In.ReadToEnd() | ConvertFrom-Json
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+$asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and
+    $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
+function Await($op, $type) { $t = $asTask.MakeGenericMethod($type).Invoke($null, @($op)); if (-not $t.Wait(6000)) { throw 'timeout' }; $t.Result }
+$null = [Windows.Devices.Radios.Radio, Windows.System.Devices, ContentType = WindowsRuntime]
+$null = Await ([Windows.Devices.Radios.Radio]::RequestAccessAsync()) ([Windows.Devices.Radios.RadioAccessStatus])
+$radios = Await ([Windows.Devices.Radios.Radio]::GetRadiosAsync()) ([System.Collections.Generic.IReadOnlyList[Windows.Devices.Radios.Radio]])
+$radio = @($radios | Where-Object { [string]$_.Kind -eq 'Bluetooth' })[0]
+if ($null -eq $radio) { @{ present = $false } | ConvertTo-Json -Compress; exit 0 }
+$access = $null
+if ($request.action -eq 'set') {
+    $state = if ($request.on) { [Windows.Devices.Radios.RadioState]::On } else { [Windows.Devices.Radios.RadioState]::Off }
+    $access = [string](Await ($radio.SetStateAsync($state)) ([Windows.Devices.Radios.RadioAccessStatus]))
+    Start-Sleep -Milliseconds 700
+}
+$skip = 'Enumerator|Adapter|Wireless Bluetooth|RFCOMM|Transport|Service|Protocol|AVRCP|Identification|Generic|Radio|Bluetooth Device \('
+$devices = @(Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -and $_.FriendlyName -notmatch $skip } |
+    Select-Object -First 30 | ForEach-Object { @{ name = [string]$_.FriendlyName; connected = ([string]$_.Status -eq 'OK') } })
+@{ present = $true; on = ([string]$radio.State -eq 'On'); access = $access; devices = $devices } | ConvertTo-Json -Compress -Depth 4
+'''
+
+
 def _powershell(script, request=None, timeout=10):
     if sys.platform != "win32":
         raise OSError("Windows system controls require Windows.")
@@ -235,7 +262,58 @@ def _network_restore(_arguments, context):
                       Verification.PASS if verified else Verification.FAIL)
 
 
+def _bluetooth(request):
+    try:
+        value = _powershell(_BLUETOOTH_SCRIPT, request, timeout=20)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return None, str(error) or "Windows did not answer about Bluetooth."
+    if not isinstance(value, dict) or not value.get("present"):
+        return None, "This PC has no Bluetooth radio that Windows lets apps control."
+    seen, devices = set(), []
+    for device in value.get("devices") or []:   # a phone is listed once per Bluetooth profile
+        if isinstance(device, dict) and device.get("name") and device["name"] not in seen:
+            seen.add(device["name"])
+            devices.append({"name": device["name"], "connected": any(d.get("connected") for d in value["devices"]
+                                                                     if isinstance(d, dict) and d.get("name") == device["name"])})
+    value["devices"] = devices[:30]
+    return value, None
+
+
+def _bluetooth_status(_arguments, _context):
+    """Owner's convos 2026-11-10: "show bluetooth devices" and "turn on bluetooth" had no tool and were asked about."""
+    value, error = _bluetooth({"action": "get"})
+    if error:
+        return ToolResult({"error": error}, Verification.FAIL)
+    return ToolResult({"on": value["on"], "devices": value["devices"]}, Verification.PASS)
+
+
+def _validate_bluetooth(arguments):
+    if not isinstance(arguments, dict) or set(arguments) != {"on"} or type(arguments["on"]) is not bool:
+        raise ValueError("Give on: true or false.")
+
+
+def _bluetooth_set(arguments, _context):
+    value, error = _bluetooth({"action": "set", "on": arguments["on"]})
+    if error:
+        return ToolResult({"error": error}, Verification.FAIL)
+    done = value["on"] == arguments["on"]
+    output = {"on": value["on"], "devices": value["devices"]}
+    if not done:
+        output["error"] = (f"Windows did not turn Bluetooth {'on' if arguments['on'] else 'off'} "
+                           f"({value.get('access') or 'no answer'}); check the Bluetooth switch in Settings.")
+    return ToolResult(output, Verification.PASS if done else Verification.FAIL)
+
+
 def register_system_control_tools(registry):
+    registry.register(Tool("system.bluetooth_status", "Is Bluetooth on, and which Bluetooth devices are paired or "
+        "connected.", Risk.OBSERVATION, _bluetooth_status, _validate_none, required_capability="settings.observe",
+        argument_schema=EMPTY_ARGUMENT_SCHEMA, prerequisites=("Windows Bluetooth radio",),
+        reversibility="not_applicable", success_predicate="bluetooth_radio_state_observed"))
+    registry.register(Tool("system.bluetooth_set", "Turn Bluetooth on or off, then read the state back.",
+        Risk.EXTERNAL_SIDE_EFFECT, _bluetooth_set, _validate_bluetooth, required_capability="settings.modify",
+        argument_schema={"type": "object", "properties": {"on": {"type": "boolean"}}, "required": ["on"],
+                         "additionalProperties": False}, prerequisites=("Windows Bluetooth radio",),
+        reversibility="compensatable", success_predicate="bluetooth_radio_state_read_back"))
     registry.register(Tool("system.volume_status", "Read the default Windows output volume and mute state.",
         Risk.OBSERVATION, _volume_status, _validate_none, required_capability="audio.observe",
         argument_schema=EMPTY_ARGUMENT_SCHEMA, prerequisites=("Windows Core Audio",), reversibility="not_applicable",

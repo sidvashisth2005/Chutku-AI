@@ -873,11 +873,21 @@ def _header_matches(lines, rect, name):
 
 # -- close any app --------------------------------------------------------------------
 
+# Spoken names of apps whose program file is named differently (Code.exe is VS Code).
+_QUIT_ALIASES = {"vs code": "code", "vscode": "code", "visual studio code": "code", "edge": "msedge",
+                 "microsoft edge": "msedge", "word": "winword", "ms word": "winword", "powerpoint": "powerpnt",
+                 "file explorer": "explorer", "files": "explorer", "task manager": "taskmgr", "whatsapp": "whatsapp.root",
+                 "calculator": "calculatorapp", "photos": "photos", "settings": "systemsettings"}
+
+
 def matching_windows(name):
     """Visible windows belonging to the app the user named (never Chutku's own page)."""
     from chutku.tools.desktop_controls import _is_chutku_page
     from chutku.tools.everyday import Desktop
     wanted = " ".join(name.casefold().split()).removesuffix(".exe")
+    # "close the active vs code window", "close in brave" (owner's convos): the app's name only
+    wanted = re.sub(r"^(?:(?:the|in|my|this|that|current|active|open|opened)\s+)+|\s+(?:windows?|app)$", "", wanted)
+    wanted = _QUIT_ALIASES.get(wanted, wanted)
     desktop = Desktop()
     found, skipped_chutku = [], False
     for hwnd in desktop.windows():
