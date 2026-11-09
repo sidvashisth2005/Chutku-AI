@@ -325,6 +325,11 @@ def _weather(arguments, context):
             if saved:
                 city = saved["value"]
                 break
+    if not city:   # 2026-11-10 "execute, don't interrogate": the approximate city of this connection, like weather apps
+        try:
+            city = str(json.loads(fetch("https://ipwho.is/?fields=city")[0]).get("city") or "").strip()
+        except (OSError, ValueError, TypeError):
+            city = ""
     if not city:
         return ToolResult({"error": "Which city? Say it, or save it once: 'remember city = Delhi'."}, Verification.FAIL)
     try:

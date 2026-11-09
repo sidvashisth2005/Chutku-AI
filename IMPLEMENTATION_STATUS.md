@@ -16,6 +16,35 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (20): Fixes from the owner's real conversations (Brain 2 work, done on the PC)
+- **Owner:** "go through my convos"; build and test everything here (web Claude holds).
+- **Audit:** 873 real turns (test scripts left out), via `data/conversations.jsonl`.
+- **Real latency on this laptop** (the running Chutku, `/api/chat`):
+  - instant asks 0.4–1.0 s; open Notepad 4.0 s;
+  - cloud-planned asks 2.4–5.2 s;
+  - the briefing (4 steps plus a summary) 8.9 s.
+- **Failures found, then fixed and verified live:**
+  1. **Weather:** "aaj ka mausam" took "aaj" as a city (answered for **Cajana**). Time words are no longer cities.
+     With no saved city, the connection's city is used (`ipwho.is`, e.g. Indore) instead of asking.
+  2. **The scheduled morning briefing** ("aaj ka weather, news aur meri reminders batao") asked "which time?" every
+     day. It now runs the briefing steps, done in 8.9 s.
+  3. **Exact-time Hinglish reminders and alarms** were refused ("I can't set alarms"). Now "Mujhe exact 6:00 yaad
+     dilana ki …", "set an alarm for 6:30pm titled …" and "6:30 ka alarm laga do" become `reminder.set`.
+  4. **"Cancel task 1ADD59 and cancel task DE31EF"** was answered "no tasks running" (voice's stop_task only sees
+     running tasks). Now `task.cancel` by id. **Live: both cancelled, 2 of 2 verified**; the owner's own jobs
+     bdf142 and 2bc2d7 were kept. The voice `stop_task` description now sends scheduled tasks to `do_task`.
+  5. **"Phone Control on karo feature" / "turn on phone control feature"** became `remote.arm`.
+- **Root cause noted:** voice talk mode promised results the engine had refused (it said "alarm set karti hoon"
+  after the engine said "can't"). Making the engine able to do it removes the false promise; live.py's existing
+  claim guard stays.
+- **Still open from the audit:** WhatsApp "the chat on screen" and "locked chats" targets (6 failures on
+  2026-11-09); approvals expiring in long voice exchanges; "open skills page in brave" asks for a URL.
+- **Verified:**
+  - `OwnerConversationFixes` (4 tests); `test_internet` updated (no city plus offline asks; no city plus lookup
+    uses Indore; no real network).
+  - Router, internet, daily, phrase and reflex suites OK; `check_phrases` 193/193.
+  - The live runs above, after `control restart`.
+
 ### 2026-11-09 (19): Release 1.2.2: machine-wide installs through Windows' prompt work (verified with the owner's clicks)
 - **Owner:** releases are always built on the PC (no money for GitHub Actions); do the admin install test now (he
   clicks).

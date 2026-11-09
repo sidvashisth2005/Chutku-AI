@@ -450,5 +450,34 @@ class TrainingRound1Tests(unittest.TestCase):
             proposal = quick_proposal(text)
             self.assertFalse(proposal and proposal["status"] == "done" and "won't" in proposal.get("reply", ""), text)
 
+
+class OwnerConversationFixes(unittest.TestCase):
+    """2026-11-10, from the owner's real conversations: each of these failed live before."""
+
+    def tools(self, text):
+        proposal = quick_proposal(text)
+        return [(s["tool"], s["arguments"]) for s in proposal["next_steps"]] if proposal else None
+
+    def test_today_is_not_a_city(self):
+        self.assertEqual(self.tools("aaj ka mausam kaisa hai"), [("web.weather", {})])           # was "Cajana"
+        self.assertEqual(self.tools("delhi ka mausam kaisa hai"), [("web.weather", {"city": "delhi"})])
+
+    def test_the_daily_briefing_phrase_runs_the_briefing(self):
+        tools = [t for t, _ in self.tools("aaj ka weather, news aur meri reminders batao")]
+        self.assertEqual(tools, ["system.get_time", "web.weather", "reminder.list", "web.news"])
+
+    def test_exact_time_reminders_and_alarms(self):
+        (tool, arguments), = self.tools("Mujhe exact 6:00 yaad dilana ki mujhe kuch stretch karna hai.")
+        self.assertEqual((tool, arguments["at"][-5:], arguments["message"]), ("reminder.set", "18:00", "kuch stretch karna hai"))
+        (tool, arguments), = self.tools('set an alarm for 6:30pm titled "jaldi kar le bhai"')
+        self.assertEqual((arguments["at"][-5:], arguments["message"]), ("18:30", "jaldi kar le bhai"))
+        self.assertEqual(self.tools("6:30 ka alarm laga do")[0][1]["message"], "Alarm")
+
+    def test_scheduled_tasks_cancel_by_id_and_phone_control(self):
+        self.assertEqual(self.tools("Cancel task 1ADD59. and cancel task DE31EF."),
+                         [("task.cancel", {"id": "1add59"}), ("task.cancel", {"id": "de31ef"})])
+        self.assertEqual(self.tools("Phone Control on karo feature"), [("remote.arm", {"on": True})])
+        self.assertEqual(self.tools("spotify band karo"), [("apps.quit", {"name": "spotify"})])          # unchanged
+
 if __name__ == "__main__":
     unittest.main()

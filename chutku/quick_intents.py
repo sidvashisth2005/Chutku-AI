@@ -47,6 +47,14 @@ PATTERNS = [
     ("timer", re.compile(rf"^{_POLITE}(?:set (?:a )?)?timer (?:for )?(?P<n>\d{{1,4}}) {_UNIT}{_TAIL}", re.I)),
     ("remind_at", re.compile(rf"^{_POLITE}remind me (?P<day>tomorrow )?at (?P<h>\d{{1,2}})(?::(?P<m>\d{{2}}))? ?(?P<ampm>am|pm)? (?P<day2>tomorrow )?(?:to |that |about )?(?P<message>.+?){_TAIL}", re.I)),
     ("briefing", re.compile(rf"^{_POLITE}(?:good morning|morning briefing|briefing|daily briefing|brief me|what'?s my day like|subah ki report){_TAIL}", re.I)),
+    # owner's convos 2026-11-10: the scheduled briefing "aaj ka weather, news aur meri reminders batao" asked "which
+    # time?" every morning; exact-time Hinglish reminders and alarms were refused ("I can't set alarms")
+    ("briefing", re.compile(rf"^{_POLITE}(?:aaj\s+ka\s+)?(?:weather|mausam)\s*,?\s*news\s*,?\s*(?:aur|and)\s+(?:meri\s+|my\s+)?reminders?\s*(?:batao|bata do|dikhao|sunao)?{_TAIL}", re.I)),
+    ("remind_at", re.compile(rf"^{_POLITE}(?:mujhe\s+)?(?P<day>kal\s+|tomorrow\s+)?(?:exact(?:ly)?\s+|theek\s+)?(?P<h>\d{{1,2}})(?::(?P<m>\d{{2}}))?\s*(?P<ampm>am|pm)?\s*(?:baje\s+)?(?:pe\s+|par\s+)?(?:mujhe\s+)?(?:yaad\s+dila(?:na|o|dena|do|dijiye|dena)|remind\s+(?:karna|kar dena|karo))\s+(?:ki\s+|ke\s+|that\s+)?(?:mujhe\s+)?(?P<message>.+?)(?P<day2>){_TAIL}", re.I)),
+    ("remind_at", re.compile(rf"^{_POLITE}(?:set\s+(?:an?\s+|my\s+)?alarm|alarm\s+(?:set|laga)\s*(?:karo|kar do|do)?)\s+(?:for\s+|at\s+|pe\s+|par\s+)?(?P<day>tomorrow\s+|kal\s+)?(?P<h>\d{{1,2}})(?::(?P<m>\d{{2}}))?\s*(?P<ampm>am|pm)?(?:\s+(?:titled|called|named|naam|title)\s+[\"']?(?P<message>.+?)[\"']?)?(?P<day2>){_TAIL}", re.I)),
+    ("remind_at", re.compile(rf"^{_POLITE}(?P<day>kal\s+)?(?P<h>\d{{1,2}})(?::(?P<m>\d{{2}}))?\s*(?P<ampm>am|pm)?\s*(?:baje\s+)?ka\s+alarm\s+(?:laga|set\s+kar)\s*(?:do|dena|de)?(?:\s*,?\s*(?:title|naam|titled)\s+[\"']?(?P<message>.+?)[\"']?)?(?P<day2>){_TAIL}", re.I)),
+    # 5: scheduled tasks by id ("cancel task 1ADD59"); "and" chains split into one step each
+    ("task_cancel", re.compile(rf"^{_POLITE}(?:cancel|stop|delete|remove|hatao|band karo)\s+(?:the\s+)?(?:scheduled\s+|automation\s+)?task\s+(?P<id>[0-9a-f]{{6}})\.?{_TAIL}|^{_POLITE}task\s+(?P<id2>[0-9a-f]{{6}})\s+(?:cancel|band|hata)\s*(?:karo|kar do|do)?\.?{_TAIL}", re.I)),
     ("play", re.compile(rf"^{_POLITE}(?:play|chalao|bajao|lagao)\s+(?P<query>.+?)\s+(?:on|in)\s+(?:youtube|yt){_TAIL}", re.I)),
     ("play", re.compile(rf"^{_POLITE}(?:youtube|yt)\s+(?:pe|par|mein|me)\s+(?P<query>.+?)\s+(?:chalao|bajao|lagao|play karo|play){_TAIL}", re.I)),
     ("weather", re.compile(rf"^{_POLITE}(?:(?:what(?:'?s| is) the |how(?:'s| is) the |tell me the |check the )?weather|mausam|temperature)(?:\s+(?:like\s+)?(?:in|at|of|for)\s+(?P<city>[a-z .'-]{{2,60}}?))?(?:\s+(?:today|now|right now|currently|at the moment|tomorrow|kaisa hai|kya hai|batao|kaisa rahega))*{_TAIL}", re.I)),
@@ -594,7 +602,7 @@ REMOTE_PHRASES = [
     (re.compile(_W + r"(?:phone hatao|phone hata do|remove (?:my |the )?phone|unpair (?:my |the )?phone|"
                 r"sab phone hatao)" + _W, re.I),
      "remote.revoke", {"phone": "all"}, "Remove the paired phones"),
-    (re.compile(_W + r"(?:phone control (?:on|chalu) (?:karo|kar do)|allow phone control)" + _W, re.I),
+    (re.compile(_W + r"(?:phone control (?:on|chalu) (?:karo|kar do)(?: feature)?|(?:allow|turn on|enable) phone control(?: feature)?)" + _W, re.I),
      "remote.arm", {"on": True}, "Allow control from the phone"),
     (re.compile(_W + r"(?:phone control (?:band|off) (?:karo|kar do)|forbid phone control|stop phone control)" + _W,
                 re.I),
@@ -1159,6 +1167,9 @@ def _single(goal, apps=None):
             label = "timer" if kind == "timer" else "reminder"
             return _proposal("reminder.set", {"message": message[:200], "in_minutes": minutes},
                              f"Set a {minutes}-minute {label}", f"Okay, I'll remind you in {minutes} minutes.")
+        if kind == "task_cancel":
+            task = (match.groupdict().get("id") or match.groupdict().get("id2")).lower()
+            return _proposal("task.cancel", {"id": task}, f"Cancel scheduled task {task}", "")
         if kind == "remind_at":
             from datetime import datetime, timedelta
             hour, minute = int(match.group("h")), int(match.group("m") or 0)
@@ -1180,7 +1191,7 @@ def _single(goal, apps=None):
                     when += timedelta(days=1)
                 else:
                     return None  # "at 5" already passed today: am or pm? let the model ask
-            message = match.group("message").strip(" '\"")
+            message = (match.group("message") or "Alarm").strip(" '\".") or "Alarm"
             return _proposal("reminder.set", {"message": message[:200], "at": when.strftime("%Y-%m-%dT%H:%M")},
                              "Set a reminder", f"Okay, I'll remind you on {when.strftime('%A at %I:%M %p')}.")
         if kind == "briefing":
@@ -1195,6 +1206,9 @@ def _single(goal, apps=None):
             return _proposal("youtube.play", {"query": query}, f"Play {query} on YouTube", f"Started “{query}” on YouTube.")
         if kind == "weather":
             city = (match.groupdict().get("city") or "").strip(" '\"")
+            if city.casefold() in {"aaj", "aaj ka", "abhi", "kal", "today", "tomorrow", "yahan", "yaha", "mera", "mere",
+                                   "apna", "is hafte", "hamare", "idhar"}:
+                city = ""   # convos 2026-11-10: "aaj ka mausam" asked for the weather in "aaj" (Cajana)
             if re.search(r"\b(?:cpu|gpu|processor|laptop|pc|computer|battery)\b", city, re.I):
                 # "temperature of my cpu" is not a city's weather
                 return _proposal("system.performance", {}, "Check CPU, GPU, memory and temperature", "", finish=False)

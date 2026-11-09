@@ -140,7 +140,8 @@ TOOLS = [{"functionDeclarations": [
                     "required": ["goal"]}},
     {"name": "answer_approval", "description": "Pass on the owner's spoken answer to the pending approval question.",
      "parameters": {"type": "OBJECT", "properties": {"approve": {"type": "BOOLEAN"}}, "required": ["approve"]}},
-    {"name": "stop_task", "description": "Stop the tasks that are running now.",
+    {"name": "stop_task", "description": "Stop the tasks that are running now. NOT for scheduled tasks, reminders or "
+     "automations (e.g. 'cancel task 1ADD59'): use do_task for those.",
      "parameters": {"type": "OBJECT", "properties": {}}},
     {"name": "task_status", "description": "What Chutku is doing right now (every task this conversation started).",
      "parameters": {"type": "OBJECT", "properties": {}}},

@@ -59,9 +59,24 @@ class InternetTests(unittest.TestCase):
         self.assertEqual(text, "Hello\nWorld")
 
     def test_weather_uses_saved_city_and_asks_otherwise(self):
-        result = self.runtime.run("web.weather", {})
+        from unittest.mock import patch
+
+        def offline(url, **_):
+            raise OSError("offline")
+        with patch.object(internet, "fetch", offline):   # no saved city and no location lookup: it asks
+            result = self.runtime.run("web.weather", {})
         self.assertEqual(str(result["state"]), "FAILED")
         self.assertIn("Which city", result["output"]["error"])
+        seen = []
+
+        def located(url, **_):   # 2026-11-10: no saved city -> the connection's approximate city, not a question
+            seen.append(url)
+            if "ipwho.is" in url:
+                return ('{"city": "Indore"}', "")
+            raise OSError("stop after the lookup")
+        with patch.object(internet, "fetch", located):
+            self.runtime.run("web.weather", {})
+        self.assertTrue(any("ipwho.is" in u for u in seen) and any("Indore" in u for u in seen), seen)
         self.runtime.memory.save("city", "Pune")
         calls = []
 
