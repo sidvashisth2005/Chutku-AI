@@ -16,6 +16,7 @@ from pathlib import Path
 COMPLAINT = re.compile(r"\b(?:galat|wrong|nahi hua|not working|kaam nahi|bakwas|ye nahi|yeh nahi|not this|"
                        r"phir se|dobara|again|kyu nahi|why didn'?t)\b", re.I)
 FAILED = {"failed", "cancelled", "stopped"}
+TEST_AREAS = re.compile(r"Chutku(?:Scratch|Practice)", re.I)
 
 
 def _jsonl(path):
@@ -43,7 +44,8 @@ def score(base, days=7, now=None):
     complaints = sum(1 for before, after in zip(turns, turns[1:])
                      if after.get("at", 0) - before.get("at", 0) <= 180 and COMPLAINT.search(after.get("said", "")))
     log = [r for r in _jsonl(base / "data" / "actions.log.jsonl")
-           if datetime.fromisoformat(r.get("time", "1970-01-01T00:00:00+00:00")) >= since]
+           if datetime.fromisoformat(r.get("time", "1970-01-01T00:00:00+00:00")) >= since
+           and not TEST_AREAS.search(json.dumps(r.get("arguments") or {}))]   # live-check scripts, not the owner
     approvals = sum(r.get("state") == "WAITING_CONFIRMATION" for r in log)
     hangs = [p.name for p in (base / "data" / "logs").glob("hang-*.txt")
              if datetime.fromtimestamp(p.stat().st_mtime, timezone.utc) >= since]

@@ -28,8 +28,9 @@ def _digits(value):
 
 
 def known_recipient(to, memory):
-    """The owner's memory names this person (a nickname, relation, chat name, or a saved contact number)."""
-    if recipient(to) is not None:
+    """The owner's memory names this person (a nickname, relation, chat name, or a saved contact number), or ``to``
+    is the WhatsApp chat the owner has open in front of him."""
+    if is_current_chat(to) or recipient(to) is not None:
         return True
     if _digits(to):
         return False  # a raw number nobody saved is someone new
@@ -40,9 +41,40 @@ def known_recipient(to, memory):
         return False
 
 
-def recipient(to):
-    """A nickname or relation from the owner's memory: (phone, chat name, display name), or None."""
+def _remember_chat(name, asked=""):
+    """Ask once (owner 2026-11-08): a chat the owner approved a message to, and that really got it, is remembered, so
+    later messages to it go straight out. Never a second person for a name the memory already knows."""
     from chutku import mind
+    try:
+        graph = mind.default()
+        if graph.find_person(name) is None and graph.find_person(asked or name) is None:
+            graph.remember_person(name, whatsapp=name, aliases=[asked] if asked and asked != name else [],
+                                  note="WhatsApp chat; remembered after a verified message")
+    except (OSError, ValueError):
+        pass   # memory is a help, never a reason for a send to fail
+
+
+# "my chat", "myself", "khud ko", "message yourself": the owner's own WhatsApp chat ("+91 ... (You)").
+_SELF_CHAT = re.compile(r"^\W*(?:(?:my|mera|meri|mere|apna|apni|apne)(?:\s+own)?(?:\s+(?:chat|number|whatsapp|"
+                        r"personal chat))?|me|myself|mujhe|khud|khud ko|apne aap(?: ko)?|self|message yourself|"
+                        r"saved messages|you)\W*$", re.I)
+
+
+def _chat_name(found):
+    """What to search for a remembered person: the WhatsApp chat name, or their name when the saved WhatsApp value is
+    a phone number (searching "+919425618575" lists the chat as "Pita Shri", live 2026-11-10). The owner's own chat
+    is searched by his number (its row is marked "(You)")."""
+    phone, chat, shown = found
+    return shown if _digits(chat) and not shown.startswith("you (") else chat
+
+
+def recipient(to):
+    """A nickname or relation from the owner's memory: (phone, chat name, display name), or None. The owner's own chat
+    is his saved phone number (mind fact "phone")."""
+    from chutku import mind
+    if _SELF_CHAT.match(to or ""):
+        own = mind.default().load().get("facts", {}).get("phone", "")
+        return (own, own, "you (your own chat)") if _digits(own) else None
     person = mind.default().find_person(to)
     if person is None:
         return None
@@ -109,7 +141,10 @@ def _send(arguments, context):
     except ValueError as error:
         if app == "whatsapp":  # no saved number: use the chat the user already has with that exact name
             found = recipient(arguments["to"])  # "gf" / "mammi" -> the chat name saved in the owner's memory
-            return _send_to_named_chat(found[1] if found else arguments["to"].strip(), text)
+            result = _send_to_named_chat(_chat_name(found) if found else arguments["to"].strip(), text)
+            if found is None and result.verification == Verification.PASS:
+                _remember_chat(result.output.get("to") or arguments["to"].strip(), arguments["to"].strip())
+            return result
         return ToolResult({"error": str(error)}, Verification.FAIL)
     digits = number.lstrip("+")
     link = (f"whatsapp://send?phone={digits}&text={urllib.parse.quote(text)}" if app == "whatsapp"
@@ -153,11 +188,46 @@ def _send(arguments, context):
                       output | {"text": "[REDACTED]", "number": "[REDACTED]"})
 
 
+def _chat_key(text):
+    """How a chat name is compared: a phone number by its last 10 digits ('+91 88715 92579 (You)', the owner's own
+    chat, equals '+918871592579'), anything else ignoring case, spaces and punctuation."""
+    bare = re.sub(r"\(\s*you\s*\)", "", text or "", flags=re.I)
+    digits = re.sub(r"\D", "", bare)
+    if len(digits) >= 8 and re.fullmatch(r"[\d\s+()\-]+", bare.strip() or "x"):
+        return digits[-10:] if len(digits) > 10 else digits   # with or without the +91 country code
+    return _normalise(bare if bare.strip() else text or "")
+
+
 def chat_header_matches(header_text, name):
     """The opened chat's title must be exactly the requested name (ignoring case, spaces and punctuation)."""
-    wanted = _normalise(name)
-    lines = [_normalise(line) for line in (header_text or "").splitlines()]
+    wanted = _chat_key(name)
+    lines = [_chat_key(line) for line in (header_text or "").splitlines()]
     return bool(wanted) and wanted in lines
+
+
+def _row_is(row_text, name):
+    """A search result row is exactly this chat. The owner's own chat is cut short in the list ("+91 88715 925...
+    (You)", live 2026-11-10) but WhatsApp marks it "(You)": its visible digits must be part of the number."""
+    first = (row_text.splitlines() or [""])[0]
+    if _chat_key(first) == _chat_key(name):
+        return True
+    shown, wanted = re.sub(r"\D", "", first), re.sub(r"\D", "", name or "")
+    return bool(re.search(r"\(\s*you\s*\)", row_text, re.I)) and len(shown) >= 6 and len(wanted) >= 8 and shown in wanted
+
+
+def _unique_first_name(rows, name):
+    """The one search result whose name starts with the requested words ("Kritika" -> "Kritika Raj 2nd JUET New"),
+    shown in full (not cut with "..."); None when there are none or several."""
+    if len(_normalise(name)) < 3 or name.strip().casefold() in {"mera", "meri", "mere", "apna", "apni", "self",
+                                                                   "khud", "the", "chat"}:
+        return None   # "open my chat" must never become "MY Bharat"
+    words = name.casefold().split()
+    found = []
+    for row in rows:
+        shown = (row["text"].splitlines() or [""])[0].strip()
+        if words and "..." not in shown and "…" not in shown and shown.casefold().split()[:len(words)] == words:
+            found.append((row, shown))
+    return found[0] if len(found) == 1 else None
 
 
 def _send_to_named_chat(name, text, *, dry_run=False, keep_open=False):
@@ -258,9 +328,8 @@ def _send_to_named_chat(name, text, *, dry_run=False, keep_open=False):
     def rows_now():  # WhatsApp swaps the chat list for search results 1-3 s after typing
         screen["lines"] = look()
         rows = _result_rows(frames["shot"], screen["lines"], rect)
-        wanted = _normalise(name)
-        matches = [row for row in rows if wanted and (row["highlight"] >= 0.9 or
-                                                       _normalise((row["text"].splitlines() or [""])[0]) == wanted)]
+        wanted = _chat_key(name)
+        matches = [row for row in rows if wanted and (row["highlight"] >= 0.9 or _row_is(row["text"], name))]
         changed = [row["text"] for row in rows] != before
         # Fast reads can catch the list mid-redraw (rows still moving): act only when two reads in a row agree.
         layout = [(row["text"], row["rect"]) for row in rows]
@@ -268,6 +337,12 @@ def _send_to_named_chat(name, text, *, dry_run=False, keep_open=False):
         screen["rows"], screen["layout"] = rows, layout
         return (settled and (bool(matches) or changed)), matches
     _ready, rows = _poll(rows_now, seconds=6.0)
+    if not rows:
+        # Owner's convos: "send hi to Kritika" failed although "Kritika Raj 2nd JUET New" was the only Kritika.
+        unique = _unique_first_name(screen.get("rows", []), name)
+        if unique:
+            rows, name = [unique[0]], unique[1]   # the header must now show this name before anything is typed
+            screen["prefix"] = True                # the list may cut it ("Kritika Raj 2nd JUET" for "... JUET New")
     if len(rows) != 1:
         press_combo([0x1B])            # Esc: clear the search, nothing else
         closest = ", ".join((row["text"].splitlines() or [""])[0] for row in screen.get("rows", [])[:5]) or "none"
@@ -295,6 +370,10 @@ def _send_to_named_chat(name, text, *, dry_run=False, keep_open=False):
                 top + int((bottom - top) * 0.13))
         text = vision.read_strips(frames["shot"], [band])[0]
         if chat_header_matches(text, name) or _header_reads(frames["shot"], band, name):
+            return pane
+        if screen.get("prefix") and any(_normalise(line).startswith(_normalise(name)) for line in
+                                        (text or "").splitlines() + [l["text"] for l in lines if l["rect"][0] >= pane
+                                                                                and l["rect"][3] <= top + (bottom - top) * 0.16]):
             return pane
         # Short names may not be OCR-readable in the header: accept only when WhatsApp itself marked the clicked
         # row as an exact match (whole name highlighted) and that row is now the selected (open) chat.
@@ -527,7 +606,7 @@ def _open_chat(arguments, _context):
     if arguments["app"] != "whatsapp":
         return ToolResult({"error": "Opening a chat by name works for WhatsApp only."}, Verification.FAIL)
     found = recipient(arguments["to"])
-    name = found[1] if found else arguments["to"].strip()
+    name = _chat_name(found) if found else arguments["to"].strip()
     result = _send_to_named_chat(name, "", dry_run=True, keep_open=True)
     if result.verification != Verification.PASS:
         return result
@@ -587,7 +666,7 @@ def _read_chat(arguments, _context):
     if arguments["app"] != "whatsapp":
         return ToolResult({"error": "Reading a chat works for WhatsApp only."}, Verification.FAIL)
     found = recipient(arguments["to"])
-    name = found[1] if found else arguments["to"].strip()
+    name = _chat_name(found) if found else arguments["to"].strip()
     opened = _send_to_named_chat(name, "", dry_run=True, keep_open=True)
     if opened.verification != Verification.PASS:
         return opened
@@ -744,14 +823,19 @@ def _result_rows(shot, lines, rect):
     left, top, right, bottom = rect
     chips = [line["rect"][3] for line in listed if _FILTER_CHIPS.match(line["text"].strip())]
     floor = max(chips) if chips else top + (bottom - top) * 0.2
-    stamps = sorted((line["rect"] for line in listed
-                     if _TIMESTAMP.match(line["text"].strip()) and line["rect"][1] > floor), key=lambda r: r[1])
-    texts_x = [line["rect"][0] for line in listed if line["rect"][1] > floor and not _TIMESTAMP.match(line["text"].strip())]
+    # The owner's own chat draws "(You)" just left of its time, read as one line "(You) 12:13 am" (live 2026-11-10).
+    you = re.compile(r"^\(\s*you\s*\)\s*", re.I)
+    stamps = sorted(((line["rect"], bool(you.match(line["text"].strip()))) for line in listed
+                     if _TIMESTAMP.match(you.sub("", line["text"].strip())) and line["rect"][1] > floor),
+                    key=lambda item: item[0][1])
+    texts_x = [line["rect"][0] for line in listed if line["rect"][1] > floor
+               and not _TIMESTAMP.match(you.sub("", line["text"].strip()))]
     # Names and previews start at one x right of the profile photos; the median ignores stray OCR from photos.
     name_left = sorted(texts_x)[len(texts_x) // 2] - 4 if texts_x else left + int((right - left) * 0.09)
-    rects = [(name_left, stamp[1] - 6, stamp[0] - 6, stamp[3] + 6) for stamp in stamps]
+    rects = [(name_left, stamp[1] - 6, stamp[0] - 6, stamp[3] + 6) for stamp, _you in stamps]
     names = vision.read_strips(shot, rects) if rects else []
-    return [{"text": text, "rect": box, "highlight": highlight_share(shot, box)} for text, box in zip(names, rects)]
+    return [{"text": text + (" (You)" if mine else ""), "rect": box, "highlight": highlight_share(shot, box)}
+            for text, box, (_stamp, mine) in zip(names, rects, stamps)]
 
 
 def highlight_share(shot, box):

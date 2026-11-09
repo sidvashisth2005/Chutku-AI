@@ -153,6 +153,23 @@ class CoreHealthTests(unittest.TestCase):
         thread.join(2)
         self.assertFalse(thread.is_alive())
 
+    def test_windows_sleep_is_not_a_hang(self):
+        """2026-11-09: a 2898.9 s 'hang' was the laptop asleep; time.monotonic counts sleep, so the core was restarted."""
+        from unittest.mock import patch
+        from chutku import dashboard
+        clock = {"awake": 100.0}
+        with patch.object(dashboard, "awake_clock", side_effect=lambda: clock["awake"]):
+            self.server.service_actions()
+            thread = self.server.start_heartbeat(interval=0.05)
+            time.sleep(0.3)                                     # wall time passes, awake time does not (asleep)
+            self.assertEqual(list((self.base / "data" / "logs").glob("hang-*.txt")), [])
+            clock["awake"] += 9.0                               # awake and the loop really did not move: a hang
+            time.sleep(0.2)
+            self.assertEqual(len(list((self.base / "data" / "logs").glob("hang-*.txt"))), 1)
+            self.server.closing.set()
+            thread.join(2)
+        self.assertGreater(dashboard.awake_clock(), 0)          # the real clock works on this machine
+
     def test_restarted_core_lifts_the_guards_pause_but_not_the_owners(self):
         ActionControl(self.base).pause("guard", "heartbeat_timeout")
         self.server.heal_when_healthy(healthy_for=0.1).join(5)

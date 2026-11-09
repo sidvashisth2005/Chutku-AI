@@ -16,6 +16,44 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (22): Night shift: hangs, asks and WhatsApp names (20x plan P1/P2)
+- **Sleep is no longer a "hang".** The core's stall watchdog used `time.monotonic()`, which keeps counting through
+  Windows sleep. Every wake-up looked like a hang as long as the sleep (2898.9 s on 2026-11-09), dumped stacks and
+  let the guard restart the core.
+  - It now uses `dashboard.awake_clock()` (QueryUnbiasedInterruptTime, which leaves sleep out).
+  - Test: `tests/test_self_healing_pause.py` `test_windows_sleep_is_not_a_hang` (asleep: no dump; awake and stuck:
+    one dump).
+- **Asks, ask-once for chats:**
+  - A WhatsApp chat the owner approved a message to, and that verifiably got it, is remembered in the mind graph
+    (with the name he said as an alias), so later messages go straight out.
+  - Never remembered: failed sends, or a second person for a name already known (mammi → UB stays one person).
+  - "The chat on screen" is never an unknown recipient.
+  - Test: `MessagingTests.test_a_new_chat_asks_once_then_is_remembered_only_after_a_verified_send`.
+- **Scoreboard:** action rows from the live-check test areas (`D:\ChutkuScratch`, `D:\ChutkuPractice`) are left
+  out.
+  - 7-day B100: 398.7 → **327.6** on the same logs. Approvals 46 → 19; the other 27 were my own test scripts.
+- **WhatsApp names**, from the owner's failed requests:
+  - **Own chat:** "my chat", "myself", "khud ko" or his own number open his "(You)" chat. His number (typed by him
+    on 2026-11-09) is now in his local mind facts.
+    - The search list cuts that row to "+91 88715 925..." and draws "(You) 12:13 am" as one line, so the row was
+      never found. Rows now keep the "(You)" mark and match by digits.
+  - **First name:** a unique whole-word first-name match ("Kritika" → "Kritika Raj 2nd JUET New") is used.
+    - Never a short or possessive word ("my" never becomes "MY Bharat").
+    - The header must start with the picked name before anything is typed.
+  - **Number-saved people:** someone whose saved WhatsApp value is a number is searched by name (Pita Shri).
+  - **Live open-only checks, nothing typed:**
+
+    | Request | Result | Time |
+    |---|---|---|
+    | my chat | PASS | 6.7 s |
+    | Kritika | PASS | 6.9 s |
+    | pita shri | PASS | 6.3 s |
+    | papa | PASS | 1.2 s |
+    | mammi → UB | PASS | 7.9 s |
+
+  - **Still failing:** KitKat (Locked chats hide it from search) and Shaanu (no matching chat visible).
+  - Tests: `tests/test_apps_extra.py`, 5 new.
+
 ### 2026-11-10 (21): 20x plan, P0: measure, and send to the WhatsApp chat on screen
 - **Owner:** "make chutku 20 times better ... from user's pov ... must not burden him"; the plan is
   [docs/TWENTY_X_PLAN.md](docs/TWENTY_X_PLAN.md).

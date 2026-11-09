@@ -173,7 +173,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.planner_factory = None  # tests may inject (planner, fallback)
         self.action_lock = threading.Lock()
         self.heartbeat = heartbeat
-        self.loop_tick = time.monotonic()
+        self.loop_tick = awake_clock()
         self.closing = threading.Event()
         self.healed = None             # the guard pause this core lifted after a restart (shown on the HUD)
         self.remote = None             # W6 phone access (chutku/remote/manager.py), real install only
@@ -194,7 +194,7 @@ class DashboardServer(ThreadingHTTPServer):
         self.origin = f"http://127.0.0.1:{self.server_port}"
 
     def service_actions(self):
-        self.loop_tick = time.monotonic()   # the HTTP loop is alive; the heartbeat thread reports it to the guard
+        self.loop_tick = awake_clock()   # the HTTP loop is alive; the heartbeat thread reports it to the guard
 
     # The guard kills a core that is silent for 5 s. Beats used to come from this HTTP loop, so a few seconds of
     # GIL-heavy speech work or Windows background throttling looked like a hang (2026-10-28). Beats now come from
@@ -210,12 +210,12 @@ class DashboardServer(ThreadingHTTPServer):
     def start_heartbeat(self, interval=0.5):
         if self.heartbeat is None:
             return None
-        self.loop_tick = time.monotonic()
+        self.loop_tick = awake_clock()
 
         def run():
             dumped = False
             while not self.closing.wait(interval):
-                stalled = time.monotonic() - self.loop_tick
+                stalled = awake_clock() - self.loop_tick
                 if stalled >= self.HANG_DUMP_AFTER and not dumped:
                     dumped = True
                     dump_hang(self.base, stalled)
@@ -2223,6 +2223,18 @@ _STOP_REASONS = {
     "core_disconnected": "Chutku's core closed unexpectedly",
     "startup_timeout": "Chutku's core did not start in time",
 }
+
+
+def awake_clock():
+    """Seconds the PC was awake. time.monotonic() keeps counting through Windows sleep, so every wake-up looked like
+    a hang as long as the sleep (2898.9 s on 2026-11-09) and the core was restarted; QueryUnbiasedInterruptTime
+    leaves sleep and hibernate out."""
+    if os.name == "nt":
+        import ctypes
+        ticks = ctypes.c_ulonglong()
+        if ctypes.windll.kernel32.QueryUnbiasedInterruptTime(ctypes.byref(ticks)):
+            return ticks.value / 1e7
+    return time.monotonic()
 
 
 def dump_hang(base, stalled, keep=10):

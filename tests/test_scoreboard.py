@@ -23,7 +23,9 @@ class ScoreboardTests(unittest.TestCase):
             stamp = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(now - 30))
             log = [{"time": stamp, "tool": "message.send", "state": "WAITING_CONFIRMATION"},
                    {"time": stamp, "tool": "message.send", "state": "FAILED"},
-                   {"time": stamp, "tool": "message.send", "state": "COMPLETED"}]
+                   {"time": stamp, "tool": "message.send", "state": "COMPLETED"},
+                   {"time": stamp, "tool": "filesystem.move", "state": "WAITING_CONFIRMATION",   # a test script
+                    "arguments": {"source": r"D:\ChutkuScratch\a.txt"}}]
             (base / "data" / "actions.log.jsonl").write_text("\n".join(json.dumps(r) for r in log), "utf-8")
             (base / "data" / "logs" / "hang-1.txt").write_text("stalled", "utf-8")
             s = score(base, days=7)

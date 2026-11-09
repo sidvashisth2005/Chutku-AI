@@ -48,6 +48,36 @@ class MessagingTests(unittest.TestCase):
             done = self.runtime.approve(waiting["approval"]["token"])
         self.assertEqual(str(done["state"]), "FAILED")
 
+    def test_a_new_chat_asks_once_then_is_remembered_only_after_a_verified_send(self):
+        """1.2 rule: messages to new people ask once; after that send really arrived, later ones go straight out."""
+        from chutku import mind
+        from chutku.tools.registry import ToolResult, Verification
+        sent = ToolResult({"to": "Shaanu", "seen_in_chat": True}, Verification.PASS)
+        failed = ToolResult({"error": "No WhatsApp chat is named exactly 'Zed'"}, Verification.FAIL)
+        with patch.object(mind, "PROJECT_ROOT", Path(self.temp.name)):
+            self.assertFalse(apps_extra.known_recipient("Shaanu", self.runtime.memory))
+            waiting = self.runtime.run("message.send", {"app": "whatsapp", "to": "Shaanu", "text": "hi"})
+            self.assertEqual(str(waiting["state"]), "WAITING_CONFIRMATION")          # first time: asks
+            self.assertIn("not in your memory", self.runtime.step_question(
+                self.runtime.registry.get("message.send"), {"app": "whatsapp", "to": "Shaanu", "text": "hi"}))
+            with patch.object(apps_extra, "_send_to_named_chat", return_value=sent):
+                self.runtime.approve(waiting["approval"]["token"])
+            self.assertTrue(apps_extra.known_recipient("Shaanu", self.runtime.memory))
+            tool = self.runtime.registry.get("message.send")
+            self.assertIsNone(self.runtime.step_question(tool, {"app": "whatsapp", "to": "shaanu", "text": "kal"}))
+            self.assertIn("not in your memory", self.runtime.step_question(tool, {"app": "whatsapp", "to": "Zed",
+                                                                                  "text": "x"}))   # still asks
+            with patch.object(apps_extra, "_send_to_named_chat", return_value=failed):
+                apps_extra._send({"app": "whatsapp", "to": "Zed", "text": "x"}, self.runtime)
+            self.assertFalse(apps_extra.known_recipient("Zed", self.runtime.memory))   # not sent: not remembered
+            mind.default().remember_person("mammi", whatsapp="UB")
+            with patch.object(apps_extra, "_send_to_named_chat",
+                              return_value=ToolResult({"to": "UB"}, Verification.PASS)):
+                apps_extra._send({"app": "whatsapp", "to": "UB", "text": "x"}, self.runtime)
+            self.assertEqual([p["name"] for p in mind.default().load()["people"]], ["Shaanu", "mammi"])  # no 2nd UB
+        self.assertTrue(apps_extra.known_recipient("the chat open on the screen", self.runtime.memory))
+        self.assertTrue(apps_extra.known_recipient("current chat", self.runtime.memory))
+
     def test_validation(self):
         validate = self.runtime.registry.get("message.send").validate_arguments
         for bad in ({"app": "sms", "to": "x", "text": "y"}, {"app": "whatsapp", "to": "x", "text": "a\nb"},
@@ -131,7 +161,7 @@ class NamedChatTests(unittest.TestCase):
         self.assertEqual(_header_matches(self.lines(("AK", (620, 30, 660, 50))), self.RECT, "AK"), 563)
         self.assertIsNone(_header_matches(self.lines(("AK Office", (620, 30, 700, 50))), self.RECT, "AK"))
 
-    def run_flow(self, screens, *, dry_run=True, row_light=None, text="hi", current=False):
+    def run_flow(self, screens, *, dry_run=True, row_light=None, text="hi", current=False, name="AK"):
         from unittest.mock import patch
         from types import SimpleNamespace
         import numpy as np
@@ -176,7 +206,7 @@ class NamedChatTests(unittest.TestCase):
                 patch.object(apps_extra, "_row_brightness", side_effect=row_light or brightness), \
                 patch.object(vision, "read_strips", return_value=[""]):
             result = (apps_extra._send_to_current_chat(text, dry_run=dry_run) if current
-                      else apps_extra._send_to_named_chat("AK", text, dry_run=dry_run))
+                      else apps_extra._send_to_named_chat(name, text, dry_run=dry_run))
         return result, typed, clicks, keys
 
     def locked(self, *extra):
@@ -213,6 +243,73 @@ class NamedChatTests(unittest.TestCase):
         self.assertEqual(result.verification.name, "FAIL")
         self.assertIn("No chat is open", result.output["error"])
         self.assertEqual((typed, clicks, keys), ([], [], []))
+
+    def test_own_number_matches_the_you_chat_and_a_unique_first_name_is_used(self):
+        """Owner's convos: '+918871592579' did not match '+91 88715 92579 (You)'; 'Kritika' did not find 'Kritika Raj
+        2nd JUET New', the only Kritika."""
+        from chutku.tools.apps_extra import chat_header_matches, _unique_first_name
+        self.assertTrue(chat_header_matches("+91 88715 92579 (You)\nMessage yourself", "+918871592579"))
+        self.assertTrue(chat_header_matches("+91 88715 92579", "8871592579"))
+        self.assertFalse(chat_header_matches("+91 88715 92570 (You)", "+918871592579"))
+        self.assertTrue(chat_header_matches("Tech Clubs (All)", "tech clubs (all)"))
+        row = lambda text: {"text": text, "rect": (0, 0, 1, 1), "highlight": 0.3}
+        found = _unique_first_name([row("Kritika Raj 2nd JUET New"), row("Drama Family (2025 20..."),
+                                    row("JUET 2027 BATCH")], "Kritika")
+        self.assertEqual(found[1], "Kritika Raj 2nd JUET New")
+        self.assertIsNone(_unique_first_name([row("Kritika Raj"), row("Kritika Sharma")], "Kritika"))   # which one?
+        self.assertIsNone(_unique_first_name([row("Kritika Raj 2nd JUET..."), row("X")], "Kritika"))    # cut name
+        self.assertIsNone(_unique_first_name([row("MyJio"), row("MY Bharat")], "my"))                  # not a word
+
+        searched = self.lines(("Kritika", (120, 145, 180, 160)), ("Kritika Raj 2nd JUET New", (190, 330, 400, 347)))
+        opened = searched + [{"text": "Kritika Raj 2nd JUET New", "rect": (620, 30, 900, 50)}]
+        result, typed, clicks, _keys = self.run_flow([self.BASE, searched, opened], name="Kritika")
+        self.assertEqual(result.verification.name, "PASS", result.output)
+        self.assertEqual(result.output["to"], "Kritika Raj 2nd JUET New")     # the full chat name is reported
+        self.assertEqual(typed, ["Kritika"])
+
+    def test_number_saved_people_are_searched_by_name_and_cut_list_names_still_open(self):
+        """Live 2026-11-10: 'pita shri' searched his number (+91...) and failed; 'Kritika' read as 'Kritika Raj 2nd
+        JUET' in the list while the header said '... JUET New'."""
+        from chutku.tools.apps_extra import _chat_name
+        self.assertEqual(_chat_name(("+919425618575", "+919425618575", "Pita Shri")), "Pita Shri")
+        self.assertEqual(_chat_name(("", "UB", "mammi")), "UB")
+        self.assertEqual(_chat_name(("+918871592579", "+918871592579", "you (your own chat)")), "+918871592579")
+        searched = self.lines(("Kritika", (120, 145, 180, 160)), ("Kritika Raj 2nd JUET", (190, 330, 400, 347)))
+        opened = searched + [{"text": "Kritika Raj 2nd JUET New", "rect": (620, 30, 900, 50)}]
+        result, typed, _clicks, _keys = self.run_flow([self.BASE, searched, opened], name="Kritika")
+        self.assertEqual(result.verification.name, "PASS", result.output)
+        wrong = searched + [{"text": "Kritika Sharma", "rect": (620, 30, 900, 50)}]
+        result, _typed, _clicks, _keys = self.run_flow([self.BASE, searched, wrong], name="Kritika", dry_run=False)
+        self.assertEqual(result.verification.name, "FAIL")                    # another chat opened: nothing typed
+
+    def test_the_owners_own_chat_row_is_found_although_cut_short(self):
+        """Live 2026-11-10: searching his number listed '+91 88715 925...' with '(You) 12:13 am' read as one line, so
+        the row was missed and only message hits (Bel Ox) were seen."""
+        import numpy as np
+        from chutku import vision
+        from chutku.tools.apps_extra import _result_rows, _row_is
+        lines = [{"text": "Chats", "rect": (117, 302, 167, 316)}, {"text": "+91 88715 925...", "rect": (208, 360, 369, 376)},
+                 {"text": "(You) 12:13 am", "rect": (382, 355, 510, 378)}, {"text": "Messages", "rect": (118, 467, 206, 485)},
+                 {"text": "Bel Ox Session", "rect": (125, 524, 267, 541)}, {"text": "Yesterday", "rect": (434, 529, 506, 545)}]
+        shot = vision.Shot(np.zeros((10, 10, 3), np.uint8), 0, 0, 10, 10)
+        with patch.object(vision, "read_strips", side_effect=lambda _shot, rects: ["+91 88715 925...", "Bel Ox Session"][:len(rects)]), \
+                patch.object(apps_extra, "highlight_share", return_value=0.2):
+            rows = _result_rows(shot, lines, self.RECT)
+        self.assertEqual([r["text"] for r in rows], ["+91 88715 925... (You)", "Bel Ox Session"])
+        self.assertTrue(_row_is(rows[0]["text"], "+918871592579"))
+        self.assertFalse(_row_is(rows[0]["text"], "+919425618575"))            # someone else's number
+        self.assertFalse(_row_is("+91 88715 925...", "+918871592579"))          # without (You): not trusted
+        self.assertFalse(_row_is(rows[1]["text"], "+918871592579"))
+
+    def test_my_chat_means_the_owners_own_number_from_memory(self):
+        import tempfile as tf
+        from chutku import mind
+        with tf.TemporaryDirectory() as temp, patch.object(mind, "PROJECT_ROOT", Path(temp)):
+            self.assertIsNone(apps_extra.recipient("my chat"))                  # no number saved: not guessed
+            mind.default().set_fact("phone", "+918871592579")
+            for said in ("my chat", "myself", "khud ko", "mera number", "message yourself", "my"):
+                self.assertEqual(apps_extra.recipient(said)[0], "+918871592579", said)
+            self.assertIsNone(apps_extra.recipient("MY Bharat"))
 
     def test_current_chat_phrases(self):
         from chutku.tools.apps_extra import is_current_chat
