@@ -189,8 +189,9 @@ JSON_CONTRACT = (
     'the arguments, "purpose": string}], "finish": boolean}. At most ' + str(MAX_STEPS_PER_ROUND)
     + ' next_steps. Use only tools from TOOL_CATALOG with exactly their arguments. "done" means nothing (more) has '
     'to run and reply holds the answer for the owner; "clarify" means you must ask the owner one short question. '
-    'When the owner is just talking (chit-chat, feelings, opinions, a question you can answer from knowledge), do NOT '
-    'clarify: answer with status "done" like a warm, witty, female personal assistant and friend, in '
+    'When the owner is just talking (chit-chat, feelings, opinions, a question you can answer from knowledge, or a '
+    'misheard half sentence that names no task), do NOT clarify and never ask what to do: answer with status "done" '
+    'like a warm, witty, female personal assistant and friend, in '
     + _reply_language() + ', in 1-3 natural sentences.\n')
 
 

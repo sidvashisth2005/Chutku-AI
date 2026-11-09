@@ -34,6 +34,19 @@ Owner decisions are in `docs/DESIGN.md` §51.
   - **Live:** status 2.1 s (off; Redmi Note 12 Pro 5G, Rockerz 110, T-300 TUFB, Mini boost 4). Set on 2.7 s and
     off 2.3 s, both read back; it was left off as it was.
   - Tests: `tests/test_system_controls.py` (including Windows refusing and no radio).
+- **Chit-chat is answered, not "clarified":** both planner prompts now say a misheard or half sentence, or chat that
+  names no task, gets a natural reply (status done), never "what would you like me to do". (Last week 4 such turns
+  got "please clarify".)
+- **Live replay on the restarted Chutku** (`scripts/live_replay.py`, synthetic turns, nothing approved, no message
+  sent):
+
+  | Sentence | Result | Time |
+  |---|---|---|
+  | "I know what I'm talking about." | done (chat reply) | 2.5 s |
+  | "Kya sayai baii." | done (chat reply) | 1.7 s |
+  | "show bluetooth devices" | done | 2.3 s |
+  | "what is the current pc volume" | 14% | 0.4 s |
+  | "Ato mera brave open kar." | opened Brave | 0.4 s |
 - **Power:** "shutdown pc", "pc band karo" and "restart my laptop" go to `power.schedule`, 5 minutes later, with the
   approval card; "cancel shutdown" goes to `power.cancel`. Not run live.
 
