@@ -16,6 +16,39 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (24): Night shift: Spotify works (20x plan P1, the biggest failure class)
+- **Before:** `spotify.search` 0 of 15, playlists 2 of 6. In the live replay at 02:40, 0 of the owner's 9 Spotify
+  sentences passed (40–110 s each).
+- **Root causes found live, and their fixes:**
+  1. **Slow button finding.** The page's play button was found by a vision-model call: **70.5 s**, sometimes the
+     wrong element. `visible.green_play_button` finds Spotify's green (#1ED760) disc by colour in **24 ms**
+     (checked on a screenshot). The vision call stays as the fallback.
+  2. **OCR misreads.** "LowKey" was read as "I-owKey" and "lofi" as "Iofi". `visible.matches` gets a "close" tier:
+     the one clearly closest line, never a tie. The runner's `wait_text` uses it too.
+  3. **Unverifiable search plays.** Search pages show no button until a result is opened, and the Top-result card
+     played tracks that were not on the page.
+     - `play_page: "playlist"` opens the first Playlist/Album result first, so what starts can be checked.
+     - Songs: the Top result's own button, or a double-click on the first Song row.
+  4. **Stale titles.** Windows' media session shows the old title for about a second after play. It is read again
+     before judging (a correct Kesariya play was being paused).
+  5. **Toggle-pause.** Pressing play on what already plays paused it (the lab's second run). Now: already playing
+     a track on this page → nothing is pressed.
+  6. **Wrong media session.** `_press_play`, the runner and the lab used Windows' *current* media session, which can
+     be a movie in Brave. They now use the app's own session.
+  7. **Library misses.** When the library click started nothing new, Spotify search is tried (it fixes misheard
+     names).
+  8. **Single-window apps.** "Open sport." with Spotify already open waited 15 s and failed. Spotify, WhatsApp,
+     Telegram and similar are now brought to the front.
+- **Lab:** `chutku.cli apps lab spotify`, 3 runs each, muted: **28 of 30 actions verified**, median 8.5 s.
+  - `play_song` and `play_public_playlist` are verified for the first time, so "kesariya gaana chalao" routes to
+    them.
+- **Live, the owner's 9 real Spotify sentences on the restarted Chutku** (muted, nothing approved):
+  - **9 of 9 done**, 0.7–17.5 s.
+  - Including "play Lowkey playlist", "play Loki playlist", "spotify pe Arijitt ke gaane chalao", "Afterparty Hits
+    playlist chalao", "Open sport." (0.7 s) and "kesariya gaana chalao" (7.3 s).
+- **Tests:** `tests/test_visible.py` `SpotifyLiveFixesTests` (4), `tests/test_app_atlas.py` (fallback, already
+  playing) and `tests/test_everyday.py` (focus an open Spotify).
+
 ### 2026-11-10 (23): Night shift: app names, Bluetooth, power phrases (20x plan P1)
 - **App names** (`everyday.resolve_app`):
   - Spoken Hinglish around a name is dropped ("Ato mera brave open kar" → Brave).
