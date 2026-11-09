@@ -153,3 +153,19 @@ leave the machine):
    matches "execute, don't interrogate") or stay at the safer "Safe steps by themselves"? This is an owner choice.
 3. Which apps matter most for the first scenario set (WhatsApp, Telegram, Chrome/Brave, ...), so we cover those
    first.
+
+## 12. Research additions (2026-11-10, PC session)
+See [`PROBLEMS_AND_RESEARCH.md`](PROBLEMS_AND_RESEARCH.md) (44 problems, AirLLM verdict, projects, phases). It
+adds these to this plan:
+- **Tier 1.5, the replay cache** (the muscle-mem / a11y-computer-use pattern): a clean success is saved as a script
+  with locators and checks and replayed with no model; only a failing step goes back to the planner.
+- **Speculative multi-action in tier 3** (UFO²): several predicted steps per model call, so fewer calls.
+- **Multi-provider router** (LiteLLM-style failover across the Gemini, Groq, Cerebras, OpenRouter and NIM free
+  tiers), so one provider's limit or outage does not stop Chutku.
+- **Vision fallback** for apps UI Automation cannot see: a local UI-TARS-2B or OmniParser.
+- **Temporal mind graph** (Graphiti ideas: facts with valid-from and valid-to) plus memory consolidation at night
+  (Letta's "sleep-time" idea).
+- **Hands-off actions:** never fight the user's mouse and keyboard; act in the background or wait for a pause.
+- **Night teacher:** an AirLLM spike (too slow live, at 2–47 s per token; possibly useful at night).
+- **Hindi voice:** IndicConformer speech-to-text and IndicF5 TTS (check the licences).
+
