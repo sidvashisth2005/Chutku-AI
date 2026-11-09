@@ -1503,9 +1503,11 @@ def _scheduled(text):
 
 def _follow_up(text):
     """Last resort, only when nothing else matched: "hi bhej do" within 2 minutes of opening a chat."""
-    from chutku.message_intent import parse_follow_up_send
+    from chutku.message_intent import names_current_chat, parse_follow_up_send
     from chutku.tools.apps_extra import recent_chat
     recent = recent_chat()
+    if names_current_chat(text):   # "is chat mein hi bhej do": the WhatsApp chat on screen, header read at send time
+        recent = ("whatsapp", "current chat")
     body = parse_follow_up_send(text) if recent is not None else None
     if body is None:
         return None

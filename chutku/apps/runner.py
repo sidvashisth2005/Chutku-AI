@@ -133,9 +133,9 @@ class Driver:
         from chutku.tools.visible import _press_play
         return _press_play(None, rect, self.ocr(rect))
 
-    def media(self, action):
+    def media(self, action, match=None):
         from chutku.tools.everyday import media
-        return media(action)
+        return media(action, match)
 
     def process_running(self, exe):
         from chutku.tools.everyday import Desktop
@@ -153,7 +153,11 @@ def run(atlas, action, params, driver=None):
     out = {"app": atlas["app"], "action": action["id"], "steps": []}
     hwnd = None
     try:
-        before = _media_status(driver) if _uses_media(action) else {}
+        # The atlas app's own media session: with a movie playing in Brave, Windows' "current" session is Brave,
+        # so a Spotify check passed on the movie (live 2026-11-10).
+        from chutku.tools.everyday import MEDIA_APPS
+        match = MEDIA_APPS.get(atlas["app"])
+        before = _media_status(driver, match) if _uses_media(action) else {}
         for step in action["steps"]:
             verb = next(v for v in step if v in {"focus", "launch", "uri", "cli", "keys", "type", "click_text",
                                                  "wait_text", "play_page", "sleep", "media", "settings_uri"})
@@ -218,6 +222,7 @@ def run(atlas, action, params, driver=None):
                 while not any(text in l["text"].casefold()
                               for l in driver.ocr(_area(driver.window_rect(hwnd), step.get("area")))):
                     if time.monotonic() > deadline:
+                        out["not_found"] = True
                         raise StepFailed(f"'{fill(step['wait_text'], params)}' did not appear; nothing clicked.")
                     time.sleep(0.5)
             elif verb == "play_page":
@@ -229,15 +234,23 @@ def run(atlas, action, params, driver=None):
             elif verb == "sleep":
                 time.sleep(float(step["sleep"]))
             elif verb == "media":
-                driver.media(step["media"])
+                driver.media(step["media"], match)
             out["steps"].append(verb)
-        out["check"] = _check(action.get("check") or {}, params, driver, window, hwnd, before, out)
+        out["check"] = _check(action.get("check") or {}, params, driver, window, hwnd, before, out, match)
         out["ok"] = all(out["check"].values())
         if not out["ok"]:
             failed = [name for name, ok in out["check"].items() if not ok]
             out["error"] = f"the steps ran but the check failed: {', '.join(failed)}"
     except (StepFailed, OSError, ValueError, KeyError) as error:
         out["ok"], out["error"] = False, str(error)
+    other = next((a for a in atlas.get("actions", []) if a["id"] == action.get("fallback")), None)
+    if not out["ok"] and out.get("not_found") and other:
+        # Owner's convos: "play Loki/lofi/Afterparty Hits playlist" failed when the exact name was not in the
+        # library. Nothing was clicked, so the other way (Spotify's own search, which fixes misheard names) runs.
+        second = run(atlas, other, params, driver)
+        second.update(instead_of=action["id"], first_error=out["error"], steps=out["steps"] + second["steps"],
+                      seconds=round(time.monotonic() - started, 2))
+        return second
     out["seconds"] = round(time.monotonic() - started, 2)
     return out
 
@@ -286,9 +299,9 @@ def _uses_media(action):
                 & set(action.get("check") or {}))
 
 
-def _media_status(driver):
+def _media_status(driver, match=None):
     try:
-        return driver.media("status") or {}
+        return driver.media("status", match) or {}
     except OSError:
         return {}
 
@@ -303,25 +316,25 @@ def _wait_window(driver, window, seconds):
     raise StepFailed("the app window did not appear")
 
 
-def _check(check, params, driver, window, hwnd, before, out):
+def _check(check, params, driver, window, hwnd, before, out, match=None):
     results = {}
     if not check:
         return results
     media_checks = {"media_playing", "media_changed", "media_paused", "playing_on_page"}
-    after = _media_status(driver) if media_checks & set(check) else {}
+    after = _media_status(driver, match) if media_checks & set(check) else {}
     for name, value in check.items():
         value = fill(value, params)
         if name == "media_playing":
             deadline = time.monotonic() + 4
             while after.get("status") != "Playing" and time.monotonic() < deadline:
                 time.sleep(0.5)
-                after = _media_status(driver)
+                after = _media_status(driver, match)
             results[name] = after.get("status") == "Playing"
         elif name == "media_paused":
             deadline = time.monotonic() + 3
             while after.get("status") not in {"Paused", "Stopped"} and time.monotonic() < deadline:
                 time.sleep(0.4)
-                after = _media_status(driver)
+                after = _media_status(driver, match)
             results[name] = after.get("status") in {"Paused", "Stopped"}
         elif name == "media_changed":
             results[name] = after.get("title") != before.get("title") or after.get("status") != before.get("status")
@@ -332,14 +345,14 @@ def _check(check, params, driver, window, hwnd, before, out):
             deadline = time.monotonic() + 4
             while after.get("status") != "Playing" and time.monotonic() < deadline:
                 time.sleep(0.5)
-                after = _media_status(driver)
+                after = _media_status(driver, match)
             current = driver.find_window(window) or hwnd
             # Not the player bar at the bottom: it always shows the current song, so it proves nothing.
             lines = driver.ocr(_area(driver.window_rect(current), PAGE_AREA)) if current else []
             results[name] = after.get("status") == "Playing" and on_page(after.get("title") or "", lines)
             started_new = before.get("status") != "Playing" or after.get("title") != before.get("title")
             if not results[name] and after.get("status") == "Playing" and started_new:
-                driver.media("pause")   # something else started: stop it rather than play the wrong thing
+                driver.media("pause", match)   # something else started: stop it rather than play the wrong thing
                 out["paused_wrong"] = after.get("title")
         elif name == "heading":
             # The page that opened has this name as its big title (a playlist or artist page), not just a list row.

@@ -479,5 +479,16 @@ class OwnerConversationFixes(unittest.TestCase):
         self.assertEqual(self.tools("Phone Control on karo feature"), [("remote.arm", {"on": True})])
         self.assertEqual(self.tools("spotify band karo"), [("apps.quit", {"name": "spotify"})])          # unchanged
 
+    def test_the_chat_on_screen_is_a_target_and_its_words_are_not_the_message(self):
+        """2026-11-09: six sends searched for a chat named 'chat open on the screen' (KitKat in Locked chats)."""
+        send = lambda to, text: [("message.send", {"app": "whatsapp", "to": to, "text": text})]
+        self.assertEqual(self.tools("is chat mein hello bhej do"), send("current chat", "hello"))
+        self.assertEqual(self.tools("yahan hi likh ke bhej do"), send("current chat", "hi"))
+        self.assertEqual(self.tools("jo chat khuli hai usme good night bhej do"), send("current chat", "good night"))
+        self.assertEqual(self.tools("send hi to the chat open on the screen on whatsapp"),
+                         send("the chat open on the screen", "hi"))    # message.send reads it as the chat on screen
+        for text in ("hi bhej do", "isme kya hai", "yahan aao"):      # no open chat named: nothing to send
+            self.assertIsNone(self.tools(text), text)
+
 if __name__ == "__main__":
     unittest.main()

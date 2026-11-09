@@ -39,7 +39,8 @@ def _make(app_atlas, action):
         if result.get("ok") and isinstance(arguments.get("name"), str):
             try:   # a playlist/artist/album that really played is remembered for loose sentences later (F6)
                 from chutku.apps import known
-                known.remember(app_atlas["app"], action["id"], arguments["name"], base=_context.granted_root.parent)
+                ran = result.get("action") or action["id"]   # a fallback (Spotify search) is not a library name
+                known.remember(app_atlas["app"], ran, arguments["name"], base=_context.granted_root.parent)
             except (OSError, AttributeError):
                 pass
         return ToolResult(result, Verification.PASS if result.get("ok") else Verification.FAIL)

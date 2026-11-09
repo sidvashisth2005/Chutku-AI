@@ -131,7 +131,7 @@ class NamedChatTests(unittest.TestCase):
         self.assertEqual(_header_matches(self.lines(("AK", (620, 30, 660, 50))), self.RECT, "AK"), 563)
         self.assertIsNone(_header_matches(self.lines(("AK Office", (620, 30, 700, 50))), self.RECT, "AK"))
 
-    def run_flow(self, screens, *, dry_run=True, row_light=None, text="hi"):
+    def run_flow(self, screens, *, dry_run=True, row_light=None, text="hi", current=False):
         from unittest.mock import patch
         from types import SimpleNamespace
         import numpy as np
@@ -175,8 +175,52 @@ class NamedChatTests(unittest.TestCase):
                 patch.object(apps_extra, "_result_rows", side_effect=fake_rows), \
                 patch.object(apps_extra, "_row_brightness", side_effect=row_light or brightness), \
                 patch.object(vision, "read_strips", return_value=[""]):
-            result = apps_extra._send_to_named_chat("AK", text, dry_run=dry_run)
+            result = (apps_extra._send_to_current_chat(text, dry_run=dry_run) if current
+                      else apps_extra._send_to_named_chat("AK", text, dry_run=dry_run))
         return result, typed, clicks, keys
+
+    def locked(self, *extra):
+        """WhatsApp showing Locked chats (search is not available there) with ``extra`` lines on screen."""
+        return [dict(line, text="Locked chats") if line["text"] == "Chats" else line for line in self.BASE] + \
+            [{"text": text, "rect": rect} for text, rect in extra]
+
+    def test_named_chat_already_open_in_locked_chats_is_used_without_esc_or_search(self):
+        """Owner's convos 2026-11-09: KitKat was open inside Locked chats; Esc closed it and search cannot see it."""
+        open_ak = self.locked(("AK", (620, 30, 660, 50)))
+        sent = open_ak + [{"text": "hi", "rect": (900, 600, 930, 615)}]
+        result, typed, clicks, keys = self.run_flow([open_ak, sent], dry_run=False)
+        self.assertEqual(result.verification.name, "PASS", result.output)
+        self.assertTrue(result.output["chat_was_open"])
+        self.assertEqual((typed, clicks), (["hi"], []))
+        self.assertNotIn([0x1B], keys)                         # no Esc: that would close the chat
+
+    def test_current_chat_gets_the_message_without_any_search(self):
+        from chutku.tools import apps_extra
+        open_kitkat = self.locked(("KitKat", (620, 30, 700, 50)), ("Q", (1800, 28, 1815, 48)),
+                                  ("last seen today at 9:41 pm", (620, 55, 800, 70)))
+        sent = open_kitkat + [{"text": "hi", "rect": (900, 600, 930, 615)}]
+        try:
+            result, typed, clicks, keys = self.run_flow([open_kitkat, sent], dry_run=False, current=True)
+            self.assertEqual(result.verification.name, "PASS", result.output)
+            self.assertEqual(result.output["to"], "KitKat")      # the header name is reported back
+            self.assertEqual((typed, clicks, keys), (["hi"], [], [[0x0D]]))
+            self.assertEqual(apps_extra.recent_chat(), ("whatsapp", "KitKat"))
+        finally:
+            apps_extra.LAST_CHAT.update(app=None, to=None, at=0.0)
+
+    def test_current_chat_with_no_chat_open_types_nothing(self):
+        result, typed, clicks, keys = self.run_flow([self.BASE], dry_run=False, current=True)
+        self.assertEqual(result.verification.name, "FAIL")
+        self.assertIn("No chat is open", result.output["error"])
+        self.assertEqual((typed, clicks, keys), ([], [], []))
+
+    def test_current_chat_phrases(self):
+        from chutku.tools.apps_extra import is_current_chat
+        for to in ("current chat", "the chat open on the screen", "chat on screen", "this chat", "is chat mein",
+                   "jo chat khuli hai", "here", "yahan", "the open chat", "जो चैट दिख रही है", "current"):
+            self.assertTrue(is_current_chat(to), to)
+        for to in ("KitKat", "Pita Shri", "mammi", "UB", "Tech Clubs (All)", "chat group", "Chatterjee"):
+            self.assertFalse(is_current_chat(to), to)
 
     def test_chat_already_open_in_front_gets_the_message_without_searching_again(self):
         """Owner 2026-10-05: a second message to the open chat searched and reopened it every time."""

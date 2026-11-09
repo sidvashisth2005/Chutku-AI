@@ -16,6 +16,63 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (21): 20x plan, P0: measure, and send to the WhatsApp chat on screen
+- **Owner:** "make chutku 20 times better ... from user's pov ... must not burden him"; the plan is
+  [docs/TWENTY_X_PLAN.md](docs/TWENTY_X_PLAN.md).
+- **Scoreboard** (`scripts/scoreboard.py`, no network, no model): burden per 100 requests (B100) from
+  `conversations.jsonl`, `actions.log.jsonl` and `data/logs/hang-*.txt`.
+  - **Baseline on the real logs, 2026-11-10:**
+    - **B100 = 398.7** over the last 7 days (76 requests): 10 failed, 19 clarify questions, 46 approvals, 6 hangs.
+    - 135.3 over 60 days (447 requests).
+  - **20× target:** B100 ≤ 20.
+  - Test: `tests/test_scoreboard.py`.
+- **Every turn is now timed:** sessions log `seconds` and `asks` (approvals the owner had to answer).
+  - The instant dashboard path logs `seconds` and the tier `direct`.
+  - Changed: `chutku/agent_loop.py` `snapshot()` and `chutku/recall.py` `log_conversation`.
+  - Test: `tests/test_recall.py`.
+- **WhatsApp "the chat on screen"** (6 failed sends on 2026-11-09: KitKat open inside Locked chats; search cannot
+  see locked chats; Esc closed the chat).
+  - `message.send` with `to` = "current chat" or similar ("the chat open on the screen", "is chat mein", "yahan",
+    "जो चैट") sends to the chat open in front with no search. The header name is read and reported.
+  - Nothing is typed when no chat is open.
+  - A named chat that is already open is now detected on the very first look, in any view, before any Esc.
+  - The router sends "is chat mein hello bhej do", "yahan hi likh ke bhej do" and "jo chat khuli hai usme good
+    night bhej do" to the chat on screen. Those words are no longer typed into the message.
+  - Tests: `tests/test_apps_extra.py` (4 new), `tests/test_quick_intents.py` (1 new).
+  - **Live dry run on the owner's WhatsApp** (nothing typed):
+    - the current chat read **"Kitkat"** in 1.9 s;
+    - a named send to "Kitkat" reused the open chat in 1.5 s (`chat_was_open: true`).
+  - A real message was not sent; that needs the owner's OK.
+- **Scenario bank v1** (`scripts/make_real_bank.py`):
+  - `data/task_bank/real.jsonl` holds 150 of the owner's own distinct requests that finished with tools. It is
+    private and git-ignored. Night Shift's `practice.nightly(base)` now practises them; tests never load them.
+  - `data/task_bank/real_failures.jsonl` holds 51 distinct failed, clarify or cancelled requests: the P1 fix list.
+  - The instant tier alone gets 79.3% of the real bank right.
+  - Test: `tests/test_scoreboard.py` `RealBankTests`.
+- **P1, Spotify: the biggest failure class** (11 real failures: "play Loki/lofi/Afterparty Hits playlist",
+  "spotify pe Arijitt ke gaane chalao").
+  1. **Fallback.** An atlas action may name a safe `fallback` action of the same atlas. It runs only when the
+     action's text never appeared, so nothing was clicked.
+     - `play_playlist` (Your Library, exact name) falls back to `play_public_playlist` (Spotify search, which
+       corrects misheard names).
+     - `play_artist` falls back to `play_song`.
+     - A searched name is not remembered as a library playlist.
+     - Changed: `chutku/apps/atlas.py` (validation), `chutku/apps/runner.py`, `chutku/apps/tools.py`,
+       `chutku/apps/atlas/spotify.json`.
+  2. **Media checks read the app's own session.** Live 2026-11-10: a movie playing in Brave was Windows' current
+     media session, so Spotify's `media_playing` passed on the movie and `media_changed` failed. The runner now asks
+     for the atlas app's own session (`MEDIA_APPS`, e.g. `["spotify"]`) for status, media steps and the wrong-song
+     pause.
+  - Tests: `tests/test_app_atlas.py` `FallbackTests`, 5 new: fallback plays; no fallback after a click; fallback
+    validation; not remembered; a movie in another app does not count.
+  - **Live, partial:**
+    - "Loki" was not in the library, so the fallback ran Spotify search (`instead_of: play_playlist`). The run took
+      49 s because Spotify had to start.
+    - The check then failed because of the session bug above, which is now fixed. A read-only live query sees
+      Spotify's own session (Paused) while Brave's movie is the current one.
+    - A full live replay of the play is pending, for when the owner is not watching something. The first try
+      briefly muted the system while his movie was playing; the volume was restored to 40%, unmuted.
+
 ### 2026-11-10 (20): Fixes from the owner's real conversations (Brain 2 work, done on the PC)
 - **Owner:** "go through my convos"; build and test everything here (web Claude holds).
 - **Audit:** 873 real turns (test scripts left out), via `data/conversations.jsonl`.

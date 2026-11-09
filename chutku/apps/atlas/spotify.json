@@ -337,6 +337,7 @@
   },
   {
    "id": "play_playlist",
+   "fallback": "play_public_playlist",
    "done": "{name} playlist chala di.",
    "title": "Play one of my playlists by its exact name",
    "risk": "safe",
@@ -575,6 +576,7 @@
   },
   {
    "id": "play_artist",
+   "fallback": "play_song",
    "done": "{name} ke gaane chala diye.",
    "title": "Play an artist from my library",
    "risk": "safe",

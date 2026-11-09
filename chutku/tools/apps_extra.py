@@ -102,6 +102,8 @@ def _send(arguments, context):
     from chutku.tools.documents import ocr
     from chutku.tools.windows_apps import WindowsDesktop
     app, text = arguments["app"], arguments["text"].strip()
+    if app == "whatsapp" and is_current_chat(arguments["to"]):
+        return _send_to_current_chat(text)
     try:
         number, label = resolve_contact(arguments["to"], context.memory)
     except ValueError as error:
@@ -209,6 +211,13 @@ def _send_to_named_chat(name, text, *, dry_run=False, keep_open=False):
             started_in = started_in or view
             if view == "Logged out":  # only the owner's phone can fix this: say so at once, touch nothing
                 return ToolResult({"error": LOGGED_OUT_HELP, "view": view}, Verification.FAIL)
+            if attempts == 0:
+                # Already open in front, in any view (Locked chats, Archived, Chats): checked before any Esc,
+                # which could close it (owner's convos 2026-11-09: KitKat open in Locked chats, then "not found").
+                already = _open_pane_for(name, first, frames["shot"], rect)
+                if already:
+                    return _finish_send(name, text, already, rect, look, frames, dry_run=dry_run,
+                                        keep_open=keep_open, reused=True)
             _listed, pane_x = _split_panes(first, rect)
             target = _search_box(first, rect, pane_x) if view in (None, "Chats") else None
             if target is None and attempts < 3:
@@ -226,20 +235,9 @@ def _send_to_named_chat(name, text, *, dry_run=False, keep_open=False):
         return _finish_send(name, text, header, rect, look, frames, dry_run=dry_run, keep_open=keep_open,
                             reused=reused)
 
-    # Already open in front (e.g. "aur ye bhi bhej do" right after a send): no search, no reopening; the header
-    # must still show exactly this name before anything is typed.
-    if started_in in (None, "Chats") and rect[2] - rect[0] > 300:
-        _listed, open_pane = _split_panes(first, rect)
-        already = _header_matches(first, rect, name)
-        if not already:
-            left, top, right, bottom = rect
-            band = (open_pane, top + int((bottom - top) * 0.02), right - int((right - left) * 0.2),
-                    top + int((bottom - top) * 0.13))
-            if chat_header_matches(vision.read_strips(frames["shot"], [band])[0], name) \
-                    or _header_reads(frames["shot"], band, name):
-                already = open_pane
-        if not already and _same_chat_header(frames["shot"], rect, open_pane, name):
-            already = open_pane   # OCR cannot read every name ("Pita Shri" reads as "Shi"): same header picture
+    # Already open in front after leaving another view: no search, no reopening.
+    if attempts and started_in in (None, "Chats") and rect[2] - rect[0] > 300:
+        already = _open_pane_for(name, first, frames["shot"], rect)
         if already:
             return finish(already, reused=True)
     if target is None:
@@ -369,6 +367,88 @@ def _same_chat_header(shot, rect, pane, name):
     if not (saved.max() - saved.min() > 40):          # a blank strip proves nothing
         return False
     return float((diff > 40).mean()) < 0.01
+
+
+def _header_band(rect, pane):
+    left, top, right, bottom = rect
+    return pane, top + int((bottom - top) * 0.02), right - int((right - left) * 0.2), top + int((bottom - top) * 0.13)
+
+
+def _open_pane_for(name, lines, shot, rect):
+    """The chat pane's left x when the chat open in front is exactly ``name`` (header text, enlarged header read,
+    or the header picture Chutku confirmed earlier); otherwise None."""
+    from chutku import vision
+    if rect[2] - rect[0] <= 300:
+        return None
+    already = _header_matches(lines, rect, name)
+    if already:
+        return already
+    _listed, pane = _split_panes(lines, rect)
+    band = _header_band(rect, pane)
+    if chat_header_matches(vision.read_strips(shot, [band])[0], name) or _header_reads(shot, band, name):
+        return pane
+    # OCR cannot read every name ("Pita Shri" reads as "Shi"): the same header picture
+    return pane if _same_chat_header(shot, rect, pane, name) else None
+
+
+# "the chat open on screen", "is chat mein", "jo chat khuli hai", "here": the chat the owner has open in WhatsApp.
+# Owner's convos 2026-11-09: Locked chats are hidden from search, so he opened KitKat himself and said "send it to
+# the chat on the screen, don't search" - six sends failed searching for a chat named "chat open on the screen".
+_CURRENT_CHAT = re.compile(
+    r"^\W*(?:current|here|yahan|yaha|idhar|isme|is me|isi me|this one|same)\W*$"
+    r"|\b(?:current|open(?:ed)?|on[- ]?screen|visible|this|same|is|isi|yahi|wahi|jo|ye|yeh)\b.*\b(?:chat|चैट)\b"
+    r"|\b(?:chat|चैट)\b.*\b(?:open|on (?:the )?screen|on display|in front|khuli|khula|dikh|samne)"
+    r"|(?:यह|ये|इस|जो|वही|यही)\s*चैट", re.I)
+
+
+def is_current_chat(to):
+    return bool(_CURRENT_CHAT.search(to or ""))
+
+
+def _open_chat_name(lines, rect):
+    """The name in the open chat's header (its first text line), or '' when no chat is open."""
+    left, top, right, bottom = rect
+    _listed, pane = _split_panes(lines, rect)
+    header = [line for line in lines if line["rect"][0] >= pane and line["rect"][3] <= top + (bottom - top) * 0.13
+              and len(line["text"].strip()) >= 2 and not _TIMESTAMP.match(line["text"].strip())]
+    if not header:
+        return ""
+    first = min(line["rect"][1] for line in header)    # the name is the leftmost text on the top row (icons sit right)
+    return min((line for line in header if line["rect"][1] <= first + 15), key=lambda line: line["rect"][0])["text"].strip()
+
+
+def _send_to_current_chat(text, *, dry_run=False):
+    """WhatsApp Desktop: send into the chat already open on screen (also inside Locked chats or Archived) without
+    searching. Its header name is read and reported; nothing is typed when no chat is open."""
+    from chutku import vision
+    from chutku.tools.windows_apps import WindowsDesktop
+    desktop, info = _message_window("whatsapp")
+    if info is None:
+        return ToolResult({"error": "WhatsApp is not open, so no chat is on screen. Open the chat or tell me its name; "
+                                    "nothing was sent."}, Verification.FAIL)
+    WindowsDesktop().focus(info["window_id"])
+    time.sleep(0.5)
+    if desktop.foreground() != info["window_id"]:
+        return ToolResult({"error": "Could not bring WhatsApp to the front; nothing was sent."}, Verification.FAIL)
+    rect = _window_rect(info["window_id"])
+    frames = {}
+
+    def look():
+        frames["shot"] = vision.capture()
+        return vision.read_lines(frames["shot"], rect)
+    lines = look()
+    view = whatsapp_view(lines, rect)
+    if view == "Logged out":
+        return ToolResult({"error": LOGGED_OUT_HELP, "view": view}, Verification.FAIL)
+    name = _open_chat_name(lines, rect) if rect[2] - rect[0] > 300 else ""
+    if not name:
+        return ToolResult({"error": "No chat is open in WhatsApp right now (no name in the chat header); nothing was "
+                                    "typed or sent. Open the chat, or tell me its name.", "view": view},
+                          Verification.FAIL)
+    _listed, pane = _split_panes(lines, rect)
+    _remember_chat_header(frames["shot"], rect, pane, name)
+    LAST_CHAT.update(app="whatsapp", to=name, at=time.monotonic())
+    return _finish_send(name, text, pane, rect, look, frames, dry_run=dry_run, keep_open=True, reused=True)
 
 
 def _area_changed(before, after, area, min_pixels=400):
@@ -916,7 +996,9 @@ def register_extra_app_tools(registry):
     from chutku.tools.everyday import _window_verifier
     registry.register(Tool("message.send", "Send a WhatsApp or Telegram message to a phone number or a saved "
         "contact (memory key contact_<name>), or on WhatsApp the name of an existing chat (e.g. 'Pita Shri'); the "
-        "chat is checked before and after sending.",
+        "chat is checked before and after sending. to='current chat' sends to the WhatsApp chat already open on "
+        "screen without searching (use it for 'the chat on screen', 'is chat mein', 'yahan', and for Locked chats, "
+        "which search cannot find).",
         Risk.EXTERNAL_SIDE_EFFECT, _send, _validate_send, frozenset({"text"}), required_capability="desktop.input",
         argument_schema={"type": "object", "properties": {
             "app": {"type": "string", "enum": sorted(MESSAGE_APPS)},

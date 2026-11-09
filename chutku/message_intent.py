@@ -108,16 +108,26 @@ def parse_open_chat(goal: str):
 _FOLLOW_UP_SEND = [
     re.compile(r"^(?:please\s+)?(?:send|message)\s+[\"“”'‘’]?(?P<text>[^\"“”]{1,500}?)[\"“”'‘’]?"
                r"(?:\s+(?:to (?:him|her|them|it)|there|usko|use))?[\s.!?]*$", re.I),
-    re.compile(r"^[\"“”'‘’]?(?P<text>[^\"“”]{1,500}?)[\"“”'‘’]?\s+(?:bhejo|bhej do|bhejdo|send karo|send kar do|"
-               r"bol do)[\s.!?]*$", re.I),
+    re.compile(r"^[\"“”'‘’]?(?P<text>[^\"“”]{1,500}?)[\"“”'‘’]?(?:\s+likh\s*(?:ke|kar|kr))?\s+(?:bhejo|bhej do|bhejdo|"
+               r"send karo|send kar do|bol do)[\s.!?]*$", re.I),
 ]
 _NOT_A_MESSAGE = re.compile(r"[a-z]:\\|\binto\b|\bfile\b|\bfolder\b|\.(?:txt|docx?|pdf|py|md)\b", re.I)
+# "is chat mein hello bhej do", "yahan hi likh ke bhej do", "jo chat khuli hai usme ...": the chat open on screen
+# (owner's convos 2026-11-09). The words are not part of the message.
+_HERE = re.compile(r"^(?:(?:jo|ye|yeh)\s+chat\s+(?:khuli|khula|dikh\s+rahi|open)\s+(?:hai|h)\s*,?\s*"
+                   r"(?:us\s*me(?:in)?|usi\s*me(?:in)?|us\s*pe|wahan)?|(?:is|isi|iss|this|current)\s+chat\s*"
+                   r"(?:mein|me|main|pe|par|ko|on)?|yahan|yaha|idhar|is\s*me(?:in)?|isi\s*me(?:in)?)\s+", re.I)
+
+
+def names_current_chat(goal: str) -> bool:
+    from chutku.translit import roman
+    return bool(_HERE.match(" ".join(roman(goal).split())))
 
 
 def parse_follow_up_send(goal: str):
     """Right after a chat was opened: "hi bhej do" / "send good night" -> the message text, else None."""
     from chutku.translit import roman
-    text = " ".join(roman(goal).split())
+    text = _HERE.sub("", " ".join(roman(goal).split()), count=1)
     if _APP.search(text) or re.search(r"\bto\s+\w", text, re.I) and not re.search(r"\bto (?:him|her|them|it)\b", text, re.I):
         return None  # names another app or person: the normal parser handles it
     if _NOT_A_MESSAGE.search(text):

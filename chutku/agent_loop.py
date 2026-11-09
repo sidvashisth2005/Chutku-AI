@@ -840,6 +840,7 @@ class AgentSession:
         self.planners = []
         self.created = time.monotonic()
         self.updated = time.time()
+        self.asks = 0   # 20x plan: approvals the owner had to answer in this request
         self.lock = threading.RLock()
         self.cancelled = threading.Event()   # set by cancel(); the running loop checks it after every step
         self.observe_only = False            # Y3: a question answered beside a running task may only look
@@ -911,6 +912,7 @@ class AgentSession:
                 "steps": [{k: v for k, v in s.items() if k != "observation"} for s in self.steps],
                 "queued": self.queue, "tainted": self.tainted, "suspicious": self.suspicious, "speaker_verified": self.speaker_verified, "rounds": self.rounds,
                 "planners": self.planners, "context_chars": self.context_sizes(),
+                "seconds": round(time.monotonic() - self.created, 2), "asks": self.asks,
                 "pending": None if self.pending is None else {
                     "step": self.pending["step"], "approval": {
                         k: self.pending["approval"].get(k) for k in
@@ -1200,6 +1202,7 @@ class AgentSession:
                     self.pending = {"approval": {**result["approval"], "reason": result.get("reason")}, "step": step,
                                     "grant_id": target.resource_grant.grant_id}
                     self.status = "waiting_confirmation"
+                    self.asks += 1
                     break
                 state = self._record(step, result)
                 self._note_trust(target, step, trust)

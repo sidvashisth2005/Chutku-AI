@@ -97,7 +97,7 @@ def owner_turn(turn):
 # -- conversation log --------------------------------------------------------------------------------------
 
 def log_conversation(said, reply, *, origin="text", status="done", tools=(), base=None, at=None, planners=None,
-                     tainted=False):
+                     tainted=False, seconds=None, asks=0):
     said, reply = " ".join(str(said or "").split()), _VERIFIED_TAIL.sub("", str(reply or "")).strip()
     if not said:
         return
@@ -105,6 +105,10 @@ def log_conversation(said, reply, *, origin="text", status="done", tools=(), bas
            "tools": sorted({str(t) for t in tools})[:12]}
     if planners:
         row["planners"] = [str(p) for p in planners][:8]   # quick / replay / local / local-8b / gemini
+    if seconds is not None:
+        row["seconds"] = round(float(seconds), 2)   # 20x plan: the scoreboard's speed and burden numbers
+    if asks:
+        row["asks"] = int(asks)
     if tainted:
         row["tainted"] = True   # the reply followed outside content: shown to later planners only as data
     file = conversations_path(base)
@@ -127,7 +131,8 @@ def log_session(snapshot, base=None):
     log_conversation(snapshot.get("goal"), snapshot.get("reply"), origin=snapshot.get("origin", "text"),
                      status=snapshot.get("status"), tools=tools, base=base,
                      planners=[p.get("planner") for p in snapshot.get("planners", []) if p.get("planner")],
-                     tainted=bool(snapshot.get("tainted")))
+                     tainted=bool(snapshot.get("tainted")), seconds=snapshot.get("seconds"),
+                     asks=snapshot.get("asks") or 0)
 
 
 def log_voice(transcript, base=None):

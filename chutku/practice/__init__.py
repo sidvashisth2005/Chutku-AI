@@ -28,9 +28,12 @@ LIVE_TOOLS = {"apps.launch", "apps.quit", "system.get_time", "system.disk_space"
               "keyboard.type_text", "keyboard.shortcut", "desktop.look", "desktop.do", "screen.ask"}
 
 
-def load_bank(bank=BANK):
-    return [json.loads(line) for name in ("generated", "hard") if (Path(bank) / f"{name}.jsonl").is_file()
-            for line in (Path(bank) / f"{name}.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+def load_bank(bank=BANK, real=None):
+    """The task bank; ``real`` adds the owner's own past requests (data/task_bank/real.jsonl from
+    scripts/make_real_bank.py: private, git-ignored, so only the Night Shift on his PC passes it)."""
+    files = [Path(bank) / f"{name}.jsonl" for name in ("generated", "hard")] + ([Path(real)] if real else [])
+    return [json.loads(line) for file in files if file.is_file()
+            for line in file.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def quick_planner(text):
@@ -208,7 +211,7 @@ def nightly(base, n=100, *, planner=quick_planner, live=False, models=()):
     them (best_of_n), and a verified plan becomes fine-tune data for the weekly LoRA."""
     if live and sys.platform != "win32":
         raise RuntimeError("Live practice runs only on the owner's Windows PC.")
-    bank = load_bank()
+    bank = load_bank(real=Path(base) / "data" / "task_bank" / "real.jsonl")
     train = [item for item in bank if item["split"] == "train"]
     day = date.today().toordinal()
     picked = [train[(day * 7919 + i * 104729) % len(train)] for i in range(min(n, len(train)))]

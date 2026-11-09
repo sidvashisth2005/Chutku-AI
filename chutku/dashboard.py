@@ -2102,6 +2102,7 @@ def _agent_post(self, path, data):
                 # Exact supported command: instant deterministic path (still policy-checked).
                 if not server.action_lock.acquire(blocking=False):
                     raise ExecutionBusy("Another action is running. Wait for it to finish.")
+                began = time.monotonic()
                 try:
                     with create_runtime(server.base) as runtime:
                         runtime.approvals = server.approvals
@@ -2111,7 +2112,8 @@ def _agent_post(self, path, data):
                 from chutku import recall
                 recall.log_conversation(data["message"], present(result), origin=origin, base=server.base,
                                         status="done" if result.get("state") == "COMPLETED" else "failed",
-                                        tools=[understood.tool] if result.get("state") == "COMPLETED" else [])
+                                        tools=[understood.tool] if result.get("state") == "COMPLETED" else [],
+                                        planners=["direct"], seconds=time.monotonic() - began)
                 return 200, {"kind": "direct", "result": result, "message": present(result)}
             session = server.begin_session(data["message"].strip(), mode, origin)
             return 200, {"kind": "agent", "session": session.snapshot()}

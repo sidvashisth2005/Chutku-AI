@@ -118,6 +118,12 @@ def validate(atlas: dict) -> dict:
                 helper = next((a for a in actions if a.get("id") == lab[role]), None)
                 if not helper or helper.get("risk") != "safe" or helper.get("params"):
                     raise AtlasError(f"{where}: lab {role} must be a safe action without parameters")
+        if action.get("fallback"):
+            # 20x plan: when the action's text never appeared (nothing clicked), this other action runs instead
+            other = next((a for a in actions if a.get("id") == action["fallback"]), None)
+            if not other or other is action or other.get("risk") != "safe" or other.get("fallback")                     or set(other.get("params") or {}) - set(params):
+                raise AtlasError(f"{where}: fallback must be another safe action, without its own fallback, "
+                                 "using only this action's params")
         if _slots(action.get("done") or "") - set(params):
             raise AtlasError(f"{where}: the done reply may only use declared params")
         phrases = action.get("phrases") or []

@@ -76,7 +76,7 @@ class FakeDriver:
         self.calls.append(("play_page",))
         return self.page
 
-    def media(self, action):
+    def media(self, action, match=None):
         if action == "status":
             return {"status": "Playing" if self.playing else "Paused", "title": "x"}
         self.calls.append(("media", action))
@@ -137,7 +137,7 @@ class SongDriver(FakeDriver):
         self.playing, self.song = True, self.next_title
         return super().click_text(rect, name, kind, double)
 
-    def media(self, action):
+    def media(self, action, match=None):
         if action == "status":
             return {"status": "Playing" if self.playing else "Paused", "title": self.song}
         if action == "pause":
@@ -307,6 +307,77 @@ class ToolTests(unittest.TestCase):
         names = {t.name for t in registry.list()}
         self.assertIn("app.spotify.play_playlist", names)
         self.assertIn("app.spotify.next", names)
+
+
+class SearchDriver(SongDriver):
+    """Spotify's search page: its green play button starts the top result."""
+    def play_page(self, rect):
+        self.playing, self.song = True, "Lofi Beats"
+        return super().play_page(rect)
+
+
+class FallbackTests(unittest.TestCase):
+    """20x plan P1, owner's convos: "play Loki/lofi/Afterparty Hits playlist" failed when that exact name was not
+    in Your Library (11 failures). Nothing was clicked, so Spotify's own search runs instead."""
+
+    def spotify(self):
+        atlases, _errors = atlas_module.load_all()
+        atlas = copy.deepcopy(atlases["spotify"])
+        for step in action(atlas, "play_playlist")["steps"]:
+            if "wait_text" in step:
+                step["timeout"] = 0.01
+        return atlas
+
+    def test_a_name_missing_from_the_library_is_searched_and_played(self):
+        atlas, driver = self.spotify(), SearchDriver("x", lines=["Your Library", "After Party"])
+        with patch.object(runner.time, "sleep"):
+            out = runner.run(atlas, action(atlas, "play_playlist"), {"name": "Loki"}, driver)
+        self.assertTrue(out["ok"], out)
+        self.assertEqual((out["action"], out["instead_of"]), ("play_public_playlist", "play_playlist"))
+        self.assertIn(("uri", "spotify:search:Loki playlist"), driver.calls)
+        self.assertFalse(any(c[0] == "click_text" for c in driver.calls))      # the library was never clicked
+
+    def test_checks_read_the_apps_own_session_not_a_movie_in_the_browser(self):
+        """Live 2026-11-10: a Brave movie was Windows' current session, so Spotify's check read the movie."""
+        class TwoPlayers(SearchDriver):
+            def media(self, action, match=None):
+                if match != ["spotify"]:
+                    return {"status": "Playing", "title": "Movie in Brave", "app": "Brave"}
+                return super().media(action, match)
+        atlas, driver = self.spotify(), TwoPlayers("x", lines=["Your Library"])
+        with patch.object(runner.time, "sleep"):
+            out = runner.run(atlas, action(atlas, "play_public_playlist"), {"name": "lofi"}, driver)
+        self.assertTrue(out["ok"], out)          # Spotify itself went from paused to playing
+        driver = TwoPlayers("x", lines=["Your Library"])
+        driver.play_page = lambda rect: {"playing": True}  # the green button did nothing in Spotify
+        with patch.object(runner.time, "sleep"):
+            out = runner.run(atlas, action(atlas, "play_public_playlist"), {"name": "lofi"}, driver)
+        self.assertFalse(out["ok"], out)         # the movie no longer counts as Spotify playing
+
+    def test_no_fallback_once_something_was_clicked(self):
+        atlas, driver = self.spotify(), FakeDriver(lines=["Loki"], playing=False)
+        with patch.object(runner.time, "sleep"):
+            out = runner.run(atlas, action(atlas, "play_playlist"), {"name": "Loki"}, driver)
+        self.assertFalse(out["ok"])
+        self.assertNotIn("instead_of", out)
+        self.assertNotIn(("uri", "spotify:search:Loki playlist"), driver.calls)
+
+    def test_fallback_must_be_a_safe_action_of_the_same_atlas(self):
+        for target in ("no_such_action", "play_playlist"):
+            atlas = self.spotify()
+            action(atlas, "play_playlist")["fallback"] = target
+            with self.assertRaises(atlas_module.AtlasError, msg=target):
+                atlas_module.validate(atlas)
+
+    def test_a_searched_name_is_not_remembered_as_a_library_playlist(self):
+        from chutku.apps import known
+        with tempfile.TemporaryDirectory() as temp, patch.object(known, "PROJECT_ROOT", Path(temp)), \
+                patch.object(runner, "run", return_value={"ok": True, "action": "play_public_playlist"}):
+            registry = ToolRegistry()
+            app_tools.register_app_tools(registry)
+            registry.get("app.spotify.play_playlist").execute(
+                {"name": "Loki"}, type("C", (), {"granted_root": Path(temp) / "sandbox"})())
+            self.assertEqual(known.known("spotify", "playlist", Path(temp)), [])
 
 
 if __name__ == "__main__":

@@ -68,6 +68,12 @@ class RecallTests(unittest.TestCase):
         rows = recall.turns(self.base)
         self.assertEqual(len(rows), 1)
         self.assertEqual((rows[0]["origin"], rows[0]["tools"]), ("hotkey", ["apps.launch"]))
+        self.assertNotIn("asks", rows[0])
+        # 20x plan: the scoreboard reads each turn's time and the approvals the owner had to answer
+        recall.log_session({"goal": "move it", "status": "done", "reply": "Moved.", "seconds": 3.456, "asks": 1,
+                            "planners": [{"planner": "gemini"}]}, base=self.base)
+        last = recall.turns(self.base)[-1]
+        self.assertEqual((last["seconds"], last["asks"], last["planners"]), (3.46, 1, ["gemini"]))
 
     def test_what_did_we_talk_about_yesterday(self):
         yesterday = date.today().toordinal() - 1
