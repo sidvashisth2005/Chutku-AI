@@ -809,7 +809,7 @@
      "sleep": 2.5
     },
     {
-     "play_page": true
+     "play_page": "playlist"
     },
     {
      "sleep": 1.5

@@ -72,7 +72,7 @@ class FakeDriver:
         self.calls.append(("click_text", name, kind) + (("double",) if double else ()))
         return name
 
-    def play_page(self, rect):
+    def play_page(self, rect, match=None, first=None):
         self.calls.append(("play_page",))
         return self.page
 
@@ -311,7 +311,7 @@ class ToolTests(unittest.TestCase):
 
 class SearchDriver(SongDriver):
     """Spotify's search page: its green play button starts the top result."""
-    def play_page(self, rect):
+    def play_page(self, rect, match=None, first=None):
         self.playing, self.song = True, "Lofi Beats"
         return super().play_page(rect)
 
@@ -349,18 +349,34 @@ class FallbackTests(unittest.TestCase):
             out = runner.run(atlas, action(atlas, "play_public_playlist"), {"name": "lofi"}, driver)
         self.assertTrue(out["ok"], out)          # Spotify itself went from paused to playing
         driver = TwoPlayers("x", lines=["Your Library"])
-        driver.play_page = lambda rect: {"playing": True}  # the green button did nothing in Spotify
+        driver.play_page = lambda rect, match=None, first=None: {"playing": True}  # the green button did nothing in Spotify
         with patch.object(runner.time, "sleep"):
             out = runner.run(atlas, action(atlas, "play_public_playlist"), {"name": "lofi"}, driver)
         self.assertFalse(out["ok"], out)         # the movie no longer counts as Spotify playing
 
-    def test_no_fallback_once_something_was_clicked(self):
-        atlas, driver = self.spotify(), FakeDriver(lines=["Loki"], playing=False)
+    def test_after_a_click_the_fallback_runs_only_when_nothing_new_played(self):
+        """Live 2026-11-10: 'play Loki playlist' clicked a library row, nothing started, and it gave up."""
+        atlas, driver = self.spotify(), SearchDriver("x", lines=["Loki"])
+        driver.click_text = lambda rect, name, kind, double=False: driver.calls.append(("click_text", name)) or name
         with patch.object(runner.time, "sleep"):
             out = runner.run(atlas, action(atlas, "play_playlist"), {"name": "Loki"}, driver)
-        self.assertFalse(out["ok"])
+        self.assertEqual(out.get("instead_of"), "play_playlist", out)       # nothing new played: search instead
+        self.assertIn(("uri", "spotify:search:Loki playlist"), driver.calls)
+        atlas, driver = self.spotify(), SongDriver("Other Song", lines=["Loki"])   # the click started a song
+        with patch.object(runner.time, "sleep"):
+            out = runner.run(atlas, action(atlas, "play_playlist"), {"name": "Loki"}, driver)
+        self.assertFalse(out["ok"])                                          # wrong page: reported, not searched
         self.assertNotIn("instead_of", out)
         self.assertNotIn(("uri", "spotify:search:Loki playlist"), driver.calls)
+
+    def test_asking_for_what_already_plays_is_done(self):
+        """Live 2026-11-10: 'play lofi playlist' right after lofi started failed on 'media_changed'."""
+        atlas, driver = self.spotify(), SongDriver("Lofi Song", lines=["lofi"], playing_before=True)
+        driver.song = "Lofi Song"
+        with patch.object(runner.time, "sleep"), patch.object(runner, "is_heading", return_value=True):
+            out = runner.run(atlas, action(atlas, "play_playlist"), {"name": "lofi"}, driver)
+        self.assertTrue(out["ok"], out)
+        self.assertTrue(out["already_playing"])
 
     def test_fallback_must_be_a_safe_action_of_the_same_atlas(self):
         for target in ("no_such_action", "play_playlist"):

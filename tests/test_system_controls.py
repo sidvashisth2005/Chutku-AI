@@ -119,7 +119,7 @@ class SystemControlTests(unittest.TestCase):
             twice = {"present": True, "on": False, "devices": [phone, phone | {"connected": True}]}
             with patch.object(system_controls, "_powershell", return_value=twice):
                 out = runtime.run("system.bluetooth_status", {})
-            self.assertEqual(out["output"], {"on": False, "devices": [{"name": phone["name"], "connected": True}]})
+            self.assertEqual(out["output"], {"on": False, "devices": [{"name": phone["name"]}]})   # paired, once
             pending = runtime.run("system.bluetooth_set", {"on": True})
             self.assertEqual(pending["state"], "WAITING_CONFIRMATION")
             with patch.object(system_controls, "_powershell", return_value={"present": True, "on": True, "devices": []}):

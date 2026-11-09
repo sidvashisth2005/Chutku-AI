@@ -83,7 +83,7 @@ class QuickIntentTests(unittest.TestCase):
                            "chain_ok": True},
             "routine.list": {"routines": {"work": ["open spotify"]}},
             "media.status": {"title": "Song", "artist": "Band"},
-            "system.bluetooth_status": {"on": True, "devices": [{"name": "Rockerz 110", "connected": True}]},
+            "system.bluetooth_status": {"on": True, "devices": [{"name": "Rockerz 110"}]},
             "system.bluetooth_set": {"on": False, "devices": []},
             "audio.outputs": {"devices": [{"name": "Speakers", "default": True}, {"name": "Headphones", "default": False}]},
             "image.describe": {"description": "A cat sitting on a sofa next to a window."},

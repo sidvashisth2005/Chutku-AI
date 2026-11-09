@@ -43,7 +43,7 @@ class ActTests(unittest.TestCase):
         statuses = list(statuses or [{"status": "Paused", "title": "Old"}])
         reads = list(ocr) if ocr else None
 
-        def media(action):
+        def media(action, match=None):
             if action == "pause":
                 (paused if paused is not None else []).append(True)
                 return {"accepted": True}
@@ -202,6 +202,59 @@ class PhraseAndGuardTests(unittest.TestCase):
         self.assertEqual(snap["steps"], [])                      # the search never ran
         self.assertEqual(snap["status"], "failed")
         self.assertIn("Do not search", planner.inputs[1])
+
+
+class SpotifyLiveFixesTests(unittest.TestCase):
+    """Live 2026-11-10: OCR read 'LowKey' as 'I-owKey'; finding the green play button took a 70 s vision call; a
+    search page has no green button until a result is opened; a long title wraps onto two lines."""
+
+    def test_ocr_misread_name_is_the_one_clearly_closest_line(self):
+        lines = [{"text": t, "rect": (0, i * 40, 100, i * 40 + 20)} for i, t in
+                 enumerate(["After Party", "I-owKey", "Sojao", "Prabhakar Raj"])]
+        self.assertEqual(visible.matches(lines, "Lowkey"), ("close", [lines[1]]))
+        self.assertEqual(visible.matches(lines, "chill vibes"), (None, []))            # nothing close: no guess
+        twins = [{"text": "Lowkee", "rect": (0, 0, 1, 1)}, {"text": "Lowkea", "rect": (0, 9, 1, 10)}]
+        self.assertEqual(visible.matches(twins, "Lowkey"), (None, []))                 # a tie: no guess
+
+    def test_green_play_button_is_found_by_colour_above_the_player_bar(self):
+        import numpy as np
+        from chutku import vision
+        pixels = np.zeros((500, 800, 3), np.uint8)
+        pixels[100:150, 200:250] = (30, 215, 96)          # the page's green play button (#1ED760)
+        pixels[460:490, 380:410] = (30, 215, 96)          # a green thing inside the player bar: never used
+        pixels[300:302, 100:400] = (30, 215, 96)          # a thin green line (text, a progress bar): not a button
+        shot = vision.Shot(pixels, 0, 0, 800, 500)
+        box = visible.green_play_button(shot, (0, 0, 800, 500))
+        self.assertTrue(198 <= box[0] <= 202 and 98 <= box[1] <= 102 and 246 <= box[2] <= 250, box)
+        self.assertIsNone(visible.green_play_button(vision.Shot(np.zeros((500, 800, 3), np.uint8), 0, 0, 800, 500),
+                                                    (0, 0, 800, 500)))
+
+    def test_first_search_result_row_and_its_kind(self):
+        from chutku.apps.runner import first_result
+        rect = (-9, -9, 1929, 1029)
+        lines = [{"text": "Lofi Songs (Sukoon Vibes)", "rect": (488, 661, 720, 680)},
+                 {"text": "Playlist", "rect": (1202, 677, 1252, 691)},
+                 {"text": "Zaroor", "rect": (487, 822, 548, 836)}, {"text": "Song", "rect": (1202, 837, 1237, 851)},
+                 {"text": "Playlist • Siddhant Vashisth", "rect": (105, 475, 315, 491)}]   # the library, not results
+        self.assertEqual(first_result(lines, rect), ((488, 661, 720, 680), "playlist"))
+        self.assertEqual(first_result(lines[2:], rect), ((487, 822, 548, 836), "song"))
+        self.assertIsNone(first_result(lines[4:], rect))
+
+    def test_a_long_title_cut_on_the_page_still_counts_as_on_the_page(self):
+        statuses = [{"status": "Paused", "title": "Old"},
+                    {"status": "Playing", "title": 'Kesariya (From "Brahmastra") - Tu Fuljhadiyo Wale Tyohaaro Jesi'}]
+        page = [{"text": 'Kesariya (From "Brahmastra") - Tu Fuljhadiyo', "rect": (540, 190, 1120, 220)}]
+        paused = []
+
+        def media(action, match=None):
+            if action == "pause":
+                paused.append(match)
+                return {}
+            return statuses.pop(0) if len(statuses) > 1 else statuses[0]
+        with patch("chutku.tools.everyday.media", side_effect=media), patch("chutku.vision.click_at"),                 patch("chutku.vision.capture", return_value=None), patch("time.sleep"),                 patch.object(visible, "green_play_button", return_value=(1444, 198, 1504, 258)):
+            out = visible._press_play(None, (-9, -9, 1929, 1029), page, ["spotify"])
+        self.assertTrue(out["playing"], out)
+        self.assertEqual(paused, [])
 
 
 if __name__ == "__main__":

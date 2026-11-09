@@ -89,8 +89,13 @@ def run_lab(base, runtime, atlas, *, only=None, runs=VERIFY_AFTER, include_chang
     state["app"] = app
     if media is None:
         from chutku.tools.everyday import media
+    from chutku.tools.everyday import MEDIA_APPS
+    match = MEDIA_APPS.get(app)   # this app's own player: a movie in the browser is never read or paused
+
+    def status():
+        return media("status", match) if match else media("status")
     try:
-        was = media("status") or {}
+        was = status() or {}
     except OSError:
         was = {}
     report = {"app": app, "tried": [], "skipped": {}, "failed": {}, "seconds": []}
@@ -141,8 +146,8 @@ def run_lab(base, runtime, atlas, *, only=None, runs=VERIFY_AFTER, include_chang
             time.sleep(pause)
     if was.get("status") in {"Paused", "Stopped"}:
         try:
-            if (media("status") or {}).get("status") == "Playing":
-                media("pause")
+            if (status() or {}).get("status") == "Playing":
+                media("pause", match) if match else media("pause")
         except OSError:
             pass
     path = lab_path(base, app)

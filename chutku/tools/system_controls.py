@@ -273,8 +273,7 @@ def _bluetooth(request):
     for device in value.get("devices") or []:   # a phone is listed once per Bluetooth profile
         if isinstance(device, dict) and device.get("name") and device["name"] not in seen:
             seen.add(device["name"])
-            devices.append({"name": device["name"], "connected": any(d.get("connected") for d in value["devices"]
-                                                                     if isinstance(d, dict) and d.get("name") == device["name"])})
+            devices.append({"name": device["name"]})   # paired; Windows does not say here whether it is connected
     value["devices"] = devices[:30]
     return value, None
 
@@ -305,8 +304,7 @@ def _bluetooth_set(arguments, _context):
 
 
 def register_system_control_tools(registry):
-    registry.register(Tool("system.bluetooth_status", "Is Bluetooth on, and which Bluetooth devices are paired or "
-        "connected.", Risk.OBSERVATION, _bluetooth_status, _validate_none, required_capability="settings.observe",
+    registry.register(Tool("system.bluetooth_status", "Is Bluetooth on, and which Bluetooth devices are paired.", Risk.OBSERVATION, _bluetooth_status, _validate_none, required_capability="settings.observe",
         argument_schema=EMPTY_ARGUMENT_SCHEMA, prerequisites=("Windows Bluetooth radio",),
         reversibility="not_applicable", success_predicate="bluetooth_radio_state_observed"))
     registry.register(Tool("system.bluetooth_set", "Turn Bluetooth on or off, then read the state back.",

@@ -437,6 +437,25 @@ def _browser_key(app_name):
     return next((key for key in ("brave", "chrome", "edge", "firefox") if key in name), None)
 
 
+SINGLE_INSTANCE = {"spotify", "whatsapp", "telegram", "discord", "steam", "zoom", "slack", "teams", "signal"}
+
+
+def _first_word(name):
+    return (re.findall(r"[a-z0-9]+", name.casefold()) or [""])[0]
+
+
+def open_app_window(desktop, name):
+    """A visible, titled window of the named app (its program file starts with the app's first word), or None."""
+    word = _first_word(name)
+    if len(word) < 3:
+        return None
+    for hwnd in desktop.windows():
+        info = desktop.describe(hwnd)
+        if info.get("title") and Path(info.get("executable") or "").stem.casefold().startswith(word):
+            return info
+    return None
+
+
 def existing_browser_window(desktop, key):
     """An open window of that browser (the owner's, not a new one), preferring one that is not minimized."""
     exe = BROWSERS[key][0]
@@ -472,11 +491,23 @@ def _launch(arguments, _context):
             WindowsDesktop().focus(window["window_id"])
             return _launched({"app": app["name"], "app_id": app["app_id"], "found_via": found_via,
                               "reused_open_window": True}, window, "already_open_focused")
+    running = open_app_window(desktop, app["name"])
+    if running is not None and _first_word(app["name"]) in SINGLE_INSTANCE:
+        # Spotify, WhatsApp, Telegram...: one window only. Starting it again shows no new window and Windows keeps
+        # it behind, so "Open sport" waited 15 s and failed (live 2026-11-10): bring the open one to the front.
+        from chutku.tools.windows_apps import WindowsDesktop
+        WindowsDesktop().focus(running["window_id"])
+        return _launched({"app": app["name"], "app_id": app["app_id"], "found_via": found_via,
+                          "reused_open_window": True}, running, "already_open_focused")
     before, foreground = set(desktop.windows()), desktop.foreground()
     explorer = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "explorer.exe"
     subprocess.Popen([str(explorer), "shell:AppsFolder\\" + app["app_id"]], shell=False,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     info, how = _await_new_window(desktop, before, foreground)
+    if info is None and running is not None:   # it was already open: that window is the app the owner asked for
+        from chutku.tools.windows_apps import WindowsDesktop
+        WindowsDesktop().focus(running["window_id"])
+        info, how = running, "already_open_focused"
     if info is None:
         return ToolResult({"app": app["name"], "error": "Launch was requested but no new or foreground window "
                            f"appeared within {LAUNCH_WAIT_SECONDS} seconds."}, Verification.FAIL)

@@ -1841,9 +1841,10 @@ def _say_environment(out):
 
 
 def _say_bluetooth(out):
-    names = [d["name"] for d in out.get("devices") or [] if d.get("connected")]
+    # Windows lists paired devices as present whenever the radio is on: that is not "connected" (live 2026-11-10)
+    names = [d["name"] for d in out.get("devices") or []]
     state = "Bluetooth is on" if out.get("on") else "Bluetooth is off"
-    return state + (f"; connected: {', '.join(names[:5])}." if names else ".")
+    return state + (f"; paired: {', '.join(names[:5])}." if names else ".")
 
 
 def _say_volume(out):

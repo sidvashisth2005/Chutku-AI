@@ -129,9 +129,30 @@ class Driver:
         time.sleep(1.2)
         return found[0]["text"]
 
-    def play_page(self, rect):
-        from chutku.tools.visible import _press_play
-        return _press_play(None, rect, self.ocr(rect))
+    def play_page(self, rect, match=None, first=None):
+        from chutku import vision
+        from chutku.tools.visible import _press_play, green_play_button
+        lines = self.ocr(rect)
+        wanted = first_result(lines, rect, kinds={"playlist", "album"}) if first == "playlist" else None
+        if wanted is not None:
+            # A playlist search: open the first playlist result, so its own tracks are on the page and what starts
+            # can be checked (the Top result card's button played songs that were not shown, live 2026-11-10).
+            (x0, y0, x1, y1), _kind = wanted
+            vision.click_at((x0 + x1) // 2, (y0 + y1) // 2)
+            time.sleep(1.5)
+            lines = self.ocr(rect)
+        elif green_play_button(vision.capture(), rect) is None:
+            # A search page shows no green button until a result is opened (live 2026-11-10): open the first
+            # playlist/album result (its page has the button), or double-click the first song (that plays it).
+            first = first_result(lines, rect)
+            if first is not None:
+                (x0, y0, x1, y1), kind = first
+                vision.click_at((x0 + x1) // 2, (y0 + y1) // 2, double=kind == "song")
+                time.sleep(1.5)
+                if kind == "song":
+                    return {"play_button": "song row (double-click)", "playing": True, "opened": "song"}
+                lines = self.ocr(rect)
+        return _press_play(None, rect, lines, match)
 
     def media(self, action, match=None):
         from chutku.tools.everyday import media
@@ -142,6 +163,37 @@ class Driver:
         desktop = Desktop()
         return any(os.path.basename(desktop.describe(h).get("executable") or "").casefold() == exe.casefold()
                    for h in desktop.windows())
+
+
+def _seen(lines, text):
+    """``text`` is on screen: in a line, or as the one line OCR misread ("I-owKey" for "LowKey")."""
+    from chutku.tools.visible import matches
+    return any(text in l["text"].casefold() for l in lines) or bool(matches(lines, text)[1])
+
+
+_RESULT_KIND = re.compile(r"^(playlist|album|song|single|ep)\b", re.I)
+
+
+def first_result(lines, rect, kinds=None):
+    """((title rect), kind) of the topmost search-result row in the page whose type label reads Playlist, Album or Song
+    (Spotify prints the type in its own column on the same row); None when there is none."""
+    left, top, right, bottom = rect
+    page_left, page_right = left + (right - left) * 0.18, left + (right - left) * 0.82
+    rows = []
+    for label in lines:
+        kind = _RESULT_KIND.match(label["text"].strip())
+        x0, y0, x1, y1 = label["rect"]
+        if not kind or not page_left <= x0 <= page_right or y1 > bottom - (bottom - top) * 0.15:
+            continue
+        titles = [l for l in lines if l is not label and l["rect"][2] < x0 and l["rect"][0] >= page_left
+                  and abs((l["rect"][1] + l["rect"][3]) / 2 - (y0 + y1) / 2) <= 20 and len(l["text"].strip()) >= 2]
+        if titles:
+            title = min(titles, key=lambda l: l["rect"][0])
+            kind = kind.group(1).casefold()
+            kind = "album" if kind in {"single", "ep"} else kind
+            if kinds is None or kind in kinds:
+                rows.append((title["rect"], kind))
+    return min(rows, key=lambda row: row[0][1]) if rows else None
 
 
 def run(atlas, action, params, driver=None):
@@ -212,22 +264,24 @@ def run(atlas, action, params, driver=None):
                 time.sleep(float(step.get("wait", 0.3)))
             elif verb == "click_text":
                 hwnd = hwnd or driver.find_window(window)
+                out["not_found"] = True            # until the click happened ("'Lowkey' (playlist) is not visible")
                 out["clicked"] = driver.click_text(_area(driver.window_rect(hwnd), step.get("area")),
                                                    fill(step["click_text"], params), step.get("kind"),
                                                    **({"double": True} if step.get("double") else {}))
+                out.pop("not_found", None)
             elif verb == "wait_text":
                 hwnd = hwnd or driver.find_window(window)
                 text = fill(step["wait_text"], params).casefold()
                 deadline = time.monotonic() + float(step.get("timeout", 6))
-                while not any(text in l["text"].casefold()
-                              for l in driver.ocr(_area(driver.window_rect(hwnd), step.get("area")))):
+                while not _seen(driver.ocr(_area(driver.window_rect(hwnd), step.get("area"))), text):
                     if time.monotonic() > deadline:
                         out["not_found"] = True
                         raise StepFailed(f"'{fill(step['wait_text'], params)}' did not appear; nothing clicked.")
                     time.sleep(0.5)
             elif verb == "play_page":
                 hwnd = hwnd or driver.find_window(window)
-                played = driver.play_page(driver.window_rect(hwnd))
+                first = {"first": step["play_page"]} if isinstance(step["play_page"], str) else {}
+                played = driver.play_page(driver.window_rect(hwnd), match, **first)
                 out["play"] = played
                 if played.get("error"):
                     raise StepFailed(played["error"])
@@ -237,6 +291,14 @@ def run(atlas, action, params, driver=None):
                 driver.media(step["media"], match)
             out["steps"].append(verb)
         out["check"] = _check(action.get("check") or {}, params, driver, window, hwnd, before, out, match)
+        checks = out["check"]
+        already = checks.get("heading") or (out.get("play") or {}).get("already_playing")
+        if checks.get("media_changed") is False and already and checks.get("media_playing", True) \
+                and before.get("status") == "Playing":
+            # Asked for what was already playing (live 2026-11-10: "play lofi playlist" right after lofi started):
+            # the right page is open and playing, so nothing had to change.
+            checks["media_changed"] = True
+            out["already_playing"] = True
         out["ok"] = all(out["check"].values())
         if not out["ok"]:
             failed = [name for name, ok in out["check"].items() if not ok]
@@ -244,7 +306,8 @@ def run(atlas, action, params, driver=None):
     except (StepFailed, OSError, ValueError, KeyError) as error:
         out["ok"], out["error"] = False, str(error)
     other = next((a for a in atlas.get("actions", []) if a["id"] == action.get("fallback")), None)
-    if not out["ok"] and out.get("not_found") and other:
+    nothing_new = (out.get("check") or {}).get("media_changed") is False and not out.get("paused_wrong")
+    if not out["ok"] and (out.get("not_found") or nothing_new) and other:
         # Owner's convos: "play Loki/lofi/Afterparty Hits playlist" failed when the exact name was not in the
         # library. Nothing was clicked, so the other way (Spotify's own search, which fixes misheard names) runs.
         second = run(atlas, other, params, driver)

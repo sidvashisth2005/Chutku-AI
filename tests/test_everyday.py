@@ -115,6 +115,25 @@ class EverydayRuntimeTests(unittest.TestCase):
             result = self.runtime.run("apps.launch", {"name": "Spotify"})
         self.assertEqual(str(result["state"]), "FAILED")
 
+    def test_an_open_single_window_app_is_brought_forward_not_started_again(self):
+        """Live 2026-11-10: 'Open sport.' with Spotify already open waited 15 s for a new window and failed."""
+        spotify = {"window_id": 9, "title": "Spotify Premium", "executable": r"C:\x\Spotify.exe", "process_id": 3}
+
+        class Fake:
+            def windows(self):
+                return [9]
+
+            def describe(self, hwnd):
+                return spotify
+        with patch.object(everyday, "start_apps", return_value=APPS), patch("subprocess.Popen") as popen, \
+                patch.object(everyday, "Desktop", return_value=Fake()), \
+                patch("chutku.tools.windows_apps.WindowsDesktop") as focus:
+            result = everyday._launch({"name": "sport"}, None)
+        popen.assert_not_called()
+        focus.return_value.focus.assert_called_once_with(9)
+        self.assertTrue(result.output["reused_open_window"])
+        self.assertEqual(everyday.open_app_window(Fake(), "Visual Studio Code"), None)   # "visual" is not Spotify
+
     def test_tainted_network_egress_requires_confirmation(self):
         tool = self.runtime.registry.get("web.open")
         self.assertTrue(tool.network_egress)

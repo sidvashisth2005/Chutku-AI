@@ -95,6 +95,8 @@ def validate(atlas: dict) -> dict:
                 raise AtlasError(f"{where}: area is [left, top, right, bottom] as fractions of the window")
             if verb == "sleep" and not (isinstance(step["sleep"], (int, float)) and 0 < step["sleep"] <= 5):
                 raise AtlasError(f"{where}: sleep is 0-5 seconds")
+            if verb == "play_page" and step["play_page"] not in (True, "playlist"):
+                raise AtlasError(f"{where}: play_page is true or 'playlist' (open the first playlist result first)")
             if verb == "media" and step["media"] not in {"play", "pause", "play_pause", "next", "previous"}:
                 raise AtlasError(f"{where}: media is play/pause/play_pause/next/previous")
         used = _slots(steps) | _slots(action.get("check") or {})

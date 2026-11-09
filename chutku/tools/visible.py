@@ -49,7 +49,15 @@ def matches(lines, name):
         return "same letters", tight
     phrase = re.compile(rf"(?:^|\s){re.escape(want)}(?:\s|$)")
     contains = [l for l in lines if phrase.search(norm(l["text"]))]
-    return ("contains", contains) if contains else (None, [])
+    if contains:
+        return "contains", contains
+    # OCR misreads (live 2026-11-10: "LowKey" read as "I-owKey", "lofi" as "Iofi"): the one clearly closest line
+    import difflib
+    scored = sorted(((difflib.SequenceMatcher(None, want_tight, norm(l["text"], spaces=False)).ratio(), i)
+                     for i, l in enumerate(lines) if len(want_tight) >= 4), reverse=True)
+    if scored and scored[0][0] >= 0.8 and (len(scored) == 1 or scored[1][0] < scored[0][0] - 0.08):
+        return "close", [lines[scored[0][1]]]
+    return None, []
 
 
 KINDS = KINDS_SCHEMA
@@ -116,24 +124,78 @@ def _ocr(rect):
                                          l["rect"][3] + top)} for l in lines]
 
 
-def _press_play(context, window_rect, page_lines):
+def green_play_button(shot, window_rect):
+    """Spotify's own big green play button (#1ED760) above the player bar, found by its colour in ~50 ms (the vision
+    model took 70 s for this, live 2026-11-10). The topmost round green disc of button size, as a screen rect."""
+    import numpy as np
+    if getattr(shot, "pixels", None) is None:
+        return None
+    left, top, right, bottom = window_rect
+    bar = int(bottom - (bottom - top) * 0.15)
+    x0, y0 = max(0, left - shot.left), max(0, top - shot.top)
+    x1, y1 = min(shot.width, right - shot.left), min(shot.height, bar - shot.top)
+    if x1 - x0 < 40 or y1 - y0 < 40:
+        return None
+    px = shot.pixels[y0:y1:2, x0:x1:2, :3].astype(np.int16)   # every 2nd pixel: plenty for a 40+ px disc
+    green = (px[..., 1] > 160) & (px[..., 0] < 110) & (px[..., 2] < 150) & (px[..., 1] - px[..., 0] > 90)
+    ys, xs = np.nonzero(green)
+    if not len(ys):
+        return None
+    seen, blobs = set(), []
+    points = set(zip(ys.tolist(), xs.tolist()))
+    for start in sorted(points):
+        if start in seen:
+            continue
+        stack, blob = [start], []
+        seen.add(start)
+        while stack:
+            y, x = stack.pop()
+            blob.append((y, x))
+            for nxt in ((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)):
+                if nxt in points and nxt not in seen:
+                    seen.add(nxt)
+                    stack.append(nxt)
+        by, bx = [p[0] for p in blob], [p[1] for p in blob]
+        h, w = max(by) - min(by) + 1, max(bx) - min(bx) + 1
+        if 12 <= w <= 50 and 12 <= h <= 50 and 0.75 <= w / h <= 1.33 and len(blob) >= 0.5 * w * h:
+            blobs.append((min(by), min(bx), max(by), max(bx)))
+    if not blobs:
+        return None
+    t, l, b, r = min(blobs)
+    return (shot.left + x0 + 2 * l, shot.top + y0 + 2 * t, shot.left + x0 + 2 * r, shot.top + y0 + 2 * b)
+
+
+def _press_play(context, window_rect, page_lines, match=None):
     """On the page that opened, click its own play button (never the player bar at the bottom, which only resumes
-    the current song), then check that what plays is one of the tracks shown on that page; otherwise pause again."""
+    the current song), then check that what plays is one of the tracks shown on that page; otherwise pause again.
+    ``match`` names the app's own media session (Spotify), so a movie in the browser is never read or paused."""
     from chutku import vision
     from chutku.tools.everyday import media
     try:
-        before = media("status")
+        before = media("status", match)
     except OSError:
         before = {}
+    shown_before = {norm(l["text"]) for l in page_lines}
+    playing_title = norm(before.get("title") or "")
+    if before.get("status") == "Playing" and playing_title and any(
+            seen == playing_title or (len(seen) >= 20 and playing_title.startswith(seen)) for seen in shown_before):
+        # Already playing one of this page's tracks: its green button is now a pause button (the lab's 2nd run
+        # paused Kesariya, 2026-11-10). Nothing to press.
+        return {"play_button": None, "playing": True, "already_playing": True, "now_playing": before.get("title"),
+                "artist": before.get("artist")}
     shot = vision.capture()
-    seen = vision.see(shot, "Where is the big green Play button of the playlist or album that is open (next to its "
-                            "title, not the player bar at the bottom)?", None)
-    vision.remember_seen(shot, seen["elements"])
     left, top, right, bottom = window_rect
     bar = bottom - (bottom - top) * 0.15        # the player bar: its play button only resumes the current song
-    buttons = [e for e in seen["elements"] if re.search(r"\bplay\b", e["label"], re.I)
-               and not re.search(r"\b(?:player|replay|playing|pause)\b", e["label"], re.I)
-               and (e["rect"][1] + e["rect"][3]) / 2 < bar]
+    green = green_play_button(shot, window_rect)
+    if green:
+        buttons = [{"label": "Play (green)", "rect": green}]
+    else:
+        seen = vision.see(shot, "Where is the big green Play button of the playlist or album that is open (next to "
+                                "its title, not the player bar at the bottom)?", None)
+        vision.remember_seen(shot, seen["elements"])
+        buttons = [e for e in seen["elements"] if re.search(r"\bplay\b", e["label"], re.I)
+                   and not re.search(r"\b(?:player|replay|playing|pause)\b", e["label"], re.I)
+                   and (e["rect"][1] + e["rect"][3]) / 2 < bar]
     if not buttons:
         return {"play_button": None, "playing": False,
                 "error": "Opened it, but I could not find its own play button; press play yourself."}
@@ -144,7 +206,7 @@ def _press_play(context, window_rect, page_lines):
     while time.monotonic() < deadline:
         time.sleep(0.5)
         try:
-            after = media("status")
+            after = media("status", match)
         except OSError:
             continue
         if after.get("status") == "Playing" and (before.get("status") != "Playing"
@@ -152,11 +214,24 @@ def _press_play(context, window_rect, page_lines):
             break
     playing = after.get("status") == "Playing" and (before.get("status") != "Playing"
                                                     or after.get("title") != before.get("title"))
+    if playing:
+        # Windows' media session shows the old title for a moment after play (live 2026-11-10: a stale
+        # "Hymn for the Weekend" while Kesariya played): read it again before judging what plays.
+        time.sleep(1.2)
+        try:
+            after = media("status", match) or after
+        except OSError:
+            pass
     shown = {norm(l["text"]) for l in page_lines}
-    if playing and page_lines and norm(after.get("title") or "") not in shown:
+    title = norm(after.get("title") or "")
+    # Long titles wrap onto two lines on the page ('Kesariya (From "Brahmastra") - Tu Fuljhadiyo ...', live
+    # 2026-11-10): a long page line (20+ letters) that starts the title counts. A short one never does: a song
+    # "After Party (Don Toliver)" is not the "After Party" playlist's own track.
+    on_page = any(seen == title or (len(seen) >= 20 and title.startswith(seen)) for seen in shown)
+    if playing and page_lines and not on_page:
         # Something started that is not on the page that opened: it is not what the owner asked for.
         try:
-            media("pause")
+            media("pause", match)
         except OSError:
             pass
         return {"play_button": buttons[0]["label"], "playing": False, "now_playing": after.get("title"),
@@ -217,7 +292,8 @@ def _act(arguments, context):
               "at": [(x0 + x1) // 2, (y0 + y1) // 2], "screen_changed": vision.changed(before, after)}
     if action == "play":
         page = _ocr(rect)   # the page that opened: what plays must be one of its tracks
-        output.update(_press_play(context, rect, page))
+        from chutku.tools.everyday import MEDIA_APPS   # that app's own player, never the browser's movie
+        output.update(_press_play(context, rect, page, MEDIA_APPS.get((app or "").casefold())))
         return ToolResult(output, Verification.PASS if output.get("playing") else Verification.FAIL)
     return ToolResult(output, Verification.PASS if output["screen_changed"] else Verification.UNKNOWN)
 
