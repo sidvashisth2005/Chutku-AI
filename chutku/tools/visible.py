@@ -86,6 +86,46 @@ def typed(lines, name, kind):
     return tier if found else None, found
 
 
+# "just below After Party", "After Party ke neeche", "right under X", "above X", "X ke upar" (plan slice F1, live
+# 2026-11-09: "play the playlist just below After Party on the screen in Spotify" was cancelled).
+_BELOW_FIRST = re.compile(r"^(?:just\s+|right\s+)?(?P<rel>below|under(?:neath)?|above|over)\s+(?P<anchor>.+)$", re.I)
+_BELOW_LAST = re.compile(r"^(?P<anchor>.+?)\s+(?:ke\s+|ki\s+|k\s+)?(?P<rel>neeche|niche|nichey|upar|oopar|uppar)$", re.I)
+_DOWN = {"below", "under", "underneath", "neeche", "niche", "nichey"}
+
+
+def relation(name):
+    """(anchor, +1 below / -1 above) for a relative name, else None."""
+    found = _BELOW_FIRST.match(name.strip()) or _BELOW_LAST.match(name.strip())
+    if not found:
+        return None
+    return found.group("anchor").strip(" ,.'\""), 1 if found.group("rel").casefold() in _DOWN else -1
+
+
+def _label(line):
+    return "•" in line["text"] or bool(re.match(rf"^(?:{'|'.join(KINDS)})s?\b", line["text"].strip(), re.I))
+
+
+def pick(lines, name, kind=None):
+    """typed(), plus a neighbour named by its place: the nearest item below/above the one anchor in the same
+    column, skipping type labels; the asked kind wins when the list shows types. A real name that only looks
+    relative ("Below The Surface") is matched as a name when no such anchor is on the screen."""
+    rel = relation(name)
+    if rel is None:
+        return typed(lines, name, kind)
+    anchor_name, step = rel
+    _tier, anchors = matches(lines, anchor_name)
+    if len(anchors) != 1:
+        return typed(lines, name, kind) if not anchors else (None, [])   # several anchors: which one is unclear
+    ax0, ay0, _ax1, ay1 = anchors[0]["rect"]
+    column = [l for l in lines if l is not anchors[0] and abs(l["rect"][0] - ax0) <= 60 and not _label(l)
+              and ((l["rect"][1] >= ay1) if step > 0 else (l["rect"][3] <= ay0))]
+    column.sort(key=lambda l: l["rect"][1] * step)
+    if kind and any(kind_of(l, lines) for l in column):
+        column = [l for l in column if kind_of(l, lines) == kind]
+    word = "below" if step > 0 else "above"
+    return (f"{word} {anchors[0]['text']}", column[:1]) if column else (None, [])
+
+
 def _window_for(app):
     """(focuser, hwnd) of the first visible window whose program or title is the named app, else (None, None)."""
     from chutku.tools.everyday import Desktop
@@ -257,8 +297,8 @@ def _act(arguments, context):
     from chutku import vision
     kind = arguments.get("kind")
     lines = _ocr(rect)
-    tier, found = typed(lines, name, kind)
-    if not found and kind:
+    tier, found = pick(lines, name, kind)
+    if not found and kind and relation(name) is None:
         # Search results mix songs, playlists and albums with the same title: open the filter for the asked type.
         chip = [l for l in lines if norm(l["text"]) in {kind + "s", kind}]
         if chip:
@@ -266,7 +306,7 @@ def _act(arguments, context):
             vision.click_at((cx0 + cx1) // 2, (cy0 + cy1) // 2)
             time.sleep(1.5)
             lines = _ocr(rect)
-            tier, found = typed(lines, name, kind)
+            tier, found = pick(lines, name, kind)
     if not found:
         same_name = [l for l in lines if norm(l["text"]) == norm(name)]
         others = sorted({kind_of(l, lines) or "unlabelled" for l in same_name})

@@ -821,7 +821,7 @@ _VISIBLE = [
                rf"(?:uss?|usko|use|isko|ise)\s+(?:par\s+|pe\s+|pr\s+)?{_ACT}(?:\s+(?:kar|karo|kar do|kardo|de|do))?{_TAIL}",
                re.I),
     re.compile(rf"^{_POLITE}(?P<act>play|open|click(?: on)?)\s+(?:the\s+)?(?P<name>.+?)\s+(?:that(?:'s| is)\s+|which is\s+)?"
-               rf"(?:on|from)\s+(?:the\s+|my\s+)?(?:screen|display){_TAIL}", re.I),
+               rf"(?:on|from)\s+(?:the\s+|my\s+)?(?:screen|display)(?:\s+(?:in|on)\s+spotify)?{_TAIL}", re.I),
 ]
 _NAME_FILLER = re.compile(r"\b(?:wali|wala|wale|waali|ki|ka|ke|the|playlist|song|gaana|gana|video|album|jo|hi|vo|wo|"
                           r"dekh|dekho|dekhiye|already|meri|mera|mere)\b", re.I)
@@ -835,6 +835,9 @@ def _spotify_playlist(shown):
         return None
     if "spotify" not in {shown.get("app"), shown.get("app_if_open")}:
         return None
+    from chutku.tools.visible import relation
+    if relation(shown["name"]):
+        return None   # "just below After Party" names a place on the screen, not a playlist (slice F1)
     try:
         from chutku.app import PROJECT_ROOT
         from chutku.apps.lab import verified
@@ -1117,7 +1120,9 @@ def _single(goal, apps=None):
         from chutku.apps.lab import verified_actions
         from chutku.core.paths import home as _home
         proven = "play_playlist" in verified_actions(_home()).get("spotify", ())
-        if proven and asked and 2 <= len(name) <= 60 and not re.match(r"(?:what|which|how|kya|kaun)\b", name, re.I):
+        from chutku.tools.visible import relation
+        if proven and asked and 2 <= len(name) <= 60 and not re.match(r"(?:what|which|how|kya|kaun)\b", name, re.I) \
+                and not relation(name):   # "just below After Party" is a place on the screen (slice F1)
             return _proposal("app.spotify.play_playlist", {"name": name}, f"Play the {name} playlist",
                              f"{name} playlist chala di.")
     from chutku.apps import known

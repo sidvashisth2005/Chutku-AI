@@ -20,6 +20,24 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (36): "The playlist just below After Party" (master plan slice F1)
+- **Real failure** (2026-11-09): "play the playlist just below After Party on the screen in Spotify" went to the
+  planner and was cancelled; the screen tool had no idea of below/above, and the router missed "on the screen in
+  Spotify".
+- **Fix:** `tools/visible.pick(lines, name, kind)` (used by `screen.act_on_visible` instead of `typed`):
+  "just below X", "right under X", "X ke neeche/niche", "above X", "X ke upar" pick the nearest item in the anchor's
+  column (x within 60 px), skipping type labels ("Playlist • ..."); when the list shows types, the asked kind wins
+  (the next *playlist*, not the song between). Several anchors, no anchor, or nothing in that direction pick nothing
+  (the tool's own "not visible; I clicked nothing" reply). A name that only looks relative is still matched as a name.
+  The router's "on the screen" pattern accepts "... in Spotify"; both Spotify playlist routes leave a relative name
+  to the screen tool (it is a place, never a playlist title).
+- **Verification:** `tests/test_visible.py` +4 on the real OCR lines from the owner's Spotify (2026-10-08) and a
+  labelled list: below/above in 9 phrasings, labels skipped, kind wins, other column ignored, 3 anchors -> nothing,
+  the owner's sentence routes to `screen.act_on_visible {name: "just below After Party", kind: playlist, app:
+  spotify, action: play}`; "play After Party playlist from the screen in spotify" still uses the verified playlist
+  action. Full suite 1,823: 1 failure, the known docs count. Router snapshot: no other change. Phrases 193/193.
+- **Not yet live:** needs Spotify open on the owner's screen and music playing; run when the owner says so.
+
 ### 2026-11-10 (35): Verified work is never reported as failed (master plan slice E, first part)
 - **Found live** (real request path, spare port, temporary data folder with what setup grants a new user):
   "aaj ka weather, news aur meri reminders batao" ran all 4 steps (time, weather, reminders, news: all COMPLETED),

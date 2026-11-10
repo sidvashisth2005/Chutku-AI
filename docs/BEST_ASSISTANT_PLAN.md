@@ -580,7 +580,7 @@ message is read, read the first line aloud, then "poora padhun?" is NOT asked, i
 - [x] E0 verified work never reported as failed: local reply builders, worded_by_code, reminder list - (35)
 - [ ] E1 task card + finish checker
 - [ ] E live
-- [ ] F1 selectors
+- [x] F1 selectors (visible.pick below/above, router) - (36); live check waits for Spotify on screen
 - [ ] F2 vision spike
 - [ ] F3 locks
 - [ ] F4 gate

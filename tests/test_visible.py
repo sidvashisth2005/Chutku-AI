@@ -33,6 +33,44 @@ class MatchTests(unittest.TestCase):
         self.assertEqual(visible.matches(LINES, "chill vibes"), (None, []))
 
 
+class RelativeTests(unittest.TestCase):
+    """Plan slice F1 (live 2026-11-09): "play the playlist just below After Party on the screen in Spotify"."""
+    def picked(self, name, kind=None, lines=LINES):
+        tier, found = visible.pick(lines, name, kind)
+        return tier, [l["text"] for l in found]
+
+    def test_below_and_above_pick_the_neighbour_in_the_same_list(self):
+        for name in ("just below After Party", "below after party", "After Party ke neeche", "after party neeche",
+                     "right under After Party", "after party ke niche"):
+            self.assertEqual(self.picked(name, "playlist"), ("below After Party", ["AFTERPARTY"]), name)
+        for name in ("just above After Party", "After Party ke upar", "above after party"):
+            self.assertEqual(self.picked(name), ("above After Party", ["Afterparty"]), name)
+
+    def test_type_labels_are_skipped_and_the_asked_type_wins(self):
+        labelled = [{"text": t, "rect": r} for t, r in (
+            ("After Party", (100, 100, 220, 120)), ("Playlist • Siddhant", (100, 126, 260, 140)),
+            ("Lo-fi Beats", (100, 180, 220, 200)), ("Song • Lofi Girl", (100, 206, 260, 220)),
+            ("Gym Mix", (100, 260, 200, 280)), ("Playlist • Siddhant", (100, 286, 260, 300)),
+            ("Settings", (700, 140, 780, 160)))]                       # another column: never a neighbour
+        self.assertEqual(self.picked("just below After Party", None, labelled), ("below After Party", ["Lo-fi Beats"]))
+        self.assertEqual(self.picked("just below After Party", "playlist", labelled),
+                         ("below After Party", ["Gym Mix"]))          # the next PLAYLIST, not the song
+        self.assertEqual(self.picked("Gym Mix ke upar", None, labelled), ("above Gym Mix", ["Lo-fi Beats"]))
+
+    def test_no_anchor_or_no_neighbour_picks_nothing(self):
+        self.assertEqual(self.picked("just below Chill Vibes"), (None, []))
+        self.assertEqual(self.picked("just above After party songs"), (None, []))   # nothing above it in its column
+        self.assertEqual(self.picked("below afterparty"), (None, []))              # 3 anchors: which one is unclear
+        self.assertEqual(self.picked("After Party"), ("exact", ["After Party"]))   # no relation: as before
+        self.assertEqual(self.picked("Below The Surface"), (None, []))             # a name, not "below <anchor>"
+
+    def test_the_owners_sentence_reaches_the_screen_tool(self):
+        got = quick_proposal("play the playlist just below After Party on the screen in Spotify")
+        self.assertEqual([(s["tool"], s["arguments"]) for s in got["next_steps"]],
+                         [("screen.act_on_visible", {"name": "just below After Party", "action": "play",
+                                                     "kind": "playlist", "app": "spotify"})])
+
+
 class FakeShot:
     window = {}
 
