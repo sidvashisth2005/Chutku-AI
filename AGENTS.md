@@ -1,7 +1,8 @@
 # Chutku Delivery Gate
 
-> **Where to look first:** [`docs/CODEMAP.md`](docs/CODEMAP.md) (one line per module), then only the files your task
-> needs. Current state and the newest entries are in `IMPLEMENTATION_STATUS.md`. Both cloud handoffs (1.0 W1–W8 and
+> **Where to look first:** [`docs/BEST_ASSISTANT_PLAN.md`](docs/BEST_ASSISTANT_PLAN.md) (the master plan: aim,
+> rules, slices B–H with ticks; work the first open tick), then [`docs/CODEMAP.md`](docs/CODEMAP.md) (one line per
+> module), then only the files your task needs. Current state and the newest entries are in `IMPLEMENTATION_STATUS.md`. Both cloud handoffs (1.0 W1–W8 and
 > 1.2 WA1–WA6) are merged into `main`. The owner's open steps are in [`docs/HANDOFF.md`](docs/HANDOFF.md).
 > `docs/archive/` holds finished plans and old history: don't read it unless the task asks for that history.
 

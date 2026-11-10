@@ -7,6 +7,10 @@ This file is the implementation ledger. Update it in the same change as every co
 
 ## Current focus
 
+2026-11-10: the master plan is [docs/BEST_ASSISTANT_PLAN.md](docs/BEST_ASSISTANT_PLAN.md): eight promises, the
+real-use baseline (Daily 30 at 61%), slices B–H with files, edge cases, tests, live checks and gates. Slice A (the
+scoreboard) is done, entry (33). Work the first open tick in its section 15.
+
 2026-09-30: Chutku's main path is now a chat/voice agent. A goal goes through the
 deterministic everyday router or the GPU local planner, runs as observe → plan → act →
 verify rounds bounded by a per-request autonomy level, and every step still passes
