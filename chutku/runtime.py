@@ -1,3 +1,4 @@
+"""Runtime.run: validate → policy → execute → verify → log, for every tool call; app lanes."""
 from __future__ import annotations
 
 import contextlib

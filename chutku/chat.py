@@ -1,3 +1,4 @@
+"""run_chat, reply: the typed chat loop."""
 from __future__ import annotations
 
 from chutku.presentation import present

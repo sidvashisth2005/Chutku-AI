@@ -1,3 +1,4 @@
+"""Microphone devices and input level checks."""
 from __future__ import annotations
 
 from typing import Any, Protocol

@@ -1,3 +1,4 @@
+"""WindowsDesktop, register_windows_apps: open/focus/close app windows, verified."""
 from __future__ import annotations
 
 import ctypes

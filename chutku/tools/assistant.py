@@ -1,3 +1,4 @@
+"""register_assistant_tools: capability list, visible windows, limits."""
 from __future__ import annotations
 
 import ctypes

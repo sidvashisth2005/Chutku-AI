@@ -1,3 +1,4 @@
+"""python -m chutku.relay: runs the relay server."""
 import argparse
 
 from chutku.relay.server import serve

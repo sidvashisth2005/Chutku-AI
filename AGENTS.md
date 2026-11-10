@@ -1,16 +1,9 @@
 # Chutku Delivery Gate
 
-> **Chutku 1.2 (2026-11-08), open:** web Claude does [`docs/WEB_CLAUDE_TASKS_1_2.md`](docs/WEB_CLAUDE_TASKS_1_2.md) on branch
-> `claude/chutku-1.2` (never refuse except system damage, ask-once memory, system tools with UAC, task bank, rewarded
-> practice, toddler-easy UI, clean restart). The PC session merges it and runs the Windows live checks and training.
->
-> **Handoff 2 (2026-11-07), open:** the second cloud session did Chutku 1.0 tasks W1–W8 on branch
-> `claude/youthful-faraday-av41ls` (not merged, no tag). Start at [`docs/HANDOFF.md`](docs/HANDOFF.md) section 6:
-> CI, `/code-review`, the PC live checks, then the owner steps.
->
-> **Handoff (2026-11-07), done:** the cloud session's H9, H14, H15, H16, H18, H23 and H26 were merged into `main` and
-> verified on the owner's PC (Windows suite + live paths; H16 waits for the owner's Telegram token). Open items are
-> in [`docs/HANDOFF.md`](docs/HANDOFF.md) section 5.
+> **Where to look first:** [`docs/CODEMAP.md`](docs/CODEMAP.md) (one line per module), then only the files your task
+> needs. Current state and the newest entries are in `IMPLEMENTATION_STATUS.md`. Both cloud handoffs (1.0 W1–W8 and
+> 1.2 WA1–WA6) are merged into `main`. The owner's open steps are in [`docs/HANDOFF.md`](docs/HANDOFF.md).
+> `docs/archive/` holds finished plans and old history: don't read it unless the task asks for that history.
 
 This repository uses a verification-first delivery rule.
 

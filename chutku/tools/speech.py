@@ -1,3 +1,4 @@
+"""register_speech: speaking through Windows SAPI."""
 from __future__ import annotations
 
 import base64

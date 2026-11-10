@@ -1,3 +1,4 @@
+"""OperationJournal: what was changed, so it can be undone."""
 from __future__ import annotations
 
 import json

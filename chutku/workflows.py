@@ -1,3 +1,4 @@
+"""project_plan, run_project: the fixed project recipe."""
 from __future__ import annotations
 
 import re

@@ -1,3 +1,4 @@
+"""DashboardServer/DashboardHandler: the local web app on 127.0.0.1, speech queue, voice timings."""
 from __future__ import annotations
 
 from copy import deepcopy

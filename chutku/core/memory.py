@@ -1,3 +1,4 @@
+"""MemoryStore: saved notes and memory."""
 from __future__ import annotations
 
 from datetime import UTC, datetime

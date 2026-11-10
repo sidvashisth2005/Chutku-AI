@@ -820,7 +820,7 @@ Full spec: `docs/APP_MASTERY_PLAN.md`.
 
 ---
 # Phase 3b: Hermes-inspired upgrades + remote phone access (planned 2026-10-07)
-Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, Hermes facts). Order is breadth-first; tick each box when its slice passes the AGENTS.md gate.
+Full spec: `docs/archive/HERMES_PLAN.md` (slice details, tests, real paths, negatives, Hermes facts). Order is breadth-first; tick each box when its slice passes the AGENTS.md gate.
 
 - [x] H1: owner "never" rules — done 2026-10-07 (reduced: the built-in blocked-command list is parked, see HERMES_PLAN H1)
 - [x] H2: Pause switch for background work — done 2026-10-07 (tray item and HUD badge not built)
@@ -865,7 +865,7 @@ Full spec: `docs/HERMES_PLAN.md` (slice details, tests, real paths, negatives, H
 - [x] P9: Point-and-ask (W6)
 ---
 # Phase 4: Make it work, then world-class (planned 2026-10-29) — comes before A7 and H9
-Full spec: `docs/WORLD_CLASS_PLAN.md` (diagnosis with evidence, owner decisions 2026-10-29, slice details, verification).
+Full spec: `docs/archive/WORLD_CLASS_PLAN.md` (diagnosis with evidence, owner decisions 2026-10-29, slice details, verification).
 
 - [x] W0: Housekeeping (memory, agent-prompt log, this phase, stale counts)
 - [x] F1: Pause that heals itself (watchdog pauses only) and always answers by voice; heartbeat thread + hang dump — done 2026-10-29 (positive live heal pending the final terminal phase)
@@ -992,7 +992,7 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [x] D2 (done 2026-11-07, vercel-labs agent-browser): `browser.look` / `browser.act` / `browser.type` / `browser.act_risky` on the dedicated signed-in profile, headless; `tools/package.json` pins both CLIs and the installer runs `npm ci --prefix tools`
 
 ---
-# Phase 9: Chutku 1.0 (owner 2026-11-07; spec `docs/WEB_CLAUDE_TASKS.md`; W-numbers are this phase's own)
+# Phase 9: Chutku 1.0 (owner 2026-11-07; spec `docs/archive/WEB_CLAUDE_TASKS.md`; W-numbers are this phase's own)
 - [x] W1 (2026-11-07, Linux tests): skill.import runs nothing until approve (README untrusted); backup restore skips security state (`--include-security` + typed YES)
 - [x] W2 (P2, 2026-11-07, Linux tests + windows-latest CI): data outside the app folder (`paths.home()`); the owner's checkout is unchanged
 - [x] W3 (P3, 2026-11-07, Linux tests + windows-latest package job): app package + `Chutku.exe` launcher
@@ -1001,12 +1001,12 @@ impact on that goal. Each slice is small, tested and checked live (breadth first
 - [x] W6 (P6, 2026-11-07, Linux tests + windows-latest; A14-A16, E2E phone and key pool need the Windows live check): Board/Automations tabs, habit suggestions, key pool, relay E2E, A14-A16
 - [x] W7 (P7, 2026-11-07, Linux tests): READMEs and docs (public README, developer README, USER_GUIDE as in-app Help, licences)
 - [ ] W8 (P8): release gate — cloud part done 2026-11-07 (scan, reviews, checklist); ticks after the PC live checks, then the tag
-- [ ] W9: Microsoft Store MSIX package (no unknown-publisher warning) — instructions in `docs/WEB_CLAUDE_TASKS_STORE.md`, not built yet
+- [ ] W9: Microsoft Store MSIX package (no unknown-publisher warning) — instructions in `docs/archive/WEB_CLAUDE_TASKS_STORE.md`, not built yet
 - [ ] W10: winget (`winget install Chutku`) with an offline installer — not built yet
 - [ ] W11: public README lists Store, winget, then ChutkuSetup.exe — not built yet
 
 # Parked (needs a later owner decision)
-- **Hermes features not taken** (2026-10-07; reasons in `docs/HERMES_PLAN.md` section 3): smart/LLM approvals, yolo and "approve always", container backends (D5), execute_code, MCP client, plugins and hooks, Skills Hub installs, local API server/ACP, extra chat gateways, FAL image generation, external memory providers, mascot/skins, multi-profile agents, bot-to-bot peer, coding-agent tools (worktree, LSP, /init, /plan).
+- **Hermes features not taken** (2026-10-07; reasons in `docs/archive/HERMES_PLAN.md` section 3): smart/LLM approvals, yolo and "approve always", container backends (D5), execute_code, MCP client, plugins and hooks, Skills Hub installs, local API server/ACP, extra chat gateways, FAL image generation, external memory providers, mascot/skins, multi-profile agents, bot-to-bot peer, coding-agent tools (worktree, LSP, /init, /plan).
 - **Sandboxed code runner (D5 original choice):** run scripts and builds at reduced Windows privileges automatically, and ask only for full rights. It could not be specified in this session. Until it exists, S1's "always confirm" stays in force.
 - **Deleting unused models** (Qwen3-0.6B, Qwen3-4B-Instruct-2507; 3.1 GB on D:): owner approval needed.
 - **Earned-autonomy relax and the timeline:** both are off by default; the owner turns them on by phrase.

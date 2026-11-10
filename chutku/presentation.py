@@ -1,3 +1,4 @@
+"""present: turns tool results into the owner-facing text."""
 from __future__ import annotations
 
 from datetime import datetime

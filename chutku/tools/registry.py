@@ -1,3 +1,4 @@
+"""Tool, ToolRegistry, Risk, ToolResult: the tool contract and its manifest."""
 from __future__ import annotations
 
 from collections.abc import Callable

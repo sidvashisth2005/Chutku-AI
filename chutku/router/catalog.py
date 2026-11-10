@@ -1,3 +1,4 @@
+"""CommandCatalog, RoutedCommand: fixed typed commands."""
 from __future__ import annotations
 
 import re

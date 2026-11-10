@@ -1,3 +1,4 @@
+"""Data/model folders, protected zones, system_damage (paths that are always refused)."""
 from __future__ import annotations
 
 import functools

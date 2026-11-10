@@ -1,3 +1,4 @@
+"""PolicyKernel.authorize: allow / confirm / deny for every step; autonomy modes."""
 from __future__ import annotations
 
 from dataclasses import dataclass

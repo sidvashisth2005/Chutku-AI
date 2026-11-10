@@ -1,3 +1,4 @@
+"""main: the chutku command line (every subcommand)."""
 from __future__ import annotations
 
 import argparse

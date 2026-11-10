@@ -106,7 +106,7 @@ Windows/live bugs were found and fixed; each fix has a test or a live re-check.
 
 Still open: H16 live (token), A14/A15/A16, Z6, the Gemini key pool, the Board/Automations dashboard tabs, H30.
 
-## 6. Second cloud session (2026-11-07): Chutku 1.0 tasks W1–W8 from `docs/WEB_CLAUDE_TASKS.md`
+## 6. Second cloud session (2026-11-07): Chutku 1.0 tasks W1–W8 from `docs/archive/WEB_CLAUDE_TASKS.md`
 
 **Read this if you are the PC session continuing Chutku 1.0.**
 - **Branch:** `claude/youthful-faraday-av41ls`, rebased onto `main` at `01e6881`. Nothing was merged and nothing was
@@ -171,4 +171,4 @@ Still for the owner (not done here):
 
 Then tag `v1.0.0`.
 
-**Next for the cloud session (owner decision 2026-11-07):** Microsoft Store (MSIX) and winget, so users never see the 'Unknown publisher' warning. Tasks W9-W11 in `docs/WEB_CLAUDE_TASKS_STORE.md`.
+**Next for the cloud session (owner decision 2026-11-07):** Microsoft Store (MSIX) and winget, so users never see the 'Unknown publisher' warning. Tasks W9-W11 in `docs/archive/WEB_CLAUDE_TASKS_STORE.md`.

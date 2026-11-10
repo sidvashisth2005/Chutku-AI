@@ -1,3 +1,4 @@
+"""ExecutionLock, append_lock: one action at a time; locked log appends."""
 from __future__ import annotations
 
 import contextlib

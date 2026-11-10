@@ -1,3 +1,4 @@
+"""register_builtin_tools: time, system info, audio devices, GPU and other basics."""
 from __future__ import annotations
 
 from datetime import UTC, datetime
