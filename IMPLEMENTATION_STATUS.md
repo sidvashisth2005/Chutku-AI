@@ -16,6 +16,25 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (27): Night Shift ran (the 4 AM run was missed) and the morning check
+- **The scheduled 4:00 run was missed:** the PC was logged on again at 08:07 (the Chutku logon task ran then). The
+  run on 11-09 had been killed (0x40010004). It was run by hand at 08:15 inside Chutku (`chutku.cli nightshift run`),
+  26.5 minutes:
+  - **Practice:** 100 items, train 76%, held-out 74.7%, no unsafe request slipped through. The model solved 6 of the
+    13 misses.
+  - **Fine-tune readiness:** 437 verified turns (300 needed), so the first LoRA is unblocked.
+  - Drive index 170,257 files; regression replay of 194 goals; 1 new evolve proposal; the action-log chain is
+    intact.
+  - The "keeps failing" list still names the Spotify actions. It is built from the ledger before tonight's fixes,
+    and these actions passed live tonight.
+- **Groq free tier:** practice put all three Groq models on a short quota cooldown (08:22), so chat fell to slower
+  Gemini (18 s for a Hindi chit-chat). Only Groq is configured; a free Cerebras key would add a second fast rung.
+  That is the owner's sign-up.
+- **Morning check on the restarted Chutku (thread pool live):** volume 2.0 s, chit-chat 3.2 s and Hindi 1.4 s,
+  Bluetooth 2.7 s, "Ato mera brave open kar" 1.3 s. All 5 done.
+- **No hang dump since 2026-11-09 20:22.**
+- **Sleep timer restored** (`powercfg /change standby-timeout-ac 180`) at the end of the shift.
+
 ### 2026-11-10 (26): Release 1.2.4 built and tested on this PC (publish waits for the owner)
 - **Build:** `scripts/build_release.py` 7 m 35 s. Inno Setup produced `dist/Chutku-Setup-for-Windows.exe`, 301 MB,
   SHA-256 `C4751989D28E713C84C3BB61FDB04B26E488002E7A92227F7AA54C240A8C588A`.
