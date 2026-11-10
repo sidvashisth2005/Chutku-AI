@@ -582,7 +582,8 @@ message is read, read the first line aloud, then "poora padhun?" is NOT asked, i
 - [ ] E live
 - [x] F1 selectors (visible.pick below/above, router) - (36); live check waits for Spotify on screen
 - [ ] F2 vision spike
-- [ ] F3 locks
+- [x] F3a never type a password (focused_is_password) - (37); live password-box check pending
+- [ ] F3b lock screen pause/resume
 - [ ] F4 gate
 - [ ] G1 habits
 - [ ] G2 morning brief

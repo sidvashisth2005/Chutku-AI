@@ -298,11 +298,26 @@ def _refuse_command_window(info, context):
         raise ValueError("The window in front is a command window; Chutku types there only after you confirm.")
 
 
+PASSWORD_REFUSAL = ("The cursor is in a password box. Chutku never types passwords: type it yourself, then tell me to "
+                    "continue.")
+
+
+def focused_is_password():
+    """True when the element with keyboard focus is a password box (UI Automation), None when it cannot tell."""
+    try:
+        from chutku.remote.targets import _run, _uia
+    except ImportError:
+        return None
+    return _run(lambda: bool(_uia().ua.GetFocusedElement().CurrentIsPassword), 1.0)
+
+
 def _type_text(arguments, context):
     try:
         desktop, info = target_window(arguments)
         guard_document(info, arguments)
         _refuse_command_window(info, context)
+        if focused_is_password():   # owner rule: never, even with an approval click (plan slice F3)
+            raise ValueError(PASSWORD_REFUSAL)
         type_unicode(arguments["text"])
     except (OSError, ValueError) as error:
         return ToolResult({"error": str(error)}, Verification.FAIL)

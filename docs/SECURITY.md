@@ -138,6 +138,10 @@ tools` from `tools/package-lock.json` (npm integrity hashes), run as separate pr
   - never after outside content, never for deletes or R4 (except the owner's exact PowerShell or script), and never
     for laptop-only steps asked from the phone or Telegram;
   - an entry expires after 90 days unused; Settings forgets each one.
+- **Never types a password** (2026-11-10): `keyboard.type_text` and app-action typing refuse when UI Automation says
+  the focused element is a password box (`desktop_controls.focused_is_password`), even after an approval click; the
+  owner types it, then says continue. Typing the owner does himself (the phone's remote keyboard) is not blocked. If
+  UI Automation cannot tell, typing goes ahead (a box that hides its type is not detected).
 - **Paths fail closed:** UNC, `\\?\`, device names, alternate data streams, `..`, trailing dots or spaces, reparse points and hard links are refused.
 - **Never elevated.** `network.adapter_set` needs administrator rights, so it is `user_only` and usually fails by design.
 - **No silent overwrite:** file moves and organize never replace an existing file; undo refuses when the owner changed a file since.

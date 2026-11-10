@@ -123,8 +123,10 @@ class Driver:
             time.sleep(0.15)
 
     def type(self, text):
-        from chutku.tools.desktop_controls import type_unicode
-        type_unicode(text)
+        from chutku.tools import desktop_controls
+        if desktop_controls.focused_is_password():   # owner rule: Chutku never types passwords (plan slice F3)
+            raise StepFailed(desktop_controls.PASSWORD_REFUSAL)
+        desktop_controls.type_unicode(text)
 
     def window_rect(self, hwnd):
         from chutku.tools.visible import _rect

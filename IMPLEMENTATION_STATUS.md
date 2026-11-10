@@ -20,6 +20,20 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (37): Chutku never types a password (master plan slice F3)
+- **Gap:** only teach mode skipped password fields (it does not record them); nothing stopped `keyboard.type_text`
+  or an app action from typing into one.
+- **Fix:** `desktop_controls.focused_is_password()` asks UI Automation (the phone remote's in-process client,
+  `remote.targets._uia`, 1 s cap) whether the focused element is a password box. `keyboard.type_text` and
+  `apps.runner.Driver.type` refuse then, with or without an approval click: "Chutku never types passwords: type it
+  yourself, then tell me to continue." The owner's own typing from the phone is not blocked. Documented in
+  `docs/SECURITY.md` §2, with its limit (an app that hides the type is not detected).
+- **Verification:** `tests/test_command_window.py` +2 (refused unapproved and approved, typing goes ahead for an
+  ordinary box and when UIA cannot tell, app actions raise `StepFailed` and type nothing). Real probe on this PC:
+  `focused_is_password()` -> False for the owner's focused element in 0.15 s. Full suite 1,825: 1 failure, the
+  known docs count. **Not yet live:** a real password box check needs a window focused on this PC; the owner was
+  typing (idle 0 s), so it waits.
+
 ### 2026-11-10 (36): "The playlist just below After Party" (master plan slice F1)
 - **Real failure** (2026-11-09): "play the playlist just below After Party on the screen in Spotify" went to the
   planner and was cancelled; the screen tool had no idea of below/above, and the router missed "on the screen in

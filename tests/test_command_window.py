@@ -80,6 +80,35 @@ class CommandWindowTests(unittest.TestCase):
             desktop_controls._type_text({"text": "dir"}, approved)
         typed.assert_called_once()
 
+    def test_chutku_never_types_into_a_password_box(self):
+        # plan slice F3, owner rule: passwords are never typed by Chutku, not even with an approval click
+        desktop = type("FakeDesktop", (), {"foreground": lambda self: 1})()
+        info = window("chrome.exe", "Sign in - Google Accounts")
+        for context in (ExecutionContext("t", None, Path(self.temp.name)),
+                        ExecutionContext("t", None, Path(self.temp.name), approved=True)):
+            with patch.object(desktop_controls, "target_window", return_value=(desktop, info)), \
+                    patch.object(desktop_controls, "focused_is_password", return_value=True), \
+                    patch.object(desktop_controls, "type_unicode") as typed:
+                result = desktop_controls._type_text({"text": "hunter2"}, context)
+            self.assertEqual(result.verification, Verification.FAIL)
+            self.assertIn("password", result.output["error"])
+            typed.assert_not_called()
+        for unknown in (False, None):   # an ordinary box, or UI Automation could not tell: typing goes ahead
+            with patch.object(desktop_controls, "target_window", return_value=(desktop, info)), \
+                    patch.object(desktop_controls, "focused_is_password", return_value=unknown), \
+                    patch.object(desktop_controls, "type_unicode") as typed, \
+                    patch.object(desktop_controls.time, "sleep"):
+                desktop_controls._type_text({"text": "hello"}, ExecutionContext("t", None, Path(self.temp.name)))
+            typed.assert_called_once()
+
+    def test_app_actions_never_type_into_a_password_box(self):
+        from chutku.apps import runner
+        with patch.object(desktop_controls, "focused_is_password", return_value=True), \
+                patch.object(desktop_controls, "type_unicode") as typed:
+            with self.assertRaises(runner.StepFailed):
+                runner.Driver().type("1234")
+        typed.assert_not_called()
+
     def test_keys_are_refused_in_a_command_window_without_the_click(self):
         context = ExecutionContext("t", None, Path(self.temp.name))
         with self.front("cmd.exe"), patch.object(desktop_controls, "press_combo") as pressed:
