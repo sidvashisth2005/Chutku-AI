@@ -4,6 +4,7 @@ import contextlib
 from contextvars import ContextVar
 import json
 from pathlib import Path
+import re
 import time
 from typing import Any
 
@@ -25,6 +26,36 @@ from chutku.tools.registry import ExecutionContext, ToolRegistry, Verification
 # The agent session a step belongs to (set by AgentSession while it works): the action log records it, so
 # "undo the whole last task" (Causal Rewind) finds every step of that request, not only the last one.
 SESSION = ContextVar("chutku_session", default=None)
+
+
+
+def lane(tool_name: str, arguments: Any) -> str:
+    """Which lock a changing step takes (App Mastery 2, owner 2026-11-10: "I do 2 tasks, Chutku does 2, in parallel").
+
+    Steps that never touch the owner's screen, mouse or keys get their own lane, so tasks in different apps really
+    run at the same time: UI Automation work in one app (`app-<name>`; the Background Desk keeps the window behind
+    his) and the headless signed-in browser (`web`). Everything else is the `screen` lane, today's single
+    data/execution.lock, which every other holder of runtime.execution_lock (workflows, resume, the guard) still
+    means as "nothing on the screen is running"."""
+    arguments = arguments if isinstance(arguments, dict) else {}
+    if tool_name.startswith("browser."):
+        return "web"
+    app = None
+    if tool_name == "apps.launch" and arguments.get("background") is True:
+        app = arguments.get("name") or arguments.get("app_id")
+    elif tool_name == "desktop.do":
+        app = arguments.get("app")
+    elif tool_name in {"desktop.act", "desktop.act_risky"}:
+        try:
+            from chutku.tools.desktop import _resolve
+            app = _resolve(arguments.get("ref"))[1]["window"].get("app_name")
+        except (ValueError, KeyError, TypeError, AttributeError):
+            app = None
+    # shortcut: the app is named as the step names it ("Visual Studio Code" vs "Code.exe" are two lanes), so two
+    # steps in one app can overlap when they name it differently; key lanes by window process if that ever bites.
+    slug = re.sub(r"[^a-z0-9]+", "-", str(app or "").casefold().removesuffix(".exe")).strip("-")[:40]
+    return f"app-{slug}" if slug else "screen"
+
 
 # How to reverse a completed action (used by log.undo; each undo tool reverses only the latest of its kind).
 UNDO_TOOLS = {
@@ -85,7 +116,8 @@ class Runtime:
         self.resource_grant = resource_grant or ResourceGrant(
             "direct", self.granted_root, frozenset({"observe", "modify"}), "runtime", False, True, "direct")
         control_root = (state_root or self.granted_root.parent).resolve()
-        self.execution_lock = ExecutionLock(control_root / "data" / "execution.lock")
+        self.execution_lock = ExecutionLock(control_root / "data" / "execution.lock")   # the screen lane
+        self._lanes = {}
         self.step_wait = 0.0   # seconds a step waits for another task's step (parallel tasks); 0: fail fast (CLI)
         self.action_control = ActionControl(control_root)
         self.approvals = ApprovalStore()
@@ -342,11 +374,21 @@ class Runtime:
                     raise
                 time.sleep(0.2)
 
+    def lane_lock(self, tool_name, arguments):
+        """The lock of the step's lane (see `lane`): the screen lane is runtime.execution_lock itself."""
+        name = lane(tool_name, arguments)
+        if name == "screen":
+            return self.execution_lock
+        if name not in self._lanes:
+            self._lanes[name] = ExecutionLock(self.control_root / "data" / f"execution-{name}.lock")
+        return self._lanes[name]
+
     def _run_locked(self, tool_name, arguments, provenance, autonomy, tainted, exposed, suspicious):
         """One step; raises ExecutionBusy when another step holds the lock (run() waits and retries)."""
         # Y3 (2026-11-06): a plain observation changes nothing, so it does not take the exclusive lock and a
-        # question can be answered while another task runs. Every other step still runs one at a time.
-        with (contextlib.nullcontext() if self._observation(tool_name) else self.execution_lock):
+        # question can be answered while another task runs. Other steps take their lane's lock: one at a time per
+        # lane, lanes side by side.
+        with (contextlib.nullcontext() if self._observation(tool_name) else self.lane_lock(tool_name, arguments)):
             unlogged = self._log_not_ready(tool_name)
             if unlogged is not None:
                 return unlogged
@@ -384,7 +426,9 @@ class Runtime:
         return self._taking_turns(lambda: self._approve_locked(token, cancel))
 
     def _approve_locked(self, token, cancel):
-        with self.execution_lock:   # the token is taken only once the lock is held, so a busy retry is safe
+        waiting = self.approvals.peek(token)
+        lock = self.lane_lock(*waiting) if waiting else self.execution_lock
+        with lock:   # the token is taken only once the lock is held, so a busy retry is safe
             pending = self.approvals.take(token)
             if pending["root"] != str(self.granted_root):
                 raise ValueError("Approval belongs to a different granted root.")

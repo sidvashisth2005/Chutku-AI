@@ -51,6 +51,9 @@ class DesktopToolsTest(unittest.TestCase):
         patcher = mock.patch.object(desktop, "call", self.fake)
         patcher.start()
         self.addCleanup(patcher.stop)
+        waiting = mock.patch.object(desktop, "WINDOW_WAIT", 0)   # tests of a missing window fail at once
+        waiting.start()
+        self.addCleanup(waiting.stop)
         self.registry = ToolRegistry()
         desktop.register_desktop_tools(self.registry)
 
@@ -82,6 +85,60 @@ class DesktopToolsTest(unittest.TestCase):
         result = self.run_tool("desktop.look", {"app": "photoshop"})
         self.assertEqual(result.verification, Verification.FAIL)
         self.assertIn("No open window", result.output["error"])
+
+    def test_a_window_opened_a_moment_ago_is_waited_for(self):
+        """Live 2026-11-10: the first click came 0.2 s after a background launch, before the window was listed."""
+        lists = iter([[], [], [WINDOW]])
+        real = self.fake
+
+        def late(*args, stdin=None):
+            return next(lists) if args[0] == "list-windows" else real(*args, stdin=stdin)
+        with mock.patch.object(desktop, "call", late), mock.patch.object(desktop, "WINDOW_WAIT", 2),                 mock.patch.object(desktop.time, "sleep"):
+            self.assertEqual(desktop._window("fixture")["id"], "w-1")
+
+    def test_do_tries_the_next_element_of_the_same_name_when_one_cannot_be_acted_on(self):
+        """Settings has a zero-sized title-bar menu 'System' before the navigation item 'System' (live 2026-11-10)."""
+        real = self.fake
+
+        def twins(*args, stdin=None):
+            if args[0] == "snapshot":
+                data = real(*args, stdin=stdin)
+                sid = data["snapshot_id"]
+                data["tree"]["children"][:0] = [{"ref_id": f"@{sid}:e9", "role": "menuitem", "name": "Seven",
+                                                 "available_actions": ["Click"]}]
+                return data
+            if args[0] == "click" and args[1].endswith(":e9"):
+                raise OSError("ACTION_FAILED: Target is not actionable: visible (bounds are zero-sized)")
+            return real(*args, stdin=stdin)
+        with mock.patch.object(desktop, "call", twins):
+            result = self.run_tool("desktop.do", {"app": "fixture", "name": "Seven", "action": "click"})
+        self.assertEqual(result.verification, Verification.PASS, result.output)
+        self.assertEqual([c[0][1][-2:] for c in real.calls if c[0][0] == "click"], ["e2"])
+
+    def test_do_searches_the_window_when_the_only_named_element_cannot_be_acted_on(self):
+        """A skeleton read listed only Settings' dead title-bar 'System'; the navigation item is nested deeper."""
+        calls = []
+
+        def skeleton(*args, stdin=None):
+            calls.append(args)
+            if args[0] == "list-windows":
+                return [WINDOW]
+            if args[0] == "snapshot":
+                n = sum(1 for c in calls if c[0] == "snapshot")
+                return {"snapshot_id": f"sk{n:04d}", "tree": {"role": "window", "children": [
+                    {"ref_id": f"@sk{n:04d}:e1", "role": "menuitem", "name": "System", "available_actions": ["Click"]}]}}
+            if args[0] == "find":
+                return {"snapshot_id": "sfnd001", "matches": [
+                    {"ref_id": "@sfnd001:e7", "role": "listitem", "name": "System", "available_actions": ["Click"]}]}
+            if args[0] == "click" and args[1].endswith(":e1"):
+                raise OSError("ACTION_FAILED: Target is not actionable: visible (bounds are zero-sized)")
+            if args[0] == "click":
+                return {"disposition": {"delivery": "delivered_unverified"}}
+            raise AssertionError(args)
+        with mock.patch.object(desktop, "call", skeleton):
+            result = self.run_tool("desktop.do", {"app": "fixture", "name": "System", "action": "click"})
+        self.assertEqual(result.verification, Verification.PASS, result.output)
+        self.assertEqual([c[1] for c in calls if c[0] == "click"], ["@sk0001:e1", "@sfnd001:e7"])
 
     def test_click_by_short_ref_returns_new_state(self):
         self.run_tool("desktop.look", {"app": "fixture"})

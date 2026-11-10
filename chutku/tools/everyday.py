@@ -545,13 +545,15 @@ def _launch_behind(desktop, app, found_via, running):
                 if item.get("visible", True) and str(item.get("id", "")).startswith("w-")]
     output = {"app": app["name"], "app_id": app["app_id"], "found_via": found_via, "background": True}
     word = _first_word(app["name"])
-    running = next((info for info in windows() if info.get("title") and (
-        info["title"].casefold() == app["name"].casefold()
-        or Path(info.get("executable") or "").stem.casefold().startswith(word))), None)
+
+    def ours(info):
+        return bool(info.get("title")) and (info["title"].casefold() == app["name"].casefold()
+                                            or Path(info.get("executable") or "").stem.casefold().startswith(word))
+    running = next((info for info in windows() if ours(info)), None)
     if running is not None:
         background_desk.park(running["window_id"])
         return _launched(output | {"reused_open_window": True}, running, "already_open_behind")
-    info, steals = background_desk.launch(app["app_id"], windows)
+    info, steals = background_desk.launch(app["app_id"], windows, ours=ours)
     output["focus_taken_and_given_back"] = len(steals)
     if info is None:
         return ToolResult({**output, "error": "The app did not show a window behind yours within 20 seconds."},
@@ -1206,10 +1208,8 @@ def register_everyday_tools(registry):
     registry.register(Tool("apps.installed", "List installed Start-menu apps (name, app_id); optional query filters by name.",
         Risk.OBSERVATION, _installed, _validate_installed, argument_schema=_INSTALLED_SCHEMA,
         prerequisites=desktop, reversibility="not_applicable", success_predicate="start_menu_inventory_returned"))
-    registry.register(Tool("apps.launch", "Open any installed app by its exact Start-menu name (e.g. 'Spotify', "
-        "'Visual Studio Code') or app_id; verifies a window appears. background=true opens it BEHIND the owner's "
-        "window (use it when the app is only a means for the task, then desktop.look/desktop.do in it): he keeps "
-        "working undisturbed.",
+    registry.register(Tool("apps.launch", "Open any installed app by its exact Start-menu name (e.g. 'Spotify') "
+        "or app_id; verifies a window appears. background=true: behind the owner's window.",
         Risk.REVERSIBLE, _launch, _validate_launch, verify=_window_verifier, required_capability="apps.launch",
         argument_schema=_LAUNCH_SCHEMA, prerequisites=desktop, reversibility="compensatable",
         success_predicate="new_or_foreground_app_window_observed"))

@@ -2,6 +2,7 @@
 mouse or keyboard. Fakes stand in for Windows; the live measurement is scripts/background_probe.py."""
 import time
 import unittest
+from unittest import mock
 
 from chutku import background_desk as desk
 
@@ -82,6 +83,38 @@ class LaunchTests(unittest.TestCase):
                               sleep=lambda s: None, wait=0.01)
         self.assertIsNone(info)
 
+    def test_another_tasks_new_window_is_never_taken_for_this_app(self):
+        """Parallel lanes: Calculator opening in the same second must not be parked as Settings' window."""
+        shown, clock = [{"window_id": 1, "title": "Brave"}], [0.0]
+
+        def popen(command, **kwargs):
+            shown.append({"window_id": 7, "title": "Calculator"})   # the other task's app
+        with mock.patch.object(desk.time, "monotonic", lambda: clock[0]):
+            def sleep(seconds):
+                clock[0] += seconds
+            info, _ = desk.launch("Settings!App", lambda: list(shown), popen=popen, pause=lambda: True,
+                                  guard=_NoGuard, park_window=lambda h: self.fail("not ours"), sleep=sleep, wait=2,
+                                  ours=lambda item: item["title"] == "Settings")
+        self.assertIsNone(info)
+
+    def test_a_suspended_store_app_is_started_once_more_halfway(self):
+        """Settings left suspended after its window closed ignored the first start (live 2026-11-10)."""
+        shown, starts, clock = [{"window_id": 1, "title": "Brave"}], [], [0.0]
+
+        def popen(command, **kwargs):
+            starts.append(clock[0])
+            if len(starts) == 2:
+                shown.append({"window_id": 9, "title": "Settings"})
+        with mock.patch.object(desk.time, "monotonic", lambda: clock[0]):
+            def sleep(seconds):
+                clock[0] += seconds
+            info, _ = desk.launch("Settings!App", lambda: list(shown), popen=popen, pause=lambda: True,
+                                  guard=_NoGuard, park_window=lambda h: None, sleep=sleep, wait=4)
+        self.assertEqual(info["window_id"], 9)
+        self.assertEqual(len(starts), 2)
+        self.assertGreaterEqual(starts[1], 2.0)
+        desk.OPENED.pop(9, None)
+
     def test_guarded_step_waits_for_a_pause_and_reports_steals(self):
         order = []
 
@@ -112,3 +145,14 @@ class LaunchToolTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class _NoGuard:
+    steals = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        pass
+

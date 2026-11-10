@@ -24,6 +24,7 @@ import time
 
 TYPING_PAUSE = 0.7    # seconds without the owner's keys/clicks before a step that may flash a window
 PAUSE_LIMIT = 8.0     # never wait longer than this for a pause
+RESTART_AFTER = 4.0   # a launch with no window yet is asked once more (normal launches show one in 1.3-2.2 s)
 OPENED = {}           # hwnd -> {"app", "at"}: windows Chutku opened behind the owner's (the warm pool)
 _lock = threading.Lock()
 
@@ -139,22 +140,34 @@ def park(hwnd):
 
 
 def launch(app_id, windows, *, wait=20.0, popen=subprocess.Popen, pause=typing_pause, guard=FocusGuard,
-           park_window=park, sleep=time.sleep):
+           park_window=park, sleep=time.sleep, ours=None):
     """Open a Start-menu app (its AppID) behind the owner's window. `windows()` lists {"window_id", ...} of the
-    visible windows; returns (the new window or None, the guard's steals)."""
+    visible windows; `ours(item)` says a new window belongs to this app (parallel lanes: another task's app may
+    open a window in the same seconds, and it must not be taken for this one). Returns (the new window or None,
+    the guard's steals)."""
     pause()
     before = {item["window_id"] for item in windows()}
     info = subprocess.STARTUPINFO() if os.name == "nt" else None
     if info is not None:
         info.dwFlags, info.wShowWindow = subprocess.STARTF_USESHOWWINDOW, 7   # SW_SHOWMINNOACTIVE
     explorer = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "explorer.exe"
-    with guard() as watching:
+
+    def start():
         popen([str(explorer), "shell:AppsFolder\\" + app_id], startupinfo=info,
               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        new, deadline = None, time.monotonic() + wait
-        while new is None and time.monotonic() < deadline:
+    with guard() as watching:
+        start()
+        new, started = None, time.monotonic()
+        again = True
+        while new is None and time.monotonic() < started + wait:
             sleep(0.25)
-            new = next((item for item in windows() if item["window_id"] not in before and item.get("title")), None)
+            new = next((item for item in windows() if item["window_id"] not in before and item.get("title")
+                        and (ours is None or ours(item))), None)
+            if new is None and again and time.monotonic() > started + min(wait / 2, RESTART_AFTER):
+                # A Store app left suspended after its window closed (Settings, Calculator: live 2026-11-10) can
+                # ignore the first start: ask once more.
+                again = False
+                start()
         if new is not None:
             park_window(new["window_id"])
             with _lock:

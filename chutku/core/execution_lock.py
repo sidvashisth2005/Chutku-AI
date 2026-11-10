@@ -1,12 +1,55 @@
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 import sys
 import threading
+import time
 
 
 class ExecutionBusy(RuntimeError):
     pass
+
+
+_APPEND = threading.Lock()
+
+
+@contextlib.contextmanager
+def append_lock(path: Path, timeout: float = 10.0):
+    """A short, blocking lock around one append to a shared chained file (the action log): steps in different lanes
+    run at the same time, and another Chutku process may append too. Waits up to `timeout` seconds."""
+    with _APPEND:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a+b") as stream:
+            if path.stat().st_size == 0:
+                stream.write(b"\0")
+                stream.flush()
+            tries = int(timeout / 0.02)   # counted, not timed: the clock is never read on the usual first-try path
+            while True:
+                stream.seek(0)
+                try:
+                    if sys.platform == "win32":
+                        import msvcrt
+                        msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                    else:
+                        import fcntl
+                        fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except OSError:
+                    tries -= 1
+                    if tries <= 0:
+                        raise
+                    time.sleep(0.02)
+            try:
+                yield
+            finally:
+                stream.seek(0)
+                if sys.platform == "win32":
+                    import msvcrt
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
 
 class ExecutionLock:

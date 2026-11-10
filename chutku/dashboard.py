@@ -337,14 +337,16 @@ class DashboardServer(ThreadingHTTPServer):
             session.status = "queued"
         self._next_work()  # the running order may have finished in the meantime
 
-    MAX_PARALLEL = 2
+    MAX_PARALLEL = 4   # App Mastery 2 (owner: "4 tasks: I do 2, Chutku does 2"); was 2 before the lanes
     STEP_WAIT = 180   # seconds a step waits for the other task's step before it gives up
 
     def _parallel(self, session, action):
         """Y3 (2026-11-06, owner: "multiple tasks simultaneously"): while a task runs, up to MAX_PARALLEL more start
         at once on their own threads instead of waiting in line. A plain question may only observe
         (AgentSession.observe_only). Steps that change something still run one at a time (the runtime's execution
-        lock; a side task's step waits for it), so two tasks never act in the same instant."""
+        lock; a side task's step waits for it), so two tasks never act in the same instant.
+        App Mastery 2: that lock is per lane (Runtime.lane). Steps in different apps' UI Automation lanes or the headless
+        browser run truly at the same time; screen, mouse and keyboard steps still take turns."""
         # shortcut: two side-by-side UI tasks can still alternate focus between their steps; add per-window
         # ownership if the owner sees keys land in the wrong window.
         from chutku.agent_loop import _ACTION_WORDS, _QUESTION

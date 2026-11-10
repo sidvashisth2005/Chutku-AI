@@ -32,6 +32,12 @@ class ApprovalStore:
                                   "tainted": tainted, "exposed": exposed, "suspicious": suspicious}))
             return token
 
+    def peek(self, token):
+        """(tool, arguments) of a pending approval without using it, or None (picks the step's lane lock)."""
+        with self.lock:
+            entry = self.pending.get(token) if isinstance(token, str) else None
+        return (entry[1]["tool"], deepcopy(entry[1]["arguments"])) if entry else None
+
     def take(self, token):
         with self.lock:
             entry = self.pending.pop(token, None) if isinstance(token, str) else None

@@ -100,6 +100,13 @@ class ActionLog:
             pass
 
     def append(self, record: dict[str, Any]) -> dict[str, Any]:
+        # Parallel lanes (App Mastery 2): two steps may log at once; read-last-then-write must not interleave, or two
+        # entries get the same seq and prev and the chain breaks.
+        from chutku.core.execution_lock import append_lock
+        with append_lock(self.path.with_name(self.path.name + ".lock")):
+            return self._append(record)
+
+    def _append(self, record: dict[str, Any]) -> dict[str, Any]:
         last = self._last()
         if last is None and self._broken_tail():
             raise ValueError("The action log ends with an unreadable line; run doctor before acting.")

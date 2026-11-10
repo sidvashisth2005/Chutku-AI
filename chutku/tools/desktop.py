@@ -37,6 +37,7 @@ ELEMENT_SECONDS = 180
 MAX_LINES = 120
 MAX_TEXT = 4096
 TIMEOUT = 20
+WINDOW_WAIT = 3.0   # seconds to wait for a just-opened window to be listed
 VERBS = {"click": "click", "set_text": "set-value", "clear": "clear", "toggle": "toggle", "check": "check",
          "uncheck": "uncheck", "select": "select", "expand": "expand", "collapse": "collapse", "scroll": "scroll",
          "scroll_to": "scroll-to"}
@@ -101,13 +102,20 @@ def call(*args, stdin=None):
 def _window(app):
     """The one window `app` names: an exe name ("notepad", "WhatsApp") or words of its title."""
     wanted = app.lower().removesuffix(".exe").strip()
-    windows = [w for w in call("list-windows") if w.get("visible", True)]
 
     def exe(w):
         return str(w.get("app_name", "")).lower().removesuffix(".exe")
-    ranked = ([w for w in windows if exe(w) == wanted]
-              or [w for w in windows if exe(w).startswith(wanted) or exe(w).split(".")[0] == wanted]
-              or [w for w in windows if wanted in str(w.get("title", "")).lower()])
+    deadline = time.monotonic() + WINDOW_WAIT
+    while True:
+        windows = [w for w in call("list-windows") if w.get("visible", True)]
+        ranked = ([w for w in windows if exe(w) == wanted]
+                  or [w for w in windows if exe(w).startswith(wanted) or exe(w).split(".")[0] == wanted]
+                  or [w for w in windows if wanted in str(w.get("title", "")).lower()])
+        # A window opened a moment ago (apps.launch background=true) can be missing from the list for a second
+        # (live 2026-11-10: Calculator's first click came 0.2 s after the launch and found no window).
+        if ranked or time.monotonic() >= deadline:
+            break
+        time.sleep(0.4)
     if not ranked:
         raise LookupError(f"No open window matches {app!r}. Open the app first (apps.launch).")
     ranked.sort(key=lambda w: (w.get("minimized", False), not w.get("is_focused", False)))
@@ -278,23 +286,42 @@ def _do(arguments, _context):
             named = [(ref, seen["name"].casefold()) for ref, seen in _seen.items()
                      if ref.startswith(f"@{snapshot}:") and seen["window"]["id"] == window["id"]]
         refs = [r for r, n in named if n == wanted] or [r for r, n in named if wanted in n]
-        if not refs:   # a skeleton read hides nested elements: ask agent-desktop to search the window
-            data = call("find", "--window-id", window["id"], "--text", arguments["name"], "--limit", "20")
-            found = {}
-            for match in data.get("matches", []):
-                found |= _outline(match, window)[1]
-            _remember(data.get("snapshot_id"), found)
-            refs = ([r for r, s in found.items() if s["name"].casefold() == wanted]
-                    or [r for r, s in found.items() if wanted in s["name"].casefold()])
     except (OSError, LookupError, ValueError, subprocess.TimeoutExpired) as error:
         return ToolResult({"error": str(error)}, Verification.FAIL)
-    if not refs:
-        return ToolResult({"error": f"No {arguments['name']!r} in {window.get('title')} right now."},
-                          Verification.FAIL)
-    act = {"ref": refs[0], "action": arguments["action"]}
-    if "text" in arguments:
-        act["text"] = arguments["text"]
-    return _act(act, None, risky_allowed=False)
+
+    def search():
+        """A skeleton read hides nested elements: ask agent-desktop to search the whole window."""
+        data = call("find", "--window-id", window["id"], "--text", arguments["name"], "--limit", "20")
+        found = {}
+        for match in data.get("matches", []):
+            found |= _outline(match, window)[1]
+        _remember(data.get("snapshot_id"), found)
+        return ([r for r, s in found.items() if s["name"].casefold() == wanted]
+                or [r for r, s in found.items() if wanted in s["name"].casefold()])
+    result, searched = None, False
+    while True:
+        if not refs and not searched:
+            searched = True
+            try:
+                refs = search()
+            except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+                return result or ToolResult({"error": str(error)}, Verification.FAIL)
+        if not refs:
+            return result or ToolResult({"error": f"No {arguments['name']!r} in {window.get('title')} right now."},
+                                        Verification.FAIL)
+        for ref in refs[:3]:
+            act = {"ref": ref, "action": arguments["action"]}
+            if "text" in arguments:
+                act["text"] = arguments["text"]
+            result = _act(act, None, risky_allowed=False)
+            # Two elements can share a name: Settings' hidden title-bar menu "System" (zero-sized) came before the
+            # navigation item "System" (live 2026-11-10). One that cannot be acted on was not touched: try the next,
+            # then search the whole window (a skeleton read had not listed the navigation item at all).
+            if "not actionable" not in str(result.output.get("error", "")):
+                return result
+        refs = []
+        if searched:
+            return result
 
 
 def _validate_do(arguments):
