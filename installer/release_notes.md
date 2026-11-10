@@ -11,6 +11,20 @@ Linux, Android or iPhone. Ignore the "Source code" links below; GitHub adds them
 
 Already using Chutku? It tells you about this update by itself: click **Update now** in the popup.
 
+## What's new in 1.2.4
+
+- **Spotify just works:** "play Lowkey playlist", "kesariya gaana chalao", "spotify pe Arijit ke gaane chalao". Your own
+  playlists first; anything else through Spotify's search, and Chutku checks that the right music started. Much faster.
+- **WhatsApp:** "is chat mein hello bhej do" sends to the chat you have open (works for Locked chats you opened);
+  "open my chat" opens your own chat; first names like "Kritika" find the only matching chat; a new chat asks once,
+  then never again.
+- **Bluetooth:** "turn on bluetooth", "bluetooth band karo", "show bluetooth devices".
+- **Shut down / restart:** "pc band karo" (5 minutes, asks first; "cancel shutdown" stops it).
+- Misheard app names work ("Open sport" opens Spotify) and an app that is already open is brought to the front.
+- Chit-chat gets a friendly answer instead of "please clarify".
+- Saying "haan" a little late no longer fails with "approval expired".
+- Closing the laptop lid no longer makes Chutku restart itself when it wakes up.
+
 ## What's new in 1.2.3
 
 - Setup now offers a free Gemini key first (Google AI Studio), with a Groq key as the other option.

@@ -22,6 +22,15 @@ Owner decisions are in `docs/DESIGN.md` §51.
   - `AgentSession.decide` now asks policy again for the very same step and applies the yes to the fresh card only.
   - A "no" on an expired card still runs nothing.
   - Test: `test_agent_loop.test_a_yes_after_the_card_expired_approves_the_same_step_again`.
+- **The 8-second dashboard freezes:**
+  - All four hang dumps show the HTTP loop waiting inside `Thread.start`. Every request started a new thread (116k
+    since the last start). On Windows a new thread waits for the loader lock, which a thread loading a DLL (screen
+    capture, OCR, a model) holds for seconds.
+  - Requests now run on a reused pool of up to 64 threads (`DashboardServer.process_request`). Event streams hold one
+    for at most 55 s.
+  - Test: `test_dashboard.test_requests_reuse_pool_threads_instead_of_starting_one_each` (25 requests start at most 4
+    threads; the old code started 25).
+  - Live effect still to measure: the scoreboard's hang count over the next days.
 - **Full suite: 1756 tests, 2 failures, both fixed:**
   - `docs/SECURITY.md` counts updated for the 2 Bluetooth tools (254 registered; R3 adds `system.bluetooth_set`).
   - `files_plus.cleanup_report`: a big Temp folder used the shared 20 s budget, so the biggest-files walk returned

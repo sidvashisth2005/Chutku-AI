@@ -55,6 +55,18 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(self.request("/app.js")[0], 200)
         self.assertEqual(self.request("/style.css")[0], 200)
 
+    def test_requests_reuse_pool_threads_instead_of_starting_one_each(self):
+        """Hang dumps 2026-11-05..09: the HTTP loop sat in Thread.start for 8 s; 116k threads had been started."""
+        for _ in range(3):
+            self.assertEqual(self.request("/style.css")[0], 200)
+        started = []
+        real_start = threading.Thread.start
+        with patch.object(threading.Thread, "start", lambda t: (started.append(t.name), real_start(t))[1]):
+            for _ in range(25):
+                self.assertEqual(self.request("/style.css")[0], 200)
+        self.assertLessEqual(len(started), 4, started)       # was one new thread per request
+        self.assertTrue(all(name.startswith("chutku-http") for name in started), started)
+
     def test_approval_http_boundary_binds_exact_task_and_rejects_tampering(self):
         from chutku.app import create_runtime
         from chutku.tools.registry import Risk, Tool, ToolResult, Verification

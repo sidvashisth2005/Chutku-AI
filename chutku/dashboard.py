@@ -203,9 +203,23 @@ class DashboardServer(ThreadingHTTPServer):
     LOOP_STALL = 30.0
     HANG_DUMP_AFTER = 8.0
 
+    def process_request(self, request, client_address):
+        """Each request runs on a reused pool thread instead of a new thread. Starting a thread on Windows waits for
+        the loader lock, which another thread loading a DLL (screen capture, OCR, a model) can hold for seconds: the
+        HTTP loop sat inside Thread.start for 8 s at a time (hang dumps 2026-11-05..09, 116k threads started)."""
+        from concurrent.futures import ThreadPoolExecutor
+        with self.queue_lock:
+            if getattr(self, "_pool", None) is None:
+                # 64: event streams hold a worker up to 55 s each (page, HUD, phone)
+                self._pool = ThreadPoolExecutor(max_workers=64, thread_name_prefix="chutku-http")
+        self._pool.submit(self.process_request_thread, request, client_address)
+
     def server_close(self):
         self.closing.set()   # ends the heartbeat and healing threads
         super().server_close()
+        pool = getattr(self, "_pool", None)
+        if pool is not None:
+            pool.shutdown(wait=True)   # like the per-request threads before: finish what is in flight
 
     def start_heartbeat(self, interval=0.5):
         if self.heartbeat is None:
