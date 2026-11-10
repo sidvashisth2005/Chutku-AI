@@ -76,7 +76,10 @@ Owner decisions are in `docs/DESIGN.md` §51.
   Windows.exe 227.3 MB, then a 212.8 MB recording, matching an independent PowerShell listing.
 - **Still open in E:** the task card (finish every part of a free-form multi-part request) is not built; the
   briefing case turned out to be a wording failure, not a planning one. "aaj ka weather batao aur meri reminders
-  dikhao" still goes to the planner, which failed live while Groq was rate-limited (only Groq is configured).
+  dikhao" failed in the temporary-folder test while Groq was rate-limited; that folder had no `cloud.gemini` grant.
+  Correction (checked after the restart): the owner's install has the Gemini key and the grant, so the real planner
+  falls back Groq -> Gemini; setup grants `cloud.gemini` whenever a user saves a Gemini key. Since entry (35) the
+  sentence is instant anyway (weather + reminder list, no model).
 
 ### 2026-11-10 (34): Never lie, never act on noise (master plan slice B)
 - **B1, spoken promises:** checked the "unkept promises" the estimate flagged against `data/heard.jsonl`: every one in
