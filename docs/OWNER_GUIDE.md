@@ -333,7 +333,7 @@ Everything below is **instant**: matched by rules and done within about a second
 
 **WhatsApp chats**
 - "search Pita Shri in WhatsApp" / "WhatsApp pe Pita Shri ki chat kholo" / "open Pita Shri's chat on whatsapp": opens that chat and asks what to send; then just say "hi bhej do" (within 2 minutes) and it goes to that chat.
-- Works from any WhatsApp screen: Archived, Calls, Status, Settings. Chutku goes back to the main Chats list first, because the search bar is only there. Chats in **Locked chats** are hidden by WhatsApp and need your PIN or fingerprint; open those yourself.
+- Works from any WhatsApp screen: Archived, Calls, Status, Settings. Chutku goes back to the main Chats list first, because the search bar is only there. Chats in **Locked chats** are hidden by WhatsApp and need your PIN or fingerprint: open the chat yourself, then say "is chat mein ... bhej do" (below).
 - Hindi script is fine: "पिता श्री" is read as "Pita Shri", "मम्मी" as "mammi".
 - Read replies: "Pita Shri ne kya bola?" / "did mammi reply?" / "AK ka last message kya hai" / "what did Pita Shri say". Chutku opens the chat, reads the latest messages from the screen (locally) and tells you who said what. Photos, stickers and voice notes can't be read. If WhatsApp on the PC says "Syncing paused", Chutku tells you; open WhatsApp on your phone so recent messages appear.
 - If WhatsApp on the PC is logged out (QR-code screen), Chutku says so straight away: link it again from your phone (WhatsApp > Linked devices > Link a device).
@@ -342,6 +342,20 @@ Everything below is **instant**: matched by rules and done within about a second
 - "send hi to AK on whatsapp" / "AK ko whatsapp pe hi bhejo" / "message AK on whatsapp saying hi there"
 - Chutku searches your chats and opens only a chat whose name is *exactly* what you said (it uses WhatsApp's own green highlight, so short names like "Ak" work). If no chat or several chats match, it sends nothing and tells you the closest names.
 - Fastest: save a number once with "remember contact_ub = +91…", and messages to AK skip the search.
+- **The chat already open on screen (new 2026-11-10):** "is chat mein hello bhej do", "yahan hi likh ke bhej do", "jo chat khuli hai usme good night bhej do", "send hi to the chat on screen". No search: it reads the name in the chat's header, tells you who it went to, and types nothing if no chat is open. This is how to message a **Locked chat**: unlock it and open it yourself, then say one of these.
+- **Your own chat:** "open my chat on whatsapp", "myself ko bhejo", "khud ko bhejo" open your own "(You)" chat (your number is saved in Chutku's memory).
+- **First names:** "send hi to Kritika" finds "Kritika Raj 2nd JUET New" when it is the only chat starting with that name. Two Kritikas: it asks which one.
+- **Asks once per new chat:** the first message to a chat Chutku doesn't know asks you; after that message really arrives, later messages to that chat go straight out.
+- If you answer "haan" late and the 2-minute card has expired, the same step is approved again on a fresh card; nothing else is.
+
+**Bluetooth and power (new 2026-11-10)**
+- "turn on bluetooth" / "bluetooth band karo" / "show bluetooth devices" / "is bluetooth on": switches it and reads the state back; lists your paired devices.
+- "shutdown pc" / "pc band karo" / "restart my laptop": asks first, then shuts down (or restarts) in 5 minutes; "cancel shutdown" / "shutdown rok do" stops it.
+
+**Spotify (fixed 2026-11-10)**
+- "play Lowkey playlist", "After Party playlist chalao": your own playlists from Your Library (even when OCR misreads the name).
+- A name not in your library ("play lofi playlist", "Afterparty Hits playlist chalao", "kesariya gaana chalao", "spotify pe Arijit ke gaane chalao") is found with Spotify's own search, which also fixes misheard names; Chutku checks that what plays is on the page it opened.
+- Asking for what is already playing doesn't pause it. Misheard app names work too: "Open sport" opens Spotify, "Ato mera brave open kar" opens Brave.
 
 **Your to-do list**
 - "note: buy milk" / "note that the meeting is at 5" / "add call mom to my list" / "likh lo: pay the bill"

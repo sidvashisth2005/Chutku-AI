@@ -299,10 +299,18 @@ Classes from the 51 real failures, biggest first:
 4. App names (5): "Ato mera brave", "Open sport", close VS Code
 5. Misheard chit-chat answered with "please clarify" (4)
 
-- [x] Spotify: library miss falls back to Spotify search; media checks read Spotify's own session (unit tests).
-  Live: the fallback ran. The play check still needs a live replay while the owner is away.
-- [ ] WhatsApp names: fuzzy matching, the self chat, Locked chats pause-for-unlock
-- [ ] Bluetooth, volume and shutdown phrases reach existing tools
-- [ ] App-name fuzzy launch and quit
-- [ ] Chit-chat is answered, not "clarified"
-- [ ] Hangs: `refresh_habits` and image describing moved off the HTTP loop
+- [x] Spotify: 9/9 of the owner's real sentences live (was 0/9); lab 28/30 verified; play button by colour in 24 ms (was 70 s)
+- [x] WhatsApp names: the self chat ('my chat', '(You)'), a unique first name, number-saved people, ask once per new chat (live: 5/5 opens)
+- [ ] Locked chats: Chutku opens Locked chats and waits for your unlock (today: unlock and open it, then 'is chat mein ... bhejo')
+- [x] Bluetooth status/on/off (new tools, live), volume, shutdown/restart/cancel phrases
+- [x] App-name fuzzy launch and quit ('Ato mera brave', 'Open sport', 'the active vs code window'; live)
+- [x] Chit-chat is answered, not "clarified" (live: 2/2)
+- [x] Hangs: laptop sleep no longer counts as a hang or restarts the core (awake clock)
+- [ ] Hangs: the 8 s `Thread.start` stalls (cause still unknown; the stacks show no Chutku code busy)
+- [x] A late spoken "haan" approves the same step on a fresh card (approval expired)
+- [x] Live replay of 35 safe real failures: 22 passed after the first fixes; the Spotify ones then 9/9
+
+### P2/P3 notes from the night shift
+- Approvals in the last week were mostly my own test scripts (27 of 46); the scoreboard now leaves the test areas out.
+- Replay of multi-round plans is NOT widened yet: saved successes can be wrong ("turn on bluetooth" was saved as
+  `app.spotify.next`; now marked bad), and later rounds reuse looked-up values. Needs per-step checks first (P3).
