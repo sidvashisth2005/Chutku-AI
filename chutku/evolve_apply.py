@@ -43,7 +43,8 @@ PROTECTED_FILES = frozenset({
     "agents.md", "claude.md", "docs/security.md", "requirements.lock", "pyproject.toml", ".gitignore",
     ".gitattributes", "scripts/security_counts.py", "scripts/ci_tests.py"})
 PROTECTED_PATTERNS = (
-    "chutku/evolve*.py", "tests/test_evolve*.py", "tests/test_docs_truth.py", "tests/test_trusted_task.py",
+    "chutku/evolve*.py", "chutku/dashboard*.py",   # incl. the parts split out 2026-11-10
+    "tests/test_evolve*.py", "tests/test_docs_truth.py", "tests/test_trusted_task.py",
     "tests/test_autonomy_policy.py", "tests/test_protected_zones.py", "tests/test_taint*.py", "tests/test_elevation.py",
     "tests/test_injection*.py", "tests/test_failclosed*.py", "tests/test_guard.py", "tests/test_runtime.py",
     "tests/test_capability_grants.py", "tests/test_resource_grants.py", "tests/test_paths_property.py",

@@ -8,7 +8,6 @@ import struct
 import zlib
 
 ICON_PATH = Path(__file__).resolve().parent / "web" / "chutku.ico"
-PNG_PATH = Path(__file__).resolve().parent / "web" / "icon.png"
 BRAND = (0xE8, 0x59, 0x0C)
 
 

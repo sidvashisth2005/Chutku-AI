@@ -341,7 +341,8 @@ class EvolveTests(unittest.TestCase):
                      "tests/test_autonomy_policy.py", "tests/test_protected_zones.py", "tests/test_taint_v2.py",
                      "tests/test_elevation.py", "tests/test_injection_s15.py", "tests/test_failclosed_s3.py",
                      "tests/test_evolve_y2.py", ".github/workflows/ci.yml", "requirements.lock", "pyproject.toml",
-                     "CHUTKU/Policy/Kernel.py", "chutku\\core\\ledger.py"):
+                     "CHUTKU/Policy/Kernel.py", "chutku\\core\\ledger.py", "chutku/dashboard_voice.py",
+                     "chutku/dashboard_work.py", "chutku/remote/streams.py"):
             self.assertTrue(check({path: change(added=["x = 1"])}), path)
             self.assertTrue(evolve_apply.protected(path), path)
         self.assertIn("deletes", check({"tests/test_calc.py": change("D", removed=["def test_a(self):"])})[0])

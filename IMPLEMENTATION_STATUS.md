@@ -31,8 +31,33 @@ Owner decisions are in `docs/DESIGN.md` §51.
   - new `docs/CODEMAP.md` (`scripts/codemap.py`): one line per module from its docstring. The 22 modules without one
     got a one-line docstring. `tests/test_codemap.py` fails when a module is missing (negative case: removing
     `chat.py` from the map failed with `['chutku/chat.py'] != []`).
+- **Step 2, shared helpers: not done.** Only 73 lines are byte-identical copies (`_validate_none`, `_root`, ...);
+  sharing them would save ~40 lines and couple unrelated tool modules.
+- **Step 3, dead code:** `know_me.brave_history_db` and `icon.PNG_PATH` removed (0 references). The other ~110
+  vulture hits are reached by name (HTTP `_post_*` handlers, ctypes fields, library callbacks).
+- **Step 4, big files split** (pure moves; every moved name is still importable from the old module):
+  - `quick_intents.py` 2,178 -> 1,684: the reply builders (`QUICK_ANSWERS`, `_say_*`) are in `quick_answers.py`;
+  - `remote/server.py` 1,234 -> 704: `PhoneHandler` mixes in `PhoneStreams` (`remote/streams.py`), `PhoneControl`
+    (`remote/phone_control.py`) and `PhoneFiles` (`remote/phone_files.py`);
+  - `dashboard.py` 2,479 -> 1,570: `DashboardServer` mixes in `DashboardVoice`, `DashboardPresence`, `DashboardWork`
+    (`dashboard_voice/presence/work.py`); shared helpers are in `dashboard_helpers.py`.
+  - How it stayed safe: a move tool (scratchpad, AST) refused any move where the moved code uses a name the tests
+    patch, or needs a name that stays behind. The patched names came from the test source and from a suite run that
+    logged every real `mock.patch` (264 module attributes); the real list was inside the static one.
+  - Kept whole: `agent_loop.py` (the patched safety lists and the injection defence are used throughout; ~150 movable
+    lines), `tools/everyday.py` and `tools/apps_extra.py` (most helpers are patched by the Windows/WhatsApp tests).
+  - Safety boundaries kept: `voice_enroll` stayed in `dashboard.py` (the voiceprint privacy test names the files
+    that may read it); Evolve's protected list now covers `chutku/dashboard*.py` (negative case: without it
+    `protected("chutku/dashboard_voice.py")` is False), added to `tests/test_evolve_y2.py` and `docs/SECURITY.md`.
+- **Size:** source lines went from 49,327 to 49,582 (+255: re-export lines, docstrings, imports), as expected for
+  moves. Docs outside `docs/archive/` went from 18,094 to 9,163 lines; this file from 7,052 to ~150.
 - **Verification:** full suite 1,803 tests: 1 failure, `test_docs_truth` (149 app actions in code, 144 in
-  `docs/SECURITY.md`); it already failed on `d6a2a0b` before any change. Instant-router snapshot of 1,816 sentences
+  `docs/SECURITY.md`); it already failed on `d6a2a0b` before any change. `compileall` clean. Live: the split
+  dashboard on a spare port with a temporary data folder served `/` (19,752 bytes), `/api/agent/latest`,
+  `/api/presence`, `/api/setup`, `/api/automations` (200), refused a request without the token (403), and answered
+  `POST /api/chat` "what time is it" with "It's Tuesday, 10 November 2026, 02:34 PM" (system clock 14:34) in 0.65 s.
+  `scripts/check_phrases.py` 193/193. The persona exam's one wrong route ("google calendar kholo" -> web.search) is
+  unchanged from before. Instant-router snapshot of 1,816 sentences
   (`chutku/apps/tasks.jsonl`, `scripts/check_phrases.py`, the task bank; times masked) is byte-identical to the
   baseline, and so is the manifest of all 416 registered tools.
 

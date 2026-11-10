@@ -16,7 +16,7 @@ from urllib.parse import urlsplit, parse_qs
 
 from chutku.app import PROJECT_ROOT, create_runtime
 from chutku.agent_execution import AgentExecutionStore
-from chutku.agent_loop import AgentSession, AgentSessionStore, LocalAgentPlanner, RuntimeRouter, default_context
+from chutku.agent_loop import AgentSession, AgentSessionStore, RuntimeRouter, default_context
 from chutku.policy.kernel import AutonomyMode
 from chutku.core.action_control import ActionControl
 from chutku.core.approvals import ApprovalStore
@@ -26,9 +26,19 @@ from chutku.presentation import present
 from chutku.planning import execute_request
 from chutku.tools.assistant import capabilities, LIMITS
 from chutku.workflows import project_plan, preflight, run_project
-
-
-MAX_QUEUED = 10
+from chutku.dashboard_helpers import (  # noqa: F401  (moved; still importable from here)
+    _STOP_REASONS,
+    _last_task_file,
+    _log,
+    _when,
+    interrupted_task,
+    open_app_window,
+    paused_explanation,
+    paused_spoken,
+)
+from chutku.dashboard_voice import DashboardVoice  # noqa: F401  (moved; still importable from here)
+from chutku.dashboard_presence import DashboardPresence  # noqa: F401  (moved; still importable from here)
+from chutku.dashboard_work import DashboardWork, MAX_QUEUED  # noqa: F401  (moved; still importable from here)
 
 
 class PreviewStore:
@@ -150,7 +160,7 @@ def speak_result(session, router):
         _log().exception("spoken answer failed")  # the answer is still shown on screen
 
 
-class DashboardServer(ThreadingHTTPServer):
+class DashboardServer(DashboardWork, DashboardPresence, DashboardVoice, ThreadingHTTPServer):
     daemon_threads = False
 
     def __init__(self, base: Path = PROJECT_ROOT, port: int = 8765, heartbeat=None):
@@ -246,61 +256,6 @@ class DashboardServer(ThreadingHTTPServer):
         thread.start()
         return thread
 
-    def heal_when_healthy(self, healthy_for=30.0, retry=10.0, give_up=600.0):
-        """After the guard restarted this core, lift the guard's own pause once the core has stayed up
-        `healthy_for` seconds, and say so. The owner's pause is never lifted; the cut-off task is not re-run."""
-        if self.heartbeat is None:
-            return None
-
-        def run():
-            if self.closing.wait(healthy_for):
-                return
-            deadline = time.monotonic() + give_up
-            while time.monotonic() < deadline:
-                try:
-                    lifted = ActionControl(self.base).heal()
-                    break
-                except ExecutionBusy:
-                    if self.closing.wait(retry):
-                        return
-            else:
-                return
-            if lifted is None:
-                return
-            _log().info("lifted the guard's pause (%s)", lifted.get("reason"))
-            self.healed = lifted
-            message = "Main atak gayi thi, isliye khud restart hui. Ab phir se taiyaar hoon."
-            cut = interrupted_task(self.base)
-            if cut:
-                message += f" '{str(cut.get('goal', ''))[:60]}' beech mein ruk gaya tha; chahiye to dobara bolo."
-            self.hud_state["message"] = message
-            if Path(self.base).resolve() == Path(PROJECT_ROOT).resolve():
-                self._speak(message)
-        thread = threading.Thread(target=run, name="chutku-heal", daemon=True)
-        thread.start()
-        return thread
-
-    # -- agent sessions ---------------------------------------------------------
-    def planners(self, choice=None):
-        """(lead planner, fallback). H9 choice for one request: "local" = only the local models (4B, then 8B);
-        "cloud" = the free cloud models lead even when the owner's default is local (never in offline mode)."""
-        if self.planner_factory is not None:
-            return self.planner_factory()
-        from chutku.brain_service import shared_service, strong_service
-        from chutku.cloud_planner import BackupPlanner, cloud_first_planner, fallback_planner
-        local = LocalAgentPlanner(shared_service(self.base))
-        prefs = self.preferences.load()
-        if choice == "local":
-            strong = strong_service(self.base)
-            return local, (BackupPlanner(None, strong) if strong is not None else None)
-        if (prefs.get("brain") == "cloud_first" or choice == "cloud") and not prefs.get("offline_mode"):
-            # W2 (owner, 2026-10-29: "free cloud first"): Groq/Cerebras/Gemini plan; the local model takes over
-            # only when they fail, and never leads while the cloud is up (cheap_second_opinion False).
-            cloud = cloud_first_planner(self.base)
-            if cloud is not None:
-                local.cheap_second_opinion = lambda: False
-                return cloud, local
-        return local, fallback_planner(self.base)
 
     def prime_brain(self):
         """Warm the local model in the background so the first request is fast."""
@@ -316,80 +271,10 @@ class DashboardServer(ThreadingHTTPServer):
                 _log().warning("warming the local model failed", exc_info=True)  # the first request retries
         threading.Thread(target=work, name="chutku-brain-prime", daemon=True).start()
 
-    def start_agent_work(self, session, action, *, queue=True, placement=None):
-        """Run agent work on a worker thread that owns the server action lock. While another order runs, a new
-        one waits in line (status "queued") and starts by itself: give several orders and walk away.
-        H18 placement: "later" always waits in line (never a side slot); "first" waits at the front of the line."""
-        if self.action_lock.acquire(blocking=False):
-            self._run_work(session, action)
-            return
-        if queue and placement is None and self._parallel(session, action):
-            return
-        if not queue:
-            raise ExecutionBusy("Another action is running. Wait for it to finish.")
-        with self.queue_lock:
-            if len(self.work_queue) >= MAX_QUEUED:
-                raise ExecutionBusy(f"{MAX_QUEUED} orders are already waiting. Let some finish first.")
-            if placement == "first":
-                self.work_queue.insert(0, (session, action))
-            else:
-                self.work_queue.append((session, action))
-        with session.lock:
-            session.status = "queued"
-        self._next_work()  # the running order may have finished in the meantime
 
     MAX_PARALLEL = 4   # App Mastery 2 (owner: "4 tasks: I do 2, Chutku does 2"); was 2 before the lanes
     STEP_WAIT = 180   # seconds a step waits for the other task's step before it gives up
 
-    def _parallel(self, session, action):
-        """Y3 (2026-11-06, owner: "multiple tasks simultaneously"): while a task runs, up to MAX_PARALLEL more start
-        at once on their own threads instead of waiting in line. A plain question may only observe
-        (AgentSession.observe_only). Steps that change something still run one at a time (the runtime's execution
-        lock; a side task's step waits for it), so two tasks never act in the same instant.
-        App Mastery 2: that lock is per lane (Runtime.lane). Steps in different apps' UI Automation lanes or the headless
-        browser run truly at the same time; screen, mouse and keyboard steps still take turns."""
-        # shortcut: two side-by-side UI tasks can still alternate focus between their steps; add per-window
-        # ownership if the owner sees keys land in the wrong window.
-        from chutku.agent_loop import _ACTION_WORDS, _QUESTION
-        with self.queue_lock:
-            if self.parallel_running >= self.MAX_PARALLEL:
-                return False
-            self.parallel_running += 1
-        session.observe_only = bool(_QUESTION.search(session.goal)) and not _ACTION_WORDS.search(session.goal)
-        self._run_work(session, action, side=True)
-        return True
-
-    def queued_ids(self):
-        with self.queue_lock:
-            return [queued.id for queued, _action in self.work_queue]
-
-    def _next_work(self):
-        """Start the oldest queued order if nothing is running; announce the summary when the line is empty."""
-        while True:
-            with self.queue_lock:
-                if not self.work_queue:
-                    finished, self.batch = (self.batch, []) if not self.action_lock.locked() else (None, self.batch)
-                    break
-                if not self.action_lock.acquire(blocking=False):
-                    return
-                session, action = self.work_queue.pop(0)
-            if session.status == "cancelled":  # stopped while waiting
-                self.action_lock.release()
-                continue
-            self._run_work(session, action)
-            return
-        if finished and len(finished) > 1:
-            self._announce_batch(finished)
-
-    def _announce_batch(self, sessions):
-        """A Windows notification when a run of several orders is over ("while you were away")."""
-        done = sum(1 for item in sessions if item.status == "done")
-        lines = [("✓ " if item.status == "done" else "✗ ") + item.goal[:50] for item in sessions[:6]]
-        try:
-            from chutku.health import notify
-            notify(f"Chutku finished {done} of {len(sessions)} tasks", "\n".join(lines))
-        except Exception:
-            pass  # the dashboard still shows every task
 
     def _run_work(self, session, action, *, side=False):
         """The caller holds the action lock; it is released when the work ends, then the next order starts.
@@ -453,83 +338,6 @@ class DashboardServer(ThreadingHTTPServer):
     SETUP_ACTIONS = {"assistant", "name", "key", "mic", "mode", "download", "phone", "browser_login", "finish",
                      "reopen", "permission", "forget_approval"}
 
-    def setup_view(self):
-        """What the first-run page shows. Never a key, password or token: only whether one is stored."""
-        from chutku import identity, setup_wizard
-        if getattr(self, "downloads", None) is None:
-            from chutku.models import Downloads
-            self.downloads = Downloads(self.base)
-        try:   # only whether a key is stored: the page never sees one
-            from chutku import cloud_planner, providers
-            keys = {"groq": "groq" in providers.configured(self.base), "gemini": bool(cloud_planner.api_key())}
-        except Exception:
-            keys = {"groq": False, "gemini": False}
-        from chutku.core.preferences import defaults as start_defaults
-        prefs = self.preferences.load()
-        current = identity.load(Path(self.base) / ".env")
-        return {**setup_wizard.state(self.base), "assistant": {k: current.get(k) for k in
-                                                                ("ASSISTANT_NAME", "ASSISTANT_GENDER",
-                                                                 "ASSISTANT_LANGUAGE", "ASSISTANT_STYLE")},
-                "keys_stored": keys, "mode": prefs["handsfree_mode"], "packs": self.downloads.status(),
-                # what this install starts with (an installed app: Safe; the owner's checkout: Full), so the page
-                # marks that choice "(recommended)" and never contradicts the preselected one
-                "default_mode": start_defaults()["handsfree_mode"],
-                "phone_account": current.get("CHUTKU_ACCOUNT_ID") or None,
-                "permissions": setup_wizard.permissions(self.base),
-                "remembered": __import__("chutku.approval_memory", fromlist=["entries"]).entries(self.base),
-                "links": {"groq": "https://console.groq.com/keys", "gemini": "https://aistudio.google.com/apikey"}}
-
-    def setup_action(self, data):
-        from chutku import setup_wizard
-        action = data.get("action") if isinstance(data, dict) else None
-        if action not in self.SETUP_ACTIONS:
-            raise ValueError("Unknown setup step.")
-        if action == "assistant":
-            fields = {k: data.get(k, "") for k in ("ASSISTANT_NAME", "ASSISTANT_GENDER", "ASSISTANT_LANGUAGE",
-                                                   "ASSISTANT_STYLE") if data.get(k)}
-            setup_wizard.set_assistant(self.base, fields)
-        elif action == "name":
-            setup_wizard.set_owner_name(self.base, data.get("name", ""))
-        elif action == "key":
-            setup_wizard.store_brain_key(self.base, data.get("provider"), data.get("key"))
-        elif action == "mic":
-            return {"microphone": setup_wizard.mic_level(self.base), **self.setup_view()}
-        elif action == "mode":
-            if data.get("mode") not in setup_wizard.AUTONOMY:
-                raise ValueError("Choose safe, edits or full.")
-            setup_wizard.set_autonomy(self.base, data["mode"])
-        elif action == "download":
-            self.setup_view()   # creates the downloader
-            self.downloads.start(data.get("pack"))
-            setup_wizard._mark(self.base, "packs")
-        elif action == "phone":
-            setup_wizard.link_phone(self.base, data.get("relay", ""), data.get("id", ""), data.get("password", ""),
-                                    data.get("pin", ""), new=data.get("new") is True)
-        elif action == "browser_login":
-            from chutku.tools import signed_in_browser
-            signed_in_browser.login()
-            setup_wizard._mark(self.base, "browser")
-        elif action == "forget_approval":   # WA1: Settings > "Things you let Chutku do without asking"
-            from chutku import approval_memory
-            approval_memory.forget(self.base, data.get("id"))
-        elif action == "permission":   # Settings > "What Chutku may do"
-            setup_wizard.set_permission(self.base, data.get("capability"), data.get("on"))
-        elif action == "finish":   # owner 2026-11-08: no skipping past the AI key, or Chutku looks broken
-            if not setup_wizard.has_brain_key(self.base):
-                raise ValueError("Add your free AI key first (step 1): Chutku needs it to understand you.")
-            setup_wizard.finish(self.base)
-        elif action == "reopen":   # Settings > "Run setup again"
-            setup_wizard._mark(self.base, done=False)
-        return self.setup_view()
-
-    # -- W6: the Automations tab (H23 blueprints) -----------------------------------------------------------------
-    def automations_view(self):
-        from chutku import blueprints, scheduled
-        catalog = [{"name": name, "about": item["about"], "every": "daily" if item["every"] == blueprints.DAY
-                    else "weekly", "slots": item["slots"]} for name, item in blueprints.CATALOG.items()]
-        active = [{"id": job["id"], "goal": job["goal"], "summary": scheduled.describe(job),
-                   "every_minutes": job.get("every_minutes")} for job in scheduled.active(self.base)]
-        return {"catalog": catalog, "active": active}
 
     def automation_action(self, data):
         """create (blueprint name + slots) or cancel (id). The owner's click is the request: the real task.schedule /
@@ -556,46 +364,6 @@ class DashboardServer(ThreadingHTTPServer):
             raise ValueError(str(failed[0].get("error") or failed[0].get("reason") or failed[0].get("state"))[:300])
         return self.automations_view()
 
-    def board_action(self, data):
-        """The Board tab's buttons: done / again / archive one task (owner clicks; nothing is ever deleted)."""
-        from chutku import board
-        if set(data) != {"action", "id"} or type(data.get("id")) is not int or data["action"] not in {
-                "done", "again", "archive"}:
-            raise ValueError("Give action done, again or archive, and the task id.")
-        task = board.get(self.base, data["id"])
-        if data["action"] == "again":
-            board.retry(self.base, task["id"])
-        else:
-            board.set_status(self.base, task["id"], "done" if data["action"] == "done" else "archived")
-        return self.board_view(include_done=True)
-
-    def board_view(self, include_done=False):
-        """H15: the board for the dashboard (open tasks; with include_done also finished ones) and running workers."""
-        from chutku import board
-        try:
-            rows = board.tasks(self.base)
-        except (OSError, ValueError) as error:
-            return {"tasks": [], "running": [], "error": str(error)}
-        if not include_done:
-            rows = [t for t in rows if t["status"] != "done"]
-        running = sorted(self.board.running) if self.board is not None else []
-        return {"tasks": rows[-30:], "running": running}
-
-    def start_board(self):
-        """H15: run research tasks beside normal work; respects the owner's pause (H2)."""
-        from chutku import board, pause, research
-        from chutku.health import notify
-
-        def paused():
-            return ActionControl(self.base).paused or pause.engaged(self.base)
-
-        def tell(title, message):
-            notify(title, message)
-            from chutku.gateway import telegram
-            telegram.deliver(self.base, f"{title}\n{message}", kind="research")   # H16: only if paired and handed off
-        self.board = board.Dispatcher(self.base, research.dashboard_worker(self), notify=tell, paused=paused)
-        self.board.start(self.closing)
-        return self.board
 
     def stop_session(self, session_id):
         session = self.agent_sessions.get(session_id)
@@ -603,25 +371,6 @@ class DashboardServer(ThreadingHTTPServer):
             runtime.approvals = self.approvals
             return session.cancel(RuntimeRouter(runtime, opener=lambda g: create_runtime(self.base, g)))
 
-    def hud_video(self):
-        """X13: the YouTube video playing in Chutku's own window (youtube.play_here), for at most 4 hours."""
-        from chutku.tools.internet import hud_video_file
-        try:
-            video = json.loads(hud_video_file(self.base).read_text(encoding="utf-8"))
-            if time.time() - float(video["at"]) < 4 * 3600 and re.fullmatch(r"[\w-]{11}", video["id"]):
-                return {"id": video["id"], "title": str(video.get("title", ""))[:150]}
-        except (OSError, ValueError, KeyError, TypeError):
-            pass
-        return None
-
-    def trust_session(self, session_id):
-        """The owner said "don't ask again" while approving: the rest of this one task runs as trusted (only very
-        risky steps still ask). A task in review mode stays in review."""
-        session = self.agent_sessions.get(session_id)
-        with session.lock:
-            if session.mode != AutonomyMode.REVIEW:
-                session.mode = AutonomyMode.TRUSTED.value
-        return session.mode
 
     def confirm_session(self, session_id, approve, always=False):
         """The user's on-screen decision (web page or HUD button) for the one pending step. always (WA1): remember
@@ -721,21 +470,6 @@ class DashboardServer(ThreadingHTTPServer):
                 return
             time.sleep(0.3)
 
-    def run_nightshift(self):
-        """Start the nightly jobs on a background thread (one at a time); the report lands in data/nightshift/."""
-        if getattr(self, "_nightshift", None) is not None and self._nightshift.is_alive():
-            return {"started": False, "reason": "Night Shift is already running."}
-
-        def work():
-            from chutku import nightshift
-            try:
-                planner = self.planners()[0] if self.planner_factory is None else None
-                nightshift.run_once(self.base, model=planner)
-            except Exception:
-                _log().exception("night shift failed")
-        self._nightshift = threading.Thread(target=work, name="chutku-nightshift", daemon=True)
-        self._nightshift.start()
-        return {"started": True}
 
     def voice_enroll(self, action):
         """Owner Voice Lock enrollment from the dashboard: record one prompted line at a time (memory only)."""
@@ -797,32 +531,6 @@ class DashboardServer(ThreadingHTTPServer):
             _log().info("voice lock: owner=%s score=%s", verified, score)
         return verified
 
-    def _approve_by_voice(self, session, snapshot):
-        """Ask the pending step aloud, listen for haan/nahi, apply it. False when no clear answer was heard."""
-        from chutku.voice.approval import decide, spoken_question
-        from chutku.voice.handsfree import chime
-        question = spoken_question((snapshot.get("pending") or {}).get("approval") or {})
-        for attempt in range(2):
-            self._hud_set("confirm", message=question)
-            self._speak(question if attempt == 0 else "Sorry, haan ya na?")
-            chime("listen")
-            heard = self._listen_once()
-            answer = decide(heard)
-            if session.snapshot()["status"] != "waiting_confirmation":
-                return True  # answered on screen meanwhile
-            if answer is None:
-                continue
-            try:
-                self.confirm_session(session.id, answer)
-            except (ValueError, ExecutionBusy):
-                return True  # already decided elsewhere
-            if not answer:
-                self._speak("Theek hai, cancel kar diya.")
-            self.hud_state["transcript"] = heard
-            time.sleep(0.5)
-            return True
-        self._speak("I didn't catch a clear haan or na. The button is on the screen.")
-        return False
 
     def _listen_once(self, wait_seconds=None):
         """One short local transcript ("" when nothing clear was heard): an approval answer, or a follow-up within
@@ -841,303 +549,10 @@ class DashboardServer(ThreadingHTTPServer):
                 wake.busy.clear()
         return ((heard.get("output") or {}).get("transcript") or "").strip()
 
-    def handsfree_request(self, command=None, source="hotkey"):
-        """Hotkey or wake phrase. With conversation mode on (and Gemini enabled) this starts, or with the
-        hotkey ends, a live voice conversation; otherwise: remember the screen, show the HUD, listen once
-        (unless the command was already said), run."""
-        from chutku import vision
-        from chutku.voice.handsfree import chime
-        live = self.live
-        if live is not None and live.active.is_set():
-            # Only the hotkey ends a conversation. A wake-phrase match while talking is ignored: it was the
-            # wake listener catching noise or Chutku's own voice (it used to end conversations at random).
-            if command is None and source == "hotkey":
-                live.stop()
-                self._hud_set("done", message="Conversation ended.")
-            return
-        if ActionControl(self.base).paused:
-            self._paused_voice(source, command)   # always answer out loud; the hotkey may lift the pause by voice
-            return
-        if source == "hotkey" and command is None:
-            self._barge_in()
-        conversation = self.preferences.load().get("conversation", True)
-        from chutku.voice import mic
-        mic.set_muted(False)   # calling Chutku means "listen to me now"
-        if conversation and self.start_live(command):
-            return
-        if conversation and getattr(self, "live_error", None) and self.voice_replies:
-            # 2026-10-31: Gemini Live silently failed (key rejected) and the owner only noticed "the voice changed".
-            self._speak(f"{self.live_error}, isliye abhi local mode mein sun rahi hoon.")
-        if self.action_lock.locked() and not command:
-            self._hud_show()  # show what is running now
-            chime("busy")
-            return
-        vision.remember_moment()  # "this" = what was on screen the instant you called Chutku
-        mode = self.preferences.load()["handsfree_mode"]
-        try:
-            if command:
-                if source == "wake":
-                    chime("listen")   # every wake is heard and seen, so a false wake never goes unnoticed
-                self._hud_set("thinking", transcript=command)
-                session = self.begin_session(command, mode, "voice")
-                if session.status == "queued":  # runs after the current order; its answer is spoken then
-                    self._hud_set("thinking", transcript=command,
-                                  message=f"Queued: starts after the current task ({len(self.queued_ids())} waiting).")
-                    chime("listen")
-                    return
-            else:
-                self._hud_set("listening")
-                chime("listen")
-                session, transcript, message = self.voice_request(mode)
-                if session is None:
-                    self._hud_set("error", message=message or "I didn't catch that.")
-                    chime("busy")
-                    # 2026-10-30 00:50: the owner's hotkey request came out as "Kholo." (unclear) and got only a
-                    # beep; a minute later the emergency stop was pressed. Always say what happened.
-                    if self.voice_replies:
-                        self._speak("Sorry, theek se sunai nahi diya. Ctrl+Alt+Space dabake thoda paas se phir bolo.")
-                    return
-                self.hud_state["transcript"] = transcript
-            self.hud_state["session_id"] = session.id
-            self._wait_for(session)
-            follow_up = float(self.preferences.load().get("follow_up_seconds", 0) or 0)
-            if follow_up > 0 and session.snapshot()["status"] in {"done", "clarify"}:
-                # W3: after her answer she keeps listening a few seconds; just speak, no hotkey or wake phrase.
-                self._local_conversation(mode, wait_seconds=follow_up)
-        except ExecutionBusy:
-            chime("busy")
-
-    def _paused_voice(self, source, command=None):
-        """Called while actions are paused. Before 2026-10-29 the hotkey only beeped and the wake phrase failed
-        silently, so the owner never learned why Chutku "did nothing" for three days. Now she says why. After
-        the hotkey (a key pressed at this PC, so the owner) a spoken "resume" lifts the pause; nothing else heard
-        here runs. A wake phrase only gets the explanation: a voice in the room may not lift a pause."""
-        from chutku import control_intent
-        from chutku.voice.handsfree import chime
-        why = paused_spoken(self.base)
-        self._hud_set("error", message=paused_explanation(self.base, short=True))
-        if source != "hotkey":
-            self._say(why + " Chalu karne ke liye Ctrl+Alt+Space dabake resume bolo.")
-            return
-        if self.action_lock.locked():
-            chime("busy")
-            return
-        heard = command
-        if not heard:
-            self._say(why + " Chalu karna hai to resume bolo.")
-            chime("listen")
-            self._hud_set("listening", message="Paused. Say \"resume\" to switch actions back on.")
-            heard = self._listen_paused()
-        if heard and control_intent.heard_resume(heard):
-            try:
-                ActionControl(self.base).resume()
-            except ExecutionBusy:
-                self._say("Abhi ek kaam chal raha hai, thodi der mein phir se bolo.")
-                return
-            self._hud_set("done", transcript=heard, message="Resumed: actions are on again.")
-            self._say("Chalu ho gayi. Ab bolo, kya karna hai?")
-            return
-        self._hud_set("error", transcript=heard or None, message=paused_explanation(self.base, short=True))
-
-    def _listen_paused(self):
-        """One transcript while paused (the listen tool refuses to run then). Used only to hear "resume"."""
-        from chutku.voice import recognition
-        from chutku.voice.session import voice_session
-        wake = self.wake
-        if wake is not None:
-            wake.busy.set()
-
-        class Unpaused:
-            @staticmethod
-            def check():
-                return None
-        try:
-            with voice_session.active("listening"):
-                heard = recognition.transcribe(recognition.capture(Unpaused()))
-        except Exception:
-            _log().exception("listening while paused failed")
-            return ""
-        finally:
-            if wake is not None and not getattr(wake, "handling", False):
-                wake.busy.clear()
-        text = heard.get("text", "") if isinstance(heard.get("text"), str) else ""
-        # One short word scores lower than a sentence; only "resume" is acted on here, so a lower bar is safe.
-        return text.strip() if heard.get("confidence", 0) >= 0.2 else ""
 
     END_CONVERSATION = re.compile(r"\W*(?:bas|bas karo|bye|ok bye|bye bye|thank you|thanks|that'?s all|ho gaya|"
                                   r"band karo|stop|rehne do|kuch nahi|nothing|no thanks)\W*", re.I)
 
-    def screen_copilot(self, question=None):
-        """Ctrl+Alt+S (W5): keep what is on screen right now, listen ~4 s for a question ("ye error kya hai?"),
-        then answer it out loud from the screen copilot. No question: "what is on my screen, anything to fix?"."""
-        from chutku import vision
-        from chutku.voice.handsfree import chime
-        from chutku.quick_intents import SCREEN_COPILOT
-        vision.remember_moment()          # before the HUD or anything else appears on screen
-        if ActionControl(self.base).paused:
-            self._paused_voice("hotkey", None)
-            return None
-        self._barge_in()
-        if question is None:
-            self._hud_set("listening", message="Screen ke baare mein kya poochna hai? (ya chup raho: main bata dungi)")
-            chime("listen")
-            question = self._listen_once(4)
-        question = (question or "").strip()
-        if question and SCREEN_COPILOT.search(question):
-            goal = question
-        else:
-            goal = ("screen dekh ke batao: " + question) if question else "screen dekh ke batao kya hai, kuch fix karna hai?"
-        mode = self.preferences.load()["handsfree_mode"]
-        try:
-            session = self.begin_session(goal, mode, "voice", speaker_check=False)
-        except ExecutionBusy:
-            chime("busy")
-            return None
-        self.hud_state["session_id"] = session.id
-        return session
-
-    # -- W6: phone access ---------------------------------------------------------------------------------------
-    def start_remote(self):
-        """Phone access (when the owner left it on): only the real install, never tests or demos."""
-        if Path(self.base).resolve() != Path(PROJECT_ROOT).resolve():
-            return None
-        from chutku.remote.manager import RemoteManager
-        self.remote = RemoteManager(self)
-        try:
-            self.remote.start()
-        except OSError:
-            _log().exception("the phone server could not start")
-        try:   # the phone app through the account relay (set up by chutku.cli setup)
-            from chutku.relay import client
-            self.relay = client.start(self)
-        except Exception:
-            _log().exception("the account relay could not start")   # Chutku keeps running without the phone app
-        return self.remote
-
-    def phone_active(self):
-        return bool(self.remote is not None and self.remote.active())
-
-    def remote_kill(self):
-        """Ctrl+Alt+Shift+P: end phone control now and forbid it until it is armed again at the laptop."""
-        from chutku.voice.handsfree import chime
-        if self.remote is not None:
-            self.remote.disarm("Ctrl+Alt+Shift+P")
-        chime("busy")
-        self.hud_state["message"] = "Phone control stopped (Ctrl+Alt+Shift+P)."
-
-    def _barge_in(self, settle=1.0):
-        """Hotkey while she is talking: stop her now (and drop the rest of that answer), then listen (W3)."""
-        from chutku.voice import tts
-        from chutku.voice.session import voice_session
-        if voice_session.snapshot().state != "speaking":
-            return False
-        tts.stop()
-        deadline = time.monotonic() + settle
-        while voice_session.snapshot().state == "speaking" and time.monotonic() < deadline:
-            time.sleep(0.05)
-        return True
-
-    def _local_conversation(self, mode, turns=6, wait_seconds=None):
-        """Offline conversation: after each spoken answer Chutku listens again (no wake phrase needed) until
-        silence, noise, or "bas" / "bye". Everything runs on this PC: Whisper, the local model, Windows' voice."""
-        from chutku.voice.handsfree import chime
-        from chutku.voice.heard import meaningful
-        from chutku.voice.session import voice_session
-        for _turn in range(turns):
-            deadline = time.monotonic() + 90
-            while (self.action_lock.locked() or voice_session.quiet_for() < 0.5) and time.monotonic() < deadline:
-                time.sleep(0.1)   # let the answer finish speaking: the mic must not hear Chutku itself
-            from chutku.voice import mic
-            waited = time.monotonic()
-            while mic.muted() and wait_seconds is None and time.monotonic() - waited < 60:
-                time.sleep(0.2)   # muted: wait for Ctrl+Alt+M instead of listening to the room
-            if mic.muted():
-                mic.set_muted(False)
-                self._hud_set("done", message="Conversation ended.")
-                return
-            self._hud_set("listening", message="Anything else? (say \"bas\" to stop)")
-            chime("listen")
-            heard = self._listen_once(wait_seconds)
-            if not heard or not meaningful(heard) or self.END_CONVERSATION.fullmatch(heard):
-                self._hud_set("done", message="Conversation ended.")
-                return
-            try:
-                session = self.begin_session(heard, mode, "voice")
-            except ExecutionBusy:
-                return
-            self.hud_state.update({"transcript": heard, "session_id": session.id})
-            self._wait_for(session)
-
-    # -- live conversation ----------------------------------------------------------------
-    def start_live(self, opening=None):
-        """Start a live conversation; False when it cannot (no Gemini, offline), so the caller falls back."""
-        from chutku import vision
-        from chutku.tools.builder import gemini_allowed
-        from chutku.voice.handsfree import chime
-        from chutku.voice.live import LiveConversation
-        key = gemini_allowed(self.base)
-        self.live_error = None
-        if not key:
-            self.live_error = "Gemini ki key ya permission set nahi hai"
-            return False
-        from chutku.online import reachable
-        if not reachable():
-            self.live_error = "internet nahi mil raha"
-            return False   # offline: the local conversation takes over at once (no 12 s connection wait)
-        vision.remember_moment()
-        if self.wake is not None:
-            self.wake.busy.set()  # one microphone owner at a time
-            self.wake.hold.set()  # ...for the whole conversation (busy alone was cleared as soon as this returned)
-        live = LiveConversation(self, key)
-        live.topic = opening or ""   # the voice model's memory slice is picked for this topic
-        self.live = live
-        self._hud_set("listening", message="Connecting…")
-        if not opening:
-            # Z4: "speak now" at once; the conversation records from here and sends it when connected (~1.3 s).
-            chime("listen")
-        live.start()
-        deadline = time.monotonic() + 12
-        while time.monotonic() < deadline and live.model is None and not live.closed.is_set():
-            time.sleep(0.1)
-        if live.model is None:
-            self.live_error = "Gemini se connect nahi ho paayi (key reject ho rahi hai ya model band hai)"
-            live.stop()
-            if self.wake is not None:
-                self.wake.hold.clear()
-                self.wake.busy.clear()
-            self.live = None
-            return False
-        if opening:
-            chime("listen")
-            live.trust_opening(opening)  # said right after the wake phrase: heard clearly by the wake listener
-            live.inject(opening)
-        threading.Thread(target=self._after_live, args=(live,), daemon=True).start()
-        return True
-
-    def _after_live(self, live):
-        live.closed.wait()
-        from chutku.voice import mic
-        mic.set_muted(False)   # mute lasts only for this conversation
-        from chutku import recall
-        recall.log_voice(live.full_transcript, base=self.base)
-        if self.wake is not None:
-            self.wake.hold.clear()
-            self.wake.busy.clear()
-        if self.live is live:
-            self._hud_set("done", message=live.error or "Conversation ended.")
-
-    def live_event(self, kind, **details):
-        if kind == "connected":
-            self.hud_state = {"phase": "listening", "transcript": None, "message": None,
-                              "session_id": self.hud_state.get("session_id")}
-            self._hud_show()
-
-    def live_task(self, goal):
-        """A task the conversation asked for: the normal agent path, narrated by the conversation."""
-        mode = self.preferences.load()["handsfree_mode"]
-        session = self.begin_session(goal, mode, "voice", silent=True, voice_source="live")
-        self.hud_state["session_id"] = session.id
-        return session
 
     def memory_facts(self):
         from chutku.agent_loop import _user_facts
@@ -1150,41 +565,6 @@ class DashboardServer(ThreadingHTTPServer):
         notes = [{"key": k, "value": v} for k, v in self.memory_facts().items()]
         return recall.about_you(topic, budget=budget, base=self.base, notes=notes)
 
-    # -- HUD ---------------------------------------------------------------------------
-    def _hud_show(self):
-        if self.hud is not None:
-            self.hud.show()
-
-    def _hud_set(self, phase, *, transcript=None, message=None, session_id=None):
-        self.hud_state = {"phase": phase, "transcript": transcript, "message": message, "session_id": session_id}
-        self._hud_show()
-
-    def hud_status(self):
-        from chutku.voice.recognition import LEVEL
-        state = dict(self.hud_state)
-        session = None
-        if state.get("session_id"):
-            try:
-                session = self.agent_sessions.get(state["session_id"]).snapshot()
-            except (KeyError, ValueError):
-                session = None
-        if session is not None:
-            state["phase"] = {"planning": "thinking", "running": "running", "waiting_confirmation": "confirm",
-                              "done": "done", "clarify": "clarify", "queued": "thinking"}.get(session["status"], "error")
-        state["session"] = session
-        if session is not None and session.get("suspicious"):
-            state["message"] = "⚠ What I read tried to give me instructions: every change waits for your OK."
-        state["level"] = LEVEL["rms"] if time.monotonic() - LEVEL["at"] < 0.3 else 0.0
-        state["paused"] = ActionControl(self.base).paused
-        from chutku.voice import mic
-        state["mic_muted"] = mic.muted()
-        live = self.live
-        if live is not None and live.active.is_set():
-            state["conversation"] = list(live.transcript)
-            state["live_model"] = live.model
-            if session is None or session["status"] in {"done", "clarify", "failed", "stopped", "cancelled"}:
-                state["phase"] = "listening"  # the conversation goes on after a task
-        return state
 
     PHASES = ("idle", "listening", "thinking", "running", "speaking", "confirm", "done", "clarify", "error", "paused")
     MOODS = {"listening": "listening", "confirm": "listening", "clarify": "confused", "thinking": "thinking",
@@ -1195,210 +575,6 @@ class DashboardServer(ThreadingHTTPServer):
     ANNOYED = re.compile(r"\b(?:stupid|useless|bakwaa?s|beka+r|pagal|idiot|ugh|galat|kya\s+kar\s+rahi|baar\s+baar|"
                          r"dimaa?g\s+kharab|shut\s+up)\b", re.I)
 
-    @classmethod
-    def presence_mood(cls, phase, steps, heard=""):
-        """X11/Y1: the face's mood. Happy only when the task is done and every completed step was verified; hearts
-        when the owner thanks her; angry brows while she works on something he said in annoyance."""
-        if phase in {"paused", "error", "confirm"}:
-            return cls.MOODS[phase]
-        from chutku.translit import roman
-        said = roman(heard or "")
-        if cls.LOVE.search(said):
-            return "love"
-        if cls.ANNOYED.search(said) and phase in {"listening", "thinking", "running", "speaking"}:
-            return "annoyed"
-        if phase == "done":
-            completed = [s for s in steps if s.get("state") == "COMPLETED"]
-            failed = any(s.get("state") in {"FAILED", "DENIED"} for s in steps)
-            return "happy" if completed and not failed and all(s.get("verified") for s in completed) else "calm"
-        return cls.MOODS.get(phase, "calm")
-
-    def presence_state(self):
-        """What the presence orb shows (W4): its phase, voice levels in and out, captions and the live task."""
-        from chutku.voice import tts
-        from chutku.voice.session import voice_session
-        state = self.hud_status()
-        speaking = voice_session.snapshot().state == "speaking"
-        phase = state.get("phase", "idle")
-        if speaking:
-            phase = "speaking"
-        if state.get("paused") and phase in {"idle", "done", "error"}:
-            phase = "paused"
-        session = state.get("session") or {}
-        steps = [{"tool": s.get("tool"), "purpose": str(s.get("purpose") or "")[:90], "state": s.get("state"),
-                  "verified": s.get("verification") == "PASS"} for s in (session.get("steps") or [])][-8:]
-        phase = phase if phase in self.PHASES else "idle"
-        return {"phase": phase, "mood": self.presence_mood(phase, steps, state.get("transcript")),
-                "mic_level": round(float(state.get("level") or 0.0), 4),
-                "voice_level": round(tts.speaking_level(), 3) if speaking else 0.0,
-                "heard": state.get("transcript") or "", "message": state.get("message") or "",
-                "reply": str(session.get("reply") or "")[:400], "goal": str(session.get("goal") or "")[:160],
-                "session_id": session.get("id"), "status": session.get("status"), "steps": steps,
-                "pending": (session.get("pending") or {}).get("approval") if session.get("status") == "waiting_confirmation" else None,
-                "paused": bool(state.get("paused")), "mic_muted": bool(state.get("mic_muted")),
-                "video": self.hud_video(),
-                "conversation": [list(t) for t in (state.get("conversation") or [])][-4:],
-                "healed": bool(self.healed), "phone": self.phone_active(),
-                "phone_viewing": bool(self.remote and self.remote.server and self.remote.server.viewing()),
-                "phone_control": bool(self.remote and self.remote.server and self.remote.server.controlling())}
-
-    def toggle_mute(self):
-        """Ctrl+Alt+M / the HUD mic button: mute or unmute the microphone without stopping anything."""
-        from chutku.voice import mic
-        from chutku.voice.handsfree import chime
-        now = mic.toggle()
-        key = getattr(self.hotkey, "mute_hotkey", None) or "the mic button"
-        self.hud_state["message"] = (f"Mic muted: I keep talking but don't hear the room. {key} to unmute."
-                                     if now else "Mic on.")
-        self._hud_show()
-        chime("busy" if now else "listen")
-        return now
-
-    def hud_submit(self, text):
-        mode = self.preferences.load()["handsfree_mode"]
-        self._hud_set("thinking", transcript=text)
-        session = self.begin_session(text, mode, "text")
-        self.hud_state["session_id"] = session.id
-
-    def start_tray(self):
-        """Tray icon with the same controls as the dashboard header buttons."""
-        from chutku.tray import Tray
-        control = ActionControl(self.base)
-
-        def toggle():
-            control.resume() if control.paused else control.pause()
-
-        def stop():   # "Quit Chutku": every process ends, cleanly (no pause on the next start), 2026-11-01
-            if self.heartbeat is not None:
-                control.quit()
-        def restart():   # WA6: quit cleanly and start again (never leaves actions paused)
-            if self.heartbeat is not None:
-                from chutku import restart as restarting
-                restarting.request(self.base)
-        self.tray = Tray(open_dashboard=lambda: open_app_window(self.url), toggle_pause=toggle, stop=stop,
-                         restart=restart,
-                         is_paused=lambda: control.paused, guard_active=lambda: self.heartbeat is not None,
-                         show_window=self.show_window)
-        self.tray.start()
-        self.tray.ready.wait(5)
-        return self.tray.error
-
-    def start_presence(self):
-        """W4: the presence orb window (pywebview) as a child process of this core, so it closes with Chutku.
-        False when it is off, not installed, or this is not the real install (then the Tk HUD is used)."""
-        if Path(self.base).resolve() != Path(PROJECT_ROOT).resolve():
-            return False
-        if not self.preferences.load().get("presence_overlay", True):
-            return False
-        from chutku import presence
-        if not presence.available():
-            return False
-        import subprocess
-        import sys
-        try:
-            from chutku.core.paths import CODE_ROOT   # W2: -m finds chutku from the code folder, not the data
-            self.presence_process = subprocess.Popen([sys.executable, "-m", "chutku.presence", self.url],
-                                                     cwd=str(CODE_ROOT),
-                                                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-        except OSError:
-            _log().exception("the presence window could not start; using the HUD")
-            return False
-        self.watch_presence()
-        return True
-
-    def show_window(self):
-        """Tray "Show Chutku window": the orb if it runs (restarted when it was closed), else the panel."""
-        process = getattr(self, "presence_process", None)
-        if process is not None and process.poll() is None:
-            from chutku.presence import bring_to_front
-            bring_to_front()
-        elif not self.start_presence():
-            if self.hud is None:
-                self.start_hud()
-            self._hud_show()
-
-    def watch_presence(self, wait=8.0):
-        """2026-11-01: the orb sometimes never appeared and nothing said why. If its process dies or no window
-        shows within `wait` seconds, the Tk panel starts instead (and the reason is logged)."""
-        def run():
-            from chutku.presence import window_exists
-            deadline = time.monotonic() + wait
-            while time.monotonic() < deadline:
-                if self.presence_process.poll() is not None:
-                    break
-                if window_exists():
-                    return
-                time.sleep(0.5)
-            _log().warning("the presence window did not appear (exit code %s); using the HUD",
-                           self.presence_process.poll())
-            if self.hud is None:
-                self.start_hud()
-        threading.Thread(target=run, name="chutku-presence-watch", daemon=True).start()
-
-    def start_hud(self):
-        from chutku.hud import Hud
-        server = self
-
-        class Actions:
-            confirm = staticmethod(lambda session_id, approve: server.confirm_session(session_id, approve))
-            stop = staticmethod(lambda session_id: server.stop_session(session_id))
-            submit = staticmethod(lambda text: server.hud_submit(text))
-            listen = staticmethod(lambda: server.handsfree_request())
-            mute = staticmethod(lambda: server.toggle_mute())
-            resume = staticmethod(lambda: ActionControl(server.base).resume())
-        self.hud = Hud(self.hud_status, Actions)
-        self.hud.start()
-        self.hud.ready.wait(5)
-        return self.hud.error
-
-    def start_handsfree(self):
-        from chutku.voice.handsfree import HotkeyListener
-        self.hotkey = HotkeyListener(lambda: self.handsfree_request(), on_mute=self.toggle_mute,
-                                     on_screen=self.screen_copilot, on_kill=self.remote_kill)
-        self.hotkey.start()
-        self.hotkey.registered.wait(2)
-        prefs = self.preferences.load()
-        self.apply_wake(prefs["wake_word"])
-        if prefs["wake_word"] or prefs.get("offline_mode"):
-            self._preload_whisper()
-
-    def _preload_whisper(self, delay=10.0):
-        """Load offline speech recognition in the background once Chutku is up, so the first spoken command does
-        not wait for the model (and its hash check). Only when the offline voice path is in use."""
-        def work():
-            time.sleep(delay)
-            try:
-                from chutku.voice import whisper_stt
-                whisper_stt._load(self.base)
-            except Exception:
-                _log().warning("preloading Whisper failed", exc_info=True)   # the first transcription retries
-        threading.Thread(target=work, name="chutku-whisper-preload", daemon=True).start()
-
-    def apply_wake(self, enabled):
-        from chutku.voice.handsfree import WAKE_PROMPT, WakeListener
-        if enabled and (self.wake is None or not self.wake.is_alive()):
-            from chutku.voice.whisper_stt import transcribe_pcm
-            self.wake = WakeListener(lambda command: self.handsfree_request(command or None, source="wake"),
-                                     lambda pcm: transcribe_pcm(pcm, language="en", base=self.base,
-                                                                prompt=WAKE_PROMPT), base=self.base)
-            self.wake.start()
-        elif not enabled and self.wake is not None:
-            self.wake.stop()
-            self.wake = None
-
-    def handsfree_status(self):
-        prefs = self.preferences.load()
-        wake = self.wake
-        return {"hotkey": "Ctrl+Alt+Space", "hotkey_active": bool(self.hotkey and self.hotkey.registered.is_set()),
-                "handsfree_mode": prefs["handsfree_mode"], "wake_word": prefs["wake_word"], "browser": prefs["browser"],
-                "offline_mode": prefs.get("offline_mode", False), "brain": prefs.get("brain", "cloud_first"),
-                "mic_muted": __import__("chutku.voice.mic", fromlist=["muted"]).muted(),
-                "mute_hotkey": getattr(self.hotkey, "mute_hotkey", None) if self.hotkey else None,
-                "wake_listening": bool(wake and wake.is_alive()), "wake_error": wake.error if wake else None,
-                "wake_audio": {key: getattr(wake, key, 0) for key in ("overflows", "dropped", "restarts")} if wake else None,
-                "wake_engine": getattr(wake, "engine", None) if wake else None,
-                "wake_best_score": round(getattr(getattr(wake, "detector", None), "best_score", 0.0), 3) if wake else None,
-                "latest_session": self.latest_session_id}
 
     def stop_everything(self):
         """Stop the running order and drop everything waiting in line. Returns how many orders were stopped."""
@@ -2079,11 +1255,6 @@ def _mode(data):
     return mode
 
 
-def _log():
-    from chutku.core.log import get_logger
-    return get_logger("dashboard")
-
-
 def _error_ref(where):
     """Log the current exception with a short id that the owner sees next to the error."""
     from chutku.core.log import error_id
@@ -2232,16 +1403,6 @@ def _agent_post(self, path, data):
 DashboardHandler._agent_post = _agent_post
 
 
-_STOP_REASONS = {
-    "heartbeat_timeout": "Chutku's core stopped responding (this also happens when the PC wakes from sleep)",
-    "action_deadline": "an action ran longer than 2 minutes",
-    "emergency_stop": "the emergency stop was used (Ctrl+Alt+F12, Stop Chutku or the tray menu)",
-    "core_exited": "Chutku's core closed unexpectedly",
-    "core_disconnected": "Chutku's core closed unexpectedly",
-    "startup_timeout": "Chutku's core did not start in time",
-}
-
-
 def awake_clock():
     """Seconds the PC was awake. time.monotonic() keeps counting through Windows sleep, so every wake-up looked like
     a hang as long as the sleep (2898.9 s on 2026-11-09) and the core was restarted; QueryUnbiasedInterruptTime
@@ -2275,51 +1436,6 @@ def dump_hang(base, stalled, keep=10):
         return path
     except OSError:
         return None
-
-
-def paused_spoken(base):
-    """One short spoken sentence (her own Hinglish, feminine) for why actions are paused."""
-    info = ActionControl(base).info()
-    source, reason = info.get("source"), info.get("reason")
-    if source == "owner":
-        return ("Emergency stop dabaya gaya tha, isliye main paused hoon." if reason == "emergency_stop"
-                else "Aapne mujhe pause kiya hua hai.")
-    if source in {"guard", "startup"}:
-        return "Main atak gayi thi, isliye paused hoon; thodi der mein khud chalu ho jaungi."
-    return "Main abhi paused hoon."
-
-
-def _when(timestamp):
-    return datetime.fromtimestamp(timestamp).strftime("%I:%M %p on %d %b").lstrip("0")
-
-
-def paused_explanation(base, *, short=False):
-    """Plain words for 'why can't you do anything': who paused (the owner, or the guard and why) and how to
-    resume. short=True gives only the reason, for the dashboard banner that carries its own Resume button."""
-    info = ActionControl(base).info()
-    why = ""
-    if info.get("source") == "owner":
-        when = f" at {_when(info['at'])}" if info.get("at") else ""
-        why = (" The emergency stop was used" if info.get("reason") == "emergency_stop" else " You paused me") + when + "."
-    elif info.get("source") == "startup":
-        why = " I closed unexpectedly last time, so I paused to be safe; I resume by myself once I'm running fine."
-    else:
-        try:
-            report = json.loads((Path(base) / "data" / "guard-last-stop.json").read_text(encoding="utf-8"))
-            when = datetime.fromisoformat(report["timestamp_utc"]).astimezone().strftime("%I:%M %p on %d %b").lstrip("0")
-            why = f" Chutku paused itself at {when} because {_STOP_REASONS.get(report.get('reason'), 'it was stopped')}."
-            if info.get("source") == "guard":
-                why += " I resume by myself once the restarted core is running fine."
-        except (OSError, ValueError, KeyError):
-            why = ""
-    if short:
-        return (why.strip() or "Actions are paused.") + " Nothing runs until you resume."
-    return ("I'm paused, so I didn't do that." + why + " Nothing runs while paused, for safety. "
-            "Click “Resume actions” at the top of this page (or in the tray menu), then ask again.")
-
-
-def _last_task_file(base):
-    return Path(base) / "data" / "last-task.json"
 
 
 def record_last_task(base, goal, status):
@@ -2357,14 +1473,6 @@ def mark_interrupted_task(base):
     return None
 
 
-def interrupted_task(base):
-    try:
-        record = json.loads(_last_task_file(base).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return record if record.get("status") == "interrupted" else None
-
-
 def _session_file(base):
     return Path(base) / "data" / "dashboard-session.json"
 
@@ -2376,24 +1484,6 @@ def _write_session_link(base, url):
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps({"url": url, "pid": os.getpid()}), encoding="utf-8")
     os.replace(temporary, path)
-
-
-def open_app_window(url):
-    """Open the dashboard. An installed Chutku opens it as its own app window (Edge's app mode: no tabs or address
-    bar, a separate profile in Chutku's data folder), not as a tab in the user's browser (PC check 2026-11-07: the
-    Start-menu launch opened an Edge tab). A git checkout keeps the browser tab the owner is used to."""
-    import os
-    import subprocess
-    import webbrowser
-    from chutku.core.paths import data_dir, is_checkout
-    edges = [Path(os.environ.get(var, "")) / "Microsoft/Edge/Application/msedge.exe"
-             for var in ("ProgramFiles(x86)", "ProgramFiles")]
-    edge = next((e for e in edges if e.is_file()), None)
-    if is_checkout() or edge is None:
-        webbrowser.open(url)
-        return
-    subprocess.Popen([str(edge), f"--app={url}", "--window-size=1280,860", "--no-first-run",
-                      f"--user-data-dir={data_dir() / 'app-window'}"], close_fds=True)
 
 
 def open_running_dashboard(base=PROJECT_ROOT, opener=None):

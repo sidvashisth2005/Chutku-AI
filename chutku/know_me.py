@@ -186,10 +186,6 @@ def frequent_apps(limit=25):
 
 # -- sites (Brave history, local copy) ----------------------------------------------------------------------------
 
-def brave_history_db():
-    return history_db("brave")
-
-
 # Chromium browsers keep the same History database (W2: read the browser the owner actually uses).
 HISTORY_FOLDERS = {"brave": ("BraveSoftware", "Brave-Browser"), "chrome": ("Google", "Chrome"),
                    "edge": ("Microsoft", "Edge")}

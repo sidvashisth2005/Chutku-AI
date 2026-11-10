@@ -39,6 +39,10 @@ Safety rules are in `docs/SECURITY.md`; the owner-facing phrases are in `docs/OW
 - `control_intent.py`: Controlling Chutku in plain words (English / Hinglish): stop, pause, undo, repeat, help, "are you there".
 - `daily_intent.py`: Everyday Hinglish the owner actually says (found by a 45-phrase real-life sweep on 2026-10-04: 21 missed).
 - `dashboard.py`: DashboardServer/DashboardHandler: the local web app on 127.0.0.1, speech queue, voice timings.
+- `dashboard_helpers.py`: Small dashboard helpers shared by the server and its mixins: the action log, pause explanations, the last task.
+- `dashboard_presence.py`: Dashboard presence: the HUD, the presence bar, the tray, the window and the phone server (DashboardPresence).
+- `dashboard_voice.py`: Dashboard voice: hands-free requests, voice approvals, Gemini Live, the screen copilot (DashboardVoice).
+- `dashboard_work.py`: Dashboard work: the request queue, parallel work, setup, automations, the task board, night shift (DashboardWork).
 - `doctor.py`: Read-only foundation health check.
 - `drive_index.py`: Deep drive index (Phase 6 X5, 2026-11-05): the names of the owner's files on every fixed drive, so "D drive mein resume.pdf kahan hai"…
 - `elevate.py`: WA2 elevation broker (owner 2026-11-08: admin tasks through Windows' own UAC prompt; Chutku itself never elevated).
@@ -81,6 +85,7 @@ Safety rules are in `docs/SECURITY.md`; the owner-facing phrases are in `docs/OW
 - `presentation.py`: present: turns tool results into the owner-facing text.
 - `profiles.py`: Model-aware settings (owner, 2026-10-05): "when we use Gemini online keep it as it is; when it's Qwen, focus on speed; going back to…
 - `providers.py`: Free cloud model providers for the cloud-first brain (W2, owner decision 2026-10-29: "free cloud first").
+- `quick_answers.py`: Spoken/typed replies for tool results on the instant path (QUICK_ANSWERS: tool name -> reply builder).
 - `quick_intents.py`: Tier-0/1 router for common everyday requests (English and Romanized Hinglish).
 - `recall.py`: What Chutku remembers about the owner and past conversations, as one small, topic-relevant slice.
 - `references.py`: @-references in typed chat (Phase 3b H6, from hermes-agent's context references, MIT, Nous Research).
@@ -186,7 +191,10 @@ Safety rules are in `docs/SECURITY.md`; the owner-facing phrases are in `docs/OW
 - `control.py`: Direct control from the phone (W6 / HERMES_PLAN P5-P7).
 - `files_browse.py`: Browse the laptop's files from the phone (owner 2026-11-07: "I won't remember paths; let me browse my PC's files, with filters like…
 - `manager.py`: The laptop side of phone access (W6): turn it on or off, make a pairing code (and QR), arm or disarm control, remove a phone.
+- `phone_control.py`: Direct control requests from the phone: pointer, keys, text, window and monitor (PhoneControl, mixed into remote.server.PhoneHandler).
+- `phone_files.py`: Laptop files from the phone and phone uploads to ChutkuInbox (PhoneFiles, mixed into remote.server.PhoneHandler).
 - `server.py`: The phone server (W6 / HERMES_PLAN P1-P9): a thin, phone-only API on 127.0.0.1:<port>, published to the owner's tailnet by `tailscale…
+- `streams.py`: The phone's screen, H.264 video, audio, pointer and file streams (PhoneStreams, mixed into PhoneHandler).
 - `tailscale.py`: The owner's tailnet is the only way in (W6 / HERMES_PLAN P1).
 - `targets.py`: What is on the laptop screen near a point, for the phone remote (owner 2026-11-08): smart tap, the magnetic pointer and the…
 - `tools.py`: Phone access by voice or chat at the laptop (W6): "phone connect karo", "phone pair karo", "remote band karo", "phone hatao", "phone…
