@@ -16,6 +16,21 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (26): Release 1.2.4 built and tested on this PC (publish waits for the owner)
+- **Build:** `scripts/build_release.py` 7 m 35 s. Inno Setup produced `dist/Chutku-Setup-for-Windows.exe`, 301 MB,
+  SHA-256 `C4751989D28E713C84C3BB61FDB04B26E488002E7A92227F7AA54C240A8C588A`.
+- **Silent install to `%TEMP%`:** version.json reads 1.2.4, and the code folder is Hidden. The silent uninstall
+  removed it. Total 9 m 15 s.
+- **The package holds tonight's code**, checked in the zip: `dashboard.pyc` has the request pool and the awake
+  clock; `apps_extra` has the chat-on-screen send.
+- **Release notes:** `installer/release_notes.md`, "What's new in 1.2.4".
+- **Not published:** `gh release create` was refused by this session's permission classifier. To publish (owner):
+  ```
+  gh release create v1.2.4 -R sidvashisth2005/Chutku-releases --title "Chutku v1.2.4 for Windows" --notes-file installer/release_notes.md dist/Chutku-Setup-for-Windows.exe
+  gh release delete v1.2.3 -R sidvashisth2005/Chutku-releases --yes --cleanup-tag
+  ```
+  Installed copies then offer "Update now" by themselves.
+
 ### 2026-11-10 (25): Night shift: a late voice "haan" still approves; full-suite fixes
 - **Expired approvals:** the owner's "haan, bhej do" came after the 2-minute card expired ("approval expired",
   owner's convos).
