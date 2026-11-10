@@ -16,6 +16,40 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (28): Background Desk, steps 1 and 2 (App Mastery 2: work behind the owner's window)
+- **Owner's request:** "I'm working in Brave and give Chutku a WhatsApp task: it must not hijack my screen, mouse or
+  keyboard... I do 2 tasks, Chutku does 2, in parallel." The plan is in the session plan file (App Mastery 2).
+- **Measured** (`scripts/background_probe.py`, started hidden through WMI like Chutku, not from VS Code):
+  - **Input:** a low-level hook counts *injected* mouse and key events. agent-desktop's UI Automation actions
+    injected **0 mouse and 0 key events** in every run.
+  - **Apps behind the owner's window:** they are drivable. Notepad, Calculator, Explorer and Settings were read and
+    acted on in 0.3–1.6 s, and covered windows were captured with agent-desktop `screenshot`.
+  - **Calculator 7 + 2 through Chutku's real tools** (`apps.launch background=true` then 4× `desktop.do`): it read
+    "Display is 9", about 1.3 s per click.
+  - **Launching** can take the foreground for a moment. Handing it back with an unassigned key code (0xB9, types
+    nothing; never Alt) took 17–165 ms, and reused windows mostly don't jump.
+  - **Second virtual desktop** (the owner's idea, `pyvda`, installed with his OK): moving an app there is invisible
+    (0 foreground changes). But Windows then shows UI Automation only the window's title bar (6 elements instead of
+    44 for Notepad and 56 for Word), and agent-desktop doesn't list it. So nothing can be done there. **Decision:**
+    the Background Desk is "behind the owner's window", not desktop 2.
+- **Bugs found live and fixed:**
+  1. **The focus guard fought the owner.** The first version pulled him back from Brave 9 times in 5 s. It now hands
+     focus back only when a window of an app Chutku drives came forward with no input from him in the last 0.3 s.
+     His own switches are kept. Test: `test_the_owners_own_switch_is_never_undone`.
+  2. **Wrong window for Store apps.** Our window enumeration returned a Store app's inner `CalculatorApp.exe` window,
+     and parking it broke the app. The background launch now uses agent-desktop's list (the visible frame).
+  3. **The old Alt tap.** `WindowsDesktop.focus` gets `nudge="quiet"` (code 0xB9) for the hand-back; Alt is never
+     injected while the owner may type.
+  4. **The black cmd windows the owner saw** were my WMI test launches. Tests now start hidden (`pythonw`, `ShowWindow=0`).
+- **Built:**
+  - `chutku/background_desk.py`: typing pause (0.7 s), `FocusGuard`, `park` (bottom of the window stack, not
+    minimized), `launch` (minimized without activation, then parked), the warm pool;
+  - `apps.launch` option `background=true`;
+  - `desktop.act`/`desktop.do` run every UI Automation call through `guarded()`.
+  - Tests: `tests/test_background_desk.py` (8). Related suites: 68 + 23 OK.
+- **Not done yet** (plan steps 3 onward): parallel lanes, WhatsApp Web in the headless browser, the app survey,
+  persona catalog, recipes and exams. The running Chutku does not have this code until the next restart.
+
 ### 2026-11-10 (27): Night Shift ran (the 4 AM run was missed) and the morning check
 - **The scheduled 4:00 run was missed:** the PC was logged on again at 08:07 (the Chutku logon task ran then). The
   run on 11-09 had been killed (0x40010004). It was run by hand at 08:15 inside Chutku (`chutku.cli nightshift run`),
