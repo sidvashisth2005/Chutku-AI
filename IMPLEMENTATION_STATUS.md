@@ -16,6 +16,78 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (30): WhatsApp Locked chats: Chutku opens them, the owner types his code (20x plan P1 open item)
+- **Owner's request:** "Locked chat open krna jo bola usko dhang se search krna brain ka istemaal krke".
+- **Flow** (`chutku/tools/apps_extra.py`):
+  - When search finds no chat (or the mind marks the person `whatsapp_locked`), Chutku clicks the Locked-chats rail
+    icon. Its spot is measured: screen (44, 484) at 125% with the window maximized, 388 logical px below the window's
+    top.
+  - It then waits up to 60 s, with a toast "Locked chats ka code daal do, main wait kar rahi hoon".
+  - **It never types into the code box and never presses its button.** The list counts as unlocked only when no
+    code box shows over it.
+  - Already inside an unlocked Locked chats list, it looks there first.
+- **Finding the chat** (`pick_chat_row`), in this order:
+  1. the exact name (spaces and punctuation ignored);
+  2. a unique first name;
+  3. the one clearly closest name ("kitkatt" finds KitKat);
+  4. only then the cloud model, given the visible **names only** (never a message). Its answer counts only when it
+     is one of those names.
+- **After it is found:** the header is confirmed, the person is remembered as locked (plus the misheard alias), and
+  the send is checked as before.
+- **Tests** (`tests/test_locked_chats.py`, 12):
+  - the safety negatives: any typed key or text fails the test; the code box is closed by Esc only on a timeout or
+    a misplaced click; a list still behind the code box isn't taken as unlocked;
+  - a cancel stops cleanly; a missing chat is never guessed; the model's answer is checked.
+  - WhatsApp suites: 48 OK.
+- **Bug found by the tests and fixed:** a model answer that wasn't in the list crashed the pick (`StopIteration`).
+- **Not live-verified yet:** it needs the owner present to type the secret code. Dry run:
+  `chutku.cli tool message.open_chat` with a locked chat's name.
+- **Docs:**
+  - `docs/OWNER_GUIDE.md` (WhatsApp chats);
+  - the `message.send` description (shortened, so the local model's cached prompt stays under 14,000 characters).
+
+### 2026-11-10 (29): Parallel lanes: tasks in different apps really run at the same time (App Mastery 2, step 3)
+- **Owner's request:** "I do 2 tasks, Chutku does 2, in parallel."
+- **Before:** every changing step took one lock, `data/execution.lock`, so side-by-side tasks only took turns.
+- **Now (`Runtime.lane`):**
+  - UI Automation steps (`desktop.do`, `desktop.act`, `apps.launch background=true`) take a per-app lock;
+  - the headless signed-in browser (`browser.*`) takes a `web` lock;
+  - everything that may touch the screen, mouse or keys stays on the old file as the `screen` lane. Workflows,
+    resume and the guard still mean "nothing on the screen runs" by it.
+- **Approvals:** an approval takes its own step's lane (`ApprovalStore.peek`).
+- **`MAX_PARALLEL`:** 2 → 4.
+- **A real race fixed:** `ActionLog.append` read the last entry and then wrote, with no lock. 8 writers × 5 entries
+  without the lock broke the hash chain in **5 of 5** runs. A short blocking lock (`append_lock`, a thread lock plus
+  a file lock) now keeps it whole.
+- **Live on this PC** (Chutku's real runtime, policy and action log, two tasks on two threads, the owner working):
+  - **Calculator** (`apps.launch background` + 4× `desktop.do`) and **Settings** (launch + navigation) ran side by
+    side, overlapping 2.75–8.06 s across 4 runs.
+  - The app read back **"Display is 9"** every time.
+  - The hook counted **0 injected mouse events**. The only injected keys were 2× code 0xB9 (the silent focus
+    hand-back).
+  - Foreground and cursor were unchanged in 3 of 4 runs. In the 4th the owner was active (idle 2 s), so those were
+    his own changes.
+- **Bugs found live and fixed:**
+  1. `desktop.do` right after a background launch found no window: the list lags about 0.2 s. `_window` now waits
+     up to 3 s.
+  2. Settings has a zero-sized title-bar menu named "System" before the navigation item: `do` now tries the next
+     element with that name, then searches the whole window.
+  3. Store apps left suspended after their window closed (Settings, Calculator) ignored the first start: the launch
+     is asked once more after 4 s.
+  4. **Parallel-launch bug:** a background launch took *any* new window as its own, so two launches at once could
+     swap windows. It now takes only its own app's window.
+- **Known limit:**
+  - Settings folds its navigation behind "Open Navigation" in a narrow window, so Settings pages go through
+    `ms-settings:` links (its atlas) and the coming survey records it.
+  - The lane is keyed by the app name as the step gives it (`# shortcut:` in `Runtime.lane`).
+- **Tests:**
+  - `tests/test_parallel_lanes.py` (7: overlap, same-lane turns, the screen-lane negative, approval lane, the
+    chain under 40 parallel appends);
+  - `test_desktop_d1` +3, `test_background_desk` +2.
+  - Affected suites: 158 OK.
+- **A failure that was already on `main`, fixed:** `test_profiles` (the cached local-model prompt was 14,133
+  characters, limit 14,000) after the Background Desk's `apps.launch` text. That text is shortened; the test is OK.
+
 ### 2026-11-10 (28): Background Desk, steps 1 and 2 (App Mastery 2: work behind the owner's window)
 - **Owner's request:** "I'm working in Brave and give Chutku a WhatsApp task: it must not hijack my screen, mouse or
   keyboard... I do 2 tasks, Chutku does 2, in parallel." The plan is in the session plan file (App Mastery 2).

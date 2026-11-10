@@ -288,6 +288,12 @@ def _send_to_named_chat(name, text, *, dry_run=False, keep_open=False):
                 if already:
                     return _finish_send(name, text, already, rect, look, frames, dry_run=dry_run,
                                         keep_open=keep_open, reused=True)
+                if view == "Locked chats":
+                    # Already unlocked by the owner: the chat is looked for in this list before anything is left.
+                    locked, _how = _send_in_locked_chats(name, text, info["window_id"], rect, look, frames,
+                                                         dry_run=dry_run, keep_open=keep_open, lines=first)
+                    if locked is not None:
+                        return locked
             _listed, pane_x = _split_panes(first, rect)
             target = _search_box(first, rect, pane_x) if view in (None, "Chats") else None
             if target is None and attempts < 3:
@@ -310,6 +316,14 @@ def _send_to_named_chat(name, text, *, dry_run=False, keep_open=False):
         already = _open_pane_for(name, first, frames["shot"], rect)
         if already:
             return finish(already, reused=True)
+    if target is not None and _locked_person(name):
+        # Remembered as a Locked chat: WhatsApp hides it from search, so go straight there.
+        locked, _how = _send_in_locked_chats(name, text, info["window_id"], rect, look, frames, dry_run=dry_run,
+                                             keep_open=keep_open)
+        if locked is not None:
+            return locked
+        vision.click_at(*_chats_tab_point(info["window_id"], rect))   # not there any more: search the chats
+        time.sleep(0.6)
     if target is None:
         where = f" WhatsApp was showing {started_in}." if started_in and started_in != "Chats" else ""
         return ToolResult({"error": "Could not get to WhatsApp's chat search (it is only in the Chats view)." + where
@@ -348,11 +362,17 @@ def _send_to_named_chat(name, text, *, dry_run=False, keep_open=False):
         closest = ", ".join((row["text"].splitlines() or [""])[0] for row in screen.get("rows", [])[:5]) or "none"
         if rows:
             error = f"Several WhatsApp chats are named '{name}'; nothing was sent. Tell me which one."
-        else:
-            error = (f"No WhatsApp chat is named exactly '{name}'; nothing was sent. Closest matches: {closest}. "
-                     f"Tell me the exact chat name, or save their number ('remember contact_{_contact_key(name)} = +91...'). "
-                     "If that chat is in Locked chats, WhatsApp hides it from search: open Locked chats yourself "
-                     "(it needs your PIN or fingerprint).")
+            return ToolResult({"error": error, "to": name, "closest": closest}, Verification.FAIL)
+        # Not in the chats: WhatsApp hides Locked chats from search, so look there (the owner types his code).
+        time.sleep(0.3)
+        locked, how = _send_in_locked_chats(name, text, info["window_id"], rect, look, frames, dry_run=dry_run,
+                                            keep_open=keep_open)
+        if locked is not None and how != "locked":
+            return locked
+        error = (f"No WhatsApp chat is named exactly '{name}'; nothing was sent. Closest matches: {closest}. "
+                 f"Tell me the exact chat name, or save their number ('remember contact_{_contact_key(name)} = +91...').")
+        error += (f" Locked chats: {locked.output['error']}" if locked is not None
+                  else f" It is not in Locked chats either ({how}).")
         return ToolResult({"error": error, "to": name, "closest": closest}, Verification.FAIL)
     chosen = rows[0]
     row = chosen["rect"]
@@ -773,14 +793,159 @@ def whatsapp_view(lines, rect):
     return None
 
 
-def _chats_tab_point(hwnd, rect):
-    """The Chats icon at the top of WhatsApp's left icon rail (measured at 125%: 39,74 logical px from the corner)."""
+def _scale(hwnd):
     import ctypes
     try:
-        scale = (ctypes.windll.user32.GetDpiForWindow(hwnd) or 96) / 96
+        return (ctypes.windll.user32.GetDpiForWindow(hwnd) or 96) / 96
     except (AttributeError, OSError):
-        scale = 1.0
+        return 1.0
+
+
+def _chats_tab_point(hwnd, rect):
+    """The Chats icon at the top of WhatsApp's left icon rail (measured at 125%: 39,74 logical px from the corner)."""
+    scale = _scale(hwnd)
     return int(rect[0] + 9 + 31 * scale), int(rect[1] + 9 + 67 * scale)
+
+
+def _locked_chats_point(hwnd, rect):
+    """The Locked chats icon in the same rail column (live 2026-11-10 at 125%, window maximized: screen (44, 484),
+    388 logical px below the window's top). Where it lands is checked: the code box or the Locked chats list must
+    show, otherwise nothing more happens."""
+    scale = _scale(hwnd)
+    return int(rect[0] + 9 + 31 * scale), int(rect[1] + 9 + 388 * scale)
+
+
+# -- Locked chats (owner 2026-11-10: "Locked chat open krna ... usko dhang se search krna brain ka istemaal krke") ----
+
+_SECRET_CODE = re.compile(r"secret code|enter (?:your )?(?:secret )?code|unlock (?:your )?(?:locked )?chats", re.I)
+LOCKED_WAIT = 60.0          # seconds the owner has to type his secret code
+LOCKED_ASK = "Locked chats ka code daal do, main wait kar rahi hoon."
+
+
+def _unlock_locked_chats(hwnd, rect, look, *, wait=LOCKED_WAIT, click=None, esc=None, notify=None,
+                         sleep=time.sleep, clock=time.monotonic):
+    """Open WhatsApp's Locked chats. When it asks for the secret code, the OWNER types it: Chutku says so and waits.
+    It never types into the code box and never presses its button; the code is never read, kept or sent.
+    Returns (lines of the Locked chats list, None) or (None, why it stopped)."""
+    from chutku.core import progress
+    if click is None:
+        from chutku import vision
+        click = vision.click_at
+    if esc is None:
+        from chutku.tools.desktop_controls import press_combo
+
+        def esc():
+            press_combo([0x1B])   # closes the code box like its Cancel button; never sends or deletes anything
+    if notify is None:
+        from chutku.health import notify
+    click(*_locked_chats_point(hwnd, rect))
+    started, asked, slept = clock(), False, 0.0
+
+    def elapsed():   # the clock, or the waits themselves when time stands still (tests)
+        return max(clock() - started, slept)
+    while True:
+        sleep(0.8)
+        slept += 0.8
+        lines = look()
+        prompt = any(_SECRET_CODE.search(line["text"]) for line in lines)
+        if not prompt and whatsapp_view(lines, rect) == "Locked chats":
+            return lines, None
+        if prompt and not asked:
+            asked = True
+            notify("Chutku: WhatsApp Locked chats", LOCKED_ASK)
+        elif asked and not prompt:
+            return None, "Locked chats stayed locked (the code box was closed). Nothing was typed or sent."
+        elif not asked and elapsed() > 4:
+            esc()
+            return None, ("Could not open WhatsApp's Locked chats (its button was not where expected). Nothing was "
+                          "typed or sent.")
+        if elapsed() > wait:
+            esc()
+            return None, (f"Locked chats were not unlocked within {int(wait)} seconds, so I stopped. Nothing was "
+                          "typed or sent.")
+        progress.beat("waiting for the owner to unlock WhatsApp's Locked chats")
+
+
+def _ask_brain_for_chat(name, names):
+    """The cloud model picks which visible chat name a (misheard) request means, from the NAMES only (never a
+    message); None when it is unsure or no model answers."""
+    from chutku import providers
+    try:
+        answer, _meta = providers.ask(
+            "You match a spoken or misheard chat name to one of the user's WhatsApp chat names. The request may be "
+            "in Hindi, Hinglish or English, misspelt or misheard. Answer JSON {\"pick\": <one name copied exactly "
+            "from the list>} or {\"pick\": \"none\"} when no name clearly fits.",
+            json.dumps({"requested": name, "chats": names}, ensure_ascii=False), timeout=15)
+    except Exception:   # any provider problem: the plain matching already said it is unsure
+        return None
+    pick = str(answer.get("pick", "")) if isinstance(answer, dict) else ""
+    return pick if pick in names else None
+
+
+def pick_chat_row(rows, name, *, ask=_ask_brain_for_chat):
+    """(row, how) for the chat `name` means in a list of rows: the exact name, then a unique first name, then the one
+    clearly closest name (OCR or a misheard word: "Kit Kat" for "KitKat"), then the brain's pick from the names.
+    (None, why) when it is not sure: nothing is opened on a guess."""
+    from chutku.tools.visible import matches
+    exact = [row for row in rows if _row_is(row["text"], name)]
+    if len(exact) == 1:
+        return exact[0], "exact"
+    if exact:
+        return None, "several"
+    unique = _unique_first_name(rows, name)
+    if unique:
+        return unique[0], "first name"
+    firsts = [{"text": (row["text"].splitlines() or [""])[0].strip(), "row": row} for row in rows]
+    firsts = [f for f in firsts if f["text"]]
+    tier, found = matches(firsts, name)
+    if tier in {"same letters", "contains", "close"} and len(found) == 1:
+        return found[0]["row"], tier
+    names = sorted({f["text"] for f in firsts})
+    pick = ask(name, names) if ask and names else None
+    if pick in names:   # a model's answer counts only when it is one of the names on screen
+        return next(f["row"] for f in firsts if f["text"] == pick), "brain"
+    return None, "not found"
+
+
+def _locked_person(name):
+    try:
+        from chutku import mind
+        person = mind.default().find_person(name)
+        return bool(person and person.get("whatsapp_locked"))
+    except (OSError, ValueError):
+        return False
+
+
+def _send_in_locked_chats(name, text, hwnd, rect, look, frames, *, dry_run, keep_open, lines=None):
+    """Unlock Locked chats (the owner types the code), find the chat there, confirm its header, then send or open.
+    The chat is remembered as locked, so next time Chutku goes straight there. Returns (ToolResult or None, how):
+    None when the chat is not in Locked chats either."""
+    from chutku import vision
+    if lines is None:
+        lines, error = _unlock_locked_chats(hwnd, rect, look)
+        if lines is None:
+            return ToolResult({"error": error, "to": name, "view": "Locked chats"}, Verification.FAIL), "locked"
+    rows = _result_rows(frames["shot"], lines, rect)
+    row, how = pick_chat_row(rows, name)
+    if row is None:
+        return None, how
+    chosen = (row["text"].splitlines() or [name])[0].replace(" (You)", "").strip()
+    box = row["rect"]
+    vision.click_at((box[0] + box[2]) // 2, (box[1] + box[3]) // 2)
+    header = _poll(lambda: _open_pane_for(chosen, look(), frames["shot"], rect), seconds=4.0)
+    if not header:
+        return ToolResult({"error": f"Could not confirm that the open chat is '{chosen}'; nothing was sent.",
+                           "to": chosen}, Verification.FAIL), "header"
+    try:
+        from chutku import mind
+        mind.default().remember_person(chosen, whatsapp=chosen, whatsapp_locked=True,
+                                       aliases=[name] if _chat_key(name) != _chat_key(chosen) else [])
+    except (OSError, ValueError):
+        pass   # memory is a help, never a reason for the send to fail
+    _remember_chat_header(frames["shot"], rect, header, chosen)
+    result = _finish_send(chosen, text, header, rect, look, frames, dry_run=dry_run, keep_open=keep_open)
+    result.output.update(locked_chat=True, matched_by=how, **({"asked_for": name} if chosen != name else {}))
+    return result, how
 
 
 def _search_box(lines, rect, pane_x):
@@ -1089,10 +1254,9 @@ def _validate_store(arguments):
 def register_extra_app_tools(registry):
     from chutku.tools.everyday import _window_verifier
     registry.register(Tool("message.send", "Send a WhatsApp or Telegram message to a phone number or a saved "
-        "contact (memory key contact_<name>), or on WhatsApp the name of an existing chat (e.g. 'Pita Shri'); the "
-        "chat is checked before and after sending. to='current chat' sends to the WhatsApp chat already open on "
-        "screen without searching (use it for 'the chat on screen', 'is chat mein', 'yahan', and for Locked chats, "
-        "which search cannot find).",
+        "contact (memory key contact_<name>), or on WhatsApp an existing chat's name (e.g. 'Pita Shri'); checked "
+        "before and after sending. to='current chat' sends to the WhatsApp chat open on screen ('is chat mein', "
+        "'yahan'). Names search misses are tried in Locked chats (the owner types his code).",
         Risk.EXTERNAL_SIDE_EFFECT, _send, _validate_send, frozenset({"text"}), required_capability="desktop.input",
         argument_schema={"type": "object", "properties": {
             "app": {"type": "string", "enum": sorted(MESSAGE_APPS)},

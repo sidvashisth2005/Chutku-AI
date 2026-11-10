@@ -129,7 +129,8 @@ class Mind:
             return "WhatsApp chat name"
         return None
 
-    def remember_person(self, name, *, aliases=(), relation="", whatsapp="", phone="", note="", email=""):
+    def remember_person(self, name, *, aliases=(), relation="", whatsapp="", phone="", note="", email="",
+                        whatsapp_locked=False):
         """Add a person or merge into the existing one with that name (aliases are added, never dropped)."""
         name = " ".join(str(name).split())
         if not name or len(name) > 60:
@@ -157,6 +158,8 @@ class Mind:
                     person[key] = " ".join(str(value).split())
             if note:
                 person.setdefault("notes", []).append(note)
+            if whatsapp_locked:
+                person["whatsapp_locked"] = True   # the chat is in WhatsApp's Locked chats: look there first
             # A nickname now on this person stops pointing at anyone else (newest statement wins).
             mine = {norm(a) for a in person["aliases"]}
             for other in data["people"]:
