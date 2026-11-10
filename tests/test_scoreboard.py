@@ -28,12 +28,24 @@ class DailyFamilyTests(unittest.TestCase):
              "reply": "Main 6 baje yaad dila dungi. Ho jayega!"},
             {"at": t + 0.02, "origin": "voice", "status": "said", "said": "alarm", "reply": "Main alarm nahi set kar sakti."},
             {"at": t + 0.03, "origin": "voice", "status": "said", "said": "band karo", "reply": "Open kar deti hoon. Karoon?"},
-            # conversation 2, an hour later: one promise, one task
+            # conversation 2, an hour later: one promise, one task finished just before and one 70 s after it ended
+            # (live 2026-11-06: "Baaki ka episode play kar rahi hoon" was logged before its task row)
+            {"at": t + 3650, "origin": "voice", "status": "said", "said": "baaki", "reply": "Baaki chala rahi hoon."},
+            {"at": t + 3720, "origin": "voice", "status": "clarify", "said": "play baaki", "tools": []},
             {"at": t + 3600, "origin": "voice", "status": "failed", "said": "send hi", "tools": []},
             {"at": t + 3650, "origin": "voice", "status": "said", "said": "send hi", "reply": "Bhej rahi hoon."},
             {"at": t + 3700, "origin": "text", "status": "said", "said": "x", "reply": "kar rahi hoon"}]   # typed: not voice
         count, examples = unbacked_promises(turns)
         self.assertEqual((count, examples), (1, ["Main 6 baje yaad dila dungi. Ho jayega!"]))
+
+    def test_rows_that_record_their_task_are_counted_exactly(self):
+        t = 5000.0
+        turns = [  # no task row is logged nearby (the VLC task row was rotated out), but the row says it started one
+            {"at": t, "origin": "voice", "status": "said", "said": "vlc", "reply": "VLC khol rahi hoon.", "task": True},
+            {"at": t, "origin": "voice", "status": "said", "said": "wa", "reply": "WhatsApp khol rahi hoon.",
+             "task": False},
+            {"at": t, "origin": "voice", "status": "said", "said": "hi", "reply": "Kar dungi?", "task": False}]
+        self.assertEqual(unbacked_promises(turns), (1, ["WhatsApp khol rahi hoon."]))
 
 
 class ScoreboardTests(unittest.TestCase):
@@ -45,7 +57,9 @@ class ScoreboardTests(unittest.TestCase):
             turns = [{"at": now - 50, "said": "open notepad", "status": "done", "seconds": 1.0, "planners": ["quick"]},
                      {"at": now - 40, "said": "send hi to UB on whatsapp", "status": "failed", "seconds": 15.0},
                      {"at": now - 30, "said": "galat chat hai", "status": "clarify"},
-                     {"at": now - 20, "said": "kaisi ho", "status": "said"},                  # chat, not a request
+                     {"at": now - 20, "said": "kaisi ho", "status": "said",                   # chat, not a request
+                      "reply": "Badhiya! Tum sunao, kuch help chahiye?"},                     # a question tail
+                     {"at": now - 19, "said": "bhej do", "status": "said", "reply": "Bhejun, haan ya na?"},   # needed
                      {"at": now - 10, "said": "x", "status": "failed", "origin": "script"},   # a test script
                      {"at": now - 9 * 86400, "said": "old", "status": "failed"}]             # outside the window
             (base / "data" / "conversations.jsonl").write_text("\n".join(json.dumps(t) for t in turns), "utf-8")
@@ -63,7 +77,7 @@ class ScoreboardTests(unittest.TestCase):
         # 5 failed + 3 complaint + 2*(1 clarify + 1 approval) + (15-5)/5 = 2 waited + 20 hang = 34 over 3 requests
         self.assertEqual(s["B100"], round(100 * 34 / 3, 1))
         self.assertEqual(s["worst_tools"][0][:3], ("message.send", 1, 3))
-        self.assertEqual(s["lies"], 0)
+        self.assertEqual((s["lies"], s["tails"]), (0, 1))
         self.assertEqual([f[:3] for f in s["families"]],
                          [("whatsapp_send", 0, 1), ("whatsapp_open_chat", 0, 1), ("open_app", 1, 1)])
         text = markdown(s)

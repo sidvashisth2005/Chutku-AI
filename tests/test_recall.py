@@ -61,6 +61,18 @@ class RecallTests(unittest.TestCase):
         self.assertEqual([(r["said"], r["reply"], r["origin"]) for r in rows],
                          [("agla gaana chalao", "Chala diya.", "voice")])
 
+    def test_voice_turns_say_whether_they_started_a_task(self):
+        # plan B1 (2026-11-10): the scoreboard's "never lies" count must be exact, so each voice turn records whether
+        # the conversation started a task for it (index = the owner's n-th turn, noise included)
+        recall.log_voice([("you", "Thank you."), ("you", "VLC kholo"), ("chutku", "VLC khol rahi hoon."),
+                          ("you", "WhatsApp chalu kar"), ("chutku", "Abhi kar rahi hoon!")],
+                         base=self.base, tasked={1})
+        rows = recall.turns(self.base)
+        self.assertEqual([(r["said"], r.get("task")) for r in rows],
+                         [("VLC kholo", True), ("WhatsApp chalu kar", False)])
+        recall.log_voice([("you", "agla gaana chalao"), ("chutku", "ok")], base=self.base)   # older callers: no flag
+        self.assertNotIn("task", recall.turns(self.base)[-1])
+
     def test_session_logged_only_when_finished(self):
         recall.log_session({"goal": "open spotify", "status": "running"}, base=self.base)
         recall.log_session({"goal": "open spotify", "status": "done", "reply": "Opened Spotify.", "origin": "hotkey",

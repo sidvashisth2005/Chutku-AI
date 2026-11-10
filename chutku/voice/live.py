@@ -56,6 +56,10 @@ witty, genuinely engaged, a thinking partner and a friend, never a robotic assis
 (1-3 short sentences per turn unless asked for more), in the same mix of Hindi and English the owner uses
 (Hinglish). Listen for what they mean, not just the words: they may ramble, describe loosely, change their mind or
 speak in fragments. Discuss, suggest, and ask a short clarifying question only when really needed.
+If what you heard is not Hindi, English or Hinglish (Spanish, German, Korean, Japanese ...), or is only noise or broken
+fragments, it was not meant for you: stay silent and do not reply at all. End each reply with the result or the
+answer, never with "aur kuch?", "kuch aur karwana hai?", "kya kehte ho?" or "kuch help chahiye?"; ask only when you
+need the answer to go on (an approval: "haan ya na?", or the text of a message to send).
 
 When they want something DONE on the PC (open/close apps, files, web research, messages, building apps, looking at
 the screen, settings, anything), call do_task with ONE clear, complete goal in English that captures their intent
@@ -150,18 +154,7 @@ TOOLS = [{"functionDeclarations": [
 ]}]
 
 
-_FOREIGN = {"sí", "si", "un", "una", "poco", "de", "la", "el", "los", "las", "que", "por", "para", "voz", "mi", "muy",
-            "gracias", "bueno", "pero", "como", "está", "esta", "yo", "tu", "não", "nao", "uma", "obrigado"}
-_HINGLISH_ALSO = {"de", "la", "mi", "tu", "yo", "si"}   # also Hindi words ("de do", "tu", "la do") or English letters
-
-
-def foreign_words(text):
-    """True when most words are Spanish/Portuguese and few are Hindi or English: misheard speech, not a request."""
-    words = re.findall(r"[^\W\d_]+", str(text or "").casefold())
-    if len(words) < 2:
-        return False
-    strong = [w for w in words if w in _FOREIGN and w not in _HINGLISH_ALSO]
-    return len(strong) >= 1 and sum(w in _FOREIGN for w in words) / len(words) >= 0.6
+from chutku.voice.heard import foreign as foreign_words  # noqa: E402  (moved to heard.py; plan B2)
 
 
 def saved_names(limit=20):
@@ -204,6 +197,7 @@ class LiveConversation(threading.Thread):
         self.model = None
         self.transcript = []              # [(speaker, text)] for the HUD
         self.full_transcript = []         # every turn, saved to the conversation log when the conversation ends
+        self.tasked_turns = set()         # the owner's turns (n-th "you" entry) that started a task: logged per turn
         self.topic = ""                   # what the conversation opened with (picks the memory slice)
         self.heard_since_question = ""    # the owner's words since the last approval question
         self.heard_since_task = ""        # the owner's words since the last task started
@@ -470,7 +464,9 @@ class LiveConversation(threading.Thread):
     _CLAIM = re.compile(
         r"\b(?:(?:kar|khol|chala|baja|bhej|laga|click kar|play kar|open kar|band kar|search kar|dhoondh?)"
         r"\s*(?:rahi hoon|rahi hu|raha hoon|diya|di|diye|dungi|deti hoon|ke deti hoon)"
-        r"|(?:opening|opened|clicking|clicked|playing it|started|launching|searching for)\b)", re.I)
+        r"|(?:opening|opened|clicking|clicked|playing it|started|launching|searching for)\b"
+        # live 2026-11-07: "abhi set karti hoon" (no alarm was set), "Abhi karti hoon! WhatsApp ..."
+        r"|(?:set|open|band|chalu|on|off|play|send|search|start|abhi)\s+karti\s+h(?:oo|u)n?\b)", re.I)
 
     # F5 (2026-10-29): "Ho gaya, Bluetooth band" while the Bluetooth task had not succeeded (owner: "Bluetooth band
     # nahin hua hai"). A completion claim is only allowed after the latest task finished with status "done".
@@ -563,6 +559,7 @@ class LiveConversation(threading.Thread):
                 session = self.server.live_task(goal)
                 self.task_id, self.started_at = session.id, time.monotonic()
                 self.task_ids = [*self.task_ids, session.id]
+                self.tasked_turns.add(sum(1 for speaker, _ in self.full_transcript if speaker == "you") - 1)
                 self.announced_pending = None
                 threading.Thread(target=self._follow, args=(session.id,), daemon=True).start()
                 return {"status": "started", "goal": goal, "note": WAIT_NOTE}

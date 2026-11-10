@@ -97,7 +97,7 @@ def owner_turn(turn):
 # -- conversation log --------------------------------------------------------------------------------------
 
 def log_conversation(said, reply, *, origin="text", status="done", tools=(), base=None, at=None, planners=None,
-                     tainted=False, seconds=None, asks=0):
+                     tainted=False, seconds=None, asks=0, task=None):
     said, reply = " ".join(str(said or "").split()), _VERIFIED_TAIL.sub("", str(reply or "")).strip()
     if not said:
         return
@@ -109,6 +109,8 @@ def log_conversation(said, reply, *, origin="text", status="done", tools=(), bas
         row["seconds"] = round(float(seconds), 2)   # 20x plan: the scoreboard's speed and burden numbers
     if asks:
         row["asks"] = int(asks)
+    if task is not None:
+        row["task"] = bool(task)   # a voice turn: did the conversation start a task for it (scoreboard: never lies)
     if tainted:
         row["tainted"] = True   # the reply followed outside content: shown to later planners only as data
     file = conversations_path(base)
@@ -135,21 +137,27 @@ def log_session(snapshot, base=None):
                      asks=snapshot.get("asks") or 0)
 
 
-def log_voice(transcript, base=None):
-    """A finished voice conversation: each owner turn with Chutku's answer to it (meaningful turns only)."""
+def log_voice(transcript, base=None, tasked=None):
+    """A finished voice conversation: each owner turn with Chutku's answer to it (meaningful turns only).
+    tasked: the indexes of the owner's turns (counting every "you" entry) for which the conversation started a task."""
     from chutku.voice.heard import meaningful
-    pending = None
+    pending, turn = None, -1
+
+    def flag():
+        return None if tasked is None else turn in tasked
+
     for speaker, text in transcript or []:
         text = " ".join(str(text).split())
         if speaker == "you":
             if pending:
-                log_conversation(pending, "", origin="voice", status="said", base=base)
+                log_conversation(pending, "", origin="voice", status="said", base=base, task=flag())
+            turn += 1
             pending = text if meaningful(text) else None
         elif pending:
-            log_conversation(pending, text, origin="voice", status="said", base=base)
+            log_conversation(pending, text, origin="voice", status="said", base=base, task=flag())
             pending = None
     if pending:
-        log_conversation(pending, "", origin="voice", status="said", base=base)
+        log_conversation(pending, "", origin="voice", status="said", base=base, task=flag())
 
 
 def turns(base=None, limit=2000, *, include_hidden=False):

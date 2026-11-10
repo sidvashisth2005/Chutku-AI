@@ -28,6 +28,23 @@ class FilterTests(unittest.TestCase):
                      "mammi ko bolo main aa raha hu"):
             self.assertTrue(meaningful(text), text)
 
+    def test_misheard_other_languages_are_not_speech(self):
+        # plan B2: these exact transcripts reached Chutku in 2026-11 and got cheerful replies
+        for text in ("servir servir de nada si quieres luego yo", "Ja, gerne. Ich hätte gerne", "Que sí, güey.",
+                     "un poco a voz de mi", "Avenida", "Alegre que", "por isso", "저거야. 만두네.", "무세명",
+                     "아, 씨. 얘 왜", "で そう です 。 ない 。 ストップ 、 お じゃ 。", "나는, thank you.",
+                     "오심의 어, 컨펌을 하고, 저한테 리포트를 보내주세요. 정확히", "Sí, sí.아니, 어느 누구도 나를"):
+            self.assertFalse(meaningful(text), text)
+            self.assertFalse(meaningful(text, short_answers_ok=True), text)
+
+    def test_hinglish_that_looks_foreign_stays_speech(self):
+        # Hindi words that are also Spanish/German words, and a real request with a misheard Korean start
+        for text in ("in ka chat box open kar inko ek bar hi bhej de", "Ek pranam ka message bhej de",
+                     "Yeah, nahi. WhatsApp wala task cancel kar de. Mere ko brave wala chahiye.",
+                     "어, 이 काम कर। Priyadarshini की चैट ओपन कर। उनको एक प्रणाम लिखकर भेज दे।",
+                     "ghar ja", "mujhe de do", "tu sun na", "la do yaar", "Que karna hai bata"):
+            self.assertTrue(meaningful(text), text)
+
     def test_lone_yes_no_only_in_an_answer_moment(self):
         for text in ("yes", "ok", "hmm", "no"):
             self.assertFalse(meaningful(text), text)

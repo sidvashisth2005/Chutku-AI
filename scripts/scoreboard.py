@@ -23,6 +23,10 @@ TEST_AREAS = re.compile(r"Chutku(?:Scratch|Practice)", re.I)
 _VERB = r"(?:kar|bhej|khol|laga|chala|ban|dhundh|likh|set kar|band kar|open kar|play kar|yaad dila)"
 PROMISE = re.compile(rf"\b{_VERB}\w*\s+(?:rahi|raha|rahe)\s+h(?:oo|u)n\b|\b{_VERB}\w*\s+(?:dungi|dunga|deti hoon|"
                      rf"deta hoon|diya|di)\b|\bho (?:gaya|gayi|jayega|jaega)\b", re.I)
+# Chit-chat question tails that add nothing (213 of 873 replies ended in "?" by 2026-11-10, most like these). A real
+# question the flow needs ("haan ya na?", "what should I send?") is not a tail.
+TAIL = re.compile(r"(?:aur kuch|kuch aur|kya kehte ho|kya bolte ho|kuch help chahiye|kuch kaam (?:hai|karna)|"
+                  r"tum sunao|bolo bolo|kya chal raha hai|koi task karwana|help kar sakti)[^.!?]*\?\s*$", re.I)
 CANNOT = re.compile(r"nahi\s+(?:\w+\s+){0,2}sakti|can'?t|cannot|mera control nahi", re.I)
 
 # The Daily 30: the request families an ordinary user makes every day. A tool name decides first; for a turn without
@@ -86,10 +90,20 @@ def unbacked_promises(turns):
         blocks[-1].append(row)
         previous = row["at"]
     total, examples, last_end = 0, [], float("-inf")
-    for block in blocks:
-        end = block[-1]["at"] + 10
+    for index, block in enumerate(blocks):
+        # A conversation's tasks are logged while it runs, i.e. before its chat lines (written when it ends); one still
+        # running at the end is logged a little later (live 2026-11-06: 69 s), so add a 3-minute grace, never past
+        # the next conversation's chat lines.
+        later = blocks[index + 1][0]["at"] if index + 1 < len(blocks) else float("inf")
+        end = min(block[-1]["at"] + 180, later)
         kept = [r for r in block if PROMISE.search(r.get("reply", "")) and not CANNOT.search(r.get("reply", ""))
                 and not r.get("reply", "").rstrip(" .!\"'").endswith("?")]
+        if any("task" in r for r in block):   # logged since 2026-11-10: each turn says whether it started a task
+            exact = [r for r in kept if not r.get("task")]
+            total += len(exact)
+            examples += [r["reply"][:80] for r in exact]
+            last_end = end
+            continue
         backed = sum(last_end < at <= end for at in tasks)
         missing = max(0, len(kept) - backed)
         total += missing
@@ -131,6 +145,7 @@ def score(base, days=7, now=None):
     timed = sorted(r["seconds"] for r in actions if isinstance(r.get("seconds"), (int, float)))
     waited = sum(max(0.0, s - 5.0) / 5.0 for s in timed)
     lies, lie_examples = unbacked_promises(turns)
+    tails = sum(bool(TAIL.search(r.get("reply") or "")) for r in turns)
     burden = 5 * (failed + lies) + 3 * complaints + 2 * (clarify + approvals) + waited + 20 * len(hangs)
     families = collections.defaultdict(collections.Counter)
     for r in actions:
@@ -147,7 +162,7 @@ def score(base, days=7, now=None):
     def pct(q):
         return round(timed[min(len(timed) - 1, int(len(timed) * q))], 1) if timed else None
     return {"days": days, "requests": len(actions), "turns": len(turns), "failed": failed, "complaints": complaints,
-            "clarify": clarify, "approvals": approvals, "lies": lies, "lie_examples": lie_examples,
+            "clarify": clarify, "approvals": approvals, "lies": lies, "lie_examples": lie_examples, "tails": tails,
             "families": daily, "hangs": hangs, "timed": len(timed), "p50": pct(0.5),
             "p90": pct(0.9), "waited_points": round(waited, 1),
             "B100": round(100 * burden / len(actions), 1) if actions else None,
@@ -163,7 +178,8 @@ def markdown(s):
              f"| Promises with no action, voice (x5, estimate) | {s['lies']} |",
              f"| Clarify questions (x2) | {s['clarify']} |", f"| Approvals asked (x2) | {s['approvals']} |",
              f"| Waiting beyond 5 s (points) | {s['waited_points']} ({s['timed']} timed turns, p50 {s['p50']} s, "
-             f"p90 {s['p90']} s) |", f"| Hangs (x20) | {len(s['hangs'])} |", "",
+             f"p90 {s['p90']} s) |", f"| Hangs (x20) | {len(s['hangs'])} |",
+             f"| Chit-chat question tails (not weighted; target 0) | {s['tails']} |", "",
              "| Worst tools | Completed / total | States |", "|---|---|---|"]
     lines += [f"| `{name}` | {ok}/{total} | {states} |" for name, ok, total, states in s["worst_tools"]]
     lines += ["", "Tiers: " + ", ".join(f"{name} {n}" for name, n in s["tiers"])]

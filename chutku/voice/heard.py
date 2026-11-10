@@ -82,6 +82,35 @@ _INVENTED = re.compile(
 _TAG = re.compile(r"^[\[(（【♪*].*[\])）】♪*]$|^[♪\s.]+$")
 
 
+# Misheard Hinglish written as another language (live 2026-10-05 "Sí, un poco"; 2026-11 "Ja, gerne. Ich hätte gerne",
+# "servir de nada si quieres luego yo", Korean and Japanese lines). Words that are also Hindi/Hinglish ("de do",
+# "la do", "ghar ja", "tu") count only alongside a strong one.
+_FOREIGN = {"sí", "si", "un", "una", "poco", "de", "la", "el", "los", "las", "que", "por", "para", "voz", "mi", "muy",
+            "gracias", "bueno", "pero", "como", "está", "esta", "yo", "tu", "não", "nao", "uma", "obrigado", "nada",
+            "quieres", "luego", "servir", "güey", "alegre", "avenida", "casa", "isso", "você", "voce", "ich", "und",
+            "ist", "nicht", "gerne", "bitte", "danke", "hätte", "ja", "je", "pas", "vous", "merci", "bonjour", "oui"}
+_HINGLISH_ALSO = {"de", "la", "mi", "tu", "yo", "si", "ja", "un", "pas", "casa"}
+# Korean, Japanese, Chinese, Cyrillic, Arabic, Thai: never the owner's language, always a mishearing
+_OTHER_SCRIPT = re.compile(r"[가-힯ᄀ-ᇿ㄰-㆏぀-ヿ一-鿿Ѐ-ӿ"
+                           r"؀-ۿ฀-๿]")
+
+
+def foreign(text):
+    """True when the transcript is mostly another language: misheard speech, not something said to Chutku. A real
+    request with a misheard bit in front ("어, 이 काम कर। Priyadarshini की चैट ओपन कर ...") is not foreign."""
+    text = str(text or "")
+    letters = re.findall(r"[^\W\d_]", text)
+    if letters and len(_OTHER_SCRIPT.findall(text)) / len(letters) >= 0.5:
+        return True
+    words = re.findall(r"[^\W\d_]+", _OTHER_SCRIPT.sub(" ", text).casefold())
+    if not words:
+        return bool(letters)
+    strong = [w for w in words if w in _FOREIGN and w not in _HINGLISH_ALSO]
+    if len(words) == 1:
+        return bool(strong)
+    return len(strong) >= 1 and sum(w in _FOREIGN for w in words) / len(words) >= 0.6
+
+
 def _clean(text):
     from chutku.translit import roman
     return " ".join(re.sub(r"[^\w\s']", " ", roman(text or "").casefold()).split())
@@ -92,9 +121,9 @@ def meaningful(text, *, short_answers_ok=False):
 
     short_answers_ok: in an approval moment "haan" / "ok" / "no" are real answers, so lone yes/no words pass."""
     raw = (text or "").strip()
-    if not raw or _TAG.match(raw):
+    if not raw or _TAG.match(raw) or foreign(raw):
         return False
-    words = _clean(raw).split()
+    words = _clean(_OTHER_SCRIPT.sub(" ", raw)).split()   # "나는, thank you." is the noise phrase "thank you"
     if not words or len("".join(words)) < 2:
         return False
     if len(words) >= 3 and len(set(words)) <= max(1, len(words) // 3):

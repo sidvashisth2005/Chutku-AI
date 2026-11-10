@@ -46,6 +46,23 @@ class ClaimTests(unittest.TestCase):
         note = sent["clientContent"]["turns"][0]["parts"][0]["text"]
         self.assertIn("Wait for the [Task update]", note)
 
+    def test_set_karti_hoon_is_a_claim_too(self):
+        # live 2026-11-07: "Done! 6:30 ka alarm ... abhi set karti hoon" and no alarm was ever set
+        request = 'और मुझे 6:30 पर मेरा एक अलार्म बजना चाहिए। अलार्म का टाइटल "jaldi kar le bhai"'
+        sent = self.turn(request, 'Done! 6:30 ka alarm, title "jaldi kar le bhai", abhi set karti hoon.')
+        self.assertEqual(self.server.tasks, [request])
+        self.assertIn("Wait for the [Task update]", sent["clientContent"]["turns"][0]["parts"][0]["text"])
+
+    def test_the_turn_that_started_a_task_is_remembered_for_the_log(self):
+        self.turn("Kya haal hai?", "Badhiya!")                                        # owner turn 0: chat
+        self.turn("Bhai Spotify chalu kar.", "Spotify khol rahi hoon.")              # turn 1: claim -> task
+        self.live._running = lambda: []                                               # the first task finished
+        for _ in range(30):                                                           # the owner speaks again
+            self.live.gate.feed(chunk(0.2))
+        self.live.handle(owner("WhatsApp kholo"))                                     # turn 2: the model calls it
+        self.live.dispatch("do_task", {"goal": "open whatsapp"})
+        self.assertEqual(self.live.tasked_turns, {1, 2})
+
     def test_no_double_start_when_the_model_did_call_the_task(self):
         self.live.handle(owner("Bhai Spotify chalu kar."))
         self.live.dispatch("do_task", {"goal": "open spotify"})
@@ -84,6 +101,18 @@ class ClaimTests(unittest.TestCase):
         self.live.said_this_turn = "Ho gaya!"
         sent = self.live._claimed_success()
         self.assertIn("no task was run", sent["clientContent"]["turns"][0]["parts"][0]["text"])
+
+
+class PersonaRuleTests(unittest.TestCase):
+    def test_the_voice_persona_stays_silent_on_noise_and_ends_without_a_question_tail(self):
+        from chutku import identity
+        from chutku.voice.live import PERSONA, _BASE_PERSONA, personalize
+        for persona in (PERSONA, personalize(_BASE_PERSONA, {**identity.DEFAULTS, "ASSISTANT_NAME": "Mitra",
+                                                              "ASSISTANT_GENDER": "male",
+                                                              "ASSISTANT_LANGUAGE": "english"})):
+            self.assertIn("stay silent and do not reply at all", persona)
+            self.assertIn('never with "aur kuch?"', persona)
+            self.assertIn('"haan ya na?"', persona)
 
 
 class RoutingTests(unittest.TestCase):

@@ -20,6 +20,40 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (34): Never lie, never act on noise (master plan slice B)
+- **B1, spoken promises:** checked the "unkept promises" the estimate flagged against `data/heard.jsonl`: every one in
+  the last 7 days was backed (the Live claim-starts-the-task mechanism works; the time-stamp pairing was wrong).
+  So the source now records it exactly:
+  - `LiveConversation.tasked_turns`: the owner's turn (n-th "you" entry) for which a task started; `recall.log_voice(...,
+    tasked=)` writes `"task": true/false` on each voice row; `dashboard_voice._after_live` passes it.
+  - `scripts/scoreboard.unbacked_promises` counts rows with the flag exactly and keeps the estimate only for older rows
+    (3-minute grace for a task still running when the conversation ended: live 2026-11-06, 69 s).
+  - `_CLAIM` also catches "<action> karti hoon" / "abhi karti hoon" (live 2026-11-07: "abhi set karti hoon" and no
+    alarm was set); "yoga karti hoon", "baat karti hoon" stay chat (checked).
+- **B2, noise:** `heard.foreign()` (moved from `live.foreign_words`, still importable there) now also catches German,
+  French, more Spanish/Portuguese, and Korean/Japanese/Chinese/Cyrillic/Arabic/Thai script when it is most of the line;
+  `heard.meaningful()` rejects foreign lines and strips other-script bits before the noise list ("나는, thank you."
+  is noise). A real request with a misheard Korean start stays a request. The voice persona says: stay silent on
+  other languages and noise.
+  - Real check: over 551 distinct voice texts in the logs, 18 are now treated as foreign; all 18 are noise (none was a
+    request). Honest limit: Gemini Live hears the audio itself, so it may still answer noise briefly; Chutku no longer
+    acts on it, logs it as a turn, or keeps the conversation open for it.
+- **B3, question tails:** typed replies have none (1 of 213 "?" endings, a real clarify), so no text filter was added;
+  the voice persona now says to end with the result, and the scoreboard counts tails (`TAIL`): baseline 7 days 12,
+  60 days 56, target 0.
+- **Verification:** tests: `test_live_claims` (+4: turn tracking, "set karti hoon", persona rule for two identities),
+  `test_heard` (+2: 14 real foreign lines rejected, 9 Hinglish look-alikes kept), `test_recall` (+1), `test_scoreboard`
+  (+2). Full suite 1,812: 1 failure, the known `test_docs_truth` count (the owner's 10 untracked
+  `chutku/apps/atlas/ui_*.json`). `check_phrases.py` 193/193. Scoreboard (7 days): B100 343.2, Daily 30 48/78 = 62%,
+  promises 2 (both backed per `heard.jsonl`; old rows), tails 12.
+- **Not yet live:** the running Chutku was started at 08:43 with the old code; the owner was using the PC (idle 35 s),
+  so it was not restarted. The voice checks (a real "VLC kholo" turn logs `"task": true`; a Spanish line gets no
+  task and no row) run after the next restart.
+- **Slice C deferred, with evidence:** today's instant router sends 33 of the 51 real failures to the right tool with
+  the name as said, and the night-shift fixes made after those failures already match the names live (Spotify 9/9
+  incl. LowKey/lofi OCR, "Ato mera brave", "Open sport", WhatsApp 5/5). A new resolver would rewrite working matching;
+  re-check with a week of new data.
+
 ### 2026-11-10 (33): Measure truthfully (plan "best assistant", slice A)
 - **Owner's request:** read the whole codebase and say exactly how to make Chutku the best assistant, one that eases
   work and never adds it. The assessment and the slices are in the plan file; the aim in one line: *say it once, in

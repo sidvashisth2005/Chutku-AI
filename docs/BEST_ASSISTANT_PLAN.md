@@ -561,12 +561,12 @@ message is read, read the first line aloud, then "poora padhun?" is NOT asked, i
 
 ## 15. Progress ticks (the executing agent updates these)
 
-- [ ] B1 claims
-- [ ] B2 noise gate
-- [ ] B3 question tails
-- [ ] B4 live
+- [x] B1 claims (exact per-turn task flag; 'karti hoon' claims) - 2026-11-10 (34)
+- [x] B2 noise gate (heard.foreign; 18/551 real lines dropped, all noise) - (34)
+- [x] B3 question tails (voice persona rule; scoreboard TAIL baseline 12/7d) - (34)
+- [ ] B4 live: waits for a Chutku restart while the owner is away
 - [ ] B5 gate
-- [ ] C1 resolve.py
+- [ ] C1 resolve.py: DEFERRED 2026-11-10 (34): routing + live name fixes already cover the bank; re-check with new data
 - [ ] C2 wiring
 - [ ] C3 edge cases
 - [ ] C4 live

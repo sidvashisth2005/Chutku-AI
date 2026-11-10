@@ -285,7 +285,7 @@ class DashboardVoice:
         from chutku.voice import mic
         mic.set_muted(False)   # mute lasts only for this conversation
         from chutku import recall
-        recall.log_voice(live.full_transcript, base=self.base)
+        recall.log_voice(live.full_transcript, base=self.base, tasked=getattr(live, "tasked_turns", None))
         if self.wake is not None:
             self.wake.hold.clear()
             self.wake.busy.clear()
