@@ -143,6 +143,13 @@ The hands-free (voice) level is set separately, in the dashboard's Hands-free ro
 
 ## 3. Things you can say
 
+**New on 2026-11-10: ready-made workflows, apps learnt by heart, work behind your window**
+- **Ready-made workflows** (one lookup, no thinking): "start my work day" / "office mode on" / "kaam shuru karte hai" opens Gmail, your Google Calendar in a new tab and VS Code. "night study mode" / "raat ki padhai mode" sets brightness 40%, volume 20% and turns notifications off. "focus mode on" / "disturb mat karna" turns notifications off; "notifications wapas on karo" turns them back on. "battery bachao" picks the power saver plan, and "gaming ke liye fast karo" picks high performance. About 80 workflows in about 220 wordings (English, Hinglish, Hindi), made for a curious Gen-Z user, a busy office user, a student, a first-time user and a creator. Phrases Chutku already knew still work as before.
+- **Calculator modes:** "open scientific calculator" / "calculator mein scientific kholo", "graphing calculator kholo", programmer, date calculation, standard.
+- **Fixed:** "gmail kholo" / "mera email kholo" opens Gmail in the browser (it used to open the Windows Mail app); "awaaz band karo" / "sound band kar do" mutes (it used to try to close an app called "awaaz"); "start my work day" no longer opens Word.
+- **Work behind your window:** Chutku opens the apps a task needs behind the window you're using and presses their buttons without your mouse or keyboard. Up to 4 tasks run at the same time. Tasks in different apps really run side by side; steps that need the screen, mouse or keyboard still take turns.
+- **Apps learnt by heart:** Chutku read every page of 20 of your apps (Calculator, Clock, Photos, Paint, Explorer, Settings, Word, Excel, PowerPoint, Store, Snipping Tool, Notepad...). An app action is used instantly only after it worked 3 times in practice on this PC.
+
 **New on 2026-11-07: what she learns (always with your OK)**
 - After tasks she may offer a lesson ("this failed, this worked") or a new procedure.
 - "kya seekha" lists them. Then "sab rakh lo", "number 2 rakho" or "number 2 hatao".

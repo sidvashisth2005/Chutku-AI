@@ -398,3 +398,66 @@ class FallbackTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BackgroundStepTests(unittest.TestCase):
+    """App Mastery 2: `do` presses an element by name through UI Automation, behind the owner's window."""
+    ACTION = {"id": "system_page", "title": "Settings: System", "risk": "safe",
+              "steps": [{"launch": "behind"}, {"do": "System", "action": "click"}], "check": {"has_element": "Display"}}
+
+    def atlas(self, *actions):
+        return {**copy.deepcopy(ATLAS), "actions": [copy.deepcopy(a) for a in actions] or [self.ACTION]}
+
+    def test_do_and_has_element_validate_and_risky_names_are_refused(self):
+        atlas_module.validate(self.atlas())
+        for step in ({"do": "Send", "action": "click"}, {"do": "Delete {name}"}, {"do": "Search", "action": "set_text"},
+                     {"do": "System", "action": "click", "text": "x"}, {"do": "System", "action": "drag"},
+                     {"do": ""}, {"launch": "elsewhere"}):
+            broken = {**self.ACTION, "steps": [step], "params": {"name": {"type": "text"}}}
+            with self.assertRaises(atlas_module.AtlasError, msg=step):
+                atlas_module.validate(self.atlas(broken))
+
+    def test_do_runs_behind_without_focus_keys_or_mouse(self):
+        class Behind(FakeDriver):
+            def __init__(self):
+                super().__init__(window=None)
+
+            def launch(self, name, behind=False):
+                self.calls.append(("launch", name, behind))
+                self.window = 7
+
+            def do(self, window, name, action, text=None):
+                self.calls.append(("do", name, action))
+
+            def has_element(self, window, name):
+                return name == "Display"
+        driver = Behind()
+        out = runner.run(self.atlas(), self.ACTION, {}, driver)
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(driver.calls, [("launch", "Demo", True), ("do", "System", "click")])   # no focus, no keys
+        driver.calls.clear()
+        self.assertTrue(runner.run(self.atlas(), self.ACTION, {}, driver)["ok"])
+        self.assertEqual(driver.calls, [("do", "System", "click")])     # an open window is reused, not relaunched
+
+    def test_a_missing_element_after_the_step_fails_the_check(self):
+        class NoPage(FakeDriver):
+            def do(self, window, name, action, text=None):
+                pass
+
+            def has_element(self, window, name):
+                return False
+        with patch.object(runner.time, "sleep"), patch.object(runner.time, "monotonic", side_effect=__import__("itertools").count(0, 2.5)):
+            out = runner.run(self.atlas(), self.ACTION, {}, NoPage())
+        self.assertFalse(out["ok"])
+        self.assertIn("has_element", out["error"])
+
+    def test_background_only_actions_get_their_apps_lane(self):
+        from chutku.apps import phrases
+        from chutku.runtime import lane
+        self.assertTrue(atlas_module.background_only(self.ACTION))
+        self.assertFalse(atlas_module.background_only(action(ATLAS, "like")))       # keys need the screen
+        mixed = {**self.ACTION, "steps": [{"focus": True}, {"do": "System"}]}
+        self.assertFalse(atlas_module.background_only(mixed))
+        with patch.dict(phrases._LOADED, {"atlases": {"demo": self.atlas()}}):
+            self.assertEqual(lane("app.demo.system_page", {}), "app-demo")
+            self.assertEqual(lane("app.demo.nothing", {}), "screen")

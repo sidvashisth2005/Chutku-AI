@@ -39,6 +39,8 @@ PATTERNS = [
     ("power_cancel", re.compile(rf"^{_POLITE}(?:cancel|stop|abort)\s+(?:the\s+)?(?:shut\s*down|restart)|(?:shut\s*down|restart)\s+(?:cancel|rok\s+do|roko|mat\s+karo){_TAIL}", re.I)),
     ("build", re.compile(rf"^{_POLITE}(?:can you |could you |i want you to |i want to )?(?:build|make|create|code|develop|write|generate)\s+(?:me\s+|us\s+)?(?:a\s+|an\s+|the\s+|my\s+)?(?P<what>(?:(?!\b(?:folder|file|note|document|reminder|timer|playlist)s?\b).)*?\b{_BUILDABLE}\b.*?){_TAIL}", re.I)),
     ("build", re.compile(rf"^{_POLITE}(?:(?:mere liye|mujhe|ek)\s+)*(?P<what>.*?\b{_BUILDABLE}\b.*?)\s+(?:banao|bana do|banado|bana ke do|bana kar do|build karo|build kar do|code karo|code kar do|develop karo){_TAIL}", re.I)),
+    # "awaaz band karo" is mute, not closing an app called "awaaz" (persona exam 2026-11-10)
+    ("mute_on", re.compile(rf"^{_POLITE}(?:(?:awaaz|aawaz|awaz|aawaaz|sound|volume)\s+(?:band|off|bandh)|(?:awaaz|aawaz|awaz)\s+(?:mute|mut))\s*(?:karo|kar do|kardo|kar de|karde)?{_TAIL}", re.I)),
     ("close", re.compile(rf"^{_POLITE}{_CLOSE}\s+(?:the\s+|my\s+)?(?P<name>.+?){_APP_WORDS}(?:\s+window)?{_TAIL}", re.I)),
     ("close", re.compile(rf"^{_POLITE}(?P<name>.+?){_APP_WORDS}\s+{_CLOSE}{_TAIL}", re.I)),
     ("volume", re.compile(rf"^{_POLITE}(?:(?:turn|put|make)\s+(?:the\s+)?(?:volume|sound)\s+(?P<dir1>up|down)|(?:turn\s+)?(?P<dir2>up|down)\s+the\s+(?:volume|sound)|(?:volume|sound|awaaz|aawaz|awaz)\s+(?P<dir3>up|down|badhao|kam karo|kam|zyada karo|tez karo|dheere karo))(?:\s+(?:a (?:little|bit)|thoda|by (?P<step>\d{{1,2}})(?: percent|%)?))?{_TAIL}", re.I)),
@@ -289,11 +291,32 @@ def quick_proposal(goal, apps=None):
     proposal = _quick_proposal(goal, apps)
     if proposal is None:   # WA2: installs, Windows settings, services, startup apps, undo of a system change, only
         proposal = _system_phrase(goal, installs=True)   # when nothing older matched ("install notepad" opens an installed app)
+    if proposal is None or _weak_launch(proposal, goal):
+        # the task table (owner 2026-11-10): synthetic workflows by the whole sentence, one dict lookup. The routes
+        # above win, except a launch of an app that is not installed ("start my work day" is a workflow, not an app).
+        from chutku import task_table
+        proposal = task_table.lookup(goal) or proposal
     if proposal is not None and tab:
         for step in proposal["next_steps"]:
             if step["tool"] in BROWSER_TOOLS:
                 step["arguments"]["tab"] = tab
     return proposal
+
+
+def _weak_launch(proposal, goal):
+    """A plan that only opens an app the request never named: not installed ("start my work day" -> "work day"), or
+    a guessed near name ("gmail kholo" -> the Mail app). A whole sentence the task table knows is better evidence."""
+    steps = proposal.get("next_steps") or []
+    if len(steps) != 1 or steps[0]["tool"] != "apps.launch" or "name" not in steps[0]["arguments"]:
+        return False
+    from chutku.tools.everyday import resolve_app, start_apps
+    try:
+        app = resolve_app({"name": steps[0]["arguments"]["name"]}, start_apps())
+    except (ValueError, OSError):
+        return True
+    said = set(re.findall(r"[a-z0-9]+", goal.casefold()))
+    name = app[0]["name"] if isinstance(app, list) else app["name"]
+    return not set(re.findall(r"[a-z0-9]+", name.casefold())) <= said
 
 
 def _shortcut(goal):
@@ -1161,8 +1184,8 @@ def _single(goal, apps=None):
                 return None
             tool, noun = ("audio.volume", "volume") if kind == "volume_set" else ("display.brightness", "brightness")
             return _proposal(tool, {"action": "set", "level": level}, f"Set {noun} to {level}", f"Set the {noun} to {level}%.")
-        if kind == "mute":
-            action = match.group("what").lower()
+        if kind in ("mute", "mute_on"):
+            action = "mute" if kind == "mute_on" else match.group("what").lower()
             return _proposal("audio.volume", {"action": action}, action.capitalize(), f"{action.capitalize()}d the sound.")
         if kind in ("remind_in", "timer"):
             minutes = int(match.group("n")) * (60 if match.group("unit").lower().startswith(("h", "g")) else 1)

@@ -16,6 +16,80 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (31): Apps learnt by heart, the task table, the persona exam (App Mastery 2, steps 5–8)
+- **Owner's requests:**
+  - "practice over all the layouts dedicatedly: each button, what it does, how, forward, backward, undo";
+  - "synthetic workflows of all possible tasks ... all types of personalities ... in a hash table for lookup";
+  - "calculator se aage bhi toh badh".
+- **App survey** (`scripts/app_survey.py`, no model):
+  - It opens each app behind the owner's window, waits for it to settle (a splash window is replaced, a page fills
+    in) and reads every element.
+  - It visits each navigation item (tabs, list, tree and option items, after a "Navigation" opener) and records
+    what each page adds, then checks that going back returns to the start.
+  - `--probe`, **only while the owner is idle**, presses each remaining safe element, records what changed, undoes
+    it (toggle again, collapse, the dialog's own Cancel or Close, or Back) and checks that the page came back.
+  - RISKY names and a wider do-not-press list (save, print, sign in, Bluetooth, network, play, new, paste...) are
+    never pressed.
+  - Probing is limited to Calculator, Clock, Paint, Photos, Weather and Snipping Tool. The rest are map-only,
+    because they restore or edit the owner's files, make sound, or change the real system.
+- **Mapped live on this PC** (`data/apps/<app>/uimap.json`, local), pages each:
+
+  | App | Pages |
+  |---|---:|
+  | Paint | 21 |
+  | Explorer | 19 |
+  | Calculator | 18 |
+  | Settings | 12 |
+  | Clock | 7 |
+  | Photos | 7 |
+  | Store | 6 |
+  | Word | 4 |
+  | Excel | 4 |
+  | PowerPoint | 4 |
+  | Snipping Tool | 3 |
+  | Notepad | 3 |
+
+  - **Only the reading lane works:** Weather, To Do, Sticky Notes, OneNote, Outlook and VS Code show UI Automation
+    (almost) nothing, so for them Chutku has to read the screen.
+  - **Not opened behind the owner's window:** Sound Recorder and Calendar.
+- **Found by the survey:**
+  - Calculator's navigation ignores UI Automation: the item gets selected, but the mode doesn't change. Its
+    pages had no proof of opening, so no `do` actions were made for it. Its documented shortcuts (Alt+1–5) are now
+    `chutku/apps/atlas/calculator.json` ("open scientific calculator").
+  - Background launches failed for Paint and Explorer: `mspaint.exe` and `explorer.exe` didn't match the app name.
+    Ownership now also matches a title ending in the name, or a distinctive word of the name inside the program name.
+- **Atlas `do` step and `has_element` check** (`chutku/apps/atlas.py`, `runner.py`):
+  - they press an element by name through UI Automation, behind the owner's window;
+  - risky names are refused by the validator;
+  - `launch: "behind"`;
+  - an action made only of these steps runs in its app's own lane (`atlas.background_only`).
+- **Map to actions:** `scripts/make_ui_atlases.py` turns each page with proof (an element only that page shows) into
+  a safe navigation action with English and Hinglish phrases. These route instantly only after 3 Action Lab passes.
+- **Task table** (`chutku/task_table.py`, `chutku/apps/tasks.jsonl` from `scripts/make_task_table.py`):
+  - **Content:** 218 sentences from 78 workflows, for the personas genz 103, office 114, student 69, elder 59 and
+    creator 16; in English, Hinglish and Hindi script. 183 of them have a ready plan.
+  - **Lookup:** one dict lookup on the normalised sentence (`reflex.normalize`).
+  - **Order:** it fills the gaps after the hand-written routes, which always win. The exception is a launch of an
+    app the sentence never named ("start my work day" used to open Word).
+  - An app action in it waits for the lab.
+  - **Test:** every plan's tool exists and its arguments pass that tool's own validation.
+- **Persona exam (offline)** (`scripts/persona_exam.py`, the instant router):
+  - **Of 218 sentences:** 196 planned instantly, 3 answered directly, 19 left to the planner. Routing median 17 ms.
+  - **Instant but wrong:** 22, then 1 after the fixes. Per persona: office 106/114 instant and right, genz 92/103,
+    student 60/69, elder 56/59.
+- **Real misroutes found by the exam and fixed:**
+  1. "start my work day" opened **Word**: the fuzzy app match let "work day" be Word. A misheard name has no extra
+     words now.
+  2. "gmail kholo" / "mera email kholo" opened the **Windows Mail app**; it now opens Gmail.
+  3. "awaaz band karo" **closed an app named "awaaz"**; it now mutes.
+  - "Open sport" → Spotify and "Ato mera brave" → Brave still work (tests).
+- **Left over:** "google calendar kholo" becomes a web search.
+- **Tests:** `test_app_survey` (3: the do-not-press list, proof-of-page), `test_task_table` (5), `test_app_atlas`
+  +4. Affected suites: 140 OK.
+- **Not yet:**
+  - the Action Lab on the generated actions and the probe run, both waiting for the owner to be idle;
+  - the live persona exam (`--live`, owner away).
+
 ### 2026-11-10 (30): WhatsApp Locked chats: Chutku opens them, the owner types his code (20x plan P1 open item)
 - **Owner's request:** "Locked chat open krna jo bola usko dhang se search krna brain ka istemaal krke".
 - **Flow** (`chutku/tools/apps_extra.py`):

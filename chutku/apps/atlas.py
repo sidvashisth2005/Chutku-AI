@@ -14,9 +14,14 @@ import re
 ATLAS_DIR = Path(__file__).resolve().parent / "atlas"
 RISK = {"safe": 1, "changes": 2, "consequential": 3, "destructive": 4}
 VERBS = {"focus", "launch", "uri", "cli", "keys", "type", "click_text", "wait_text", "play_page", "sleep", "media",
-         "settings_uri"}
+         "settings_uri", "do"}
 CHECKS = {"media_playing", "media_paused", "media_changed", "title_in_page", "window_title_contains", "ocr_contains",
-          "process_running", "process_gone", "window_open", "playing_on_page", "heading", "title_lacks", "title_has_file"}
+          "process_running", "process_gone", "window_open", "playing_on_page", "heading", "title_lacks", "title_has_file",
+          "has_element"}
+# App Mastery 2: {"do": "<element name>", "action": ...} presses an element of the app's window by its name through UI
+# Automation (desktop.do): no mouse, no keys, so it works behind the owner's window. Consequential names are refused.
+DO_ACTIONS = {"click", "set_text", "toggle", "expand", "collapse"}
+BACKGROUND_VERBS = {"do", "sleep"}
 PARAM_TYPES = {"text", "number", "path"}
 _ID = re.compile(r"^[a-z][a-z0-9_]{1,40}$")
 _SLOT = re.compile(r"\{([a-z][a-z0-9_]*)\}")
@@ -99,6 +104,19 @@ def validate(atlas: dict) -> dict:
                 raise AtlasError(f"{where}: play_page is true or 'playlist' (open the first playlist result first)")
             if verb == "media" and step["media"] not in {"play", "pause", "play_pause", "next", "previous"}:
                 raise AtlasError(f"{where}: media is play/pause/play_pause/next/previous")
+            if verb == "launch" and step["launch"] not in (True, "behind"):
+                raise AtlasError(f"{where}: launch is true (in front) or 'behind' (behind the owner's window)")
+            if verb == "do":
+                from chutku.tools.screen_vision import RISKY
+                name = step["do"]
+                if not isinstance(name, str) or not name.strip() or len(name) > 120:
+                    raise AtlasError(f"{where}: do names the element (1-120 characters)")
+                if step.get("action", "click") not in DO_ACTIONS:
+                    raise AtlasError(f"{where}: do action is one of {sorted(DO_ACTIONS)}")
+                if (step.get("action") == "set_text") != ("text" in step):
+                    raise AtlasError(f"{where}: do set_text needs text, and only set_text takes text")
+                if RISKY.search(fill_free(name)):
+                    raise AtlasError(f"{where}: '{name}' looks consequential: do never presses it")
         used = _slots(steps) | _slots(action.get("check") or {})
         if used - set(params):
             raise AtlasError(f"{where}: steps use undeclared params {sorted(used - set(params))}")
@@ -132,6 +150,19 @@ def validate(atlas: dict) -> dict:
         if not isinstance(phrases, list) or any(_slots(p) - set(params) for p in phrases):
             raise AtlasError(f"{where}: phrases may only use declared params")
     return atlas
+
+
+def fill_free(text):
+    """The text with {slots} removed (a risky word must not hide next to a slot)."""
+    return _SLOT.sub(" ", str(text))
+
+
+def background_only(action: dict) -> bool:
+    """Steps that never need the screen, mouse or keyboard: UI Automation `do` steps (and pauses), after the app was
+    opened behind the owner's window. Such an action runs in its app's own lane, beside other tasks."""
+    steps = action.get("steps") or []
+    return any("do" in s for s in steps) and all(
+        (set(s) & VERBS) <= BACKGROUND_VERBS or s.get("launch") == "behind" for s in steps)
 
 
 def load_all(directory: Path = ATLAS_DIR) -> tuple[dict, dict]:

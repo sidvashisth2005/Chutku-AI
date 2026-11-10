@@ -1,0 +1,145 @@
+{
+ "app": "calculator",
+ "name": "Calculator",
+ "aliases": [
+  "calculator",
+  "calc"
+ ],
+ "window": {
+  "exe": "CalculatorApp.exe"
+ },
+ "launch": {
+  "start_menu": "Calculator"
+ },
+ "uri_schemes": [],
+ "sources": [
+  "data/apps/calculator/uimap.json"
+ ],
+ "actions": [
+  {
+   "id": "standard",
+   "title": "Standard calculator",
+   "risk": "safe",
+   "phrases": [
+    "open standard calculator",
+    "standard calculator kholo",
+    "calculator mein standard kholo",
+    "standard calculator",
+    "standard mode in calculator"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+1",
+     "wait": 0.8
+    }
+   ],
+   "check": {
+    "heading": "Standard"
+   },
+   "done": "Standard calculator khol diya."
+  },
+  {
+   "id": "scientific",
+   "title": "Scientific calculator",
+   "risk": "safe",
+   "phrases": [
+    "open scientific calculator",
+    "scientific calculator kholo",
+    "calculator mein scientific kholo",
+    "scientific calculator",
+    "scientific mode in calculator"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+2",
+     "wait": 0.8
+    }
+   ],
+   "check": {
+    "heading": "Scientific"
+   },
+   "done": "Scientific calculator khol diya."
+  },
+  {
+   "id": "graphing",
+   "title": "Graphing calculator",
+   "risk": "safe",
+   "phrases": [
+    "open graphing calculator",
+    "graphing calculator kholo",
+    "calculator mein graphing kholo",
+    "graphing calculator",
+    "graphing mode in calculator"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+3",
+     "wait": 0.8
+    }
+   ],
+   "check": {
+    "heading": "Graphing"
+   },
+   "done": "Graphing calculator khol diya."
+  },
+  {
+   "id": "programmer",
+   "title": "Programmer calculator",
+   "risk": "safe",
+   "phrases": [
+    "open programmer calculator",
+    "programmer calculator kholo",
+    "calculator mein programmer kholo",
+    "programmer calculator",
+    "programmer mode in calculator"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+4",
+     "wait": 0.8
+    }
+   ],
+   "check": {
+    "heading": "Programmer"
+   },
+   "done": "Programmer calculator khol diya."
+  },
+  {
+   "id": "date",
+   "title": "Date Calculation calculator",
+   "risk": "safe",
+   "phrases": [
+    "open date calculator",
+    "date calculator kholo",
+    "calculator mein date kholo",
+    "date calculator",
+    "date mode in calculator"
+   ],
+   "steps": [
+    {
+     "focus": true
+    },
+    {
+     "keys": "alt+5",
+     "wait": 0.8
+    }
+   ],
+   "check": {
+    "heading": "Date Calculation"
+   },
+   "done": "Date Calculation calculator khol diya."
+  }
+ ]
+}

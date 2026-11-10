@@ -291,12 +291,14 @@ _FILLER_WORDS = {"browser", "app", "application", "software", "program", "the", 
 def _closest_app(said, apps, cutoff=0.66):
     """Apps whose name (or first word) is closest to what was said, when one is clearly ahead of the rest."""
     import difflib
-    scores = []
+    scores, words = [], len(said.split())
     for app in apps:
         name = " ".join(app["name"].casefold().split())
+        if words > len(name.split()):
+            continue   # a misheard name has no extra words: "start my work day" is not Word (task table, 2026-11-10)
         first = (re.findall(r"[a-z0-9+]+", name) or [""])[0]
         scores.append((max(difflib.SequenceMatcher(None, said, name).ratio(),
-                           difflib.SequenceMatcher(None, said, first).ratio()), app))
+                           difflib.SequenceMatcher(None, said, first).ratio() if words == 1 else 0), app))
     scores.sort(key=lambda item: -item[0])
     if not scores or scores[0][0] < cutoff or (len(scores) > 1 and scores[1][0] >= scores[0][0] - 0.05):
         return []
@@ -546,9 +548,16 @@ def _launch_behind(desktop, app, found_via, running):
     output = {"app": app["name"], "app_id": app["app_id"], "found_via": found_via, "background": True}
     word = _first_word(app["name"])
 
+    name = app["name"].casefold()
+    words = [w for w in re.findall(r"[a-z0-9]{4,}", name) if w not in {"microsoft", "windows", "app"}]
+
     def ours(info):
-        return bool(info.get("title")) and (info["title"].casefold() == app["name"].casefold()
-                                            or Path(info.get("executable") or "").stem.casefold().startswith(word))
+        """This app's window: its title is (or ends with) the app's name ("Untitled - Paint"), or its program carries a
+        word of the name (mspaint.exe for Paint, explorer.exe for File Explorer, SystemSettings.exe for Settings)."""
+        title = (info.get("title") or "").casefold()
+        stem = Path(info.get("executable") or "").stem.casefold()
+        return bool(title) and (title == name or title.endswith(" - " + name) or stem.startswith(word)
+                                or any(w in stem for w in words))
     running = next((info for info in windows() if ours(info)), None)
     if running is not None:
         background_desk.park(running["window_id"])

@@ -74,11 +74,29 @@ class Driver:
                 out.append(info.get("title") or "")
         return out
 
-    def launch(self, name):
+    def launch(self, name, behind=False):
         from chutku.tools.everyday import _launch
-        result = _launch({"name": name}, None)
+        result = _launch({"name": name, **({"background": True} if behind else {})}, None)
         if str(getattr(result, "verification", "FAIL")) == "FAIL":
             raise StepFailed(f"could not open {name}")
+
+    def do(self, window, name, action, text=None):
+        """Press the element named `name` through UI Automation (desktop.do: consequential names refused there)."""
+        from chutku.tools.desktop import _do
+        arguments = {"app": _app_key(window), "name": name, "action": action, **({"text": text} if text is not None
+                                                                                  else {})}
+        result = _do(arguments, None)
+        if result.verification.name == "FAIL":
+            raise StepFailed(result.output.get("error") or f"could not {action} '{name}'")
+        return result.output
+
+    def has_element(self, window, name):
+        from chutku.tools.desktop import _window, call
+        try:
+            found = call("find", "--window-id", _window(_app_key(window))["id"], "--text", name, "--limit", "5")
+        except (OSError, LookupError):
+            return False
+        return any(name.casefold() in str(m.get("name", "")).casefold() for m in found.get("matches", []))
 
     def open_uri(self, uri):
         os.startfile(uri)   # the scheme was checked against the app's own schemes by the atlas validator
@@ -165,6 +183,11 @@ class Driver:
                    for h in desktop.windows())
 
 
+def _app_key(window):
+    """How desktop.do names the app's window: its exe without .exe ("CalculatorApp"), else its title words."""
+    return (window.get("exe") or "").removesuffix(".exe").removesuffix(".EXE") or window.get("title", "")
+
+
 def _seen(lines, text):
     """``text`` is on screen: in a line, or as the one line OCR misread ("I-owKey" for "LowKey")."""
     from chutku.tools.visible import matches
@@ -212,7 +235,7 @@ def run(atlas, action, params, driver=None):
         before = _media_status(driver, match) if _uses_media(action) else {}
         for step in action["steps"]:
             verb = next(v for v in step if v in {"focus", "launch", "uri", "cli", "keys", "type", "click_text",
-                                                 "wait_text", "play_page", "sleep", "media", "settings_uri"})
+                                                 "wait_text", "play_page", "sleep", "media", "settings_uri", "do"})
             if step.get("if_title") or step.get("require_title"):
                 # Keys only for the right page: "if_title" skips quietly (a clean-up Ctrl+W only on the page it
                 # opened), "require_title" stops the action (YouTube keys only on a YouTube tab).
@@ -239,8 +262,16 @@ def run(atlas, action, params, driver=None):
                     hwnd = _wait_window(driver, window, 15)
                 driver.focus(hwnd)
             elif verb == "launch":
-                driver.launch(atlas.get("launch", {}).get("start_menu") or atlas["app"])
+                name = atlas.get("launch", {}).get("start_menu") or atlas["app"]
+                if step["launch"] == "behind":
+                    if driver.find_window(window) is None:   # an open window is reused where it is
+                        driver.launch(name, behind=True)
+                else:
+                    driver.launch(name)
                 hwnd = _wait_window(driver, window, 15)
+            elif verb == "do":
+                driver.do(window, fill(step["do"], params), step.get("action", "click"),
+                          fill(step["text"], params) if "text" in step else None)
             elif verb in {"uri", "settings_uri"}:
                 driver.open_uri(fill(step[verb], params, encode=True))
                 time.sleep(1.0)
@@ -443,6 +474,12 @@ def _check(check, params, driver, window, hwnd, before, out, match=None):
                                                   for l in driver.ocr(driver.window_rect(current)))
         elif name == "window_open":
             results[name] = driver.find_window(window) is not None
+        elif name == "has_element":
+            # The page the action opened shows this element (read through UI Automation, behind his window too).
+            deadline = time.monotonic() + 4
+            while not (found := driver.has_element(window, str(value))) and time.monotonic() < deadline:
+                time.sleep(0.4)
+            results[name] = found
         elif name == "process_running":
             results[name] = driver.process_running(window.get("exe", ""))
         elif name == "process_gone":

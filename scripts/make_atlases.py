@@ -168,6 +168,19 @@ def main():
         "sources": ["docs/apps/settings.md"], "note": "Only opens pages (safe); changing a toggle stays elsewhere.",
         "actions": [act(i, f"Open {i.replace('_', ' ')} settings", ph, [{"settings_uri": f"ms-settings:{u}"},
                         {"sleep": 1.5}], done=f"{i.replace('_', ' ').title()} settings khol di.") for i, u, ph in pages]})
+
+    # Calculator's modes (2026-11-10): its navigation list ignores UI Automation (the item is selected, the mode does
+    # not change), so the survey made no `do` actions for it; its own shortcuts switch the mode.
+    C = ["calculator", "calc"]
+    modes = [("standard", "Standard", "alt+1"), ("scientific", "Scientific", "alt+2"), ("graphing", "Graphing", "alt+3"),
+             ("programmer", "Programmer", "alt+4"), ("date", "Date Calculation", "alt+5")]
+    write("calculator", {"app": "calculator", "name": "Calculator", "aliases": C, "window": {"exe": "CalculatorApp.exe"},
+        "launch": {"start_menu": "Calculator"}, "uri_schemes": [], "sources": ["data/apps/calculator/uimap.json"],
+        "actions": [act(i, f"{label} calculator", [f"open {i} calculator", f"{i} calculator kholo",
+                                                   f"calculator mein {i} kholo", f"{i} calculator",
+                                                   f"{i} mode in calculator"],
+                        [{"focus": True}, {"keys": combo, "wait": 0.8}], {"heading": label},
+                        done=f"{label} calculator khol diya.") for i, label, combo in modes]})
     print("written")
 
 

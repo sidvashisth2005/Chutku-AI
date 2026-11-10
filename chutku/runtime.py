@@ -45,6 +45,18 @@ def lane(tool_name: str, arguments: Any) -> str:
         app = arguments.get("name") or arguments.get("app_id")
     elif tool_name == "desktop.do":
         app = arguments.get("app")
+    elif tool_name.startswith("app.") and tool_name.count(".") == 2:
+        # An app action made only of UI Automation steps behind his window (chutku/apps/atlas.background_only)
+        try:
+            from chutku.apps.atlas import background_only, load_all
+            from chutku.apps.phrases import _atlases
+            _app, name, action_id = tool_name.split(".")
+            app_atlas = _atlases(load_all).get(name) or {}
+            action = next((a for a in app_atlas.get("actions", []) if a["id"] == action_id), None)
+            if action is not None and background_only(action):
+                app = (app_atlas.get("window") or {}).get("exe") or name
+        except (OSError, ValueError, KeyError):
+            app = None
     elif tool_name in {"desktop.act", "desktop.act_risky"}:
         try:
             from chutku.tools.desktop import _resolve
