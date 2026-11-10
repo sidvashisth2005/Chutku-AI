@@ -248,7 +248,8 @@ _INSTALLED_SCHEMA = {"type": "object", "properties": {"query": {"type": "string"
                      "additionalProperties": False}
 _LAUNCH_SCHEMA = {"type": "object", "properties": {
     "name": {"type": "string", "minLength": 1, "maxLength": 120},
-    "app_id": {"type": "string", "minLength": 1, "maxLength": 400}}, "additionalProperties": False}
+    "app_id": {"type": "string", "minLength": 1, "maxLength": 400},
+    "background": {"type": "boolean"}}, "additionalProperties": False}
 
 
 def _validate_installed(arguments):
@@ -257,9 +258,12 @@ def _validate_installed(arguments):
 
 
 def _validate_launch(arguments):
-    if len(arguments) != 1 or not set(arguments) <= {"name", "app_id"}:
+    if not isinstance(arguments.get("background", False), bool):
+        raise ValueError("background must be true or false.")
+    target = {k: v for k, v in arguments.items() if k != "background"}
+    if len(target) != 1 or not set(target) <= {"name", "app_id"}:
         raise ValueError("Provide exactly one of name or app_id from the installed-app list.")
-    value = next(iter(arguments.values()))
+    value = next(iter(target.values()))
     if not isinstance(value, str) or not value.strip() or len(value) > 400:
         raise ValueError("The app name or app_id is invalid.")
 
@@ -466,6 +470,8 @@ def existing_browser_window(desktop, key):
 
 
 def _launch(arguments, _context):
+    background = arguments.get("background") is True
+    arguments = {k: v for k, v in arguments.items() if k != "background"}
     found_via = "start_menu"
     try:
         app = resolve_app(arguments, start_apps())
@@ -492,6 +498,8 @@ def _launch(arguments, _context):
             return _launched({"app": app["name"], "app_id": app["app_id"], "found_via": found_via,
                               "reused_open_window": True}, window, "already_open_focused")
     running = open_app_window(desktop, app["name"])
+    if background:
+        return _launch_behind(desktop, app, found_via, running)
     if running is not None and _first_word(app["name"]) in SINGLE_INSTANCE:
         # Spotify, WhatsApp, Telegram...: one window only. Starting it again shows no new window and Windows keeps
         # it behind, so "Open sport" waited 15 s and failed (live 2026-11-10): bring the open one to the front.
@@ -522,6 +530,33 @@ def _launch(arguments, _context):
         output["in_front"] = False
     info = _fresh_document(desktop, info, output)
     return _launched(output, info, how)
+
+
+def _launch_behind(desktop, app, found_via, running):
+    """Background Desk: the app is only a means for a task, so it opens BEHIND the owner's window (or an open one is
+    reused there) and he keeps typing undisturbed. Later steps act on it through desktop.look/desktop.do."""
+    from chutku import background_desk
+
+    def windows():
+        # agent-desktop's list: the frame Windows shows (ApplicationFrameHost for Store apps). Our own enumeration
+        # also returns a Store app's inner CalculatorApp.exe window, and parking that one broke it (live 2026-11-10).
+        from chutku.tools.desktop import call
+        return [desktop.describe(int(item["id"].split("-")[1])) for item in call("list-windows")
+                if item.get("visible", True) and str(item.get("id", "")).startswith("w-")]
+    output = {"app": app["name"], "app_id": app["app_id"], "found_via": found_via, "background": True}
+    word = _first_word(app["name"])
+    running = next((info for info in windows() if info.get("title") and (
+        info["title"].casefold() == app["name"].casefold()
+        or Path(info.get("executable") or "").stem.casefold().startswith(word))), None)
+    if running is not None:
+        background_desk.park(running["window_id"])
+        return _launched(output | {"reused_open_window": True}, running, "already_open_behind")
+    info, steals = background_desk.launch(app["app_id"], windows)
+    output["focus_taken_and_given_back"] = len(steals)
+    if info is None:
+        return ToolResult({**output, "error": "The app did not show a window behind yours within 20 seconds."},
+                          Verification.FAIL)
+    return _launched(output, info, "opened_behind")
 
 
 _BLANK_TAB_EDITORS = {"notepad.exe"}  # editors that reopen the user's previous files at start
@@ -1172,7 +1207,9 @@ def register_everyday_tools(registry):
         Risk.OBSERVATION, _installed, _validate_installed, argument_schema=_INSTALLED_SCHEMA,
         prerequisites=desktop, reversibility="not_applicable", success_predicate="start_menu_inventory_returned"))
     registry.register(Tool("apps.launch", "Open any installed app by its exact Start-menu name (e.g. 'Spotify', "
-        "'Visual Studio Code') or app_id; verifies a window appears.",
+        "'Visual Studio Code') or app_id; verifies a window appears. background=true opens it BEHIND the owner's "
+        "window (use it when the app is only a means for the task, then desktop.look/desktop.do in it): he keeps "
+        "working undisturbed.",
         Risk.REVERSIBLE, _launch, _validate_launch, verify=_window_verifier, required_capability="apps.launch",
         argument_schema=_LAUNCH_SCHEMA, prerequisites=desktop, reversibility="compensatable",
         success_predicate="new_or_foreground_app_window_observed"))

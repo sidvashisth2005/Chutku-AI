@@ -169,7 +169,10 @@ class WindowsDesktop:
         subprocess.Popen([str(executable)], shell=False, cwd=str(self.system_dir),
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    def focus(self, hwnd):
+    def focus(self, hwnd, nudge=True):
+        """Bring hwnd to the front. nudge=True may tap Alt to earn Windows' focus right; nudge="quiet" taps an
+        unassigned key code instead (0xB9 types nothing and opens no menu): used to hand the owner's own window back
+        after a background app jumped forward while he may be typing; nudge=False never injects anything."""
         if self.u.IsIconic(hwnd):
             # Synchronous restore: with ShowWindowAsync, Windows reported the window as foreground while another
             # app still covered it on screen (WhatsApp sends failed that way, 2026-10-04).
@@ -185,13 +188,14 @@ class WindowsDesktop:
                     attached.append(thread)
             self.u.BringWindowToTop(hwnd)
             self.u.SetForegroundWindow(hwnd)
-            if self.u.GetForegroundWindow() != hwnd:
+            if self.u.GetForegroundWindow() != hwnd and nudge:
                 # Windows only lets the process that had the last input take focus. Scheduled tasks, the phone
                 # and the API have none (live 2026-11-05: Settings stayed in front of Notepad), so one Alt tap
                 # counts as that input, then try again.
                 keybd_event = ctypes.windll.user32.keybd_event
-                keybd_event(0x12, 0, 0, 0)        # VK_MENU down
-                keybd_event(0x12, 0, 0x0002, 0)   # KEYEVENTF_KEYUP
+                key = 0xB9 if nudge == "quiet" else 0x12   # unassigned code, or VK_MENU (Alt)
+                keybd_event(key, 0, 0, 0)
+                keybd_event(key, 0, 0x0002, 0)   # KEYEVENTF_KEYUP
                 self.u.SetForegroundWindow(hwnd)
         finally:
             for thread in attached:

@@ -242,12 +242,17 @@ def _act(arguments, _context, *, risky_allowed):
     elif action == "scroll":
         args += ["--direction", arguments.get("direction", "down"), "--amount", str(arguments.get("amount", 3))]
     try:
-        data = call(*args, stdin=stdin)
+        # Background Desk: after a pause in the owner's typing, with the focus guard (a window that jumps forward
+        # is handed straight back to him, never with an injected key).
+        from chutku import background_desk
+        data, steals = background_desk.guarded(lambda: call(*args, stdin=stdin))
     except (OSError, subprocess.TimeoutExpired) as error:
         hint = " Look at the app again: it changed." if "STALE_REF" in str(error) else ""
         return ToolResult({"error": f"{error}{hint}", "element": name}, Verification.FAIL)
     delivery = (data.get("disposition") or {}).get("delivery", "")
     output = {"element": name, "action": action, "delivery": delivery}
+    if steals:
+        output["focus_taken_and_given_back"] = len(steals)
     try:
         window_id = seen["window"]["id"]
         output["snapshot"], lines = _snapshot(seen["window"])
