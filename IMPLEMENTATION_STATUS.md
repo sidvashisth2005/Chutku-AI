@@ -16,6 +16,21 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (25): Night shift: a late voice "haan" still approves; full-suite fixes
+- **Expired approvals:** the owner's "haan, bhej do" came after the 2-minute card expired ("approval expired",
+  owner's convos).
+  - `AgentSession.decide` now asks policy again for the very same step and applies the yes to the fresh card only.
+  - A "no" on an expired card still runs nothing.
+  - Test: `test_agent_loop.test_a_yes_after_the_card_expired_approves_the_same_step_again`.
+- **Full suite: 1756 tests, 2 failures, both fixed:**
+  - `docs/SECURITY.md` counts updated for the 2 Bluetooth tools (254 registered; R3 adds `system.bluetooth_set`).
+  - `files_plus.cleanup_report`: a big Temp folder used the shared 20 s budget, so the biggest-files walk returned
+    nothing. Each part now has its own budget (a real bug on PCs with a large Temp).
+- **A wrong lesson removed:** an experience row "turn on bluetooth → app.spotify.next" is marked bad (backup at
+  `data/experience.jsonl.bak-20261110`), so the planner never shows it as an example.
+- **Replay for multi-round plans was left as is on purpose.** Saved successes can be wrong (like the row above), and
+  multi-round plans reuse values that were looked up earlier (an old file path). Noted in the plan for later.
+
 ### 2026-11-10 (24): Night shift: Spotify works (20x plan P1, the biggest failure class)
 - **Before:** `spotify.search` 0 of 15, playlists 2 of 6. In the live replay at 02:40, 0 of the owner's 9 Spotify
   sentences passed (40–110 s each).

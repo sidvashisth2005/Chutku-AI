@@ -1506,8 +1506,21 @@ class AgentSession:
             if self.pending is None:
                 raise ValueError("No confirmation is pending for this session.")
             pending, self.pending = self.pending, None
-        result = RuntimeRouter.wrap(runtime).for_grant(pending.get("grant_id")).approve(
-            pending["approval"]["token"], cancel=approve is not True)
+        route = RuntimeRouter.wrap(runtime).for_grant(pending.get("grant_id"))
+        try:
+            result = route.approve(pending["approval"]["token"], cancel=approve is not True)
+        except ValueError as error:
+            if approve is not True or "expired" not in str(error):
+                raise
+            # The owner's spoken "haan, bhej do" came after the card's 2 minutes ran out ("approval expired", owner's
+            # convos): ask policy again for this very same step and apply this yes to the fresh card only.
+            step = pending["step"]
+            fresh = route.run(step["tool"], step["arguments"], provenance=self.provenance, autonomy=self.mode,
+                              tainted=(self.tainted and not self._from_owner_words(step)) or bool(step.get("tainted_source")),
+                              exposed=self.exposed,
+                              suspicious=self.suspicious or (VOICE_LOCK_REASON if self.speaker_verified is False else False))
+            result = route.approve(fresh["approval"]["token"]) if str(fresh.get("state")) == "WAITING_CONFIRMATION" \
+                else fresh
         with self.lock:
             if approve is True:
                 self.approved_calls.add(_signature(pending["step"]))

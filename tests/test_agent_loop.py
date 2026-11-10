@@ -229,6 +229,21 @@ class AgentLoopTests(unittest.TestCase):
         self.assertEqual(self.effects, ["edit"])
         self.assertEqual(session.advance(self.runtime, planner)["status"], "done")
 
+    def test_a_yes_after_the_card_expired_approves_the_same_step_again(self):
+        """Owner's voice: 'haan, bhej do' came after the 2-minute approval ran out ('approval expired')."""
+        session = AgentSession("edit", mode="auto_safe")         # a no on an expired card runs nothing
+        session.advance(self.runtime, ScriptedPlanner(proposal(steps=[step("test.edit")])))
+        self.runtime.approvals.pending.clear()
+        with self.assertRaises(ValueError):
+            session.decide(self.runtime, approve=False)
+        self.assertEqual(self.effects, [])
+        planner = ScriptedPlanner(proposal(steps=[step("test.edit")]), proposal("done", reply="ok"))
+        session = AgentSession("edit", mode="auto_safe")
+        self.assertEqual(session.advance(self.runtime, planner)["status"], "waiting_confirmation")
+        self.runtime.approvals.pending.clear()                   # the card's 2 minutes ran out
+        session.decide(self.runtime, approve=True)
+        self.assertEqual(self.effects, ["edit"])                 # the same step ran once, on a fresh card
+
     def test_cancelled_confirmation_runs_nothing(self):
         planner = ScriptedPlanner(proposal(steps=[step("test.send"), step("test.edit")]))
         session = AgentSession("send", mode="auto_edits")

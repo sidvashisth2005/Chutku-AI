@@ -295,9 +295,11 @@ def _recycle_bin_size(drive):
 
 def cleanup_report(home: Path):
     """Read-only: where space can be recovered. Nothing is deleted here."""
-    deadline = time.monotonic() + 20
     gb = lambda n: round(n / 1024 ** 3, 2)
-    temp_bytes, temp_complete = _folder_size(Path(tempfile.gettempdir()), deadline)
+    # Each part has its own time budget: a huge Temp folder used to spend all 20 s, so the biggest-files walk below
+    # never ran and the report came back empty (seen in the full test run 2026-11-10).
+    temp_bytes, temp_complete = _folder_size(Path(tempfile.gettempdir()), time.monotonic() + 8)
+    deadline = time.monotonic() + 15
     downloads = home / "Downloads"
     old_installers, downloads_bytes = [], 0
     cutoff = time.time() - 14 * 86400
