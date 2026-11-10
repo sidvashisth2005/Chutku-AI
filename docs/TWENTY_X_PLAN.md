@@ -280,8 +280,20 @@ At the end of each phase, if the scoreboard improved and nothing regressed:
 |---|---|---|---|---|
 | 2026-11-10 | 7 days | 76 | **398.7** | Baseline: 10 failed, 19 clarify, 46 approvals, 6 hangs; latency not yet logged |
 | 2026-11-10 | 60 days | 447 | 135.3 | Long-run baseline |
+| 2026-11-10 | 7 days | 77 | 347.6 | Same week, re-scored with the two new burden kinds below: 2 unkept voice promises; Daily 30 at 47/77 = 61% |
+| 2026-11-10 | 60 days | 448 | 135.2 | 12 unkept promises; Daily 30 at 384/448 = 86% |
 
-**Target: B100 ≤ 20 on the 7-day window.**
+**Target: B100 ≤ 20 on the 7-day window, and the Daily 30 at 99%.**
+
+The scoreboard also prints (added 2026-11-10, `scripts/scoreboard.py`):
+- **Promises with no action (x5):** a spoken "kar rahi hoon / bhej dungi / ho gaya" line in a voice conversation with
+  no task row behind it in that conversation. An estimate (the chat lines of a conversation are all logged when it
+  ends), labelled as such.
+- **The Daily 30:** every request sorted into the family an ordinary user asks for every day (open app, WhatsApp
+  send/read/open chat, music, volume, Bluetooth, files, reminders, weather, browser, ...), with finished / asked per
+  family, worst first. This is the headline number next to B100: each family must reach 99%.
+- `seconds` is logged by the code since 01:18 today, but every owner turn in this window is older than the Chutku
+  restart at 08:43, so the latency row stays empty until the next real use.
 
 ### P0 ticks
 - [x] WhatsApp current chat plus "already open" checked on the first look, in any view (tests; live dry run read "Kitkat")

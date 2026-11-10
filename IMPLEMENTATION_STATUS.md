@@ -16,6 +16,31 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (33): Measure truthfully (plan "best assistant", slice A)
+- **Owner's request:** read the whole codebase and say exactly how to make Chutku the best assistant, one that eases
+  work and never adds it. The assessment and the slices are in the plan file; the aim in one line: *say it once, in
+  any words, and it is done, fully, as fast as by hand, with no questions, and Chutku does the next sensible thing
+  before you ask.*
+- **What the last 7 days of real use showed** (228 owner turns, 207 by voice): 77 action requests, 30 unfinished
+  (20 clarify, 6 failed, 4 cancelled); `mind.json` knows 2 people, so sends ask; names are matched exactly (Loki /
+  Lowkey / lofi for one playlist); voice replies promise work with no tool behind them; mishearings in other
+  languages get answered.
+- **This slice** (`scripts/scoreboard.py`, `tests/test_scoreboard.py`):
+  - **Promises with no action** (weight 5): a voice chat line that promises PC work with no task row in that
+    conversation. Pairs promises with task rows per conversation, so a backed "VLC khol rahi hoon" is not counted.
+    7 days: 2; 60 days: 12.
+  - **The Daily 30**: `family(said, tools, status)` sorts each request into one of 27 everyday families (tool name
+    first when the request finished; words otherwise, because an unfinished request lists only the steps that ran).
+    Over the 51 real failures: music_play 13, whatsapp_open_chat 8, whatsapp_send 5, other 6 (noise transcripts).
+    Headline: **7 days 47/77 = 61%**, 60 days 384/448 = 86%, target 99%.
+  - **Latency logging was not broken:** `recall.log_session` has written `seconds` since commit `4520390` (01:18
+    today); every owner turn in the window predates the 08:43 restart. Nothing to fix; it fills in from the next use.
+- **Verification:** `tests.test_scoreboard` 4 tests OK (new: family naming incl. a cancelled play that only ran the
+  launch step; a promise counts only when unbacked, "nahi set kar sakti" and offers ending in "?" do not count).
+  Real run: `scripts/scoreboard.py` and `--days 60` print the two new sections (numbers above). Negative check:
+  the first version mis-filed "read the last message ... on whatsapp" as a send and "play ... playlist" (cancelled
+  after the launch) as open_app; both are now test cases.
+
 ### 2026-11-10 (32): A smaller codebase for AI agents (no behaviour change)
 - **Owner's request:** "shrink it ... none of the features ... affected", because agents lose accuracy on a codebase
   this large.
