@@ -20,6 +20,32 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-10 (35): Verified work is never reported as failed (master plan slice E, first part)
+- **Found live** (real request path, spare port, temporary data folder with what setup grants a new user):
+  "aaj ka weather, news aur meri reminders batao" ran all 4 steps (time, weather, reminders, news: all COMPLETED),
+  then answered "I couldn't work on that: the free AI limit is used up", status **failed**. Cause: web.weather,
+  web.news and reminder.list had no instant reply builder, so the wording went to Groq, which was rate-limited.
+- **Fixes:**
+  - `quick_answers.py`: builders for `web.weather`, `web.news`, `reminder.list`, and (the only other instant-routed
+    lookups without one, found by routing every task-table and phrase sentence) `filesystem.largest`, `never.list`.
+    `file.extract_text` stays with the model (it summarises a document).
+  - `AgentSession._finish(..., worded_by_code=True)` on the instant path: a reply Chutku's own code built from
+    verified step data skips the model false-claim guard, so a headline like "Files deleted in a data leak" no
+    longer withholds the briefing. Negative test: a model reply "I deleted the old files" with no step is still
+    withheld.
+  - Listing reminders is one instant family (`_REMINDERS_LIST`): "meri reminders dikhao", "koi reminder hai kya",
+    "list my reminders" ... (only the exact "show my reminders" was instant). Setting one still routes to
+    `reminder.set`; "delete my reminders" is not a list.
+- **Verification:** new `tests/test_finish_without_cloud.py` (5 tests), `test_quick_intents` (+1; the guard test has
+  samples for the 5 new builders). Full suite 1,819: 1 failure, the known `test_docs_truth` count. Router snapshot:
+  only "show my reminders" / "mere reminders dikhao" changed (now worded from the list). `check_phrases.py` 193/193.
+  Live (real path): the briefing **done in 7.9 s, 4/4 steps, no cloud call** (time 08:10 PM matched the clock);
+  "meri reminders dikhao" done in 4.1 s; "downloads mein sabse badi file kaunsi hai" done in 1.0 s: Chutku-Setup-for-
+  Windows.exe 227.3 MB, then a 212.8 MB recording, matching an independent PowerShell listing.
+- **Still open in E:** the task card (finish every part of a free-form multi-part request) is not built; the
+  briefing case turned out to be a wording failure, not a planning one. "aaj ka weather batao aur meri reminders
+  dikhao" still goes to the planner, which failed live while Groq was rate-limited (only Groq is configured).
+
 ### 2026-11-10 (34): Never lie, never act on noise (master plan slice B)
 - **B1, spoken promises:** checked the "unkept promises" the estimate flagged against `data/heard.jsonl`: every one in
   the last 7 days was backed (the Live claim-starts-the-task mechanism works; the time-stamp pairing was wrong).

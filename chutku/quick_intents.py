@@ -1581,8 +1581,17 @@ _TASKS_CANCEL = re.compile(rf"^{_POLITE}(?:cancel|stop|delete|remove|band karo|h
                            rf"cancel kar do|band kar do|rok do|ruk jao)?{_TAIL}", re.I)
 
 
+# Listing reminders, one family (plan slice E, 2026-11-10): only "show my reminders" was instant.
+_REMINDERS_LIST = re.compile(
+    rf"^{_POLITE}(?:(?:show|list|what are|tell me)\s+)?(?:(?:my|the|all|meri|mere|sab|saare|sare|kitne|koi)\s+)?"
+    rf"reminders?\s*(?:list\s*)?(?:dikhao|dikha do|batao|bata do|kya hai|kya hain|hai kya|hain kya|hain|hai|show|"
+    rf"please)?{_TAIL}", re.I)
+
+
 def _scheduled(text):
     """"30 min baad X", "har 15 min X", "12 baje X": save the order; "scheduled tasks dikhao" / "... cancel karo"."""
+    if _REMINDERS_LIST.match(text):
+        return _proposal("reminder.list", {}, "List the reminders", "", finish=False)
     if _TASKS_LIST.match(text):
         return _proposal("task.list", {}, "List the scheduled tasks", "", finish=False)
     cancel = _TASKS_CANCEL.match(text)

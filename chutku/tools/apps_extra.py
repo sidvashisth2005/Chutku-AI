@@ -30,6 +30,7 @@ def _digits(value):
 def known_recipient(to, memory):
     """The owner's memory names this person (a nickname, relation, chat name, or a saved contact number), or ``to``
     is the WhatsApp chat the owner has open in front of him."""
+    to = spoken_to(to) if not is_current_chat(to) else to
     if is_current_chat(to) or recipient(to) is not None:
         return True
     if _digits(to):
@@ -136,14 +137,15 @@ def _send(arguments, context):
     app, text = arguments["app"], arguments["text"].strip()
     if app == "whatsapp" and is_current_chat(arguments["to"]):
         return _send_to_current_chat(text)
+    to = spoken_to(arguments["to"])   # "KitKat from the screen" is the chat KitKat
     try:
-        number, label = resolve_contact(arguments["to"], context.memory)
+        number, label = resolve_contact(to, context.memory)
     except ValueError as error:
         if app == "whatsapp":  # no saved number: use the chat the user already has with that exact name
-            found = recipient(arguments["to"])  # "gf" / "mammi" -> the chat name saved in the owner's memory
-            result = _send_to_named_chat(_chat_name(found) if found else arguments["to"].strip(), text)
+            found = recipient(to)  # "gf" / "mammi" -> the chat name saved in the owner's memory
+            result = _send_to_named_chat(_chat_name(found) if found else to, text)
             if found is None and result.verification == Verification.PASS:
-                _remember_chat(result.output.get("to") or arguments["to"].strip(), arguments["to"].strip())
+                _remember_chat(result.output.get("to") or to, to)
             return result
         return ToolResult({"error": str(error)}, Verification.FAIL)
     digits = number.lstrip("+")
@@ -500,8 +502,20 @@ _CURRENT_CHAT = re.compile(
     r"|(?:यह|ये|इस|जो|वही|यही)\s*चैट", re.I)
 
 
+# A place said after the name (live 2026-11-09: "KitKat from the screen", "chat in Locked chats"): not part of it.
+_PLACE = re.compile(r"\s+(?:(?:from|on|in)\s+(?:the\s+)?screen|(?:in|from)\s+(?:the\s+)?locked\s+chats?)\s*$", re.I)
+_BARE_CHAT = re.compile(r"^\W*(?:the\s+)?(?:locked\s+)?chat\W*$", re.I)
+
+
+def spoken_to(to):
+    """The recipient without a place said after it ("KitKat from the screen" -> "KitKat")."""
+    return _PLACE.sub("", str(to or "")).strip() or str(to or "").strip()
+
+
 def is_current_chat(to):
-    return bool(_CURRENT_CHAT.search(to or ""))
+    """The chat open in front of the owner: "this chat", "jo chat khuli hai", or only a place ("chat in Locked
+    chats", "chat from the screen")."""
+    return bool(_CURRENT_CHAT.search(to or "")) or bool(_BARE_CHAT.match(spoken_to(to)))
 
 
 def _open_chat_name(lines, rect):
@@ -625,8 +639,9 @@ def _open_chat(arguments, _context):
     """Open an existing WhatsApp chat by its exact name (or a nickname from memory); nothing is typed or sent."""
     if arguments["app"] != "whatsapp":
         return ToolResult({"error": "Opening a chat by name works for WhatsApp only."}, Verification.FAIL)
-    found = recipient(arguments["to"])
-    name = _chat_name(found) if found else arguments["to"].strip()
+    to = spoken_to(arguments["to"])   # "KitKat from the screen" is the chat KitKat
+    found = recipient(to)
+    name = _chat_name(found) if found else to
     result = _send_to_named_chat(name, "", dry_run=True, keep_open=True)
     if result.verification != Verification.PASS:
         return result

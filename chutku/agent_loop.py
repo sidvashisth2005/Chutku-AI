@@ -929,14 +929,16 @@ class AgentSession:
         return {"count": len(same), "tool": step["tool"], "items": [s["arguments"] for s in same][:50]}
 
     # -- execution ---------------------------------------------------------
-    def _finish(self, status, reply):
+    def _finish(self, status, reply, *, worded_by_code=False):
+        """worded_by_code: Chutku's own code wrote the reply from verified step data (the instant path), so a claim
+        word in shown outside text ("Files deleted in a data leak" in a headline) is not a model's claim."""
         from chutku.persona import feminine
         self.status, self.reply, self.queue, self.pending = status, reply, [], None
         self.reply = feminine((reply or "").strip())   # Chutku is female: her own Hinglish in feminine forms
         if self.context.get("reply_style", "").startswith("Reply in at most one short sentence"):
             from chutku.persona import styled
             self.reply = styled(self.reply, "short")
-        claim = self._unsupported_claim(self.reply) if status == "done" else None
+        claim = self._unsupported_claim(self.reply) if status == "done" and not worded_by_code else None
         if claim:  # never repeat a model's claim of something that did not happen
             self.reply = (f"(The model's summary claimed '{claim}', which no step did, so it was withheld.) "
                           "Only the verified steps below happened.")
@@ -1082,7 +1084,7 @@ class AgentSession:
                     self.declared_plan = proposal["declared_plan"] or self.declared_plan
                     if proposal["status"] != "continue":
                         if proposal["status"] == "done" and meta.get("planner") == "quick":
-                            self._finish("done", proposal["reply"])  # already worded from the data: no model call
+                            self._finish("done", proposal["reply"], worded_by_code=True)  # from the data: no model
                         elif proposal["status"] == "done":
                             self._finish("done", self._answer(planner, runtime, check, proposal["reply"]))
                         else:

@@ -67,6 +67,14 @@ class MessagingTests(unittest.TestCase):
             self.assertIsNone(self.runtime.step_question(tool, {"app": "whatsapp", "to": "shaanu", "text": "kal"}))
             self.assertIn("not in your memory", self.runtime.step_question(tool, {"app": "whatsapp", "to": "Zed",
                                                                                   "text": "x"}))   # still asks
+            # a place after the name changes nothing: known stays known, new still asks (plan D, live 2026-11-09)
+            self.assertIsNone(self.runtime.step_question(tool, {"app": "whatsapp", "to": "Shaanu from the screen",
+                                                                "text": "kal"}))
+            self.assertIn("not in your memory", self.runtime.step_question(
+                tool, {"app": "whatsapp", "to": "Zed in Locked chats", "text": "x"}))
+            with patch.object(apps_extra, "_send_to_named_chat", return_value=sent) as named:
+                apps_extra._send({"app": "whatsapp", "to": "Shaanu from the screen", "text": "kal"}, self.runtime)
+            self.assertEqual(named.call_args[0][0], "Shaanu")                  # searched by the name, not the place
             with patch.object(apps_extra, "_send_to_named_chat", return_value=failed):
                 apps_extra._send({"app": "whatsapp", "to": "Zed", "text": "x"}, self.runtime)
             self.assertFalse(apps_extra.known_recipient("Zed", self.runtime.memory))   # not sent: not remembered
@@ -318,6 +326,19 @@ class NamedChatTests(unittest.TestCase):
             self.assertTrue(is_current_chat(to), to)
         for to in ("KitKat", "Pita Shri", "mammi", "UB", "Tech Clubs (All)", "chat group", "Chatterjee"):
             self.assertFalse(is_current_chat(to), to)
+
+    def test_a_place_in_the_recipient_is_not_part_of_the_name(self):
+        # plan D (live 2026-11-09, 12:38-12:43): one message to the open Locked chat was asked 6 times and failed 5,
+        # because the planner wrote places into `to`: "KitKat from the screen", "chat in Locked chats"
+        from chutku.tools.apps_extra import is_current_chat, spoken_to
+        self.assertEqual(spoken_to("KitKat from the screen"), "KitKat")
+        self.assertEqual(spoken_to("KitKat on screen"), "KitKat")
+        self.assertEqual(spoken_to("KitKat in Locked chats"), "KitKat")
+        self.assertEqual(spoken_to("Pita Shri"), "Pita Shri")
+        self.assertEqual(spoken_to("Screen Club"), "Screen Club")          # a real name that has "screen" in it
+        for to in ("chat in Locked chats", "the chat in locked chats", "chat from the screen", "locked chat"):
+            self.assertTrue(is_current_chat(to), to)
+        self.assertFalse(is_current_chat("KitKat from the screen"))       # a named chat: found by its name
 
     def test_chat_already_open_in_front_gets_the_message_without_searching_again(self):
         """Owner 2026-10-05: a second message to the open chat searched and reopened it every time."""

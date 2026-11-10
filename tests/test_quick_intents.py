@@ -27,6 +27,16 @@ class QuickIntentTests(unittest.TestCase):
         for text in ("what was I working on?", "show my recent files", "main kis file pe kaam kar raha tha"):
             self.assertEqual(step(text), ("files.recent", {"path": os.environ["USERPROFILE"]}), text)
 
+    def test_listing_reminders_is_instant_and_setting_one_still_sets(self):
+        # plan slice E (2026-11-10): only the exact sentence "show my reminders" was instant
+        for text in ("show my reminders", "meri reminders dikhao", "mere reminders batao", "list my reminders",
+                     "my reminders", "koi reminder hai kya", "reminders dikhao", "what are my reminders",
+                     "kitne reminders hain", "saare reminders dikha do"):
+            self.assertEqual(step(text), ("reminder.list", {}), text)
+        for text in ("remind me in 20 minutes to drink water", "6 baje yaad dilana ki stretch karna hai"):
+            self.assertEqual(step(text)[0], "reminder.set", text)
+        self.assertNotEqual(step("delete my reminders"), ("reminder.list", {}))
+
     def test_daily_phrases(self):
         downloads = os.path.join(os.environ["USERPROFILE"], "Downloads")
         for text in ("organize my Downloads folder", "tidy up downloads", "downloads saaf karo"):
@@ -42,6 +52,18 @@ class QuickIntentTests(unittest.TestCase):
         from chutku.quick_intents import QUICK_ANSWERS
         samples = {
             "system.get_time": {"local_time": "Friday, 02 October 2026, 11:00 AM"},
+            "web.weather": {"place": "Indore, Madhya Pradesh, India", "source": "open-meteo.com",
+                            "now": {"temperature_c": 24.5, "feels_like_c": 25, "humidity_percent": 60, "wind_kmh": 7,
+                                    "sky": "clear sky"},
+                            "next_days": [{"date": "2026-11-10", "max_c": 29, "min_c": 15, "rain_chance_percent": 0,
+                                           "sky": "clear sky"}]},
+            # a headline with a claim word is shown as is: tests/test_finish_without_cloud.py (worded_by_code)
+            "web.news": {"topic": "top stories", "headlines": [{"title": "Rain expected in Delhi - NDTV"}]},
+            "reminder.list": {"upcoming": [{"id": "r1", "at": "2026-11-10T18:00", "message": "send the report"}],
+                              "count": 1},
+            "filesystem.largest": {"files": [{"full_path": r"C:\d\movie.mkv", "size_mib": 1830.4}], "scanned": 3,
+                                   "complete": True},
+            "never.list": {"rules": ["[a1b2c3] D:\\Private — kabhi nahi chhoona"], "count": 1},
             "timeline.search": {"window": ["2026-10-05T16:00", "2026-10-05T21:00"], "recording": True,
                                 "matches": [{"title": "Invoice.pdf - Edge", "app": "msedge.exe",
                                              "at": "Mon 05 Oct, 07:15 PM"}]},

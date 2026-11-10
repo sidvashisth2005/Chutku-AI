@@ -571,12 +571,13 @@ message is read, read the first line aloud, then "poora padhun?" is NOT asked, i
 - [ ] C3 edge cases
 - [ ] C4 live
 - [ ] C5 gate
-- [ ] D1 people learn
-- [ ] D2 unknown = never seen
-- [ ] D3 ask once per person
-- [ ] D4 approval mat maangna
+- [ ] D1 people learn: OWNER DECISION (auto-known names skip the first ask)
+- [x] D2 place words in `to` ('KitKat from the screen', 'chat in Locked chats') - (35)
+- [x] D3 ask once per person: already done (_remember_chat after a verified send)
+- [x] D4 approval mat maangna: already handled by approval.decide DONT_ASK (checked 2026-11-10)
 - [ ] D5 resolve not ask
 - [ ] D6 live + gate
+- [x] E0 verified work never reported as failed: local reply builders, worded_by_code, reminder list - (35)
 - [ ] E1 task card + finish checker
 - [ ] E live
 - [ ] F1 selectors

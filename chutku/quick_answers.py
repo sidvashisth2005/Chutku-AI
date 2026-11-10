@@ -519,7 +519,52 @@ def _say_unread(out):
     return say_unread(out)
 
 
-QUICK_ANSWERS = {"apps.howto": _say_howto, "message.unread_count": _say_unread, "screen.act_on_visible": _say_visible, "insights.week": _say_week, "history.search": _say_history, "background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
+def _say_weather(out):
+    # plan slice E (live 2026-11-10): the briefing ran all its steps, then failed because only the cloud could word this
+    now = out["now"]
+    if not isinstance(now["temperature_c"], (int, float)):
+        raise ValueError("no temperature")
+    today = (out.get("next_days") or [{}])[0]
+    span = (f" Today {today['min_c']}–{today['max_c']}°C, {today['rain_chance_percent']}% chance of rain."
+            if {"min_c", "max_c", "rain_chance_percent"} <= set(today) else "")
+    return f"{out['place'].split(',')[0]}: {now['temperature_c']}°C, {now['sky']} (feels like {now['feels_like_c']}°C).{span}"
+
+
+def _say_news(out):
+    titles = [h["title"] for h in out["headlines"][:5] if h.get("title")]
+    return "Headlines: " + "; ".join(titles) + "." if titles else "No headlines came back."
+
+
+def _say_reminders(out):
+    from datetime import datetime
+    if not out["upcoming"]:
+        return "No reminders are set."
+    parts = []
+    for r in out["upcoming"][:5]:
+        when = datetime.fromisoformat(r["at"])
+        parts.append(f"{when.strftime('%a %d %b, %I:%M %p').replace(' 0', ' ').lstrip('0')}: {r['message']}")
+    return f"Reminders ({out['count']}): " + "; ".join(parts) + "."
+
+
+def _say_largest(out):
+    if not out["files"]:
+        return "That folder has no files."
+    def size(mib):
+        return f"{mib / 1024:.1f} GB" if mib >= 1024 else f"{mib} MB"
+    first, rest = out["files"][0], out["files"][1:4]
+    reply = f"The biggest is {Path(first['full_path']).name} ({size(first['size_mib'])})"
+    if rest:
+        reply += "; then " + ", ".join(f"{Path(f['full_path']).name} ({size(f['size_mib'])})" for f in rest)
+    return reply + "." + ("" if out["complete"] else " (Stopped early: a very big folder.)")
+
+
+def _say_never(out):
+    return ("Never-rules: " + "; ".join(out["rules"]) + ".") if out["rules"] else "No never-rules are set."
+
+
+QUICK_ANSWERS = {"web.weather": _say_weather, "web.news": _say_news, "reminder.list": _say_reminders,
+                 "filesystem.largest": _say_largest, "never.list": _say_never,
+                 "apps.howto": _say_howto, "message.unread_count": _say_unread, "screen.act_on_visible": _say_visible, "insights.week": _say_week, "history.search": _say_history, "background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
                  "audio.outputs": _say_outputs,
