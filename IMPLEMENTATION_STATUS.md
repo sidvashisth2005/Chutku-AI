@@ -20,6 +20,48 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-11 (38): Owner's report: offline start failed, "two Chutku" on the hotkey, old UI still there
+- **"Two Chutku" / old UI:** `watch_presence` started the old Tk HUD when the presence window had not appeared within
+  8 s, while the presence process kept running and showed its window later. The log has it 5 times (2026-11-05..10:
+  "did not appear (exit code None); using the HUD"). From then on every hotkey showed both. It also looked only for
+  the full window's title, not the bar's. Now (owner: "remove"): either presence window counts, the wait is 30 s,
+  a presence that never shows is ended (`taskkill /T`, the venv launcher has a child) and started once more, a second
+  failure says "use the tray icon". The old HUD never opens on the real install; the tray's "Show window" no longer
+  falls back to it (only a machine without pywebview keeps the old panel).
+- **Offline start:** at 10:38 the guard killed the first core 15 s in: one heartbeat, then 5 s quiet while it loaded
+  (`guard-last-stop.json`, reason `heartbeat_timeout`). `guard._supervise(startup_grace=)`: for 60 s after a core
+  starts (`STARTUP_GRACE`, the real guard only) the start-up limit (20 s) applies even after the first heartbeat; a
+  real hang is still caught at that limit.
+- **Offline briefing** (the 08:00 job ran at 10:42, offline): weather asked "which city?" and the reminders never
+  came. Now the weather tool says "No internet connection" when the network is down (it still asks when online and
+  the location is unknown); in a plan of lookups only, a failed lookup no longer stops the others
+  (`_after_step(lookups=True)`), and the answer names the part that failed ("Check the weather: not done (No
+  internet ...)"). A failed *action* still re-plans as before (negative test).
+- **Multi-part answers keep every result** (entry 35 follow-up, live 2026-11-11): the cloud model never sees private
+  results (disk space, IP), so its reply said "C drive ki details nahi mili" after both checks passed.
+  `quick_intents.worded()` builds the answer from the steps' data whenever every step has a reply builder; used by
+  `AgentSession._answer` for model sessions too (research steps have no builder: the model still answers). New
+  `filesystem.search` builder. The chain router now splits on commas, re-joins a part that is not a request alone
+  ("RAM aur CPU kitna use ho raha hai"), takes the finish flag from each part (lookups get worded) and never cuts a
+  chain at 4 steps (a longer one goes to the planner). New phrasings: "RAM/CPU kitna use ho raha hai",
+  "downloads ki sabse badi file batao".
+- **G2 morning brief:** `suggest.candidates` offers "every day at your usual start: weather, news, reminders?" once 3 of
+  the last 14 mornings show use and no briefing is scheduled (the owner's is, at 08:00, so it is not offered).
+  Popups wait for a good moment (`suggest.can_disturb`): no running task, Windows accepts notifications
+  (`SHQueryUserNotificationState`: no full-screen app, game, presentation or Focus), battery not below 20% unplugged.
+- **Not changed, and why:** the offline voice understood poorly because Gemini Live needs the internet and the local
+  fallback (Whisper) is set to English (`stt_language: en`), weak for Hinglish: the owner's setting. No voice turns
+  were logged today at all (the mic was muted in Windows yesterday; it records normally now: rms 0.0028).
+- **Verification:** new `tests/test_one_interface.py` (4), `test_guard.py` +2 (a 1 s quiet start is killed without the
+  grace and kept with it; a hang inside the grace is still caught), `test_finish_without_cloud.py` +6 (offline
+  briefing, failed action still stops, weather offline, planned multi-part keeps results; it fails with the fix
+  patched out), `test_quick_intents` +1, `test_learning` +4. Full suite 1,842: the known docs count and
+  `test_weather_uses_saved_city_and_asks_otherwise` (it asserted the old offline question; updated). Live, real path:
+  "aaj ki date batao, C drive mein kitni jagah hai aur internet chal raha hai kya" instant 2.6 s with every number
+  (C: 15.7 GB free of 254.2, matching `Get-PSDrive`); "RAM aur CPU ... aur kaunse apps khule hain" 9.8 s, CPU 48%, RAM
+  75%; "downloads ki sabse badi file batao aur desktop pe kitni files hain" 2.1 s, 5 files and 3 folders (matches
+  PowerShell's count of 5 files).
+
 ### 2026-11-10 (37): Chutku never types a password (master plan slice F3)
 - **Gap:** only teach mode skipped password fields (it does not record them); nothing stopped `keyboard.type_text`
   or an app action from typing into one.

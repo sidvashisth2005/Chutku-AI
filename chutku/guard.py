@@ -119,6 +119,7 @@ def dashboard_child(connection, base, port, open_browser):
 WATCHDOG_REASONS = frozenset({"heartbeat_timeout", "startup_timeout", "action_deadline", "core_exited",
                               "core_disconnected"})
 RESTART_WINDOW = 1800.0
+STARTUP_GRACE = 60.0   # 2026-11-11: the first core of the day was killed 15 s in while loading models offline
 
 
 def supervise(base=PROJECT_ROOT, port=8765, open_browser=False, *, restarts=0, restart_delay=3.0, **options):
@@ -162,7 +163,7 @@ def _same_boot(marker):
 
 def _supervise(base=PROJECT_ROOT, port=8765, open_browser=False, *, child_target=dashboard_child,
               heartbeat_timeout=5.0, action_timeout=120.0, startup_timeout=20.0, hotkey=True,
-              clock=time.monotonic, suspend_gap=2.0, resume_grace=20.0):
+              clock=time.monotonic, suspend_gap=2.0, resume_grace=20.0, startup_grace=0.0):
     base = Path(base)
     directory = base / "data"
     directory.mkdir(parents=True, exist_ok=True)
@@ -222,7 +223,9 @@ def _supervise(base=PROJECT_ROOT, port=8765, open_browser=False, *, child_target
                     if action_started is not None and now - action_started - slept > action_timeout:
                         reason = "action_deadline"
                         break
-            limit = heartbeat_timeout if ready else startup_timeout
+            # A core still starting up (models loading from a cold disk, 2026-11-11) gets the start-up limit for
+            # `startup_grace` seconds even after its first heartbeat; a real hang is still caught at that limit.
+            limit = heartbeat_timeout if ready and now - started >= startup_grace else startup_timeout
             if grace_until is not None and now < grace_until:
                 limit = max(limit, resume_grace)
             if now - last_beat > limit:
@@ -274,7 +277,7 @@ def main():
     args = parser.parse_args()
     if not 0 <= args.port <= 65535:
         parser.error("Port must be between 0 and 65535.")
-    supervise(port=args.port, open_browser=args.open, restarts=3)
+    supervise(port=args.port, open_browser=args.open, restarts=3, startup_grace=STARTUP_GRACE)
 
 
 if __name__ == "__main__":

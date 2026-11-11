@@ -167,6 +167,13 @@ PATTERNS = [
                              rf"(?:temperature|temp|heat)|(?:temperature|temp)\s+(?:of|in)\s+(?:my |the )?(?:cpu|gpu|"
                              rf"processor|laptop|pc|computer))(?:\s+(?:kitna hai|kya hai|batao|now|right now))?{_TAIL}",
                              re.I)),
+    # how busy the PC is (plan slice E, live 2026-11-11: "mere PC ka RAM aur CPU kitna use ho raha hai")
+    ("info_perf", re.compile(rf"^(?=.*\b(?:kitna|kitni|kitne|how much)\b){_POLITE}(?:(?:mere|meri|mera|my)\s+)?"
+                             rf"(?:(?:pc|laptop|computer)\s+(?:ka|ki|ke|'s)\s+)?"
+                             rf"(?:how much\s+)?(?:ram|memory|cpu|processor)(?:\s+(?:aur|and|,)\s+(?:ram|memory|cpu))?\s+"
+                             rf"(?:usage\s+)?(?:kitna|kitni|kitne|is|how much)?\s*(?:use|used|usage)?\s*"
+                             rf"(?:ho raha hai|ho rahi hai|ho rahe hain|hai|is|being used)?(?:\s+(?:batao|right now|now))?"
+                             rf"{_TAIL}", re.I)),
     ("info_gpu", re.compile(rf"^{_POLITE}(?:(?:which|what(?:'?s| is))\s+(?:gpu|graphics card)(?: do i have| is (?:this|in my pc|installed))?(?: and how much vram)?|what(?:'?s| is) my (?:gpu|graphics card)|gpu (?:info|details|kaunsa hai)){_TAIL}", re.I)),
     ("info_windows", re.compile(rf"^{_POLITE}(?:(?:what|which) (?:version of )?windows(?: version)?(?: do i have| is this(?: pc)?(?: running)?| am i (?:on|running))?|windows version(?: kya hai)?|what(?:'?s| is) my windows version){_TAIL}", re.I)),
     ("info_volume", re.compile(rf"^{_POLITE}(?:what(?:'?s| is) (?:the |my )?(?:current )?volume(?: level)?(?: right now)?|current volume(?: level)?|volume (?:kitna|kitni) hai|how loud is (?:it|the volume)){_TAIL}", re.I)),
@@ -249,7 +256,7 @@ PATTERNS = [
     ("app_installed", re.compile(rf"^{_POLITE}(?:tell me\s+)?(?:whether|if)\s+(?P<app>[a-z0-9][a-z0-9 .+&-]{{1,40}}?)\s+(?:exists|is installed|is there)(?:\s+on\s+(?:this|my|the)\s+(?:laptop|pc|computer))?{_TAIL}", re.I)),
     ("app_installed", re.compile(rf"^{_POLITE}(?:kya\s+)?(?P<app>[a-z0-9][a-z0-9 .+&-]{{1,40}}?)\s+installed\s+(?:hai|he)(?:\s+kya)?{_TAIL}", re.I)),
     ("largest", re.compile(rf"^{_POLITE}(?:what(?:'?s| is| are)\s+the\s+|show\s+(?:me\s+)?(?:the\s+)?|list\s+(?:the\s+)?)?(?:biggest|largest)\s+files?(?:\s+in\s+(?:my\s+|the\s+)?(?P<folder>downloads|desktop|documents|pictures|videos|music)(?:\s+folder)?)?{_TAIL}", re.I)),
-    ("largest", re.compile(rf"^{_POLITE}(?P<folder>downloads|desktop|documents|pictures|videos|music)(?:\s+folder)?\s+(?:mein|me)\s+(?:sabse\s+badi|sabse\s+bari)\s+files?(?:\s+(?:kaun\s*si|konsi)\s+(?:hai|he|hain))?{_TAIL}", re.I)),
+    ("largest", re.compile(rf"^{_POLITE}(?P<folder>downloads|desktop|documents|pictures|videos|music)(?:\s+folder)?\s+(?:mein|me|ki|ke|wali)\s+(?:sabse\s+badi|sabse\s+bari)\s+files?(?:\s+(?:kaun\s*si|konsi)\s+(?:hai|he|hain)|\s+(?:batao|bata do|dikhao|dikha do))?{_TAIL}", re.I)),
     ("never_list", re.compile(rf"^{_POLITE}(?:show\s+|list\s+)?(?:my\s+|mere\s+)?never[- ]?rules(?:\s+(?:dikhao|batao|dikha do))?{_TAIL}", re.I)),
     ("search", re.compile(rf"^{_POLITE}(?:search|look up|find)\s+(?:on\s+)?{_SITE}\s+(?:for\s+)?(?P<query>.+?){_TAIL}", re.I)),
     ("search", re.compile(rf"^{_POLITE}(?:search|look up|google)\s+(?:for\s+)?(?P<query>.+?)\s+(?:on|in)\s+{_SITE}{_TAIL}", re.I)),
@@ -279,7 +286,8 @@ def _proposal(tool, arguments, purpose, reply, finish=True):
             "next_steps": [{"tool": tool, "arguments": arguments, "purpose": purpose}], "finish": finish}
 
 
-_SPLIT = re.compile(r"\s*(?:,\s*)?\b(?:and then|and also|then|aur phir|phir|uske baad|and|aur)\b\s*", re.I)
+_JOIN = r"(?:and then|and also|then|aur phir|phir|uske baad|and|aur)\b"
+_CHAIN_SPLIT = re.compile(rf"(\s*,\s*(?:{_JOIN}\s*)?|\s+{_JOIN}\s*)", re.I)   # kept: re.split returns the separators
 _PRONOUN = re.compile(r"\b(?:it|that|usko|ise|isko)\b", re.I)   # not "use": an English verb more often than "use" (him)
 
 
@@ -514,23 +522,35 @@ def _quick_proposal(goal, apps=None):
     single = _single(goal, apps)
     if single is not None:
         return single
-    parts = [p for p in _SPLIT.split(" ".join(goal.split())) if p.strip()]
-    if not 2 <= len(parts) <= 3:
+    # Split on "aur/and/then" and on commas, keeping the separators: a part that is not a request on its own is
+    # joined back to its neighbour ("RAM aur CPU kitna use ho raha hai" is one question, plan slice E).
+    pieces = _CHAIN_SPLIT.split(" ".join(goal.split()))
+    texts, joins = pieces[0::2], pieces[1::2]
+    if not 2 <= len(texts) <= 6:
         return None
-    steps, replies, last_app = [], [], None
-    for part in parts:
-        if last_app and _PRONOUN.search(part):
-            part = _PRONOUN.sub(last_app, part)
-        proposal = _single(part, apps)
-        if proposal is None or not proposal["next_steps"]:
+    steps, replies, last_app, start, finish = [], [], None, 0, True
+    while start < len(texts):
+        for end in range(len(texts), start, -1):   # the longest span from here that is one request
+            part = texts[start] + "".join(joins[i] + texts[i + 1] for i in range(start, end - 1))
+            if end - start == len(texts) or not part.strip():
+                continue
+            if last_app and _PRONOUN.search(part):
+                part = _PRONOUN.sub(last_app, part)
+            proposal = _single(part.strip(" ,"), apps)
+            if proposal is not None and proposal["next_steps"]:
+                break
+        else:
             return None  # only chains where every part is an unambiguous action
+        start = end
         step = proposal["next_steps"][0]
         last_app = step["arguments"].get("name", last_app)
         steps.append(step)
         replies.append(proposal["reply"])
+        finish = finish and proposal.get("finish", True)   # a lookup wants its answer worded
+    if not 2 <= len(steps) <= 4:
+        return None   # one round holds 4 steps: a longer chain is planned, never cut short
     return {"status": "continue", "reply": " ".join(r for r in replies if r), "declared_plan": [s["purpose"] for s in steps],
-            "next_steps": steps[:4], "finish": all(s["tool"] not in {"system.get_time", "web.weather", "web.news"}
-                                                    for s in steps)}
+            "next_steps": steps, "finish": finish}
 
 
 _HOWTO = [
@@ -1637,7 +1657,7 @@ def quick_answer(session):
     import json
     if not session.steps:
         return None
-    if any(step["state"] != "COMPLETED" for step in session.steps):
+    if any(step["state"] != "COMPLETED" and not step.get("lookup_failed") for step in session.steps):
         return None
     proposal = quick_proposal(session.goal)
     if proposal is None and [step["tool"] for step in session.steps] != ["teach.stop"]:
@@ -1645,8 +1665,26 @@ def quick_answer(session):
     routine = bool(proposal) and proposal["declared_plan"][:1] and proposal["declared_plan"][0].startswith("Run the ")
     if len(session.steps) > 1 and not routine and not all(step["tool"] in QUICK_ANSWERS for step in session.steps):
         return None
+    words = worded(session.steps, routine=routine)
+    return None if words is None else (proposal["reply"] + " " if routine else "") + words
+
+
+def worded(steps, *, routine=False):
+    """The answer worded by Chutku's own code from completed steps' data, or None when a step has no reply builder
+    (unless `routine`: then it is listed as done) or its output has an unexpected shape."""
+    import json
+    if not steps or any(step["state"] != "COMPLETED" and not step.get("lookup_failed") for step in steps):
+        return None
+    if all(step.get("lookup_failed") for step in steps):
+        return None   # nothing worked: the model (or the error path) explains
     parts = []
-    for step in session.steps:
+    for index, step in enumerate(steps):
+        if step.get("lookup_failed"):
+            if any(later["tool"] == step["tool"] and later["state"] == "COMPLETED" for later in steps[index + 1:]):
+                continue   # a retry of the same lookup worked
+            reason = str(step.get("message") or "it did not work").split(". ")[0][:120]
+            parts.append(f"{step['purpose']}: not done ({reason}).")
+            continue
         formatter = QUICK_ANSWERS.get(step["tool"])
         if formatter is None:
             if not routine:
@@ -1662,7 +1700,7 @@ def quick_answer(session):
             parts.append(formatter(data))
         except (ValueError, KeyError, TypeError, IndexError):
             return None  # truncated or unexpected output: let the model answer
-    return (proposal["reply"] + " " if routine else "") + " ".join(parts)
+    return " ".join(parts)
 
 
 class QuickPlanner:

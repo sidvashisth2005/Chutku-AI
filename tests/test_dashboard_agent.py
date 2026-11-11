@@ -75,7 +75,7 @@ class DashboardAgentTests(unittest.TestCase):
         session = self.wait(body["session"]["id"])
         self.assertEqual(session["status"], "done")
         self.assertEqual([s["tool"] for s in session["steps"]], ["system.get_time"])
-        self.assertIn("It is noon.", session["reply"])
+        self.assertTrue(session["reply"].startswith("It's "), session["reply"])   # worded from the real clock
 
     def test_a_question_is_answered_while_another_task_runs_but_only_by_looking(self):
         """Y3 (2026-11-06): a plain question does not wait in line behind a running task."""
@@ -170,7 +170,7 @@ class HudFeedTests(unittest.TestCase):
         self.wait(session_id, until=("done",))
         state = self.server.hud_status()
         self.assertEqual(state["phase"], "done")
-        self.assertIn("noon", state["session"]["reply"])
+        self.assertTrue(state["session"]["reply"].startswith("It's "))   # worded from the real clock
         self.assertFalse(state["paused"])
         ActionControl(self.server.base).pause()
         self.assertTrue(self.server.hud_status()["paused"])

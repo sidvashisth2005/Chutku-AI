@@ -938,6 +938,7 @@ class AgentSession:
         if self.context.get("reply_style", "").startswith("Reply in at most one short sentence"):
             from chutku.persona import styled
             self.reply = styled(self.reply, "short")
+        worded_by_code = worded_by_code or getattr(self, "worded_locally", False)
         claim = self._unsupported_claim(self.reply) if status == "done" and not worded_by_code else None
         if claim:  # never repeat a model's claim of something that did not happen
             self.reply = (f"(The model's summary claimed '{claim}', which no step did, so it was withheld.) "
@@ -993,9 +994,15 @@ class AgentSession:
             record["trust"] = f"{trust.passes}/{trust.n}"
             record["low_trust"] = unreliable(trust)
 
-    def _after_step(self, state):
-        """Return False when the loop must stop because of this step."""
+    def _after_step(self, state, lookups=False):
+        """Return False when the loop must stop because of this step.
+        lookups: this failed step and every queued step only read things, so the others still run and the answer
+        says which part failed (live 2026-11-11, offline: the weather failed and the reminders never came)."""
         if state == "COMPLETED":
+            return True
+        if lookups and state in {"FAILED", "UNVERIFIED", "UNKNOWN"} and self.failures < self.limits["failures"]:
+            self.failures += 1
+            self.steps[-1]["lookup_failed"] = True
             return True
         if state == "DENIED":
             self._finish("stopped", "A step was not allowed: " + (self.steps[-1]["message"] or "denied by policy")
@@ -1210,7 +1217,8 @@ class AgentSession:
                     break
                 state = self._record(step, result)
                 self._note_trust(target, step, trust)
-                if not self._after_step(state):
+                lookups = state != "COMPLETED" and all(_step_risk(target, s) == 0 for s in [step, *self.queue])
+                if not self._after_step(state, lookups=lookups):
                     break
             notify()
         notify()
@@ -1331,6 +1339,14 @@ class AgentSession:
                 and self.round_declared <= len(round_steps) and not self.pending_feedback)
 
     def _answer(self, planner, runtime, check, fallback_reply):
+        # Plan slice E (live 2026-11-11): the cloud model never sees private results (disk space, IP), so its "done"
+        # reply said "C drive ki details results mein nahi mili" after both checks passed. When every step has a reply
+        # builder, Chutku words the answer from the real data itself.
+        from chutku.quick_intents import worded
+        local = worded(self.steps)
+        if local:
+            self.worded_locally = True
+            return local
         if self.steps and hasattr(planner, "answer"):
             try:
                 return planner.answer(self, runtime, check) or fallback_reply

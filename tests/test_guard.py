@@ -47,6 +47,19 @@ def request_quit(connection, base, port, open_browser):
     time.sleep(60)
 
 
+def slow_start_child(connection, base, port, open_browser):
+    """2026-11-11 (first start of the day, offline): one heartbeat, then a 1 s gap while models load, then healthy."""
+    connection.recv()
+    connection.send({"type": "heartbeat", "action_started": None})
+    time.sleep(1.0)
+    started = time.monotonic()
+    while time.monotonic() - started < 1.5:
+        connection.send({"type": "heartbeat", "action_started": None})
+        time.sleep(0.05)
+    (base / "data/guard.stop").touch()
+    time.sleep(60)
+
+
 def beating_through_an_action(connection, base, port, open_browser):
     """A healthy core mid-action: heartbeats every 50 ms for 3 s, then asks for a stop."""
     connection.recv()
@@ -111,6 +124,24 @@ class GuardTests(unittest.TestCase):
                 if parent.poll() is None:
                     parent.kill()
                 parent.wait(5)
+
+    def test_a_slow_first_start_is_not_mistaken_for_a_hang(self):
+        # live 2026-11-11 10:38: the first core of the day went quiet 5 s after its first heartbeat and was killed
+        with TemporaryDirectory() as temp:
+            killed = supervise(Path(temp), child_target=slow_start_child, heartbeat_timeout=0.4, hotkey=False)
+            self.assertEqual(killed["reason"], "heartbeat_timeout")            # the old behaviour, no grace
+        with TemporaryDirectory() as temp:
+            kept = supervise(Path(temp), child_target=slow_start_child, heartbeat_timeout=0.4, startup_timeout=3,
+                             startup_grace=10, hotkey=False)
+            self.assertEqual(kept["reason"], "emergency_stop")                 # it ran until the stop marker
+
+    def test_a_hang_inside_the_start_up_grace_is_still_caught(self):
+        with TemporaryDirectory() as temp:
+            started = time.monotonic()
+            result = supervise(Path(temp), child_target=hung_child, heartbeat_timeout=0.4, startup_timeout=1.5,
+                               startup_grace=60, hotkey=False)
+            self.assertIn(result["reason"], {"heartbeat_timeout", "startup_timeout"})
+            self.assertLess(time.monotonic() - started, 15)
 
     def test_hung_core_and_descendant_are_killed_and_pause_persists(self):
         with TemporaryDirectory() as temp:

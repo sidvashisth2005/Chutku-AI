@@ -13,6 +13,15 @@ from chutku.core.action_control import ActionControl
 from chutku.dashboard_helpers import _log, open_app_window
 
 
+def _end_process_tree(process):
+    """End the presence process and its child (the venv launcher starts the real Python as a child)."""
+    try:
+        subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"], capture_output=True, timeout=10,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 class DashboardPresence:
     """Methods of DashboardServer, kept here to keep dashboard.py short."""
 
@@ -168,7 +177,7 @@ class DashboardPresence:
         self.tray.ready.wait(5)
         return self.tray.error
 
-    def start_presence(self):
+    def start_presence(self, retries=1):
         """W4: the presence orb window (pywebview) as a child process of this core, so it closes with Chutku.
         False when it is off, not installed, or this is not the real install (then the Tk HUD is used)."""
         if Path(self.base).resolve() != Path(PROJECT_ROOT).resolve():
@@ -188,7 +197,7 @@ class DashboardPresence:
         except OSError:
             _log().exception("the presence window could not start; using the HUD")
             return False
-        self.watch_presence()
+        self.watch_presence(retries=retries)
         return True
 
     def show_window(self):
@@ -197,28 +206,43 @@ class DashboardPresence:
         if process is not None and process.poll() is None:
             from chutku.presence import bring_to_front
             bring_to_front()
-        elif not self.start_presence():
-            if self.hud is None:
-                self.start_hud()
+        elif not self.start_presence() and self.hud is not None:   # no pywebview at all: the old panel was in use
             self._hud_show()
 
-    def watch_presence(self, wait=8.0):
+    def watch_presence(self, wait=30.0, poll=0.5, retries=1):
         """2026-11-01: the orb sometimes never appeared and nothing said why. If its process dies or no window
-        shows within `wait` seconds, the Tk panel starts instead (and the reason is logged)."""
+        (full or bar) shows within `wait` seconds, the Tk panel starts instead (and the reason is logged).
+        Never both (owner 2026-11-11: "two Chutku" on the hotkey): a presence still running is ended first, so its
+        late window cannot appear beside the HUD; 30 s, because a cold first start took longer than 8."""
         def run():
-            from chutku.presence import window_exists
+            from chutku.presence import BAR_TITLE, TITLE, window_exists
             deadline = time.monotonic() + wait
             while time.monotonic() < deadline:
                 if self.presence_process.poll() is not None:
                     break
-                if window_exists():
+                if window_exists(TITLE) or window_exists(BAR_TITLE):
                     return
-                time.sleep(0.5)
-            _log().warning("the presence window did not appear (exit code %s); using the HUD",
-                           self.presence_process.poll())
-            if self.hud is None:
-                self.start_hud()
-        threading.Thread(target=run, name="chutku-presence-watch", daemon=True).start()
+                time.sleep(poll)
+            alive = self.presence_process.poll() is None
+            if alive:
+                _end_process_tree(self.presence_process)
+            # Owner 2026-11-11: "remove the previous UI": the old Tk HUD never opens beside or instead of the bar.
+            # The presence window is started once more; a second failure says where Chutku is (the tray).
+            again = retries > 0
+            _log().warning("the presence window did not appear (%s); %s",
+                           "still starting, ended" if alive else f"exit code {self.presence_process.poll()}",
+                           "starting it again" if again else "giving up; the tray icon still works")
+            if again and self.start_presence(retries=retries - 1):
+                return
+            try:
+                from chutku.health import notify
+                notify("Chutku", "Chutku's window did not open. Chutku is running: use the tray icon or "
+                                 "Ctrl+Alt+Space.")
+            except OSError:
+                pass
+        thread = threading.Thread(target=run, name="chutku-presence-watch", daemon=True)
+        thread.start()
+        return thread
 
     def start_hud(self):
         from chutku.hud import Hud

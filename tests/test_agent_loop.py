@@ -83,7 +83,7 @@ class AgentLoopTests(unittest.TestCase):
         self.assertTrue(snap["reply"].startswith("Edited."))
 
     def test_observation_only_round_never_finishes_without_an_answer(self):
-        planner = ScriptedPlanner({**proposal(steps=[step("system.get_time")], reply="Checked."), "finish": True},
+        planner = ScriptedPlanner({**proposal(steps=[step("test.observe")], reply="Checked."), "finish": True},
                                   proposal("done", reply="It is 4 PM."))
         snap = AgentSession("x", mode="auto_safe").advance(self.runtime, planner)
         self.assertEqual(len(planner.inputs), 2)
@@ -176,7 +176,7 @@ class AgentLoopTests(unittest.TestCase):
         self.assertEqual(self.effects, ["edit"])
 
     def test_observation_round_is_answered_without_a_second_planning_call(self):
-        planner = ScriptedPlanner(proposal(steps=[step("system.get_time")], plan=["Read the clock"]))
+        planner = ScriptedPlanner(proposal(steps=[step("test.observe")], plan=["Read the clock"]))
         planner.answer = lambda session, runtime, check=None: "It is 4:15 PM."
         snap = AgentSession("tell me the time", mode="auto_safe").advance(self.runtime, planner)
         self.assertEqual(snap["status"], "done", snap)
@@ -204,7 +204,7 @@ class AgentLoopTests(unittest.TestCase):
         self.assertEqual(self.effects, ["undo"])
 
     def test_answer_step_replaces_filler_reply(self):
-        planner = ScriptedPlanner(proposal(steps=[step("system.get_time")]),
+        planner = ScriptedPlanner(proposal(steps=[step("test.observe")]),   # no local reply builder: the model answers
                                   proposal("done", reply="Continue to check."))
         planner.answer = lambda session, runtime, check=None: "It is 4:15 PM."
         snap = AgentSession("x", mode="auto_safe").advance(self.runtime, planner)

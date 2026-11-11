@@ -108,6 +108,53 @@ class SuggestTests(unittest.TestCase):
         mind.add("schedule", "DBMS viva — Mon 05 Oct 2026")
         mind.add("schedule", "old exam — Thu 01 Oct 2026")
         mind.add("assignments", "OS lab file")
+        patcher = patch.object(suggest, "can_disturb", return_value=True)   # the real check reads this PC's state
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_the_morning_brief_is_offered_at_the_owners_usual_start(self):
+        # plan slice G2: three mornings of use, no briefing scheduled -> offer it once, at the usual hour
+        for day, minute in ((1, 5), (2, 40), (3, 20)):
+            recall.log_conversation("open whatsapp", "Opened WhatsApp.", origin="voice", base=self.base,
+                                    at=at(day, 9, minute))
+            recall.log_conversation("play lofi", "Playing.", origin="voice", base=self.base, at=at(day, 18))
+        recall.log_conversation("test", "x", origin="script", base=self.base, at=at(3, 6))    # scripts never count
+        brief = [s for s in suggest.current(self.base, now=at(4, 15), free_c_gb=50) if s["kind"] == "brief"]
+        self.assertEqual(len(brief), 1)
+        self.assertIn("9:00", brief[0]["text"])
+        self.assertEqual(steps(brief[0]["command"])[0][0], "task.schedule")   # Accept runs instantly
+        from chutku import scheduled
+        with patch.object(scheduled, "active", return_value=[{"goal": suggest.BRIEF_GOAL}]):
+            self.assertFalse([s for s in suggest.current(self.base, now=at(4, 15), free_c_gb=50)
+                              if s["kind"] == "brief"])                       # already scheduled: never offered
+
+    def test_too_little_use_offers_no_brief(self):
+        recall.log_conversation("open whatsapp", "ok", origin="voice", base=self.base, at=at(2, 9))
+        recall.log_conversation("open whatsapp", "ok", origin="voice", base=self.base, at=at(3, 9))
+        self.assertNotIn("brief", [s["kind"] for s in suggest.current(self.base, now=at(4, 15), free_c_gb=50)])
+
+    def test_no_popup_at_a_bad_moment(self):
+        sent = []
+        send = lambda title, text: sent.append(text)
+        with patch.object(suggest, "can_disturb", return_value=False):
+            self.assertIsNone(suggest.maybe_toast(self.base, now=at(4, 15), send=send, free_c_gb=50))
+        self.assertEqual(sent, [])
+
+    def test_the_bad_moment_check(self):
+        from chutku import health
+        with patch.object(suggest, "_windows_accepts_notifications", return_value=True), \
+                patch.object(health, "battery", return_value={"percent": 80, "charging": False}):
+            self.assertTrue(suggest._can_disturb(self.base))
+            (self.base / "data").mkdir(exist_ok=True)
+            (self.base / "data" / "last-task.json").write_text('{"goal": "x", "status": "running"}', "utf-8")
+            self.assertFalse(suggest._can_disturb(self.base))             # a task is running
+            (self.base / "data" / "last-task.json").write_text('{"goal": "x", "status": "done"}', "utf-8")
+            self.assertTrue(suggest._can_disturb(self.base))
+        with patch.object(suggest, "_windows_accepts_notifications", return_value=False):
+            self.assertFalse(suggest._can_disturb(self.base))             # full screen, game, presentation, focus
+        with patch.object(suggest, "_windows_accepts_notifications", return_value=True), \
+                patch.object(health, "battery", return_value={"percent": 12, "charging": False}):
+            self.assertFalse(suggest._can_disturb(self.base))             # low battery, not charging
 
     def test_tomorrows_event_and_open_assignment_are_suggested_with_runnable_commands(self):
         found = suggest.current(self.base, now=at(4, 15), free_c_gb=50)

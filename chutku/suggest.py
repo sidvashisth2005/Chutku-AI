@@ -109,6 +109,11 @@ def candidates(base=None, *, now=None, free_c_gb=None):
         out.append({"kind": "automation", "id": _id("automation", said),
                     "text": f"You say “{said[:60]}” around {hour}:00 most days. Make it automatic every day at "
                             f"{hour}:00?", "command": f"har roz {hour}:00 baje {said}"})
+    start = _usual_start(base, now)   # G2: the daily briefing, offered once the owner's mornings show a pattern
+    if start is not None and _habit_key(BRIEF_GOAL) not in planned:
+        out.append({"kind": "brief", "id": _id("brief", str(start)),
+                    "text": f"You usually start around {start}:00. Get the weather, news and your reminders then, "
+                            "every day?", "command": f"har roz {start}:00 baje {BRIEF_GOAL}"})
     if free_c_gb is None:
         try:
             free_c_gb = shutil.disk_usage("C:\\").free / 1e9
@@ -119,6 +124,55 @@ def candidates(base=None, *, now=None, free_c_gb=None):
                     "text": f"C: has only {free_c_gb:.1f} GB free. See what is taking space?",
                     "command": "what is taking space on my pc"})
     return out
+
+
+BRIEF_GOAL = "aaj ka weather, news aur meri reminders batao"   # the morning-briefing blueprint's goal
+
+
+def _usual_start(base, now, days=14, minimum=3):
+    """The hour the owner usually first talks to Chutku on a morning (5-11), when that happened on `minimum` of the
+    last `days` days; else None. Scripts and tests never count."""
+    from statistics import median
+    from chutku import recall
+    first = {}
+    for turn in recall.turns(base, 2000):
+        if not recall.owner_turn(turn) or now - turn["at"] > days * 86400 or turn["at"] > now:
+            continue
+        moment = datetime.fromtimestamp(turn["at"])
+        if 5 <= moment.hour <= 11:
+            first[moment.date()] = min(first.get(moment.date(), moment.hour), moment.hour)
+    return int(median(first.values())) if len(first) >= minimum else None
+
+
+def _windows_accepts_notifications():
+    """Windows' own "may I disturb?" answer: False during a full-screen app or game, a presentation, or Focus."""
+    import ctypes
+    state = ctypes.c_int(0)
+    try:
+        if ctypes.windll.shell32.SHQueryUserNotificationState(ctypes.byref(state)) != 0:
+            return True   # unknown: the other checks still apply
+    except (AttributeError, OSError):
+        return True
+    return state.value == 5   # QUNS_ACCEPTS_NOTIFICATIONS
+
+
+def _can_disturb(base):
+    """Plan slice G: a suggestion never interrupts a running task, a full-screen app or game, a presentation, Focus,
+    or a laptop below 20% that is not charging."""
+    try:
+        task = json.loads((Path(base) / "data" / "last-task.json").read_text(encoding="utf-8"))
+        if task.get("status") in ("planning", "running", "queued", "waiting_confirmation"):
+            return False
+    except (OSError, ValueError):
+        pass
+    if not _windows_accepts_notifications():
+        return False
+    from chutku import health
+    power = health.battery()
+    return not (power and power["percent"] < 20 and not power["charging"])
+
+
+can_disturb = _can_disturb
 
 
 def current(base=None, *, now=None, free_c_gb=None):
@@ -159,7 +213,7 @@ def maybe_toast(base=None, *, now=None, send=None, free_c_gb=None):
     """At most one popup per hour, never in quiet hours, never the same suggestion twice. Returns what was shown."""
     base = Path(base or PROJECT_ROOT)
     now = now or time.time()
-    if quiet(datetime.fromtimestamp(now).hour):
+    if quiet(datetime.fromtimestamp(now).hour) or not can_disturb(base):
         return None
     with _lock:
         state = load_state(base)

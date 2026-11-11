@@ -63,9 +63,12 @@ class InternetTests(unittest.TestCase):
 
         def offline(url, **_):
             raise OSError("offline")
-        with patch.object(internet, "fetch", offline):   # no saved city and no location lookup: it asks
+        with patch.object(internet, "fetch", offline):   # offline: say so (2026-11-11), never "which city?"
             result = self.runtime.run("web.weather", {})
         self.assertEqual(str(result["state"]), "FAILED")
+        self.assertIn("No internet", result["output"]["error"])
+        with patch.object(internet, "fetch", lambda url, **_: ('{"city": ""}', "")):   # online, place unknown: asks
+            result = self.runtime.run("web.weather", {})
         self.assertIn("Which city", result["output"]["error"])
         seen = []
 

@@ -27,6 +27,28 @@ class QuickIntentTests(unittest.TestCase):
         for text in ("what was I working on?", "show my recent files", "main kis file pe kaam kar raha tha"):
             self.assertEqual(step(text), ("files.recent", {"path": os.environ["USERPROFILE"]}), text)
 
+    def test_multi_part_questions_run_every_part_instantly(self):
+        # plan slice E (live 2026-11-11): these went to the cloud model, which lost results or chose a search that
+        # matched nothing; each part is instant on its own
+        def tools(text):
+            proposal = quick_proposal(text, apps=APPS)
+            return None if proposal is None else [s["tool"] for s in proposal["next_steps"]]
+        self.assertEqual(tools("aaj ki date batao, C drive mein kitni jagah hai aur internet chal raha hai kya"),
+                         ["system.get_time", "system.disk_space", "net.check"])
+        self.assertEqual(tools("mere PC ka RAM aur CPU kitna use ho raha hai aur kaunse apps khule hain"),
+                         ["system.performance", "windows.list"])
+        self.assertEqual(tools("downloads ki sabse badi file batao aur desktop pe kitni files hain"),
+                         ["filesystem.largest", "filesystem.list"])
+        for text in ("RAM aur CPU kitna use ho raha hai", "cpu usage kitna hai", "how much RAM is used",
+                     "mere laptop ki memory kitni use ho rahi hai"):
+            self.assertEqual(step(text), ("system.performance", {}), text)
+        for text in ("downloads ki sabse badi file batao", "desktop mein sabse badi file dikhao"):
+            self.assertEqual(step(text)[0], "filesystem.largest", text)
+        # not every comma or "aur" is a split: a message keeps its text, unknown parts leave it to the planner
+        self.assertEqual(step('send "hi, kaise ho aur kya chal raha hai" to UB on whatsapp'),
+                         ("message.send", {"app": "whatsapp", "to": "UB", "text": "hi, kaise ho aur kya chal raha hai"}))
+        self.assertIsNone(quick_proposal("C drive mein kitni jagah hai, aur mere liye ek poem likho"))
+
     def test_listing_reminders_is_instant_and_setting_one_still_sets(self):
         # plan slice E (2026-11-10): only the exact sentence "show my reminders" was instant
         for text in ("show my reminders", "meri reminders dikhao", "mere reminders batao", "list my reminders",
@@ -64,6 +86,9 @@ class QuickIntentTests(unittest.TestCase):
             "filesystem.largest": {"files": [{"full_path": r"C:\d\movie.mkv", "size_mib": 1830.4}], "scanned": 3,
                                    "complete": True},
             "never.list": {"rules": ["[a1b2c3] D:\\Private — kabhi nahi chhoona"], "count": 1},
+            "filesystem.search": {"matches": [{"full_path": r"C:\d\notes.txt", "kind": "file"},
+                                              {"full_path": r"C:\d\Work", "kind": "directory"}], "count": 2,
+                                  "truncated": False, "complete": True},
             "timeline.search": {"window": ["2026-10-05T16:00", "2026-10-05T21:00"], "recording": True,
                                 "matches": [{"title": "Invoice.pdf - Edge", "app": "msedge.exe",
                                              "at": "Mon 05 Oct, 07:15 PM"}]},

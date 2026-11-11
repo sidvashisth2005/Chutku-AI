@@ -558,12 +558,24 @@ def _say_largest(out):
     return reply + "." + ("" if out["complete"] else " (Stopped early: a very big folder.)")
 
 
+def _say_search(out):
+    files = sum(m["kind"] == "file" for m in out["matches"])
+    folders = len(out["matches"]) - files
+    more = "+" if out["truncated"] or not out["complete"] else ""
+    if not out["matches"]:
+        return "Nothing matched." + ("" if out["complete"] else " (The search stopped early.)")
+    names = ", ".join(Path(m["full_path"]).name for m in out["matches"][:5])
+    counted = " and ".join(f"{n}{more} {word}{'s' if n != 1 else ''}" for n, word in ((files, "file"),
+                                                                                    (folders, "folder")) if n)
+    return f"Found {counted}: {names}" + ("…" if len(out["matches"]) > 5 else "") + "."
+
+
 def _say_never(out):
     return ("Never-rules: " + "; ".join(out["rules"]) + ".") if out["rules"] else "No never-rules are set."
 
 
 QUICK_ANSWERS = {"web.weather": _say_weather, "web.news": _say_news, "reminder.list": _say_reminders,
-                 "filesystem.largest": _say_largest, "never.list": _say_never,
+                 "filesystem.largest": _say_largest, "never.list": _say_never, "filesystem.search": _say_search,
                  "apps.howto": _say_howto, "message.unread_count": _say_unread, "screen.act_on_visible": _say_visible, "insights.week": _say_week, "history.search": _say_history, "background.status": _say_background, "nightshift.report": _say_night, "timeline.search": _say_timeline, "rewind.preview": _say_rewind, "rewind.run": _say_rewind, "task.list": _say_tasks, "reflex.list": _say_learned, "ledger.summary": _say_reliability, "system.get_time": _say_time, "system.disk_space": _say_disk, "files.recent": _say_recent,
                  "log.recent": _say_log, "routine.list": _say_routines,
                  "storage.cleanup_report": _say_cleanup, "media.status": _say_playing,
