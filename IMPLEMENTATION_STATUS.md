@@ -40,6 +40,9 @@ Owner decisions are in `docs/DESIGN.md` §51.
 - Evidence: `one_command_check --offline` 12/12 with the stricter checks, median 4.9 s ("Delhi: 21.6°C ..."; maths
   "1024 is bigger than 1000"); 0 model servers left. `check_phrases.py` 193/193. Full suite **1850 tests, 582 s,
   OK** (no known failures left).
+- Released: commit b38b335 pushed to main; `scripts/release_local.ps1 -Version 1.2.4`: build, installer, silent
+  install/uninstall test ok (1.2.4), published https://github.com/sidvashisth2005/Chutku-releases/releases/tag/v1.2.4
+  (Chutku-Setup-for-Windows.exe, 315,949,768 bytes, sha256 4e4909df...). v1.2.3 kept (no `-Old`).
 
 ### 2026-11-12 (41): The local model plans a several-part request one part at a time; 12/12 offline
 - Owner: "keep current specs ... give very segregated and simple info to the current model ... delete unused things".
