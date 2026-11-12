@@ -511,6 +511,9 @@ class OwnerConversationFixes(unittest.TestCase):
 
     def test_today_is_not_a_city(self):
         self.assertEqual(self.tools("aaj ka mausam kaisa hai"), [("web.weather", {})])           # was "Cajana"
+        self.assertEqual(self.tools("aaj Delhi ka mausam kaisa hai"),                              # was "Cajana" too
+                         [("web.weather", {"city": "Delhi"})])
+        self.assertEqual(self.tools("weather in New York today"), [("web.weather", {"city": "New York"})])
         self.assertEqual(self.tools("delhi ka mausam kaisa hai"), [("web.weather", {"city": "delhi"})])
 
     def test_the_daily_briefing_phrase_runs_the_briefing(self):

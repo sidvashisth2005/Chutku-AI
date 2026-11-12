@@ -286,6 +286,10 @@ def _proposal(tool, arguments, purpose, reply, finish=True):
             "next_steps": [{"tool": tool, "arguments": arguments, "purpose": purpose}], "finish": finish}
 
 
+_WEATHER_FILLER = frozenset({"aaj", "abhi", "kal", "today", "tomorrow", "tonight", "now", "yahan", "yaha",
+                             "mera", "mere", "meri", "apna", "is", "hafte", "hamare", "idhar", "ka", "ki", "ke"})
+
+
 _JOIN = r"(?:and then|and also|then|aur phir|phir|uske baad|and|aur)\b"
 _CHAIN_SPLIT = re.compile(rf"(\s*,\s*(?:{_JOIN}\s*)?|\s+{_JOIN}\s*)", re.I)   # kept: re.split returns the separators
 _PRONOUN = re.compile(r"\b(?:it|that|usko|ise|isko)\b", re.I)   # not "use": an English verb more often than "use" (him)
@@ -1317,10 +1321,14 @@ def _single(goal, apps=None):
             query = match.group("query").strip(" '\"")
             return _proposal("youtube.play", {"query": query}, f"Play {query} on YouTube", f"Started “{query}” on YouTube.")
         if kind == "weather":
-            city = (match.groupdict().get("city") or "").strip(" '\"")
-            if city.casefold() in {"aaj", "aaj ka", "abhi", "kal", "today", "tomorrow", "yahan", "yaha", "mera", "mere",
-                                   "apna", "is hafte", "hamare", "idhar"}:
-                city = ""   # convos 2026-11-10: "aaj ka mausam" asked for the weather in "aaj" (Cajana)
+            # Time and filler words around the city are not part of it: "aaj ka mausam" (convos 2026-11-10) and
+            # "aaj Delhi ka mausam" (one_command_check 2026-11-12) both asked the geocoder for "aaj..." = Cajana.
+            words = (match.groupdict().get("city") or "").strip(" '\"").split()
+            while words and words[0].casefold() in _WEATHER_FILLER:
+                words.pop(0)
+            while words and words[-1].casefold() in _WEATHER_FILLER:
+                words.pop()
+            city = " ".join(words)
             if re.search(r"\b(?:cpu|gpu|processor|laptop|pc|computer|battery)\b", city, re.I):
                 # "temperature of my cpu" is not a city's weather
                 return _proposal("system.performance", {}, "Check CPU, GPU, memory and temperature", "", finish=False)

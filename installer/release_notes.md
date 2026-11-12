@@ -24,6 +24,17 @@ Already using Chutku? It tells you about this update by itself: click **Update n
 - Chit-chat gets a friendly answer instead of "please clarify".
 - Saying "haan" a little late no longer fails with "approval expired".
 - Closing the laptop lid no longer makes Chutku restart itself when it wakes up.
+- **Smarter without internet:** the offline brain is now Qwen3.5-4B (faster and more accurate on Chutku's own tasks).
+  Requests with several parts ("folder banao, usme file likho, phir files batao") are done one part at a time, so no
+  part is skipped. Maths and logic questions get a few seconds of thinking ("2 ki power 10 aur 10 ka cube, kaun bada
+  hai" is now right). If you already have the Offline brain, it keeps working; download it again from Settings to
+  get the new model (about 5.3 GB in total).
+- A folder you typed is never dropped from a path ("D:\Notes\work mein file banao" writes into `work`).
+- "aaj Delhi ka mausam" gives Delhi's weather (it used to look up the wrong place); offline, the weather says there
+  is no internet and the rest of a briefing still runs.
+- "The playlist just below After Party" / "X ke neeche" picks the right item on the screen.
+- Chutku never types into a password box, even after you approve; you type it and say continue.
+- Work Chutku did and checked is never reported as failed, and you never see two Chutku windows at once.
 
 ## What's new in 1.2.3
 

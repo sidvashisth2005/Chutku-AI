@@ -1,0 +1,52 @@
+{
+ "app": "ui_settings",
+ "name": "Settings",
+ "aliases": [
+  "settings",
+  "setting"
+ ],
+ "window": {
+  "exe": "SystemSettings.exe",
+  "title": "Settings"
+ },
+ "launch": {
+  "start_menu": "Settings"
+ },
+ "uri_schemes": [],
+ "cli": {},
+ "sources": [
+  "data/apps/settings/uimap.json"
+ ],
+ "actions": [
+  {
+   "id": "sound",
+   "title": "Open Sound",
+   "risk": "safe",
+   "phrases": [
+    "open sound in settings",
+    "settings mein sound kholo",
+    "settings me sound kholo",
+    "settings mein sound dikhao",
+    "go to sound in settings",
+    "open sound in setting",
+    "setting mein sound kholo",
+    "setting me sound kholo",
+    "setting mein sound dikhao",
+    "go to sound in setting"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Sound",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "All sound devices"
+   },
+   "source": "survey 2026-11-10T11:10:03"
+  }
+ ]
+}

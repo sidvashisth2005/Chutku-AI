@@ -7,7 +7,7 @@ folder that does not match its pin is deleted, never used.
 
 Packs (the essentials, i.e. wake word, speaker and embeddings, ship inside the app package):
   voice   offline speech in and out: Whisper small (stt) and the Kokoro voice (tts)      about 0.8 GB
-  brain   the offline planner Qwen3-4B with the llama.cpp CPU and GPU runtimes            about 2.5 GB
+  brain   the offline planners Qwen3.5-4B + Qwen3-4B, llama.cpp CPU and GPU runtimes     about 5.3 GB
   screen  offline screen understanding: Qwen3-VL-4B and its projector (vision)           about 2.8 GB
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ import urllib.request
 
 PACKS = {
     "voice": {"label": "Offline voice", "keys": ("stt", "tts"), "about_gb": 0.8},
-    "brain": {"label": "Offline brain", "keys": ("model", "runtime", "gpu_runtime"), "about_gb": 2.5},
+    "brain": {"label": "Offline brain", "keys": ("model", "planner_qwen35", "runtime", "gpu_runtime"), "about_gb": 5.3},
     "screen": {"label": "Offline screen understanding", "keys": ("vision",), "about_gb": 2.8},
 }
 RUNTIME_DIRS = {"runtime": "vendor/llama-b11181"}   # the CPU runtime's folder (its manifest entry has no "directory")

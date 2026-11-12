@@ -610,8 +610,9 @@ class ServerTests(unittest.TestCase):
                 count["closed"] = True
         with patch("chutku.vision.Capturer", Capturer), patch.object(remote_server, "_keep_awake"):
             self.assertEqual(self.request("/api/screen/start", {"pin": "4321"})[0], 200)
-            # 1 s, not 0.5: under a loaded full-suite run the encoder start took most of 0.5 s (3 frames; 2026-11-08)
-            self.server.screen["until"] = time.monotonic() + 1.0
+            # 2 s: under a loaded full-suite run the encoder start took most of 0.5 s (3 frames; 2026-11-08) and 1 s
+            # was still short once (2026-11-12)
+            self.server.screen["until"] = time.monotonic() + 2.0
             status, body, headers = self.request("/api/screen/h264?w=640")
         self.assertEqual(status, 200)
         self.assertIn(headers["X-Encoder"], {name for name, _ in remote_server.H264_ENCODERS})
@@ -630,7 +631,9 @@ class ServerTests(unittest.TestCase):
         self.assertEqual((frames[0].width, frames[0].height), (640, 360))
         self.assertTrue(all(0 <= b - a < 500 for a, b in zip(stamps, stamps[1:])))     # capture times, in order
         self.assertLess(abs(stamps[-1] - remote_server._clock_ms(time.monotonic())), 2000)
-        time.sleep(0.2)
+        deadline = time.monotonic() + 2
+        while not count.get("closed") and time.monotonic() < deadline:
+            time.sleep(0.05)
         self.assertTrue(count.get("closed"))                                            # the capturer let go of GDI
         self.assertNotEqual(remote_server._changed(np.zeros((4, 4, 3), np.uint8)),
                             remote_server._changed(np.pad(np.ones((1, 1, 3), np.uint8), ((0, 3), (0, 3), (0, 0)))))

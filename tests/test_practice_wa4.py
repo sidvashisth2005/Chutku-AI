@@ -105,7 +105,7 @@ class OnByDefaultTests(unittest.TestCase):
         oracle = lambda say: [{"tool": t, "arguments": {}} for t in (bank[say]["expect"].get("tools") or [])[:1]]
         result = practice.nightly(base, n=100, models=(("oracle", oracle),))
         self.assertGreater(result["model_solved"], 0)
-        rows = [json.loads(l) for f in (base / "data" / "finetune").glob("*.jsonl") for l in f.read_text().splitlines()]
+        rows = [json.loads(l) for f in (base / "data" / "finetune").glob("*.jsonl") for l in f.read_text(encoding="utf-8").splitlines()]
         heldout = {i["say"] for i in bank.values() if i["split"] == "heldout"}
         self.assertEqual(len(rows), result["model_solved"])
         self.assertFalse(heldout & {r["prompt"] for r in rows})

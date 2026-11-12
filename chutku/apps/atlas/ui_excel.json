@@ -1,0 +1,46 @@
+{
+ "app": "ui_excel",
+ "name": "Excel",
+ "aliases": [
+  "excel"
+ ],
+ "window": {
+  "exe": "EXCEL.EXE",
+  "title": "Excel"
+ },
+ "launch": {
+  "start_menu": "Excel"
+ },
+ "uri_schemes": [],
+ "cli": {},
+ "sources": [
+  "data/apps/excel/uimap.json"
+ ],
+ "actions": [
+  {
+   "id": "options",
+   "title": "Open Options",
+   "risk": "safe",
+   "phrases": [
+    "open options in excel",
+    "excel mein options kholo",
+    "excel me options kholo",
+    "excel mein options dikhao",
+    "go to options in excel"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Options",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Cancel"
+   },
+   "source": "survey 2026-11-10T11:08:40"
+  }
+ ]
+}

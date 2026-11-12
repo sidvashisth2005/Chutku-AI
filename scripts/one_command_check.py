@@ -28,6 +28,12 @@ sys.path.insert(0, str(ROOT))
 TERMINAL = {"done", "clarify", "failed", "stopped", "cancelled"}
 FILE_TOOLS = {"filesystem.write_text", "filesystem.create_directory", "filesystem.copy", "filesystem.move"}
 
+# The reply must say which one is bigger, right way round ("10 ka cube (1000) bada hai 2 ki power 10 (1024) se" was
+# passed by a check that only looked for "1024", 2026-11-12).
+_SAYS_BIGGER = r"\W*(?:\(1,?0[02][04]\))?\s*(?:is\s+|hai\s+)?(?:bada|bigger|greater|zyada|larger)"
+_TWO_BIGGER = re.compile(r"(?:2\s*\^\s*10|2 (?:ki )?power(?: of)? 10|2 to the power(?: of)? 10|1,?024)" + _SAYS_BIGGER, re.I)
+_CUBE_BIGGER = re.compile(r"(?:10\s*\^\s*3|10 (?:ka )?cube[d]?|10 cubed|1,?000)" + _SAYS_BIGGER, re.I)
+
 
 def cases(scratch):
     s = str(scratch)
@@ -69,7 +75,7 @@ def cases(scratch):
          lambda r: (str(sum(1 for f in scratch.iterdir() if f.is_file())) in r,   # the marker file counts too
                     f"{sum(1 for f in scratch.iterdir() if f.is_file())} files")),
         ("math", "2 ki power 10 aur 10 ka cube, kaun bada hai",
-         lambda r: ("1024" in r or "1,024" in r, "2^10 = 1024 is bigger")),
+         lambda r: (bool(_TWO_BIGGER.search(r)) and not _CUBE_BIGGER.search(r), "2^10 = 1024 is bigger")),
         ("windows", "kaunse windows khule hain", lambda r: (len(r) > 20, "a non-empty list")),
         ("multi-step", f"{s} mein report naam ka folder banao, usme todo.txt mein 'buy milk' likho, phir us folder "
                        "ki files batao",
@@ -144,7 +150,8 @@ def main():
             if name == "weather":   # --offline means local brain only; the weather site itself may still answer
                 from chutku.online import reachable
                 told = re.search(r"-?\d+(?:\.\d+)?\s*°", reply) is not None
-                ok, expected = ((told, "a temperature (weather site reachable)") if reachable("api.open-meteo.com")
+                ok, expected = ((told and "delhi" in reply.casefold(), "Delhi's temperature (weather site reachable)")
+                                if reachable("api.open-meteo.com")
                                 else (not told, "no invented weather (weather site unreachable)"))
             else:
                 try:
@@ -160,6 +167,10 @@ def main():
             server.action_lock.release()
         server.shutdown()
         server.server_close()
+        from chutku import brain_service   # its model servers outlive this process otherwise (45 min idle)
+        for service in (brain_service._shared, brain_service._strong):
+            if service is not None:
+                service.close()
     times = sorted(r["seconds"] for r in results)
     summary = {"mode": "offline" if args.offline else "online", "passed": sum(r["passed"] for r in results),
                "total": len(results), "median_seconds": times[len(times) // 2], "slowest_seconds": times[-1]}

@@ -20,6 +20,99 @@ Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
 
+### 2026-11-12 (42): Open bugs fixed, release 1.2.4
+- Owner: "finish everything, all the bugs ... then ship and release".
+- Weather: "aaj Delhi ka mausam kaisa hai" asked the geocoder for "aaj Delhi" (Cajana). Time and filler words
+  (`quick_intents._WEATHER_FILLER`) are now stripped from both ends of the city, not only when the city is exactly
+  one of them. Test: `test_quick_intents` (+2 lines).
+- `one_command_check`: the maths case now checks WHICH number the reply calls bigger (`_TWO_BIGGER`, `_CUBE_BIGGER`;
+  the old check passed "10 ka cube (1000) bada hai 2 ki power 10 (1024) se"), and the weather case needs "Delhi".
+- Release blocker found and fixed: the "Offline brain" pack fetched only Qwen3-4B, so with `active_planner:
+  planner_qwen35` a fresh or older install would have had no local brain. `brain_service._candidates` falls back to
+  the base model when the active planner is missing or fails its hash; the brain pack now includes `planner_qwen35`
+  (about 5.3 GB). Tests: `test_model_select` (+2: missing and tampered planner fall back; the pack brings the active
+  planner).
+- `test_practice_wa4` read UTF-8 fine-tune rows with the Windows default code page (the bank has Hindi now): reads
+  UTF-8. `test_phone_remote_w6` h264: 2 s stream window and a polled close (it failed once under a loaded run).
+- `docs/SECURITY.md`: 194 app actions, counting the 10 `chutku/apps/atlas/ui_*.json` atlases from the 2026-11-10 app
+  survey (`scripts/make_ui_atlases.py`), now committed (safe navigation actions; instant only after 3 Action Lab
+  passes).
+- Evidence: `one_command_check --offline` 12/12 with the stricter checks, median 4.9 s ("Delhi: 21.6°C ..."; maths
+  "1024 is bigger than 1000"); 0 model servers left. `check_phrases.py` 193/193. Full suite **1850 tests, 582 s,
+  OK** (no known failures left).
+
+### 2026-11-12 (41): The local model plans a several-part request one part at a time; 12/12 offline
+- Owner: "keep current specs ... give very segregated and simple info to the current model ... delete unused things".
+- `agent_loop.goal_parts` splits a request with the instant router's own splitter (`quick_intents._CHAIN_SPLIT`);
+  a piece with no verb joins the one before ("RAM aur CPU kitna use ho raha hai" stays one). Only the local model
+  (`profile qwen`) gets `PARTS`, `DO_NOW` and a one-line `PARTS_RULE` in its user message (the cached system prefix
+  is unchanged, under its 14,000-character test). After a round whose steps all COMPLETED, `DO_NOW` moves on.
+  `_reject_early_finish` (local planner only, in `_checked`): while later parts remain, "done" is rejected and
+  retried, and "finish" is cleared, so a session never ends after part 1.
+- Evidence: `one_command_check --offline` **12/12** (median 6.5 s, slowest 29.7 s); the multi-step case that failed
+  for both models ("onecmd mein report naam ka folder banao, usme todo.txt mein 'buy milk' likho, phir us folder ki
+  files batao") now creates `onecmd\report\todo.txt`; 0 model servers left afterwards. `eval_planner` 34/40, median
+  3.5 s, 3.47 GB: the one change from 35/40 (`info-hinglish-time` answered without the clock tool) misses the same
+  way with all of today's code stashed (the prompt carries the current time); in use the instant router answers it.
+- Qwen3.5-9B (owner asked about an "8B": none exists; 9B Q4_K_M 5.68 GB, rev 3885219b, sha256 03b74727... matched):
+  ~18-20 s per planner round on the 4 GB GPU vs 3.3 s for the 4B after 17 of 45 tasks; stopped on the owner's word,
+  file moved to the Recycle Bin.
+- Tests: `PartsTests` (splitting, single requests stay whole, DO_NOW only for the local model, no early finish).
+  Full suite 1848 tests, 596 s: only the two failures that predate this work (`test_docs_truth`,
+  `test_practice_wa4`).
+
+### 2026-11-12 (40): Owner's choice: Qwen3.5-4B is the offline planner; capped thinking for reasoning questions
+- `models/manifest.json`: `"active_planner": "planner_qwen35"` (hash-pinned, existing switch). Back: `"model"`.
+- `agent_loop._reject_lost_folders`: a step path above a folder the user typed (not inside or a parent of one) is
+  rejected and the planner retries; the live miss "D:\ChutkuScratch\onecmd mein notes.txt banao" ->
+  `D:\ChutkuScratch\notes.txt` now writes into `onecmd`.
+- Thinking: `brain_service.complete(think=True)` turns it on for one request (`chat_template_kwargs`), with
+  `--reasoning-budget 256` on the server; the planner uses it only on the first round of a numeric question with
+  nothing to do (`_reasoning_question`) or "dhyan se socho". Measured: maths/logic 5/5 at ~6.5 s vs 1/4 without;
+  tool rounds with thinking 4/10 vs 10/10 without, so they stay without.
+- `scripts/one_command_check.py` closes its model servers on exit (two from its earlier runs held the GPU for ~50
+  min and made a thinking run crash).
+- Clean-up (owner: "remove anything unnecessary or old"): to the Recycle Bin: the Bonsai candidates, the obsolete
+  `models/qwen35-pending.txt` marker, six helper worktrees under `.claude/worktrees` (all merged into main; one held
+  untracked presence-bar/face screenshots) and this evaluation's temp logs; `git worktree prune`; merged branches
+  deleted with `git branch -d` (refuses unmerged). Kept: Qwen3-4B (still verified at start-up by `brain.py`/
+  `doctor.py` and the rollback), Qwen3-8B (offline backup), `claude/brain-2` (2 unmerged plan commits, also on origin).
+- Evidence: `one_command_check --offline` 11/12, median 4.6 s (Qwen3-4B before: 11/12, 6.5 s); the maths case is now
+  right in 9.7 s ("1024 is bigger than 1000"), 0 model servers left afterwards; `eval_planner` 35/40, median 3.3 s,
+  3.41 GB. Still failing: the multi-step case skips the `report` folder (both models).
+- Tests: `LostFolderTests` (the live miss rejected; paths inside, above, elsewhere and with nothing typed pass) and
+  `ThinkingTests` (which goals count as reasoning questions, and thinking only on the first round or when asked);
+  `test_tool_menu`, `test_agent_loop`, `test_profiles`, `test_model_select` 78 OK. Full suite 1846 tests, 628 s:
+  only the two failures that also fail with this work stashed (`test_docs_truth` app-action count from the
+  untracked atlas files, `test_practice_wa4` decode error). Details:
+  [docs/LOCAL_MODEL_EVAL.md](docs/LOCAL_MODEL_EVAL.md).
+
+### 2026-11-12 (39): Local model evaluation: Bonsai 2 27B vs today's models; no switch
+- Full record, settings, hashes and reproduce commands: [docs/LOCAL_MODEL_EVAL.md](docs/LOCAL_MODEL_EVAL.md).
+- This PC: i5-12500H, 24 GB RAM (4.4-12 GB free with the owner's apps), RTX 3050 Laptop 4 GB, D: 34.7 GB free at start.
+- Bonsai 2 27B PTQ1_0 (rev 839bd570, sha256 53107f53... matched) on the PrismML fork prism-b12128-d7b2896 (zip digests
+  matched). CUDA build: ready in 6-7 s, 16 prompt / 3.2 decode tok/s, peak 6.99 GB RAM, ~2.3 GB on the GPU; Vulkan
+  and CPU builds slower (2.5-3.5 prompt tok/s).
+- `eval_planner` (first rounds): Qwen3-4B 27/40 at 4.7 s median; Qwen3.5-4B 35/40 at 3.0 s, 3.39 GB; Qwen3-8B 32/40
+  at 12.9 s, 6.53 GB; Bonsai 9/10 on a 10-task subset (all 4 safety negatives refused) at **33.3 s** median (122 s
+  worst). The same subset: Qwen3.5 10/10, Qwen3-8B 5/10, Qwen3-4B 4/10.
+- `eval_vision` (new, synthetic screen, 5 questions incl. Hinglish and "below/above X"): Qwen3-VL-4B 5/5 at 0.4-2.2 s,
+  3.12 GB; Bonsai + mmproj 5/5 at 17.9-19.7 s, 6.68 GB.
+- `one_command_check --offline`: Qwen3-4B **11/12**, median 6.5 s; Qwen3.5-4B 8/12, median 16.6 s (wrote outside
+  the scratch folder; the harness denied it). Manifest was set to `planner_qwen35` for that run only and restored
+  with `git checkout` (clean afterwards).
+- **Decision:** keep Qwen3-4B (+8B) planner and Qwen3-VL-4B eyes. Bonsai is accurate but ~7-11x slower and 2x the
+  RAM on a 4 GB GPU; re-test on >= 8 GB VRAM. No product code or model setup changed.
+- Tooling: `scripts/eval_planner.py` gains `--exe`, `--ngl`, `--reasoning`, `--only`, start time and peak RAM;
+  new `scripts/eval_vision.py`.
+- Found, not fixed: the offline "math" check passed a reply saying 1000 > 1024; "aaj Delhi ka mausam" answered for
+  "Cajana" (instant router) in both runs, and the weather check only looks for a temperature.
+- Candidate files (`models/candidates/` + `vendor/candidates/`, 8.4 GB) moved to the Recycle Bin on the owner's word.
+- Tests: full suite 1842 tests, 590 s: the known docs-count failure (`test_docs_truth`, 194 vs 144 app actions, from
+  the untracked `ui_*.json` atlas files) plus `test_practice_wa4` (cp1252 decode error) and on a second run a
+  flaky `test_phone_remote_w6` h264 check. `test_docs_truth` and `test_practice_wa4` fail the same way with this
+  change stashed. `test_codemap`, `test_model_select` and the planner tests pass; both eval scripts parse (`--help`).
+
 ### 2026-11-11 (38): Owner's report: offline start failed, "two Chutku" on the hotkey, old UI still there
 - **"Two Chutku" / old UI:** `watch_presence` started the old Tk HUD when the presence window had not appeared within
   8 s, while the presence process kept running and showed its window later. The log has it 5 times (2026-11-05..10:

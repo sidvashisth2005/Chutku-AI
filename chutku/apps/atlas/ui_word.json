@@ -1,0 +1,52 @@
+{
+ "app": "ui_word",
+ "name": "Word",
+ "aliases": [
+  "word",
+  "ms word"
+ ],
+ "window": {
+  "exe": "WINWORD.EXE",
+  "title": "Word"
+ },
+ "launch": {
+  "start_menu": "Word"
+ },
+ "uri_schemes": [],
+ "cli": {},
+ "sources": [
+  "data/apps/word/uimap.json"
+ ],
+ "actions": [
+  {
+   "id": "options",
+   "title": "Open Options",
+   "risk": "safe",
+   "phrases": [
+    "open options in word",
+    "word mein options kholo",
+    "word me options kholo",
+    "word mein options dikhao",
+    "go to options in word",
+    "open options in ms word",
+    "ms word mein options kholo",
+    "ms word me options kholo",
+    "ms word mein options dikhao",
+    "go to options in ms word"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Options",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Can't Repeat"
+   },
+   "source": "survey 2026-11-10T10:59:30"
+  }
+ ]
+}

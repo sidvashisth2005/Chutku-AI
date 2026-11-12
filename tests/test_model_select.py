@@ -52,6 +52,19 @@ class SelectTests(unittest.TestCase):
         self.manifest["active_planner"] = "planner_2507"
         self.assertTrue(all(c["model"].endswith("new.gguf") for c in self.candidates()))
 
+    def test_a_missing_or_tampered_active_planner_falls_back_to_the_base_model(self):
+        # 1.2.4: an older "Offline brain" pack has no Qwen3.5; the local brain must still start, never on a bad file.
+        self.manifest["planner_qwen35"] = {"path": "models\\absent.gguf", "sha256": "0" * 64}
+        self.manifest["active_planner"] = "planner_qwen35"
+        self.assertEqual(self.candidates(), BASE_CANDIDATES)
+        self.add("planner_qwen35", "q35.gguf", data=b"tampered")
+        self.assertEqual(self.candidates(), BASE_CANDIDATES)
+
+    def test_the_offline_brain_pack_brings_the_active_planner(self):
+        from chutku import models
+        manifest = json.loads((Path(brain_service.__file__).parents[1] / "models/manifest.json").read_text(encoding="utf-8"))
+        self.assertIn(manifest.get("active_planner", "model"), models.PACKS["brain"]["keys"])
+
 
 if __name__ == "__main__":
     unittest.main()

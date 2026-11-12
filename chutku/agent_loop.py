@@ -10,6 +10,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime
 import json
+import os
 import re
 import secrets
 import threading
@@ -59,6 +60,25 @@ def is_multipart_goal(goal):
     verbs: a long sentence with one "and" ("what is the weather and time in Pune") is still one thing."""
     return (len(goal.split()) >= 10 and bool(_MULTIPART.search(goal))
             and len(_ACTION_WORDS.findall(goal)) + len(_LOOKUP_VERBS.findall(goal)) >= 2)
+
+
+def goal_parts(goal):
+    """The parts of a several-step request, in order, for the local model to plan one at a time (owner 2026-11-12:
+    "give very segregated and simple info to the current model"). A piece with no verb of its own joins the one
+    before ("RAM aur CPU kitna use ho raha hai" stays one part). Fewer than 2 parts: []."""
+    from chutku.quick_intents import _CHAIN_SPLIT
+    pieces = _CHAIN_SPLIT.split(" ".join(goal.split()))
+    parts = []
+    for i in range(0, len(pieces), 2):
+        text = pieces[i].strip(" ,")
+        if parts and not (_ACTION_WORDS.search(text) or _LOOKUP_VERBS.search(text) or _PART_VERBS.search(text)):
+            parts[-1] = (parts[-1] + pieces[i - 1] + pieces[i]).strip(" ,")
+        elif text:
+            parts.append(text)
+    return parts if 2 <= len(parts) <= 6 else []
+
+
+_PART_VERBS = re.compile(r"\b(?:batao|bata|dikhao|dikha|bolo|show|tell|give|kar[oe]?|karna|lagao|bana[oa]?)\b", re.I)
 
 
 # Lookups that make a step of their own ("find the largest files and write them into a file").
@@ -386,12 +406,19 @@ _CLAIMS = [
 # A denial covers its own clause only: "no files named draft, so I deleted report.txt" still claims the deletion.
 _NEGATED = re.compile(r"\b(?:nothing|no (?:files?|folders?|documents?|messages?)|not|never|nahi|nahin)\b"
                       r"(?:(?![,;:]|\b(?:so|but|then|and|aur|phir|lekin|isliye)\b)[^.!?]){0,40}", re.I)
+_TYPED_PATH = re.compile(r"[A-Za-z]:\\[^\s'\"<>|?*]*")   # an absolute Windows path, up to the first space
 _QUESTION = re.compile(r"^\s*(?:what|which|how|when|where|who|whose|why|is|are|am|does|did|was|were|tell me|"
                        r"show me|list|kya|kaun|kitne|kitna|kab|kahan|kaise)\b|\?\s*$", re.IGNORECASE)
 _ACTION_WORDS = re.compile(r"\b(?:open|close|launch|start|run|create|make|write|save|delete|remove|recycle|move|copy|"
                            r"rename|play|pause|stop|resume|skip|next|search|type|click|minimi[sz]e|maximi[sz]e|"
                            r"restore|focus|set|change|turn|mute|unmute|increase|decrease|install|download|send|"
                            r"kholo|khol|kholna|band|chalao|chala|chalu|roko|banao|likho|mitao|hatao|daal|daalo|dalo|rakho|bhejo)\b", re.IGNORECASE)
+
+
+def _reasoning_question(goal):
+    """A question with numbers in it and nothing to do on the PC ("2 ki power 10 aur 10 ka cube, kaun bada hai")."""
+    return bool(re.search(r"\d", goal) and (_QUESTION.search(goal) or _HINGLISH_QUESTION.search(goal))
+                and not _ACTION_WORDS.search(goal) and not _TYPED_PATH.search(goal))
 
 
 _HINGLISH_QUESTION = re.compile(r"\b(?:kya|kitn\w*|kaun\w*|kab|kahan|kaise|batao)\b", re.I)
@@ -744,8 +771,12 @@ class LocalAgentPlanner:
         messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
         grammar = agent_schema(ground_schemas(schemas, grounding(), session.goal) if GROUNDING_ENABLED else schemas,
                                QWEN)
+        # Thinking only where it measured better: a first-round reasoning question, or "dhyan se socho" (H21).
+        # Tool rounds stay without it (2026-11-12: 4/10 tools right with thinking vs 10/10 without).
+        think = not session.steps and (session.think or _reasoning_question(session.goal))
         raw, meta = self.service.complete(messages, schema=grammar, schema_name="agent_step",
-                                          max_tokens=QWEN.max_tokens, check=check)
+                                          max_tokens=QWEN.max_tokens, check=check,
+                                          **({"think": True} if think else {}))   # fakes take no `think`
         proposal = validate_proposal(raw, runtime, set(schemas))
         if proposal["status"] == "clarify" and not session.steps and not getattr(session, "full_catalog", False) \
                 and not _SAFETY_REFUSAL.search(proposal.get("reply") or "") \
@@ -830,6 +861,7 @@ class AgentSession:
         self.pending_feedback = None
         self.round_start = 0
         self.round_declared, self.round_planner = 0, None
+        self.parts, self.part = goal_parts(self.goal), 0   # local model: PARTS + DO_NOW, one part per round
         self.quick = None  # optional deterministic first-round planner
         self.reflex = None  # optional learned instant skills (master plan S17), tried after the hand-written rules
         self.limits = {"steps": MAX_EXECUTED_STEPS, "rounds": MAX_PLANNING_ROUNDS, "failures": MAX_FAILURES,
@@ -871,6 +903,10 @@ class AgentSession:
             "CONTEXT": {"now": datetime.now().isoformat(timespec="minutes"), **context},
             "STEPS": self._steps_view(profile.steps_chars if profile is not None else 60000),
             **({"FEEDBACK": self.feedback} if self.feedback else {}),
+            **({"PARTS": [f"{i}. {p}" for i, p in enumerate(self.parts, 1)], "DO_NOW": self.parts[self.part],
+                "PARTS_RULE": "Plan ONLY DO_NOW now. Earlier parts are done (see STEPS); later ones come next. "
+                              "'usme' / 'us folder' = what STEPS just made."}
+               if self.parts and profile is not None and profile.name == "qwen" else {}),
         }, ensure_ascii=False, separators=(",", ":"))
 
     def context_sizes(self):
@@ -1171,6 +1207,9 @@ class AgentSession:
                                            and not _IN_PROGRESS.search(proposal.get("reply") or "")
                                            and (not _TELL_ME.search(self.goal)   # "har 1 min time batao": the
                                                 or all(s["tool"] == "task.schedule" for s in fresh)))   # telling is later
+                    done_round = self.steps[self.round_start:]
+                    if self.parts and done_round and all(s["state"] == "COMPLETED" for s in done_round):
+                        self.part = min(self.part + 1, len(self.parts) - 1)
                     self.round_start = len(self.steps)
                     self.round_declared = len(proposal.get("declared_plan") or [])
                     self.round_planner = meta.get("planner") if isinstance(meta, dict) else None
@@ -1315,6 +1354,9 @@ class AgentSession:
                     self._reject_unrequested_actions(proposal, runtime)
                     self._reject_unrelated_effects(proposal)
                     self._reject_unnamed_documents(proposal)
+                    self._reject_lost_folders(proposal)
+                    if name == "local":   # only the local model is given PARTS / DO_NOW
+                        self._reject_early_finish(proposal)
                     self._reject_false_done(proposal)
                     self._reject_unobserved_answer(proposal)
                     self._reject_unread_file_answer(proposal)
@@ -1454,6 +1496,33 @@ class AgentSession:
             if isinstance(name, str) and name.strip().casefold() not in self.goal.casefold():
                 raise ValueError(f"Step {index} edits the document '{name}', which the user did not name. Open a new "
                                  "blank document instead.")
+
+    def _reject_early_finish(self, proposal):
+        """One part at a time: while later parts remain, "done" is rejected and "finish" is cleared."""
+        later = self.parts[self.part + 1:]
+        if later:
+            if proposal["status"] == "done":
+                raise ValueError(f"Not done yet: still to do: {'; '.join(later)}. Plan DO_NOW.")
+            proposal["finish"] = False
+
+    def _reject_lost_folders(self, proposal):
+        """A path that dropped a folder the user typed (live 2026-11-12: "D:\\X\\onecmd mein notes.txt banao" became
+        D:\\X\\notes.txt) is rejected, so the planner retries with the user's folder. A path inside a typed path, or a
+        parent of one (listing it), is fine."""
+        typed = [_norm(p.rstrip(".,;:)'\"")) for p in _TYPED_PATH.findall(self.goal)]
+        for index, step in enumerate(proposal["next_steps"], 1):
+            for key in PATH_ARGUMENTS:
+                value = step["arguments"].get(key)
+                if not isinstance(value, str) or not _TYPED_PATH.match(value):
+                    continue
+                path = _norm(value)
+                parent = os.path.dirname(path)
+                if any(_within(path, t) or _within(t, path) for t in typed):
+                    continue
+                lost = next((t for t in typed if _within(t, parent) and t != parent), None)
+                if lost:
+                    raise ValueError(f"Step {index} uses {value}, outside the folder the user named ({lost}); "
+                                     "keep the user's folder in the path.")
 
     def _reject_unrelated_effects(self, proposal):
         """Closing, deleting, undoing, memory, power, settings and input need a matching request word.

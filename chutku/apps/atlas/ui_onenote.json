@@ -1,0 +1,196 @@
+{
+ "app": "ui_onenote",
+ "name": "OneNote",
+ "aliases": [
+  "onenote"
+ ],
+ "window": {
+  "exe": "ONENOTE.EXE",
+  "title": "OneNote"
+ },
+ "launch": {
+  "start_menu": "OneNote"
+ },
+ "uri_schemes": [],
+ "cli": {},
+ "sources": [
+  "data/apps/onenote/uimap.json"
+ ],
+ "actions": [
+  {
+   "id": "home",
+   "title": "Open Home",
+   "risk": "safe",
+   "phrases": [
+    "open home in onenote",
+    "onenote mein home kholo",
+    "onenote me home kholo",
+    "onenote mein home dikhao",
+    "go to home in onenote"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Home",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Ribbon Display Options"
+   },
+   "source": "survey 2026-11-10T11:13:24"
+  },
+  {
+   "id": "insert",
+   "title": "Open Insert",
+   "risk": "safe",
+   "phrases": [
+    "open insert in onenote",
+    "onenote mein insert kholo",
+    "onenote me insert kholo",
+    "onenote mein insert dikhao",
+    "go to insert in onenote"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Insert",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "More Commands, Insert"
+   },
+   "source": "survey 2026-11-10T11:13:24"
+  },
+  {
+   "id": "draw",
+   "title": "Open Draw",
+   "risk": "safe",
+   "phrases": [
+    "open draw in onenote",
+    "onenote mein draw kholo",
+    "onenote me draw kholo",
+    "onenote mein draw dikhao",
+    "go to draw in onenote"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Draw",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Got it"
+   },
+   "source": "survey 2026-11-10T11:13:24"
+  },
+  {
+   "id": "history",
+   "title": "Open History",
+   "risk": "safe",
+   "phrases": [
+    "open history in onenote",
+    "onenote mein history kholo",
+    "onenote me history kholo",
+    "onenote mein history dikhao",
+    "go to history in onenote"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "History",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Ribbon Display Options"
+   },
+   "source": "survey 2026-11-10T11:13:24"
+  },
+  {
+   "id": "review",
+   "title": "Open Review",
+   "risk": "safe",
+   "phrases": [
+    "open review in onenote",
+    "onenote mein review kholo",
+    "onenote me review kholo",
+    "onenote mein review dikhao",
+    "go to review in onenote"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Review",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Ribbon Display Options"
+   },
+   "source": "survey 2026-11-10T11:13:24"
+  },
+  {
+   "id": "view",
+   "title": "Open View",
+   "risk": "safe",
+   "phrases": [
+    "open view in onenote",
+    "onenote mein view kholo",
+    "onenote me view kholo",
+    "onenote mein view dikhao",
+    "go to view in onenote"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "View",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "More Commands, View"
+   },
+   "source": "survey 2026-11-10T11:13:24"
+  },
+  {
+   "id": "help",
+   "title": "Open Help",
+   "risk": "safe",
+   "phrases": [
+    "open help in onenote",
+    "onenote mein help kholo",
+    "onenote me help kholo",
+    "onenote mein help dikhao",
+    "go to help in onenote"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Help",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Ribbon Display Options"
+   },
+   "source": "survey 2026-11-10T11:13:24"
+  }
+ ]
+}

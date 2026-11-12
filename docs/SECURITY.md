@@ -26,7 +26,7 @@ Every tool call goes through `Runtime.run`:
 6. **Execute, then verify** independently. Only `PASS` counts as done.
 7. **Logging:** each step goes to the event trace (SQLite) and the hash-chained action log (`data/actions.log.jsonl`, rotated at 5 MB with a continuous chain).
 
-### Risk levels and tools (254 registered, plus 144 app actions)
+### Risk levels and tools (254 registered, plus 194 app actions)
 
 | Level | Count | Meaning |
 |---|---|---|

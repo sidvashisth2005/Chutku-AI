@@ -1,0 +1,172 @@
+{
+ "app": "ui_store",
+ "name": "Microsoft Store",
+ "aliases": [
+  "microsoft store",
+  "store"
+ ],
+ "window": {
+  "exe": "WinStore.App.exe",
+  "title": "Microsoft Store"
+ },
+ "launch": {
+  "start_menu": "Microsoft Store"
+ },
+ "uri_schemes": [],
+ "cli": {},
+ "sources": [
+  "data/apps/store/uimap.json"
+ ],
+ "actions": [
+  {
+   "id": "home",
+   "title": "Open Home",
+   "risk": "safe",
+   "phrases": [
+    "open home in microsoft store",
+    "microsoft store mein home kholo",
+    "microsoft store me home kholo",
+    "microsoft store mein home dikhao",
+    "go to home in microsoft store",
+    "open home in store",
+    "store mein home kholo",
+    "store me home kholo",
+    "store mein home dikhao",
+    "go to home in store"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Home",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Bing Wallpaper, Install"
+   },
+   "source": "survey 2026-11-10T11:01:29"
+  },
+  {
+   "id": "apps",
+   "title": "Open Apps",
+   "risk": "safe",
+   "phrases": [
+    "open apps in microsoft store",
+    "microsoft store mein apps kholo",
+    "microsoft store me apps kholo",
+    "microsoft store mein apps dikhao",
+    "go to apps in microsoft store",
+    "open apps in store",
+    "store mein apps kholo",
+    "store me apps kholo",
+    "store mein apps dikhao",
+    "go to apps in store"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Apps",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Bing Wallpaper, Install"
+   },
+   "source": "survey 2026-11-10T11:01:29"
+  },
+  {
+   "id": "gaming",
+   "title": "Open Gaming",
+   "risk": "safe",
+   "phrases": [
+    "open gaming in microsoft store",
+    "microsoft store mein gaming kholo",
+    "microsoft store me gaming kholo",
+    "microsoft store mein gaming dikhao",
+    "go to gaming in microsoft store",
+    "open gaming in store",
+    "store mein gaming kholo",
+    "store me gaming kholo",
+    "store mein gaming dikhao",
+    "go to gaming in store"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Gaming",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Bing Wallpaper, Install"
+   },
+   "source": "survey 2026-11-10T11:01:29"
+  },
+  {
+   "id": "themes",
+   "title": "Open Themes",
+   "risk": "safe",
+   "phrases": [
+    "open themes in microsoft store",
+    "microsoft store mein themes kholo",
+    "microsoft store me themes kholo",
+    "microsoft store mein themes dikhao",
+    "go to themes in microsoft store",
+    "open themes in store",
+    "store mein themes kholo",
+    "store me themes kholo",
+    "store mein themes dikhao",
+    "go to themes in store"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Themes",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Bing Wallpaper, Install"
+   },
+   "source": "survey 2026-11-10T11:01:29"
+  },
+  {
+   "id": "library",
+   "title": "Open Library",
+   "risk": "safe",
+   "phrases": [
+    "open library in microsoft store",
+    "microsoft store mein library kholo",
+    "microsoft store me library kholo",
+    "microsoft store mein library dikhao",
+    "go to library in microsoft store",
+    "open library in store",
+    "store mein library kholo",
+    "store me library kholo",
+    "store mein library dikhao",
+    "go to library in store"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Library",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Bing Wallpaper, Install"
+   },
+   "source": "survey 2026-11-10T11:01:29"
+  }
+ ]
+}

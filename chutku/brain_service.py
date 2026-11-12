@@ -22,6 +22,7 @@ from chutku.app import PROJECT_ROOT
 from chutku.brain import MODEL_NAME, _request, verify_local_artifacts
 from chutku.core import hashcache
 
+THINK_TOKENS = 256          # thinking budget for requests that ask for it (`complete(think=True)`)
 IDLE_UNLOAD_SECONDS = 2700   # 45 min: a reload costs seconds of start-up plus the whole prompt again
 STARTUP_SECONDS = 60
 REQUEST_SECONDS = 110
@@ -153,7 +154,10 @@ class BrainService:
         args = [candidate["executable"], "--model", candidate["model"], "--host", "127.0.0.1",
                 "--port", str(port), "--api-key", key, "--offline", "--no-webui", "--log-disable",
                 "--ctx-size", str(CONTEXT_TOKENS), "--parallel", "1", "--threads", "4",
-                "--threads-batch", "4", "--reasoning", "off"]
+                "--threads-batch", "4", "--reasoning", "off",
+                # Thinking stays off unless one request asks (`think=True`); then it is capped, so a reasoning answer
+                # takes ~6 s, not 50 s of rambling (Qwen3.5-4B, 2026-11-12: 5/5 maths right at 256 vs 1/4 without).
+                "--reasoning-budget", str(THINK_TOKENS), "--reasoning-budget-message", "Time is up, give the final answer now."]
         if candidate["gpu_layers"] != "auto":
             args += ["--n-gpu-layers", str(candidate["gpu_layers"])]
         device = None
@@ -225,8 +229,11 @@ class BrainService:
                 manifest = {}
             active = manifest.get("active_planner")
             if active and active != "model":
-                model, _entry = pinned_model(self.base, active)
-                candidates = [{**c, "model": model} for c in candidates]
+                try:
+                    model, _entry = pinned_model(self.base, active)
+                    candidates = [{**c, "model": model} for c in candidates]
+                except BrainUnavailable:   # not downloaded (an older brain pack) or wrong hash: the base model plans
+                    pass
             draft = None
             if (manifest.get("draft") or {}).get("enabled"):
                 try:
@@ -382,25 +389,29 @@ class BrainService:
                 self.inflight -= 1
                 self.last_used = time.monotonic()
 
-    def complete(self, messages, *, schema, schema_name, max_tokens, check=None):
-        """One bounded structured completion. `check` is polled (e.g. pause/stop)."""
+    def complete(self, messages, *, schema, schema_name, max_tokens, check=None, think=False):
+        """One bounded structured completion. `check` is polled (e.g. pause/stop). `think` lets the model reason
+        first, within THINK_TOKENS (the answer keeps its own `max_tokens`)."""
         self.ensure_started()
         with self._lock:
             port, key = self.port, self.key
             self.last_used = time.monotonic()
             self.inflight += 1
         try:
-            return self._complete(port, key, messages, schema, schema_name, max_tokens, check)
+            return self._complete(port, key, messages, schema, schema_name, max_tokens, check, think)
         finally:
             with self._lock:
                 self.inflight -= 1
                 self.last_used = time.monotonic()
 
-    def _complete(self, port, key, messages, schema, schema_name, max_tokens, check):
+    def _complete(self, port, key, messages, schema, schema_name, max_tokens, check, think=False):
         payload = {"model": MODEL_NAME, "messages": messages, "temperature": 0, "seed": 42,
-                   "max_tokens": max_tokens, "stream": False, "logprobs": True, "top_logprobs": 1,
+                   "max_tokens": max_tokens + (THINK_TOKENS + 32 if think else 0), "stream": False,
+                   "logprobs": True, "top_logprobs": 1,
                    "response_format": {"type": "json_schema", "json_schema": {
                        "name": schema_name, "strict": True, "schema": schema}}}
+        if think:
+            payload["chat_template_kwargs"] = {"enable_thinking": True}
         results = queue.Queue(maxsize=1)
 
         def request():

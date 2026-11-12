@@ -1,0 +1,202 @@
+{
+ "app": "ui_clock",
+ "name": "Clock",
+ "aliases": [
+  "clock",
+  "ghadi"
+ ],
+ "window": {
+  "exe": "Time.exe",
+  "title": "Clock"
+ },
+ "launch": {
+  "start_menu": "Clock"
+ },
+ "uri_schemes": [],
+ "cli": {},
+ "sources": [
+  "data/apps/clock/uimap.json"
+ ],
+ "actions": [
+  {
+   "id": "focus_sessions",
+   "title": "Open Focus sessions",
+   "risk": "safe",
+   "phrases": [
+    "open focus sessions in clock",
+    "clock mein focus sessions kholo",
+    "clock me focus sessions kholo",
+    "clock mein focus sessions dikhao",
+    "go to focus sessions in clock",
+    "open focus sessions in ghadi",
+    "ghadi mein focus sessions kholo",
+    "ghadi me focus sessions kholo",
+    "ghadi mein focus sessions dikhao",
+    "go to focus sessions in ghadi"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Focus sessions",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Logged user: Siddhant Vashisth"
+   },
+   "source": "survey 2026-11-10T10:57:20"
+  },
+  {
+   "id": "timer",
+   "title": "Open Timer",
+   "risk": "safe",
+   "phrases": [
+    "open timer in clock",
+    "clock mein timer kholo",
+    "clock me timer kholo",
+    "clock mein timer dikhao",
+    "go to timer in clock",
+    "open timer in ghadi",
+    "ghadi mein timer kholo",
+    "ghadi me timer kholo",
+    "ghadi mein timer dikhao",
+    "go to timer in ghadi"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Timer",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Logged user: Siddhant Vashisth"
+   },
+   "source": "survey 2026-11-10T10:57:20"
+  },
+  {
+   "id": "alarm",
+   "title": "Open Alarm",
+   "risk": "safe",
+   "phrases": [
+    "open alarm in clock",
+    "clock mein alarm kholo",
+    "clock me alarm kholo",
+    "clock mein alarm dikhao",
+    "go to alarm in clock",
+    "open alarm in ghadi",
+    "ghadi mein alarm kholo",
+    "ghadi me alarm kholo",
+    "ghadi mein alarm dikhao",
+    "go to alarm in ghadi"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Alarm",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Logged user: Siddhant Vashisth"
+   },
+   "source": "survey 2026-11-10T10:57:20"
+  },
+  {
+   "id": "stopwatch",
+   "title": "Open Stopwatch",
+   "risk": "safe",
+   "phrases": [
+    "open stopwatch in clock",
+    "clock mein stopwatch kholo",
+    "clock me stopwatch kholo",
+    "clock mein stopwatch dikhao",
+    "go to stopwatch in clock",
+    "open stopwatch in ghadi",
+    "ghadi mein stopwatch kholo",
+    "ghadi me stopwatch kholo",
+    "ghadi mein stopwatch dikhao",
+    "go to stopwatch in ghadi"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Stopwatch",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Logged user: Siddhant Vashisth"
+   },
+   "source": "survey 2026-11-10T10:57:20"
+  },
+  {
+   "id": "world_clock",
+   "title": "Open World clock",
+   "risk": "safe",
+   "phrases": [
+    "open world clock in clock",
+    "clock mein world clock kholo",
+    "clock me world clock kholo",
+    "clock mein world clock dikhao",
+    "go to world clock in clock",
+    "open world clock in ghadi",
+    "ghadi mein world clock kholo",
+    "ghadi me world clock kholo",
+    "ghadi mein world clock dikhao",
+    "go to world clock in ghadi"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "World clock",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Logged user: Siddhant Vashisth"
+   },
+   "source": "survey 2026-11-10T10:57:20"
+  },
+  {
+   "id": "settings",
+   "title": "Open Settings",
+   "risk": "safe",
+   "phrases": [
+    "open settings in clock",
+    "clock mein settings kholo",
+    "clock me settings kholo",
+    "clock mein settings dikhao",
+    "go to settings in clock",
+    "open settings in ghadi",
+    "ghadi mein settings kholo",
+    "ghadi me settings kholo",
+    "ghadi mein settings dikhao",
+    "go to settings in ghadi"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Settings",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Logged user: Siddhant Vashisth"
+   },
+   "source": "survey 2026-11-10T10:57:20"
+  }
+ ]
+}

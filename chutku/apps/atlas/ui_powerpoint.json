@@ -1,0 +1,52 @@
+{
+ "app": "ui_powerpoint",
+ "name": "PowerPoint",
+ "aliases": [
+  "powerpoint",
+  "ppt"
+ ],
+ "window": {
+  "exe": "POWERPNT.EXE",
+  "title": "PowerPoint"
+ },
+ "launch": {
+  "start_menu": "PowerPoint"
+ },
+ "uri_schemes": [],
+ "cli": {},
+ "sources": [
+  "data/apps/powerpoint/uimap.json"
+ ],
+ "actions": [
+  {
+   "id": "options",
+   "title": "Open Options",
+   "risk": "safe",
+   "phrases": [
+    "open options in powerpoint",
+    "powerpoint mein options kholo",
+    "powerpoint me options kholo",
+    "powerpoint mein options dikhao",
+    "go to options in powerpoint",
+    "open options in ppt",
+    "ppt mein options kholo",
+    "ppt me options kholo",
+    "ppt mein options dikhao",
+    "go to options in ppt"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Options",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Cancel"
+   },
+   "source": "survey 2026-11-10T11:00:10"
+  }
+ ]
+}

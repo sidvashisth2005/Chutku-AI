@@ -1,0 +1,346 @@
+{
+ "app": "ui_media_player",
+ "name": "Media Player",
+ "aliases": [
+  "media player"
+ ],
+ "window": {
+  "exe": "ApplicationFrameHost.exe",
+  "title": "Media Player"
+ },
+ "launch": {
+  "start_menu": "Media Player"
+ },
+ "uri_schemes": [],
+ "cli": {},
+ "sources": [
+  "data/apps/media_player/uimap.json"
+ ],
+ "actions": [
+  {
+   "id": "beat_seamless_loop",
+   "title": "Open beat_seamless_loop",
+   "risk": "safe",
+   "phrases": [
+    "open beat_seamless_loop in media player",
+    "media player mein beat_seamless_loop kholo",
+    "media player me beat_seamless_loop kholo",
+    "media player mein beat_seamless_loop dikhao",
+    "go to beat_seamless_loop in media player"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "beat_seamless_loop",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "More options for beat_seamless_loop"
+   },
+   "source": "survey 2026-11-10T11:11:00"
+  },
+  {
+   "id": "standard_recording_25",
+   "title": "Open Standard recording 25",
+   "risk": "safe",
+   "phrases": [
+    "open standard recording 25 in media player",
+    "media player mein standard recording 25 kholo",
+    "media player me standard recording 25 kholo",
+    "media player mein standard recording 25 dikhao",
+    "go to standard recording 25 in media player"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Standard recording 25",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Pause"
+   },
+   "source": "survey 2026-11-10T11:11:00"
+  },
+  {
+   "id": "standard_recording_23",
+   "title": "Open Standard recording 23",
+   "risk": "safe",
+   "phrases": [
+    "open standard recording 23 in media player",
+    "media player mein standard recording 23 kholo",
+    "media player me standard recording 23 kholo",
+    "media player mein standard recording 23 dikhao",
+    "go to standard recording 23 in media player"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Standard recording 23",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Pause"
+   },
+   "source": "survey 2026-11-10T11:11:00"
+  },
+  {
+   "id": "au_uu_szh34yr2",
+   "title": "Open au_uu_SzH34yR2",
+   "risk": "safe",
+   "phrases": [
+    "open au_uu_szh34yr2 in media player",
+    "media player mein au_uu_szh34yr2 kholo",
+    "media player me au_uu_szh34yr2 kholo",
+    "media player mein au_uu_szh34yr2 dikhao",
+    "go to au_uu_szh34yr2 in media player"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "au_uu_SzH34yR2",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Dismiss notification"
+   },
+   "source": "survey 2026-11-10T11:11:00"
+  },
+  {
+   "id": "aud_20240106_wa0004",
+   "title": "Open AUD-20240106-WA0004",
+   "risk": "safe",
+   "phrases": [
+    "open aud-20240106-wa0004 in media player",
+    "media player mein aud-20240106-wa0004 kholo",
+    "media player me aud-20240106-wa0004 kholo",
+    "media player mein aud-20240106-wa0004 dikhao",
+    "go to aud-20240106-wa0004 in media player"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "AUD-20240106-WA0004",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "AUD-20240106-WA0004, . Now playing."
+   },
+   "source": "survey 2026-11-10T11:11:00"
+  },
+  {
+   "id": "tunepocket_calm_positive_corporate_backg",
+   "title": "Open TunePocket-Calm-Positive-Corporate-Background-Preview",
+   "risk": "safe",
+   "phrases": [
+    "open tunepocket-calm-positive-corporate-background-preview in media player",
+    "media player mein tunepocket-calm-positive-corporate-background-preview kholo",
+    "media player me tunepocket-calm-positive-corporate-background-preview kholo",
+    "media player mein tunepocket-calm-positive-corporate-background-preview dikhao",
+    "go to tunepocket-calm-positive-corporate-background-preview in media player"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "TunePocket-Calm-Positive-Corporate-Background-Preview",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Pause"
+   },
+   "source": "survey 2026-11-10T11:11:00"
+  },
+  {
+   "id": "aud_20240624_wa0000",
+   "title": "Open AUD-20240624-WA0000",
+   "risk": "safe",
+   "phrases": [
+    "open aud-20240624-wa0000 in media player",
+    "media player mein aud-20240624-wa0000 kholo",
+    "media player me aud-20240624-wa0000 kholo",
+    "media player mein aud-20240624-wa0000 dikhao",
+    "go to aud-20240624-wa0000 in media player"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "AUD-20240624-WA0000",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "AUD-20240624-WA0000, . Now playing."
+   },
+   "source": "survey 2026-11-10T11:11:00"
+  },
+  {
+   "id": "aud_20230829_wa0011",
+   "title": "Open AUD-20230829-WA0011",
+   "risk": "safe",
+   "phrases": [
+    "open aud-20230829-wa0011 in media player",
+    "media player mein aud-20230829-wa0011 kholo",
+    "media player me aud-20230829-wa0011 kholo",
+    "media player mein aud-20230829-wa0011 dikhao",
+    "go to aud-20230829-wa0011 in media player"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "AUD-20230829-WA0011",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "AUD-20230829-WA0011, AudioLab. Now playing."
+   },
+   "source": "survey 2026-11-10T11:11:00"
+  },
+  {
+   "id": "aud_20230828_wa0042",
+   "title": "Open AUD-20230828-WA0042",
+   "risk": "safe",
+   "phrases": [
+    "open aud-20230828-wa0042 in media player",
+    "media player mein aud-20230828-wa0042 kholo",
+    "media player me aud-20230828-wa0042 kholo",
+    "media player mein aud-20230828-wa0042 dikhao",
+    "go to aud-20230828-wa0042 in media player"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "AUD-20230828-WA0042",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "AUD-20230828-WA0042, . Now playing."
+   },
+   "source": "survey 2026-11-10T11:11:00"
+  },
+  {
+   "id": "aud_20240106_wa0004_mp3",
+   "title": "Open AUD-20240106-WA0004.mp3",
+   "risk": "safe",
+   "phrases": [
+    "open aud-20240106-wa0004.mp3 in media player",
+    "media player mein aud-20240106-wa0004.mp3 kholo",
+    "media player me aud-20240106-wa0004.mp3 kholo",
+    "media player mein aud-20240106-wa0004.mp3 dikhao",
+    "go to aud-20240106-wa0004.mp3 in media player"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "AUD-20240106-WA0004.mp3",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Dismiss notification"
+   },
+   "source": "survey 2026-11-10T11:11:00"
+  },
+  {
+   "id": "aud_20230829_wa0011_mp3",
+   "title": "Open AUD-20230829-WA0011.mp3",
+   "risk": "safe",
+   "phrases": [
+    "open aud-20230829-wa0011.mp3 in media player",
+    "media player mein aud-20230829-wa0011.mp3 kholo",
+    "media player me aud-20230829-wa0011.mp3 kholo",
+    "media player mein aud-20230829-wa0011.mp3 dikhao",
+    "go to aud-20230829-wa0011.mp3 in media player"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "AUD-20230829-WA0011.mp3",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "AUD-20230829-WA0011, AudioLab ; WhatsApp Audio. Now playing."
+   },
+   "source": "survey 2026-11-10T11:11:00"
+  },
+  {
+   "id": "aud_20230828_wa0042_mp3",
+   "title": "Open AUD-20230828-WA0042.mp3",
+   "risk": "safe",
+   "phrases": [
+    "open aud-20230828-wa0042.mp3 in media player",
+    "media player mein aud-20230828-wa0042.mp3 kholo",
+    "media player me aud-20230828-wa0042.mp3 kholo",
+    "media player mein aud-20230828-wa0042.mp3 dikhao",
+    "go to aud-20230828-wa0042.mp3 in media player"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "AUD-20230828-WA0042.mp3",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Dismiss notification"
+   },
+   "source": "survey 2026-11-10T11:11:00"
+  },
+  {
+   "id": "recording_mp3",
+   "title": "Open recording.mp3",
+   "risk": "safe",
+   "phrases": [
+    "open recording.mp3 in media player",
+    "media player mein recording.mp3 kholo",
+    "media player me recording.mp3 kholo",
+    "media player mein recording.mp3 dikhao",
+    "go to recording.mp3 in media player"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "recording.mp3",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Dismiss notification"
+   },
+   "source": "survey 2026-11-10T11:11:00"
+  }
+ ]
+}

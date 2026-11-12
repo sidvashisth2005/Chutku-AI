@@ -1,0 +1,82 @@
+{
+ "app": "ui_explorer",
+ "name": "File Explorer",
+ "aliases": [
+  "file explorer",
+  "explorer"
+ ],
+ "window": {
+  "exe": "explorer.exe",
+  "title": "Home - File Explorer"
+ },
+ "launch": {
+  "start_menu": "File Explorer"
+ },
+ "uri_schemes": [],
+ "cli": {},
+ "sources": [
+  "data/apps/explorer/uimap.json"
+ ],
+ "actions": [
+  {
+   "id": "onedrive_personal",
+   "title": "Open OneDrive - Personal",
+   "risk": "safe",
+   "phrases": [
+    "open onedrive - personal in file explorer",
+    "file explorer mein onedrive - personal kholo",
+    "file explorer me onedrive - personal kholo",
+    "file explorer mein onedrive - personal dikhao",
+    "go to onedrive - personal in file explorer",
+    "open onedrive - personal in explorer",
+    "explorer mein onedrive - personal kholo",
+    "explorer me onedrive - personal kholo",
+    "explorer mein onedrive - personal dikhao",
+    "go to onedrive - personal in explorer"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "OneDrive - Personal",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "AppData"
+   },
+   "source": "survey 2026-11-10T11:06:50"
+  },
+  {
+   "id": "this_pc",
+   "title": "Open This PC",
+   "risk": "safe",
+   "phrases": [
+    "open this pc in file explorer",
+    "file explorer mein this pc kholo",
+    "file explorer me this pc kholo",
+    "file explorer mein this pc dikhao",
+    "go to this pc in file explorer",
+    "open this pc in explorer",
+    "explorer mein this pc kholo",
+    "explorer me this pc kholo",
+    "explorer mein this pc dikhao",
+    "go to this pc in explorer"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "This PC",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Restore"
+   },
+   "source": "survey 2026-11-10T11:06:50"
+  }
+ ]
+}

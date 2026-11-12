@@ -1,0 +1,262 @@
+{
+ "app": "ui_vscode",
+ "name": "Visual Studio Code",
+ "aliases": [
+  "vs code",
+  "vscode"
+ ],
+ "window": {
+  "exe": "Code.exe",
+  "title": "Welcome - Visual Studio Code"
+ },
+ "launch": {
+  "start_menu": "Visual Studio Code"
+ },
+ "uri_schemes": [],
+ "cli": {},
+ "sources": [
+  "data/apps/vscode/uimap.json"
+ ],
+ "actions": [
+  {
+   "id": "explorer_ctrl_shift_e",
+   "title": "Open Explorer (Ctrl+Shift+E)",
+   "risk": "safe",
+   "phrases": [
+    "open explorer (ctrl+shift+e) in vs code",
+    "vs code mein explorer (ctrl+shift+e) kholo",
+    "vs code me explorer (ctrl+shift+e) kholo",
+    "vs code mein explorer (ctrl+shift+e) dikhao",
+    "go to explorer (ctrl+shift+e) in vs code",
+    "open explorer (ctrl+shift+e) in vscode",
+    "vscode mein explorer (ctrl+shift+e) kholo",
+    "vscode me explorer (ctrl+shift+e) kholo",
+    "vscode mein explorer (ctrl+shift+e) dikhao",
+    "go to explorer (ctrl+shift+e) in vscode"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Explorer (Ctrl+Shift+E)",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Clone a repository once the Git extension has activated"
+   },
+   "source": "survey 2026-11-10T11:14:08"
+  },
+  {
+   "id": "search_ctrl_shift_f",
+   "title": "Open Search (Ctrl+Shift+F)",
+   "risk": "safe",
+   "phrases": [
+    "open search (ctrl+shift+f) in vs code",
+    "vs code mein search (ctrl+shift+f) kholo",
+    "vs code me search (ctrl+shift+f) kholo",
+    "vs code mein search (ctrl+shift+f) dikhao",
+    "go to search (ctrl+shift+f) in vs code",
+    "open search (ctrl+shift+f) in vscode",
+    "vscode mein search (ctrl+shift+f) kholo",
+    "vscode me search (ctrl+shift+f) kholo",
+    "vscode mein search (ctrl+shift+f) dikhao",
+    "go to search (ctrl+shift+f) in vscode"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Search (Ctrl+Shift+F)",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Clear Search Results"
+   },
+   "source": "survey 2026-11-10T11:14:08"
+  },
+  {
+   "id": "source_control_ctrl_shift_g",
+   "title": "Open Source Control (Ctrl+Shift+G)",
+   "risk": "safe",
+   "phrases": [
+    "open source control (ctrl+shift+g) in vs code",
+    "vs code mein source control (ctrl+shift+g) kholo",
+    "vs code me source control (ctrl+shift+g) kholo",
+    "vs code mein source control (ctrl+shift+g) dikhao",
+    "go to source control (ctrl+shift+g) in vs code",
+    "open source control (ctrl+shift+g) in vscode",
+    "vscode mein source control (ctrl+shift+g) kholo",
+    "vscode me source control (ctrl+shift+g) kholo",
+    "vscode mein source control (ctrl+shift+g) dikhao",
+    "go to source control (ctrl+shift+g) in vscode"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Source Control (Ctrl+Shift+G)",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Clone Repository"
+   },
+   "source": "survey 2026-11-10T11:14:08"
+  },
+  {
+   "id": "run_and_debug_ctrl_shift_d",
+   "title": "Open Run and Debug (Ctrl+Shift+D)",
+   "risk": "safe",
+   "phrases": [
+    "open run and debug (ctrl+shift+d) in vs code",
+    "vs code mein run and debug (ctrl+shift+d) kholo",
+    "vs code me run and debug (ctrl+shift+d) kholo",
+    "vs code mein run and debug (ctrl+shift+d) dikhao",
+    "go to run and debug (ctrl+shift+d) in vs code",
+    "open run and debug (ctrl+shift+d) in vscode",
+    "vscode mein run and debug (ctrl+shift+d) kholo",
+    "vscode me run and debug (ctrl+shift+d) kholo",
+    "vscode mein run and debug (ctrl+shift+d) dikhao",
+    "go to run and debug (ctrl+shift+d) in vscode"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Run and Debug (Ctrl+Shift+D)",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Open a file"
+   },
+   "source": "survey 2026-11-10T11:14:08"
+  },
+  {
+   "id": "remote_explorer",
+   "title": "Open Remote Explorer",
+   "risk": "safe",
+   "phrases": [
+    "open remote explorer in vs code",
+    "vs code mein remote explorer kholo",
+    "vs code me remote explorer kholo",
+    "vs code mein remote explorer dikhao",
+    "go to remote explorer in vs code",
+    "open remote explorer in vscode",
+    "vscode mein remote explorer kholo",
+    "vscode me remote explorer kholo",
+    "vscode mein remote explorer dikhao",
+    "go to remote explorer in vscode"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Remote Explorer",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Refresh"
+   },
+   "source": "survey 2026-11-10T11:14:08"
+  },
+  {
+   "id": "extensions_ctrl_shift_x_1_requires_updat",
+   "title": "Open Extensions (Ctrl+Shift+X) - 1 requires update",
+   "risk": "safe",
+   "phrases": [
+    "open extensions (ctrl+shift+x) - 1 requires update in vs code",
+    "vs code mein extensions (ctrl+shift+x) - 1 requires update kholo",
+    "vs code me extensions (ctrl+shift+x) - 1 requires update kholo",
+    "vs code mein extensions (ctrl+shift+x) - 1 requires update dikhao",
+    "go to extensions (ctrl+shift+x) - 1 requires update in vs code",
+    "open extensions (ctrl+shift+x) - 1 requires update in vscode",
+    "vscode mein extensions (ctrl+shift+x) - 1 requires update kholo",
+    "vscode me extensions (ctrl+shift+x) - 1 requires update kholo",
+    "vscode mein extensions (ctrl+shift+x) - 1 requires update dikhao",
+    "go to extensions (ctrl+shift+x) - 1 requires update in vscode"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Extensions (Ctrl+Shift+X) - 1 requires update",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Clear Extensions Search Results"
+   },
+   "source": "survey 2026-11-10T11:14:08"
+  },
+  {
+   "id": "gemini_code_assist_alt_g",
+   "title": "Open Gemini Code Assist (Alt+G)",
+   "risk": "safe",
+   "phrases": [
+    "open gemini code assist (alt+g) in vs code",
+    "vs code mein gemini code assist (alt+g) kholo",
+    "vs code me gemini code assist (alt+g) kholo",
+    "vs code mein gemini code assist (alt+g) dikhao",
+    "go to gemini code assist (alt+g) in vs code",
+    "open gemini code assist (alt+g) in vscode",
+    "vscode mein gemini code assist (alt+g) kholo",
+    "vscode me gemini code assist (alt+g) kholo",
+    "vscode mein gemini code assist (alt+g) dikhao",
+    "go to gemini code assist (alt+g) in vscode"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "Gemini Code Assist (Alt+G)",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "New Chat"
+   },
+   "source": "survey 2026-11-10T11:14:08"
+  },
+  {
+   "id": "github_actions",
+   "title": "Open GitHub Actions",
+   "risk": "safe",
+   "phrases": [
+    "open github actions in vs code",
+    "vs code mein github actions kholo",
+    "vs code me github actions kholo",
+    "vs code mein github actions dikhao",
+    "go to github actions in vs code",
+    "open github actions in vscode",
+    "vscode mein github actions kholo",
+    "vscode me github actions kholo",
+    "vscode mein github actions dikhao",
+    "go to github actions in vscode"
+   ],
+   "steps": [
+    {
+     "launch": "behind"
+    },
+    {
+     "do": "GitHub Actions",
+     "action": "click"
+    }
+   ],
+   "check": {
+    "has_element": "Activating Extensions..."
+   },
+   "source": "survey 2026-11-10T11:14:08"
+  }
+ ]
+}

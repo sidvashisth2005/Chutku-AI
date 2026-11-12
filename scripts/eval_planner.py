@@ -52,8 +52,11 @@ EXE = ROOT / "vendor/llama-b11181-vulkan/llama-server.exe"
 
 
 class Service:
-    def complete(self, messages, *, schema, schema_name, max_tokens, check=None):
-        payload = {"messages": messages, "temperature": 0, "seed": 42, "max_tokens": max_tokens,
+    def complete(self, messages, *, schema, schema_name, max_tokens, check=None, think=False):
+        from chutku.brain_service import THINK_TOKENS
+        payload = {"messages": messages, "temperature": 0, "seed": 42,
+                   "max_tokens": max_tokens + (THINK_TOKENS + 32 if think else 0),
+                   **({"chat_template_kwargs": {"enable_thinking": True}} if think else {}),
                    "logprobs": True, "top_logprobs": 1, "response_format": {"type": "json_schema", "json_schema": {"name": schema_name, "strict": True,
                                                                              "schema": schema}}}
         request = urllib.request.Request(f"http://127.0.0.1:{PORT}/v1/chat/completions",
@@ -97,12 +100,18 @@ def main():
     parser.add_argument("--dump-margins", action="store_true", help="print tool confidence vs right/wrong (S14)")
     parser.add_argument("--no-grounding", action="store_true", help="free-text names (the default since S14)")
     parser.add_argument("--grounding", action="store_true", help="names limited to installed apps / saved people")
+    parser.add_argument("--exe", default=str(EXE), help="llama-server to use (e.g. a candidate runtime)")
+    parser.add_argument("--ngl", default="99", help="--n-gpu-layers (99 = all; lower for models above 4 GB)")
+    parser.add_argument("--reasoning", default="off", help="--reasoning for llama-server (on/off)")
+    parser.add_argument("--only", default="", help="comma-separated task ids (default: all)")
     args = parser.parse_args()
     import chutku.agent_loop as loop
     loop.GROUNDING_ENABLED = bool(args.grounding) and not args.no_grounding
-    device = discrete_device(str(EXE))
-    command = [str(EXE), "--model", str(ROOT / args.model), "--host", "127.0.0.1", "--port", str(PORT), "--offline",
-               "--no-webui", "--ctx-size", "16384", "--parallel", "1", "--reasoning", "off", "--n-gpu-layers", "99",
+    args.exe = str(ROOT / args.exe)
+    device = discrete_device(args.exe)
+    command = [args.exe, "--model", str(ROOT / args.model), "--host", "127.0.0.1", "--port", str(PORT), "--offline",
+               "--no-webui", "--ctx-size", "16384", "--parallel", "1", "--reasoning", args.reasoning, "--n-gpu-layers", args.ngl,
+               "--reasoning-budget", "256", "--reasoning-budget-message", "Time is up, give the final answer now.",
                "--flash-attn", "on", "--cache-type-k", "q8_0", "--cache-type-v", "q8_0"] + (["--device", device] if device else [])
     server = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     results = []
@@ -116,10 +125,11 @@ def main():
                 if server.poll() is not None or time.monotonic() - started > 180:
                     raise SystemExit("server did not start (stop Chutku's model first?)")
                 time.sleep(0.3)
+        print(f"server ready in {time.monotonic() - started:.1f}s", flush=True)
         planner = OldPromptPlanner(Service()) if args.old_prompt else LocalAgentPlanner(Service())
         with create_runtime(ROOT) as runtime:
             context = default_context(RuntimeRouter(runtime, opener=lambda _g: None))
-            for task in TASKS:
+            for task in [t for t in TASKS if not args.only or t["id"] in args.only.split(",")]:
                 session = AgentSession(task["goal"], mode=task["mode"], context=context)
                 t = time.monotonic()
                 _meta = {}
@@ -134,6 +144,9 @@ def main():
                 print(f"{'PASS' if ok else ('----' if ok is None else 'MISS')} {task['id']:24s} {seconds:5.1f}s {shown}",
                       flush=True)
     finally:
+        peak = subprocess.run(["powershell", "-NoProfile", "-Command", f"(Get-Process -Id {server.pid}).PeakWorkingSet64"],
+                              capture_output=True, text=True).stdout.strip()
+        print(f"server peak working set {int(peak or 0) / 2**30:.2f} GB", flush=True)
         server.kill()
     scored = [r for r in results if r[1] is not None]
     times = sorted(r[2] for r in results)
