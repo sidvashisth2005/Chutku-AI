@@ -10,7 +10,12 @@ from chutku.remote.auth import RemoteDenied
 from chutku.remote.streams import _log, file_refusal, MAX_UPLOAD
 
 
-BLOCKED_SUFFIXES = {".exe", ".msi", ".bat", ".cmd", ".ps1", ".vbs", ".js", ".scr", ".lnk", ".com", ".hta", ".jar"}
+# Everything Windows runs or installs on a double-click: saved with ".blocked" added, so it is never opened by itself.
+BLOCKED_SUFFIXES = {".exe", ".msi", ".bat", ".cmd", ".ps1", ".vbs", ".js", ".scr", ".lnk", ".com", ".hta", ".jar",
+                    ".msp", ".msix", ".msixbundle", ".appx", ".appxbundle", ".appinstaller", ".application", ".reg",
+                    ".msc", ".cpl", ".pif", ".wsf", ".wsh", ".vbe", ".jse", ".psm1", ".psd1", ".ps1xml", ".chm",
+                    ".url", ".scf", ".iso", ".img", ".vhd", ".vhdx", ".settingcontent-ms", ".library-ms", ".py",
+                    ".pyw", ".dll", ".sys", ".inf", ".gadget", ".xll", ".diagcab"}
 
 
 def _free_name(path):

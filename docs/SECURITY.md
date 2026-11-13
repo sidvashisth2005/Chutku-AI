@@ -182,13 +182,16 @@ A test (`tests/test_taint_v2.py`) fails if any name in these lists is not a real
 ## 4b. Phone access (W6, 2026-10-30)
 - Off until the owner says "phone connect karo". Phone server on 127.0.0.1:8766 only, published inside the owner's tailnet by `tailscale serve` (HTTPS); Funnel detected every 5 min stops everything.
 - Every request: exact ts.net Host, the owner's Tailscale-User-Login, a paired device credential (hash stored) + PIN session (scrypt), CSRF + Origin on changes, 30 req/min.
-- PIN again for every approval (single-use nonce bound to the step), screen view (30 min, 15 s heartbeat), control, laptop clipboard, laptop files. 5 wrong PINs revoke the phone.
+- PIN again for every approval (single-use nonce bound to the step), screen view (30 min, 15 s heartbeat), control, laptop clipboard, laptop files. 5 wrong PINs revoke the phone and show the owner a Windows notification.
+- Pairing, failed pairing codes, sign-ins, each wrong PIN and removals go to the hash-chained action log as `remote.*` entries (never a PIN or credential; 2026-11-13).
 - Never from the phone: R4, power/network/process.terminate, permanent delete, code running, unknown recipients, never-rules, remote.* settings.
 - Direct control: armed only at the laptop, red border, local input wins 10 s, Ctrl+Alt+Shift+P kills, Enter/paste in command windows needs the PIN, no Ctrl+Alt+Del, nothing while locked, typed text logged only as length/script.
 - Files: phone uploads create-only in ChutkuInbox (`D:\ChutkuInbox` if that folder exists, else `%USERPROFILE%\ChutkuInbox`) (programs saved as .blocked); laptop files refused in protected zones and secret paths.
 
 ## 4b-2. Phone app through the account relay (2026-11-06)
-- **Account:** one ID and password, made at setup. It lives in the relay's SQLite database as a scrypt hash. An ID that exists is refused. 5 wrong passwords lock it for 15 minutes; registrations are capped per IP per hour.
+- **Account:** one ID and password, made at setup. It lives in the relay's SQLite database as a scrypt hash. An ID that exists is refused. 5 wrong passwords lock it for 15 minutes; registrations are capped per IP per hour, and so are failed sign-ins (20 per address per hour, across all IDs). An unknown ID costs the same scrypt as a known one, so timing does not show which IDs exist.
+- **Password strength (2026-11-13):** the relay sees only the derived auth value (below), so the laptop checks the real password before register or change: at least 8 characters, not a common password, not too simple, not containing the ID (`relay/client.password_problem`). It also protects the E2E key, which ciphertext at the relay could be guessed against offline.
+- **Relay audit and limits:** an `events` table keeps register, sign-ins, failed sign-ins, lock-outs, logouts and account changes with the time and address for 90 days (never a password or token). At most 512 connections are open at once; the rest are closed at once. TLS 1.2 is the minimum, HSTS is sent, and an unexpected error is a generic 500. The Android app refuses a plain-http relay address off the home network, like the laptop.
 - **Device tokens** last until logout. Only their SHA-256 is stored. A password change (laptop only) signs out every other device. The laptop's token is in Windows Credential Manager (`Chutku/RelayToken`). The password is never stored, and the `.env` holds only the relay address and the ID.
 - **Isolation at the relay:**
   - a phone's `/t/api/...` request is queued only for its own account's laptop;
@@ -241,4 +244,13 @@ A test (`tests/test_taint_v2.py`) fails if any name in these lists is not a real
   - Until it is switched on, anyone near the microphone can give tasks in hands-free mode.
 - The injection tests exercise deterministic boundaries; they are not a statistical security guarantee.
 
-Report vulnerabilities privately to the project owner. Never put secrets or sensitive screenshots in logs or issues.
+## 7. Reporting and incident response
+
+Report vulnerabilities privately to the project owner (not in a public issue). Never put secrets or sensitive screenshots in logs or issues. The item-by-item security checklist is `docs/SECURITY_CHECKLIST.md`; `scripts/security_scan.py` and the CI `security` job run SAST, dependency CVEs and the secret scan.
+
+If something looks wrong:
+1. **Stop:** Ctrl+Alt+F12 or the tray's emergency stop (everything pauses until the owner resumes); "remote band karo" or Ctrl+Alt+Shift+P ends phone control.
+2. **Cut access:** remove phones on the laptop's Phone page; change the account password on the laptop (every other device is signed out); revoke a cloud key at the provider, then store a new one with `chutku.cli cloud set-key`.
+3. **Look:** `chutku.cli doctor` checks the action log's hash chain; the action log (`remote.*` entries), the relay's `events` table and `data/logs/chutku.log` show what happened and from where.
+4. **Recover:** undo with `log.undo` or Causal Rewind; restore memory from a verified backup; rotate anything that may have leaked.
+5. **Fix and record:** a failing test first, then the fix, then an entry in `IMPLEMENTATION_STATUS.md`.

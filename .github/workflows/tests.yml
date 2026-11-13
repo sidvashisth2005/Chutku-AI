@@ -4,6 +4,8 @@ on:
   push:
     branches: [main, "claude/**"]   # cloud-session branches are proven on windows-latest too
   pull_request:
+  schedule:
+    - cron: "0 3 * * 1"   # every Monday: new advisories against unchanged pins (security checklist, "after launch")
 
 permissions:
   contents: read
@@ -23,3 +25,26 @@ jobs:
         run: python scripts/ci_tests.py   # the runner is Administrator; see the script for why and what it changes
       - name: Instant phrase routing
         run: python scripts/check_phrases.py
+
+  # Security checklist, "during development": SAST, dependency CVEs and leaked secrets on every push; the SBOM is kept.
+  security:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the secret scan reads every commit
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Scanners (dev only, pinned)
+        run: python -m pip install --disable-pip-version-check bandit==1.9.4 pip-audit==2.10.1
+      - name: SAST, dependency CVEs, secrets in files and history, SBOM
+        run: python scripts/security_scan.py --history --sbom sbom.cdx.json
+      - name: npm advisories for the pinned helpers
+        run: npm audit --prefix tools --omit=dev
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          retention-days: 90

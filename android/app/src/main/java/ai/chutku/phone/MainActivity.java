@@ -76,7 +76,21 @@ public class MainActivity extends Activity {
             }
         });
         if (relayUrl().isEmpty()) askAddress("Your relay address (the same as CHUTKU_RELAY_URL on the laptop):");
+        else if (!allowed(relayUrl())) askAddress(PLAIN_HTTP);
         else web.loadUrl(relayUrl());
+    }
+
+    private static final String PLAIN_HTTP = "Use an https:// address (plain http only for a relay on your home network).";
+    private static final java.util.regex.Pattern PRIVATE_HOST = java.util.regex.Pattern.compile(
+            "localhost|127(\\.\\d{1,3}){3}|10(\\.\\d{1,3}){3}|192\\.168(\\.\\d{1,3}){2}|172\\.(1[6-9]|2\\d|3[01])(\\.\\d{1,3}){2}");
+
+    /** The laptop's rule (chutku/relay/client.check_url): plain http would carry the sign-in and token in clear text. */
+    static boolean allowed(String url) {
+        Uri parsed = Uri.parse(url);
+        String host = parsed.getHost();
+        if (host == null || host.isEmpty()) return false;
+        if ("https".equals(parsed.getScheme())) return true;
+        return "http".equals(parsed.getScheme()) && PRIVATE_HOST.matcher(host).matches();
     }
 
     private SharedPreferences prefs() {
@@ -95,6 +109,10 @@ public class MainActivity extends Activity {
                 .setPositiveButton("Connect", (dialog, which) -> {
                     String url = input.getText().toString().trim().replaceAll("/+$", "");
                     if (!url.startsWith("http://") && !url.startsWith("https://")) url = "https://" + url;
+                    if (!allowed(url)) {
+                        askAddress(PLAIN_HTTP);
+                        return;
+                    }
                     prefs().edit().putString("relay", url).apply();
                     web.loadUrl(url);
                 }).show();

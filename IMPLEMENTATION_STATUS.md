@@ -1,6 +1,6 @@
 # Chutku Implementation Status
 
-**Last updated:** 2026-11-10
+**Last updated:** 2026-11-13
 **Source of truth for scope:** [docs/DESIGN.md](docs/DESIGN.md)
 
 This file is the implementation ledger. Update it in the same change as every code, configuration, benchmark, or documentation change. A checked item means it exists and has been verified to the stated degree; it does not imply a broader roadmap phase is complete.
@@ -19,6 +19,52 @@ Stage 5 still needs the owner's consented live microphone run and 200 human tria
 Owner decisions are in `docs/DESIGN.md` §51.
 
 ## Delivered
+
+### 2026-11-13 (43): Software Security & Testing Checklist, every item
+- Owner: "implement the security and testing pdf completely" (`Software Security & Testing Checklist.pdf`). Every
+  item, with its verdict and evidence, is in [`docs/SECURITY_CHECKLIST.md`](docs/SECURITY_CHECKLIST.md); the owner's
+  remaining steps are in `docs/HANDOFF.md` section 7.
+- Found and fixed:
+  - **Weak relay passwords:** the relay only sees a PBKDF2-derived value, so its 8-character check never saw the real
+    password. `relay/client.password_problem` refuses short, common, too-simple and ID-containing passwords before
+    register/change send anything. One test fixture (`other-pass-1` for ID `other`) now fails the rule and was renamed.
+  - **Relay:** 20 failed sign-ins per address per hour across all IDs; an unknown ID runs the same scrypt (no timing
+    enumeration); `events` audit table (register, sign-ins, failures, lock-outs, logouts, changes; 90 days; no
+    secrets); at most 512 open connections; TLS 1.2 floor (`tls_context`); HSTS; any unexpected error is a generic 500
+    (a JSON list sent to `/relay/reply` used to drop the connection).
+  - **Android app:** a plain `http://` relay address was accepted for any host (token and sign-in secret in clear on
+    public Wi-Fi). Now HTTPS, or http only to localhost/private addresses, like `check_url` on the laptop.
+  - **Phone:** pairing, failed pairing, sign-ins, each wrong PIN and removals go to the hash-chained action log; a
+    removal by wrong PINs shows a Windows notification. HSTS on the phone server. 35 more Windows double-click types
+    (`.reg`, `.msc`, `.wsf`, `.cpl`, `.chm`, `.iso`, `.appinstaller`...) are saved as `.blocked`.
+  - **Zip bombs:** `.docx/.pptx/.xlsx` parts and backup members over 50 MB are refused before they are read.
+  - **Log injection:** `core/log.py` escapes CR/LF.
+  - **ReDoS:** `_NEW_TAB` / `_SAME_TAB` were quadratic on runs of commas/spaces (4,000 chars: 8 s); now linear.
+  - **Dependencies:** pip-audit found 34 known CVEs in pins: pypdf 6.19.0 -> 6.21.4, filelock 4.0.1 -> 4.2.1, certifi
+    2026.7.22 -> 2026.10.18 (hashes regenerated with `scripts/hash_lock.py`). npm helpers: 0.
+  - `chutku/scan.py`: invisible bidi/zero-width characters in source written as `\u` escapes (same compiled patterns).
+- New: `scripts/security_scan.py` (bandit SAST, pip-audit SCA + CycloneDX SBOM, secret scan reusing the release gate's
+  `SECRETS` over tracked files and all history), CI job `security` in `tests.yml` (also every Monday);
+  `scripts/load_test_relay.py` (load, stress past the cap, recovery, soak).
+- Kept on purpose (recorded in the checklist): relay tokens last until logout (owner 2026-11-06); the phone app's token
+  and E2E key stay in `localStorage` (CSP + no `innerHTML` is the XSS barrier); goals over the 2,000-character cap
+  never reach the router, and at the cap the router's worst case is 1.7 s over 2,240 crafted goals.
+- Evidence:
+  - `tests/test_security_checklist.py`: 21 tests OK. With the code changes stashed, 16 of the first 20 fail (the 4 others
+    are fuzz/regression guards).
+  - Full suite **1871 tests, 542 s, OK**; then the touched suites again after the last edits (docs truth, codemap, scan,
+    grants, memory index, backup, checklist): 49 OK. `check_phrases.py` 193/193.
+  - `security_scan.py --history`: SAST PASS, dependencies 0 known vulnerabilities, secrets 0 in files and 0 in history;
+    SBOM 58 components.
+  - Real path: `python -m chutku.relay` + the real `account new` command: `password123` refused ("too common or too
+    simple"), `Mera-ghar-42` made the account and signed in; the live relay sends HSTS; its `events` table holds
+    `register` and `login_laptop` for 127.0.0.1.
+  - Load (`load_test_relay.py`, 20 accounts): 10 users 631 req/s p99 25 ms; 450 users 0 errors p99 3.6 s; 712 users
+    (past the cap) 65% refused, no crash; recovery 0 errors p99 25 ms; 2-minute soak 67,646 requests, 0 errors, memory
+    -0.3 MB.
+  - Android: `gradlew compileReleaseJavaWithJavac` OK (JDK 21); the host rule checked in jshell: private addresses and
+    localhost allowed, `relay.example.com`, `172.32.0.1`, `8.8.8.8`, `192.168.1.5.evil.com`, `evil10.0.0.1` refused
+    over http. The APK itself was not rebuilt or installed on a phone (owner step).
 
 ### 2026-11-12 (42): Open bugs fixed, release 1.2.4
 - Owner: "finish everything, all the bugs ... then ship and release".

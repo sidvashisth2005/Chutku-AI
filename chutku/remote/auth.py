@@ -9,7 +9,9 @@ Rules (fail closed):
 - a session (after credential + PIN) lasts 12 hours; the credential alone never approves anything;
 - every approval, screen view and control session needs the PIN again (step-up), and an approval is bound to
   session + step + a single-use nonce;
-- 30 requests per minute per device.
+- 30 requests per minute per device;
+- pairing, sign-ins, wrong PINs and removals go to the hash-chained action log (never a PIN or credential), and a
+  phone removed by wrong PINs shows the owner a Windows notification.
 """
 from __future__ import annotations
 
@@ -56,9 +58,10 @@ def valid_pin(pin) -> bool:
 
 
 class RemoteStore:
-    def __init__(self, base=PROJECT_ROOT, clock=time.time):
+    def __init__(self, base=PROJECT_ROOT, clock=time.time, alert=None):
         self.path = Path(base) / "data" / "remote.json"
         self.clock = clock
+        self.alert = alert     # alert(title, message): the owner's notification for suspicious activity
         self.sessions = {}     # token hash -> {device, until, csrf}     (memory only: a restart logs the phone out)
         self.nonces = {}       # nonce -> {session, step, until}
         self.hits = {}         # (device, kind) -> [timestamps]
@@ -99,6 +102,14 @@ class RemoteStore:
             self.save(data)
             return self.settings()
 
+    def _audit(self, event, device_id, **details):
+        try:
+            from chutku.core.action_log import ActionLog
+            ActionLog(self.path.parent / "actions.log.jsonl").append(
+                {"tool": "remote." + event, "state": "COMPLETED", "origin": "phone", "device": device_id, **details})
+        except (OSError, ValueError):
+            pass
+
     # -- pairing --------------------------------------------------------------------------------------------------
     def new_pairing_code(self) -> str:
         """Shown on the laptop only (dashboard Phone panel / QR). 8 characters, no look-alikes."""
@@ -123,6 +134,7 @@ class RemoteStore:
                 pairing["attempts"] = pairing.get("attempts", 0) + 1
                 data["pairing"] = pairing
                 self.save(data)
+                self._audit("pair_failed", None, attempts=pairing["attempts"])
                 raise RemoteDenied("Wrong pairing code.")
             devices = [d for d in data.get("devices", []) if not d.get("revoked") and d.get("id") != RELAY_DEVICE]
             if len(devices) >= MAX_DEVICES:
@@ -135,6 +147,7 @@ class RemoteStore:
                 "bad_pins": 0})
             data.pop("pairing", None)     # single use
             self.save(data)
+        self._audit("paired", device_id, name=str(name or "phone")[:40])
         return {"device_id": device_id, "credential": f"{device_id}.{secret}"}
 
     def set_relay_pin(self, pin: str):
@@ -188,8 +201,13 @@ class RemoteStore:
             if device["bad_pins"] >= PIN_TRIES:
                 device["revoked"] = True
             self.save(data)
+        self._audit("pin_wrong", device_id, tries=device["bad_pins"])
         if device.get("revoked"):
             self.revoke(device_id)
+            self._audit("removed_wrong_pins", device_id)
+            if self.alert:
+                self.alert("Phone removed", f"{PIN_TRIES} wrong PINs: phone '{device.get('name')}' was removed. "
+                                            "If this was not you, change the account password on the laptop.")
             raise RemoteDenied("5 wrong PINs: this phone has been removed. Pair it again on the laptop.", 401)
         raise RemoteDenied(f"Wrong PIN ({PIN_TRIES - device['bad_pins']} tries left).")
 
@@ -199,6 +217,7 @@ class RemoteStore:
         token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(18)
         self.sessions[_hash(token)] = {"device": device["id"], "until": self.clock() + SESSION_SECONDS, "csrf": csrf}
         self._seen(device["id"])
+        self._audit("login", device["id"])
         return {"token": token, "csrf": csrf, "device_id": device["id"], "name": device["name"]}
 
     def session(self, token: str) -> dict:

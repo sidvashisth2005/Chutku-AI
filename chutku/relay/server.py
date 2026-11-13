@@ -39,6 +39,9 @@ ONLINE_SECONDS = 40.0                # a laptop that polled this recently counts
 QUEUE_MAX = 50
 FAILS_BEFORE_LOCK, LOCK_SECONDS = 5, 15 * 60
 REGISTER_PER_HOUR = 10
+LOGIN_FAILS_PER_HOUR = 20            # per client address, across every ID (credential stuffing)
+MAX_CONNECTIONS = 512                # open connections at once (each long poll holds one); more are closed at once
+EVENTS_KEEP_DAYS = 90
 WEB = Path(__file__).resolve().parents[1] / "web" / "phone"
 STATIC = {"/": ("index.html", "text/html; charset=utf-8"), "/phone.js": ("phone.js", "text/javascript; charset=utf-8"),
           "/e2e.js": ("e2e.js", "text/javascript; charset=utf-8"),
@@ -61,6 +64,10 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+_DUMMY_SALT = secrets.token_bytes(16)
+_DUMMY_HASH = _hash_password(secrets.token_urlsafe(16), _DUMMY_SALT)
+
+
 class Accounts:
     """SQLite store of accounts and device tokens (hashes only)."""
 
@@ -74,6 +81,8 @@ class Accounts:
             CREATE TABLE IF NOT EXISTS tokens (hash TEXT PRIMARY KEY, account TEXT NOT NULL, kind TEXT NOT NULL,
                                                name TEXT NOT NULL, created REAL NOT NULL, used REAL NOT NULL);
             CREATE TABLE IF NOT EXISTS fails (id TEXT PRIMARY KEY, count INTEGER NOT NULL, since REAL NOT NULL);
+            CREATE TABLE IF NOT EXISTS events (at REAL NOT NULL, account TEXT NOT NULL, event TEXT NOT NULL,
+                                               ip TEXT NOT NULL);
         """)
         self.db.commit()
 
@@ -105,8 +114,10 @@ class Accounts:
             if fail and fail[0] >= FAILS_BEFORE_LOCK and now - fail[1] < LOCK_SECONDS:
                 raise RelayError(429, "Too many wrong passwords. Try again in 15 minutes.")
             row = self.db.execute("SELECT salt, pw FROM accounts WHERE id = ?", (account_id,)).fetchone()
-        ok = row is not None and isinstance(password, str) and \
-            hmac.compare_digest(_hash_password(password, row[0]), row[1])
+        # An unknown ID costs the same scrypt as a known one, so timing does not tell which IDs exist.
+        salt, stored = row if row is not None else (_DUMMY_SALT, _DUMMY_HASH)
+        given = password if isinstance(password, str) else ""
+        ok = hmac.compare_digest(_hash_password(given, salt), stored) and row is not None and given == password
         with self.lock:
             if ok:
                 self.db.execute("DELETE FROM fails WHERE id = ?", (account_id,))
@@ -157,7 +168,8 @@ class Accounts:
             raise RelayError(403, "Change the ID or password on the laptop.")
         self._check_password(account_id, password)
         target = self.clean_id(new_id) if new_id else account_id
-        if new_password is not None and (not isinstance(new_password, str) or len(new_password) < MIN_PASSWORD):
+        if new_password is not None and (not isinstance(new_password, str) or
+                                         not MIN_PASSWORD <= len(new_password) <= 200):
             raise RelayError(400, f"Choose a password of at least {MIN_PASSWORD} characters.")
         with self.lock:
             if target != account_id:
@@ -172,6 +184,14 @@ class Accounts:
                 self.db.execute("DELETE FROM tokens WHERE account = ? AND hash != ?", (target, _token_hash(token)))
             self.db.commit()
         return target
+
+    def audit(self, account, event, ip):
+        """Sign-ins, failed sign-ins, lock-outs and account changes (never a password or token), kept 90 days."""
+        now = self.clock()
+        with self.lock:
+            self.db.execute("INSERT INTO events VALUES (?, ?, ?, ?)", (now, str(account)[:64], event, str(ip)[:64]))
+            self.db.execute("DELETE FROM events WHERE at < ?", (now - EVENTS_KEEP_DAYS * 86400,))
+            self.db.commit()
 
 
 class Mailbox:
@@ -241,17 +261,39 @@ class RelayServer(ThreadingHTTPServer):
         self.accounts = Accounts(db_path)
         self.mailbox = Mailbox()
         self.web = Path(web)
-        self.register_times = {}
+        self.rate_times = {}
         self.rate_lock = threading.Lock()
+        self.slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
 
-    def register_allowed(self, ip):
+    def within(self, bucket, ip, limit, note=True):
+        """False when `ip` already used `limit` of this bucket in the last hour; otherwise True (and, with note,
+        counts this one)."""
         now = time.monotonic()
         with self.rate_lock:
-            times = [t for t in self.register_times.get(ip, []) if now - t < 3600]
-            if len(times) >= REGISTER_PER_HOUR:
+            if len(self.rate_times) > 10_000:   # forget addresses that have been quiet for an hour
+                self.rate_times = {k: v for k, v in self.rate_times.items() if v and now - v[-1] < 3600}
+            times = [t for t in self.rate_times.get((bucket, ip), []) if now - t < 3600]
+            if len(times) >= limit:
                 return False
-            self.register_times[ip] = times + [now]
+            self.rate_times[(bucket, ip)] = times + [now] if note else times
             return True
+
+    def process_request(self, request, client_address):
+        # Application-level DoS: one thread per connection, so cap how many are open; the rest are closed at once.
+        if not self.slots.acquire(blocking=False):
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except Exception:
+            self.slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.slots.release()
 
 
 class RelayHandler(BaseHTTPRequestHandler):
@@ -273,6 +315,7 @@ class RelayHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Strict-Transport-Security", "max-age=31536000")   # browsers ignore it on plain HTTP
         self.send_header("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; "
                          "connect-src 'self'; img-src 'self' blob:; media-src 'self' blob:; manifest-src 'self'; "
                          "worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
@@ -319,26 +362,43 @@ class RelayHandler(BaseHTTPRequestHandler):
             return
         accounts, mailbox = self.server.accounts, self.server.mailbox
         if method == "POST" and path == "/relay/register":
-            if not self.server.register_allowed(self._client_ip()):
+            ip = self._client_ip()
+            if not self.server.within("register", ip, REGISTER_PER_HOUR):
                 raise RelayError(429, "Too many new accounts from here. Try again later.")
             data = self._json()
-            self._reply(201, {"id": accounts.register(data.get("id"), data.get("password"))})
+            made = accounts.register(data.get("id"), data.get("password"))
+            accounts.audit(made, "register", ip)
+            self._reply(201, {"id": made})
             return
         if method == "POST" and path == "/relay/login":
+            ip = self._client_ip()
+            if not self.server.within("login_fail", ip, LOGIN_FAILS_PER_HOUR, note=False):
+                raise RelayError(429, "Too many wrong sign-ins from here. Try again later.")
             data = self._json()
-            token = accounts.login(data.get("id"), data.get("password"), data.get("device"), data.get("name"))
-            self._reply(200, {"token": token, "id": accounts.clean_id(data.get("id"))})
+            account_id = accounts.clean_id(data.get("id"))
+            try:
+                token = accounts.login(account_id, data.get("password"), data.get("device"), data.get("name"))
+            except RelayError as error:
+                if error.status in (401, 429):
+                    self.server.within("login_fail", ip, LOGIN_FAILS_PER_HOUR)
+                    accounts.audit(account_id, "login_failed" if error.status == 401 else "login_locked", ip)
+                raise
+            accounts.audit(account_id, "login_" + str(data.get("device")), ip)
+            self._reply(200, {"token": token, "id": account_id})
             return
         account, kind = accounts.device(self._token())
         if method == "GET" and path == "/relay/me":
             self._reply(200, {"id": account, "device": kind, "laptop_online": mailbox.online(account)})
         elif method == "POST" and path == "/relay/logout":
             accounts.logout(self._token())
+            accounts.audit(account, "logout_" + kind, self._client_ip())
             self._reply(200, {"logged_out": True})
         elif method == "POST" and path == "/relay/change":
             data = self._json()
-            self._reply(200, {"id": accounts.change(self._token(), data.get("password"), data.get("new_id"),
-                                                    data.get("new_password"))})
+            changed = accounts.change(self._token(), data.get("password"), data.get("new_id"), data.get("new_password"))
+            accounts.audit(changed, "changed" + ("" if changed == account else " id from " + account) +
+                           (" password" if data.get("new_password") is not None else ""), self._client_ip())
+            self._reply(200, {"id": changed})
         elif method == "POST" and path == "/relay/poll":
             if kind != "laptop":
                 raise RelayError(403, "Only the laptop collects requests.")
@@ -348,7 +408,7 @@ class RelayHandler(BaseHTTPRequestHandler):
             if kind != "laptop":
                 raise RelayError(403, "Only the laptop answers requests.")
             data = json.loads(self._body(MAX_REPLY + MAX_REPLY // 2) or b"{}")
-            envelope = data.get("e2e")
+            envelope = data.get("e2e") if isinstance(data, dict) else None
             if not isinstance(envelope, dict) or set(envelope) != {"v", "iv", "ct"}:
                 raise RelayError(400, "Only encrypted answers are forwarded.")
             mailbox.reply(account, str(data.get("rid")), {"e2e": envelope})
@@ -376,6 +436,8 @@ class RelayHandler(BaseHTTPRequestHandler):
             self._fail(error.status, str(error))
         except (ValueError, KeyError, OSError) as error:
             self._fail(400, f"Bad request ({type(error).__name__}).")
+        except Exception:   # never a stack trace to the client, and the connection still gets an answer
+            self._fail(500, "The relay could not handle this request.")
 
     def _fail(self, status, message):
         # The request body may be unread: close the connection so it cannot be read as the next request.
@@ -406,14 +468,20 @@ def check_exposure(host, cert=None, behind_proxy=False, home_network=False):
                      "(--behind-proxy, listening on 127.0.0.1), or --home-network for a home Wi-Fi only setup.")
 
 
+def tls_context(cert, key):
+    """TLS 1.2 or newer only, with Python's default (modern) cipher list."""
+    import ssl
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.load_cert_chain(cert, key)
+    return context
+
+
 def serve(port=8780, db="relay.sqlite3", host="127.0.0.1", cert=None, key=None, behind_proxy=False,
           home_network=False):
     check_exposure(host, cert, behind_proxy, home_network)
     server = RelayServer((host, port), db, behind_proxy=behind_proxy)
     if cert:
-        import ssl
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        context.load_cert_chain(cert, key)
-        server.socket = context.wrap_socket(server.socket, server_side=True)
+        server.socket = tls_context(cert, key).wrap_socket(server.socket, server_side=True)
     print(f"Chutku relay on {'https' if cert else 'http'}://{host}:{port} (accounts in {db})", flush=True)
     server.serve_forever()

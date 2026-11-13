@@ -27,7 +27,8 @@ def current():
 class RemoteManager:
     def __init__(self, core, *, port=PORT, runner=None, server_factory=None, launch=None, browse=None):
         self.core, self.port, self.runner = core, port, runner
-        self.store = RemoteStore(core.base)
+        from chutku.health import notify
+        self.store = RemoteStore(core.base, alert=notify)
         self.server = None
         self.server_factory = server_factory
         self.launch, self.browse = launch or _launch, browse or _browse   # tests pass fakes

@@ -35,6 +35,40 @@ class RelayCallError(Exception):
         self.status = status
 
 
+# The most used passwords of 8+ characters (public breach lists). The relay sees only a derived value, so this laptop is
+# the one place the real password can be checked; it also protects the E2E key, which ciphertext at the relay could be
+# guessed against offline.
+# shortcut: a short built-in list, not a full breached-password lookup; upgrade to the HIBP range API if accounts grow.
+COMMON_PASSWORDS = frozenset("""
+password password1 password12 password123 password@123 12345678 123456789 1234567890 0123456789 11111111 00000000
+88888888 12341234 87654321 qwertyuiop qwerty123 qwerty12 1q2w3e4r 1q2w3e4r5t 1qaz2wsx zaq12wsx abcd1234 abc12345
+iloveyou iloveyou1 sunshine princess football baseball welcome1 welcome123 admin123 administrator letmein1 trustno1
+superman starwars whatever passw0rd p@ssw0rd p@ssword dragon123 monkey123 master123 computer michael1 jennifer
+qwertyui asdfghjk asdfghjkl zxcvbnm1 india123 india@123 bharat123 krishna123 ganesh123 sairam123 omsairam
+""".split())
+
+
+def password_problem(password, account_id=""):
+    """Why this account password is too weak (None = fine)."""
+    if not isinstance(password, str) or len(password) < 8:
+        return "Choose a password of at least 8 characters."
+    if len(password) > 200:
+        return "Choose a password of at most 200 characters."
+    lowered = password.casefold()
+    if lowered in COMMON_PASSWORDS or len(set(lowered)) < 4:
+        return "That password is too common or too simple. Choose another one."
+    account_id = str(account_id or "").strip().casefold()
+    if len(account_id) >= 3 and account_id in lowered:
+        return "The password must not contain the ID."
+    return None
+
+
+def _check_password(password, account_id):
+    problem = password_problem(password, account_id)
+    if problem:
+        raise RelayCallError(400, problem)
+
+
 def check_url(url):
     """HTTPS, or plain HTTP only to this PC or the home network (a relay on the laptop for testing)."""
     parts = urlsplit(str(url or ""))
@@ -73,6 +107,7 @@ def call(url, path, data=None, token=None, timeout=35):
 def register(url, account_id, password):
     """Create the account; the relay is given only the derived auth secret, and this laptop keeps the E2E key."""
     from chutku.relay import e2e
+    _check_password(password, account_id)
     key, auth = e2e.derive(password, account_id)
     made = call(url, "/relay/register", {"id": account_id, "password": auth})["id"]
     e2e.store_key(key)
@@ -103,6 +138,8 @@ def change(url, token, password, new_id=None, new_password=None, *, account_id=N
     current = account_id or new_id
     _, auth = e2e.derive(password, current)
     final_id, final_password = new_id or current, new_password or password
+    if new_password:
+        _check_password(new_password, final_id)
     key, new_auth = e2e.derive(final_password, final_id)
     changed = call(url, "/relay/change", {"password": auth, "new_id": new_id, "new_password": new_auth},
                    token=token)["id"]

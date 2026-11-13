@@ -199,10 +199,10 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(self.phone_call("/t/api/whoami", token="not-a-token")[0], 401)
         self.assertEqual(self.phone_call("/relay/poll", {}, token=self.phone)[0], 403)   # a phone never collects
         self.assertEqual(self.phone_call("/t/api/whoami", token=self.laptop.token)[0], 403)
-        relay_client.register(self.url, "other", "other-pass-1")
+        relay_client.register(self.url, "other", "second-pass-1")
         from chutku.relay import e2e
         stranger = relay_client.call(self.url, "/relay/login", {"id": "other", "device": "phone",
-                                                                "password": e2e.derive("other-pass-1", "other")[1]})["token"]
+                                                                "password": e2e.derive("second-pass-1", "other")[1]})["token"]
         status, body = self.phone_call("/t/api/whoami", token=stranger)
         self.assertEqual(status, 503)                       # "other" has no laptop online; never asha's laptop
         self.assertIn("offline", body["error"])

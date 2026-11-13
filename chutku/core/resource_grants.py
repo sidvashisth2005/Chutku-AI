@@ -142,9 +142,9 @@ class ResourceGrantStore:
         return grant
 
     def list(self, *, active_only=False) -> list[ResourceGrant]:
-        suffix = " WHERE active=1" if active_only else ""
+        suffix = " WHERE active=1" if active_only else ""   # a constant: no input reaches the SQL text
         rows = self.connection.execute(
-            "SELECT grant_id,canonical_root,display_root,access_json,source,revocable,active,created_at,updated_at FROM resource_grants" + suffix + " ORDER BY source,display_root"
+            "SELECT grant_id,canonical_root,display_root,access_json,source,revocable,active,created_at,updated_at FROM resource_grants" + suffix + " ORDER BY source,display_root"  # nosec B608
         ).fetchall()
         return [self._row(row) for row in rows]
 

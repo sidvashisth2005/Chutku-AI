@@ -172,3 +172,17 @@ Still for the owner (not done here):
 Then tag `v1.0.0`.
 
 **Next for the cloud session (owner decision 2026-11-07):** Microsoft Store (MSIX) and winget, so users never see the 'Unknown publisher' warning. Tasks W9-W11 in `docs/archive/WEB_CLAUDE_TASKS_STORE.md`.
+
+## 7. Security checklist (2026-11-13): the owner's steps
+
+Everything codeable from `Software Security & Testing Checklist.pdf` is done (`docs/SECURITY_CHECKLIST.md`). Left for
+the owner:
+- before the relay is public: an SSL Labs / testssl.sh scan and a manual pentest of its address; put it behind a
+  CDN/WAF proxy (`--behind-proxy`); watch for lookalike domains once it has a domain;
+- MFA on the Tailscale and GitHub accounts; BitLocker on the PC; an offline copy of `chutku.cli backup`;
+- a public contact for vulnerability reports before the source is opened (`SECURITY.md` section 7 says "privately to
+  the project owner" for now);
+- optional: block screenshots in the Android app (`FLAG_SECURE`), and rebuild the APK so the plain-http fix ships
+  (`android/`, compiled 2026-11-13; the release APK in `app/build` is older);
+- existing relay accounts made with a weak password keep it until it is changed (the new check runs at register
+  and change only).

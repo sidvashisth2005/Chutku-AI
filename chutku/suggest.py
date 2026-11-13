@@ -55,7 +55,7 @@ def _save_state(base, state):
 
 
 def _id(kind, key):
-    return kind + ":" + hashlib.sha1(key.encode("utf-8")).hexdigest()[:10]
+    return kind + ":" + hashlib.sha1(key.encode("utf-8"), usedforsecurity=False).hexdigest()[:10]
 
 
 def candidates(base=None, *, now=None, free_c_gb=None):

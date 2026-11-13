@@ -207,6 +207,7 @@ class PhoneHandler(PhoneFiles, PhoneControl, PhoneStreams, BaseHTTPRequestHandle
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Strict-Transport-Security", "max-age=31536000")   # the phone sees it over tailnet HTTPS
         self.send_header("Content-Security-Policy", CSP)
         for key, value in (headers or {}).items():
             self.send_header(key, value)

@@ -7,7 +7,7 @@ name = "chutku"
 version = "1.2.4"
 description = "Local-first, policy-gated Windows agent runtime"
 requires-python = ">=3.11"
-dependencies = ["numpy==2.5.3", "sounddevice==0.5.6", "playwright==1.63.0", "faster-whisper==1.2.1", "pypdf==6.19.0",
+dependencies = ["numpy==2.5.3", "sounddevice==0.5.6", "playwright==1.63.0", "faster-whisper==1.2.1", "pypdf==6.21.4",
                 "websockets==15.0.1", "cryptography==50.0.2",   # W6: relay end-to-end encryption (AES-GCM)
                 "comtypes==1.4.17",   # phone remote: in-process UI Automation (smart tap, magnetic pointer)
                 "dxcam==0.3.0"]   # phone video: GPU screen capture (Desktop Duplication)
@@ -28,3 +28,9 @@ include = ["chutku*"]   # scripts/, tests/ and benchmarks/ are not part of the p
 
 [tool.setuptools.package-data]
 chutku = ["web/*"]
+
+[tool.bandit]
+# Reviewed 2026-11-13 (docs/SECURITY_CHECKLIST.md), run by scripts/security_scan.py:
+# B310 urlopen: every URL is a fixed https:// constant, or passes relay.client.check_url / the public-address check.
+# B314 ElementTree: CPython 3.13's expat never fetches external entities (no XXE) and caps entity expansion.
+skips = ["B310", "B314"]

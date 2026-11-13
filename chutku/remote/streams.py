@@ -212,7 +212,7 @@ class PhoneStreams:
         controlling = self.server.controlling()
         x, y = cursor_pos()
         cursor = json.dumps([round((x - shot.left) / max(shot.width, 1), 4), round((y - shot.top) / max(shot.height, 1), 4)])
-        digest = hashlib.sha1(shot.pixels[::16, ::16].tobytes() + cursor.encode()).hexdigest()
+        digest = hashlib.sha1(shot.pixels[::16, ::16].tobytes() + cursor.encode(), usedforsecurity=False).hexdigest()
         headers = {"X-Frame-Hash": digest, "X-Cursor": cursor}
         if digest == last_hash:
             self._reply(204, b"", "text/plain", headers=headers)

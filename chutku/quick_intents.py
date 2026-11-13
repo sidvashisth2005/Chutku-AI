@@ -297,8 +297,8 @@ _PRONOUN = re.compile(r"\b(?:it|that|usko|ise|isko)\b", re.I)   # not "use": an 
 
 # "... in a new tab" / "new tab mein": open a new tab; "isi tab mein" / "same tab": use the current tab. Without either,
 # Chutku reuses the tab it opened last while it is still showing (owner, 2026-10-05).
-_NEW_TAB = re.compile(r"[\s,]*\b(?:(?:in|on) (?:a )?new tab|(?:new|naye|naya|nayi) tab(?: (?:mein|me|main|par|pe|kholo))?)\b", re.I)
-_SAME_TAB = re.compile(r"[\s,]*\b(?:(?:in )?(?:the )?(?:same|this|current) tab|(?:isi|is|wahi|usi) tab (?:mein|me|main|par|pe))\b",
+_NEW_TAB = re.compile(r"(?<![\s,])[\s,]*\b(?:(?:in|on) (?:a )?new tab|(?:new|naye|naya|nayi) tab(?: (?:mein|me|main|par|pe|kholo))?)\b", re.I)
+_SAME_TAB = re.compile(r"(?<![\s,])[\s,]*\b(?:(?:in )?(?:the )?(?:same|this|current) tab|(?:isi|is|wahi|usi) tab (?:mein|me|main|par|pe))\b",
                        re.I)
 BROWSER_TOOLS = frozenset({"web.open", "web.search", "youtube.play"})
 

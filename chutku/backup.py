@@ -130,6 +130,8 @@ def listing(folder=None):
 def verify(zip_path):
     """{relative path: bytes} for a backup whose every file matches its manifest; ValueError otherwise."""
     with zipfile.ZipFile(zip_path) as archive:
+        if any(info.file_size > MAX_FILE for info in archive.infolist()):   # a zip bomb never reaches memory
+            raise ValueError("A file in this backup is larger than any Chutku backup makes; nothing was restored.")
         try:
             manifest = json.loads(archive.read("manifest.json"))
         except (KeyError, ValueError):

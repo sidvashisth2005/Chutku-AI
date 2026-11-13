@@ -31,7 +31,8 @@ def redact(text: str) -> str:
 
 class _Redact(logging.Filter):
     def filter(self, record):
-        record.msg = redact(record.getMessage())
+        # Newlines escaped: text that reached a message (a goal, an error) cannot forge a second log line.
+        record.msg = redact(record.getMessage()).replace("\r", "\\r").replace("\n", "\\n")
         record.args = ()
         if record.exc_info and record.exc_info[1] is not None:
             record.exc_text = redact(logging.Formatter().formatException(record.exc_info))

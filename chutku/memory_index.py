@@ -85,8 +85,8 @@ class _Cache:
         found = {}
         for start in range(0, len(keys), 500):
             chunk = keys[start:start + 500]
-            marks = ",".join("?" * len(chunk))
-            found.update(self.connection.execute(f"SELECT key, vector FROM vectors WHERE key IN ({marks})", chunk))
+            marks = ",".join("?" * len(chunk))   # only placeholders; the keys are bound parameters
+            found.update(self.connection.execute(f"SELECT key, vector FROM vectors WHERE key IN ({marks})", chunk))  # nosec B608
         return found
 
     def put(self, rows):

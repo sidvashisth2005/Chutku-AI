@@ -203,16 +203,23 @@ def _xml_text(data, tag_suffix, paragraph_suffix=None):
     return "".join(parts)
 
 
+def _part(archive, name):
+    """One part of an Office file, refused when it would unpack to more than MAX_FILE_BYTES (a zip bomb)."""
+    if archive.getinfo(name).file_size > MAX_FILE_BYTES:
+        raise ValueError(f"{name} unpacks to more than {MAX_FILE_BYTES // (1024 * 1024)} MB (possible zip bomb).")
+    return archive.read(name)
+
+
 def _docx(path):
     with zipfile.ZipFile(path) as archive:
-        return _xml_text(archive.read("word/document.xml"), "}t", "}p")
+        return _xml_text(_part(archive, "word/document.xml"), "}t", "}p")
 
 
 def _pptx(path):
     with zipfile.ZipFile(path) as archive:
         slides = sorted((n for n in archive.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", n)),
                         key=lambda n: int(re.findall(r"\d+", n)[-1]))
-        return "\n\n".join(f"[Slide {i}]\n" + _xml_text(archive.read(n), "}t", "}p").strip()
+        return "\n\n".join(f"[Slide {i}]\n" + _xml_text(_part(archive, n), "}t", "}p").strip()
                            for i, n in enumerate(slides, 1))
 
 
@@ -226,7 +233,7 @@ def _pptx_images(path, limit=10):
         for index, name in enumerate(media, 1):
             with tempfile.TemporaryDirectory() as folder:
                 image = Path(folder) / f"slide{Path(name).suffix}"
-                image.write_bytes(archive.read(name))
+                image.write_bytes(_part(archive, name))
                 text, _language = ocr({"mode": "file", "path": str(image)})
             if text.strip():
                 parts.append(f"[Picture {index}]\n{text.strip()}")
@@ -237,14 +244,14 @@ def _xlsx(path, max_rows=200):
     with zipfile.ZipFile(path) as archive:
         shared = []
         if "xl/sharedStrings.xml" in archive.namelist():
-            root = ET.fromstring(archive.read("xl/sharedStrings.xml"))
+            root = ET.fromstring(_part(archive, "xl/sharedStrings.xml"))
             shared = ["".join(t.text or "" for t in si.iter() if t.tag.endswith("}t")) for si in root
                       if si.tag.endswith("}si")]
         sheets = sorted(n for n in archive.namelist() if re.fullmatch(r"xl/worksheets/sheet\d+\.xml", n))
         lines = []
         for sheet in sheets[:3]:
             lines.append(f"[{Path(sheet).stem}]")
-            root = ET.fromstring(archive.read(sheet))
+            root = ET.fromstring(_part(archive, sheet))
             for row in [r for r in root.iter() if r.tag.endswith("}row")][:max_rows]:
                 cells = []
                 for cell in row:

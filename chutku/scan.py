@@ -11,8 +11,8 @@ import re
 import unicodedata
 
 # Zero-width and direction-changing characters: invisible on screen, but the model reads them.
-_HIDDEN = re.compile("[​‎‏‪-‮⁠-⁤⁦-⁩﻿\U000e0000-\U000e007f]")
-_JOINERS = re.compile("[‌‍]")    # ZWNJ / ZWJ: needed inside Hindi words (e.g. क्‍ष), suspicious elsewhere
+_HIDDEN = re.compile("[\u200b\u200e\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff\U000e0000-\U000e007f]")
+_JOINERS = re.compile("[\u200c\u200d]")    # ZWNJ / ZWJ: needed inside Hindi words (e.g. क्\u200dष), suspicious elsewhere
 _DEVANAGARI = re.compile("[ऀ-ॿ]")
 
 
